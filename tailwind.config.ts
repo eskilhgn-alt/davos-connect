@@ -2,7 +2,12 @@ import type { Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
-  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+  ],
   prefix: "",
   theme: {
     container: {
@@ -13,12 +18,25 @@ export default {
       },
     },
     extend: {
+      /* === DAVOS COLORS === */
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        
+        /* Primary Davos Colors */
+        davos: {
+          blue: "hsl(var(--davos-blue))",
+          yellow: "hsl(var(--davos-yellow))",
+        },
+        
+        grey: {
+          900: "hsl(var(--grey-900))",
+          200: "hsl(var(--grey-200))",
+        },
+
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -58,32 +76,67 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+
+      /* === DAVOS TYPOGRAPHY === */
+      fontFamily: {
+        heading: ["Josefin Sans", "sans-serif"],
+        body: ["Inter", "system-ui", "sans-serif"],
+        mono: ["IBM Plex Mono", "monospace"],
+      },
+
+      /* === DAVOS SPACING (8pt grid) === */
+      spacing: {
+        "unit": "8px",
+        "tap": "44px",
+        "18": "4.5rem",
+        "22": "5.5rem",
+      },
+
+      /* === DAVOS RADIUS === */
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        card: "var(--radius-card)",
+        pill: "var(--radius-pill)",
       },
+
+      /* === DAVOS SHADOWS === */
+      boxShadow: {
+        card: "0 2px 8px rgba(16, 58, 93, 0.08)",
+        "card-hover": "0 4px 16px rgba(16, 58, 93, 0.12)",
+        nav: "0 -2px 10px rgba(16, 58, 93, 0.1)",
+      },
+
+      /* === ANIMATIONS === */
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "skeleton-pulse": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.5" },
+        },
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-up": {
+          from: { opacity: "0", transform: "translateY(16px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "skeleton-pulse": "skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "fade-in": "fade-in 0.3s ease-out",
+        "slide-up": "slide-up 0.4s ease-out",
       },
     },
   },
