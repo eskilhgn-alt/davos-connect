@@ -9,7 +9,7 @@ const davosToastVariants = cva(
     variants: {
       variant: {
         default: "bg-card text-foreground border border-border",
-        success: "bg-card text-foreground border-l-4 border-l-green-500",
+        success: "bg-card text-foreground border-l-4 border-l-success",
         error: "bg-card text-foreground border-l-4 border-l-destructive",
         info: "bg-card text-foreground border-l-4 border-l-primary",
       },
@@ -40,7 +40,7 @@ const DavosToast = React.forwardRef<HTMLDivElement, DavosToastProps>(
     const Icon = variant ? IconMap[variant] : null;
     const iconColorMap = {
       default: "",
-      success: "text-green-500",
+      success: "text-success",
       error: "text-destructive",
       info: "text-primary",
     };

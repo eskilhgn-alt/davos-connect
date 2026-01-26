@@ -1,21 +1,11 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { DavosEmptyState } from "@/components/ui/davos-empty-state";
 import { DavosErrorState } from "@/components/ui/davos-error-state";
 import { DavosListRowSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosListRow } from "@/components/ui/davos-list-row";
-import { Settings, Users, Trophy, CloudSun, Bell, HelpCircle } from "lucide-react";
+import { moreMenuItems } from "@/config/moreMenu";
 
 type ScreenState = "ready" | "loading" | "error";
-
-const menuItems = [
-  { icon: Users, title: "Gruppen", subtitle: "Se alle deltakere" },
-  { icon: Trophy, title: "Utfordringer", subtitle: "Ski-challenges & poeng" },
-  { icon: CloudSun, title: "Værmelding", subtitle: "Davos Klosters" },
-  { icon: Bell, title: "Varsler", subtitle: "Push-innstillinger" },
-  { icon: Settings, title: "Innstillinger", subtitle: "Profil & preferanser" },
-  { icon: HelpCircle, title: "Hjelp", subtitle: "FAQ & support" },
-];
 
 export const MoreScreen: React.FC = () => {
   const [state] = React.useState<ScreenState>("ready");
@@ -41,7 +31,7 @@ export const MoreScreen: React.FC = () => {
         
         {state === "ready" && (
           <div className="divide-y divide-border">
-            {menuItems.map((item) => (
+            {moreMenuItems.map((item) => (
               <DavosListRow
                 key={item.title}
                 icon={item.icon}
