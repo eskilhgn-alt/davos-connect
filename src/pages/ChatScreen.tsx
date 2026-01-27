@@ -56,12 +56,10 @@ export const ChatScreen: React.FC = () => {
 
   // Simulate message status progression
   const simulateStatusProgression = React.useCallback((messageId: string) => {
-    // Delivered after 300ms
     setTimeout(() => {
       localChatService.updateMessageStatus(messageId, 'delivered');
     }, 300);
     
-    // Seen after 1.5s
     setTimeout(() => {
       localChatService.updateMessageStatus(messageId, 'seen');
     }, 1500);
@@ -75,10 +73,8 @@ export const ChatScreen: React.FC = () => {
       attachments,
     });
     
-    // Simulate status progression
     simulateStatusProgression(message.id);
     
-    // Clear typing indicator
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
@@ -90,16 +86,13 @@ export const ChatScreen: React.FC = () => {
     setShowTypingIndicator(false);
   };
 
-  // Proper debounced typing indicator
   const handleTyping = React.useCallback((isTyping: boolean) => {
     if (isTyping) {
-      // Clear any existing hide timeout
       if (hideTypingTimeoutRef.current) {
         clearTimeout(hideTypingTimeoutRef.current);
         hideTypingTimeoutRef.current = null;
       }
       
-      // Debounce: only show after 600ms of continuous typing
       if (!typingTimeoutRef.current) {
         typingTimeoutRef.current = setTimeout(() => {
           setShowTypingIndicator(true);
@@ -107,13 +100,11 @@ export const ChatScreen: React.FC = () => {
         }, 600);
       }
     } else {
-      // Clear show timeout
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = null;
       }
       
-      // Hide after 1 second of no typing
       if (!hideTypingTimeoutRef.current) {
         hideTypingTimeoutRef.current = setTimeout(() => {
           setShowTypingIndicator(false);
@@ -205,7 +196,7 @@ export const ChatScreen: React.FC = () => {
         }
       />
       
-      {/* Message list or empty state - flex-1 to take remaining space */}
+      {/* Message list - flex-1 takes available space between header and composer */}
       {hasMessages ? (
         <ChatMessageList
           messages={messages}
@@ -222,7 +213,7 @@ export const ChatScreen: React.FC = () => {
         <div 
           className="flex-1 min-h-0 flex items-center justify-center px-6 overflow-y-auto"
           style={{ 
-            paddingBottom: 'var(--bottom-nav-h-effective)',
+            paddingBottom: composerHeight + 16,
             WebkitOverflowScrolling: 'touch'
           }}
         >
@@ -234,12 +225,12 @@ export const ChatScreen: React.FC = () => {
         </div>
       )}
       
-      {/* Composer - in normal flow, shrink-0 to prevent compression */}
+      {/* Fixed Composer at bottom - Messenger style */}
       <div 
         ref={composerRef}
         className="shrink-0 bg-background border-t border-border"
         style={{ 
-          paddingBottom: 'var(--bottom-nav-h-effective)'
+          paddingBottom: 'calc(env(safe-area-inset-bottom) + var(--keyboard-inset, 0px))'
         }}
       >
         <ChatComposer

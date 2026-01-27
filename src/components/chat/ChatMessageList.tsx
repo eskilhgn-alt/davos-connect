@@ -114,7 +114,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         onScroll={handleScroll}
         style={{ 
           WebkitOverflowScrolling: 'touch',
-          paddingBottom: `calc(${bottomPadding}px + var(--bottom-nav-h-effective, 0px) + env(safe-area-inset-bottom, 0px))`,
+          paddingBottom: bottomPadding,
         }}
       >
         <div className="flex flex-col py-4 px-2">

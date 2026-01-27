@@ -7,6 +7,7 @@ import {
   WeatherDayDetail,
   WeatherModelTabs,
   WeatherMountainSection,
+  WeatherWebcamsSection,
   type ModelSelection
 } from "@/components/weather";
 import {
@@ -231,6 +232,9 @@ const WeatherScreen: React.FC = () => {
                   onSelect={setSelectedModel}
                 />
               </div>
+
+              {/* Webcams section */}
+              <WeatherWebcamsSection />
 
               {/* Mountains section */}
               <div className="mt-6">
