@@ -1,6 +1,5 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   WeatherHero,
   WeatherDayStrip,
@@ -11,10 +10,13 @@ import {
 } from "@/components/weather";
 import {
   getAggregatedWeather,
+  clearWeatherCache,
   type AggregatedWeather,
   type DayAggregate
 } from "@/services/weather.service";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const WeatherScreen: React.FC = () => {
   const [weather, setWeather] = React.useState<AggregatedWeather | null>(null);
@@ -24,14 +26,13 @@ const WeatherScreen: React.FC = () => {
   const [selectedModel, setSelectedModel] = React.useState<ModelSelection>("consensus");
   const [detailOpen, setDetailOpen] = React.useState(false);
 
-  React.useEffect(() => {
-    loadWeather();
-  }, []);
-
-  const loadWeather = async () => {
+  const loadWeather = React.useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
+      if (forceRefresh) {
+        clearWeatherCache();
+      }
       const data = await getAggregatedWeather(7);
       setWeather(data);
     } catch (err) {
@@ -40,7 +41,21 @@ const WeatherScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  React.useEffect(() => {
+    loadWeather();
+  }, [loadWeather]);
+
+  const handleRefresh = React.useCallback(async () => {
+    await loadWeather(true);
+  }, [loadWeather]);
+
+  const { containerRef, pullDistance, isRefreshing, isPulling } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    threshold: 80,
+    maxPull: 120
+  });
 
   const getCurrentData = (): DayAggregate[] => {
     if (!weather) return [];
@@ -94,25 +109,63 @@ const WeatherScreen: React.FC = () => {
     setDetailOpen(true);
   };
 
+  // Calculate pull indicator opacity and scale
+  const pullProgress = Math.min(pullDistance / 80, 1);
+  const showPullIndicator = isPulling || isRefreshing;
+
   return (
     <div className="h-[100dvh] flex flex-col bg-background">
       <AppHeader
         title="Vær"
         subtitle={selectedModel === "consensus" ? "Davos konsensus" : selectedModel}
         rightAction={
-          loading ? (
+          (loading || isRefreshing) ? (
             <RefreshCw className="h-5 w-5 animate-spin text-primary-foreground/70" />
           ) : null
         }
       />
 
-      <ScrollArea className="flex-1">
-        <div className="pb-4">
+      {/* Pull-to-refresh indicator */}
+      <div 
+        className={cn(
+          "flex items-center justify-center overflow-hidden transition-all duration-200",
+          showPullIndicator ? "opacity-100" : "opacity-0"
+        )}
+        style={{ height: pullDistance }}
+      >
+        <div 
+          className="flex flex-col items-center gap-1"
+          style={{ 
+            transform: `scale(${0.5 + pullProgress * 0.5}) rotate(${pullProgress * 180}deg)`,
+            opacity: pullProgress
+          }}
+        >
+          <RefreshCw 
+            className={cn(
+              "h-6 w-6 text-primary",
+              isRefreshing && "animate-spin"
+            )} 
+          />
+        </div>
+        {pullProgress >= 1 && !isRefreshing && (
+          <span className="text-xs text-muted-foreground ml-2">Slipp for å oppdatere</span>
+        )}
+      </div>
+
+      <div 
+        ref={containerRef}
+        className="flex-1 overflow-y-auto overscroll-contain"
+        style={{ 
+          transform: `translateY(${pullDistance > 0 ? 0 : 0}px)`,
+          touchAction: pullDistance > 0 ? 'none' : 'auto'
+        }}
+      >
+        <div className="pb-24">
           {error ? (
             <div className="px-4 py-8 text-center">
               <p className="text-muted-foreground">{error}</p>
               <button
-                onClick={loadWeather}
+                onClick={() => loadWeather(true)}
                 className="mt-4 text-primary underline"
               >
                 Prøv igjen
@@ -159,7 +212,7 @@ const WeatherScreen: React.FC = () => {
             </>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Day detail sheet */}
       <WeatherDayDetail
