@@ -13,17 +13,15 @@ import {
 import { DavosButton } from "@/components/ui/davos-button";
 import { Maximize2 } from "lucide-react";
 import {
-  DRIFT_STATUS,
   MAPS,
   WEBCAMS_PAGE,
   FEATURED_WEBCAMS,
 } from "@/config/liveInfo";
 
-type MainTab = "drift" | "kart" | "webcams";
+type MainTab = "kart" | "webcams";
 type MapSubTab = "nord" | "syd" | "interaktiv";
 
 const MAIN_TABS = [
-  { value: "drift", label: "Drift" },
   { value: "kart", label: "Kart" },
   { value: "webcams", label: "Webcams" },
 ];
@@ -35,7 +33,7 @@ const MAP_TABS = [
 ];
 
 export const MapScreen: React.FC = () => {
-  const [mainTab, setMainTab] = React.useState<MainTab>("drift");
+  const [mainTab, setMainTab] = React.useState<MainTab>("kart");
   const [mapSubTab, setMapSubTab] = React.useState<MapSubTab>("nord");
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
@@ -58,24 +56,6 @@ export const MapScreen: React.FC = () => {
       {/* Scrollable content area */}
       <ScrollArea className="flex-1">
         <div className="pb-24">
-          {/* DRIFT TAB */}
-          {mainTab === "drift" && (
-            <div className="p-4">
-              <div className="mb-4">
-                <h2 className="font-heading text-lg font-semibold text-foreground mb-1">
-                  Driftstatus
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Sanntidsinformasjon om heiser og løyper i Davos Klosters.
-                </p>
-              </div>
-              <DavosWebEmbed
-                title={DRIFT_STATUS.title}
-                url={DRIFT_STATUS.url}
-                height="calc(100dvh - 240px)"
-              />
-            </div>
-          )}
 
           {/* KART TAB */}
           {mainTab === "kart" && (
