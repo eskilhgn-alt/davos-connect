@@ -45,7 +45,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 
   // Initial scroll to bottom
   React.useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'instant' });
+    bottomRef.current?.scrollIntoView({ behavior: 'auto' });
   }, []);
 
   // Detect scroll position

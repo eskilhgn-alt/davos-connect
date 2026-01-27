@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { DavosErrorState } from "@/components/ui/davos-error-state";
 import { DavosListRowSkeleton } from "@/components/ui/davos-skeleton";
@@ -9,6 +10,13 @@ type ScreenState = "ready" | "loading" | "error";
 
 export const MoreScreen: React.FC = () => {
   const [state] = React.useState<ScreenState>("ready");
+  const navigate = useNavigate();
+
+  const handleItemClick = (path?: string) => {
+    if (path) {
+      navigate(path);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -37,7 +45,7 @@ export const MoreScreen: React.FC = () => {
                 icon={item.icon}
                 title={item.title}
                 subtitle={item.subtitle}
-                onClick={() => {}}
+                onClick={() => handleItemClick(item.path)}
               />
             ))}
           </div>
