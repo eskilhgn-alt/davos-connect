@@ -17,7 +17,7 @@ export function useVisualViewportVars() {
     const vv = window.visualViewport;
     const root = document.documentElement;
     
-    // Store baseline height when keyboard is closed
+    // Store baseline height when keyboard is closed (initial window height)
     let baselineHeight = window.innerHeight;
     let isFocusedOnInput = false;
     let focusTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -34,15 +34,19 @@ export function useVisualViewportVars() {
         const currentHeight = vv.height;
         
         // Update baseline when keyboard is definitely closed
-        if (!isFocusedOnInput && currentHeight >= baselineHeight * 0.9) {
+        // Use a larger threshold to account for iOS toolbars
+        if (!isFocusedOnInput && currentHeight >= baselineHeight * 0.85) {
           baselineHeight = Math.max(baselineHeight, currentHeight);
         }
         
         const keyboardInset = Math.max(0, baselineHeight - currentHeight);
-        // Lower threshold (50px) for more reliable detection
-        const keyboardOpen = isFocusedOnInput && keyboardInset > 50;
+        
+        // Consider keyboard open if:
+        // 1. We're focused on an input AND
+        // 2. There's significant height difference (>40px to account for toolbars)
+        const keyboardOpen = isFocusedOnInput && keyboardInset > 40;
 
-        setKeyboardState(keyboardOpen, keyboardInset, currentHeight);
+        setKeyboardState(keyboardOpen, keyboardOpen ? keyboardInset : 0, currentHeight);
       } else {
         // Fallback for browsers without visualViewport
         const appHeight = window.innerHeight;
@@ -51,7 +55,7 @@ export function useVisualViewportVars() {
       }
     };
 
-    // Focus-based fallback for iOS PWA where visualViewport can be unreliable
+    // Focus-based detection - critical for iOS PWA where visualViewport can lag
     const handleFocusIn = (e: FocusEvent) => {
       const target = e.target as HTMLElement;
       if (
@@ -65,13 +69,19 @@ export function useVisualViewportVars() {
           focusTimeoutId = null;
         }
         isFocusedOnInput = true;
-        // Immediate update for snappy response
-        update();
+        
+        // Immediate update for snappy keyboard detection
+        // Use RAF to ensure we catch any viewport changes
+        requestAnimationFrame(() => {
+          update();
+          // Double-check after a short delay for iOS lag
+          setTimeout(update, 100);
+        });
       }
     };
 
     const handleFocusOut = () => {
-      // Delay to avoid flapping during focus transitions
+      // Delay to avoid flapping during focus transitions between inputs
       focusTimeoutId = setTimeout(() => {
         isFocusedOnInput = false;
         update();
