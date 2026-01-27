@@ -98,6 +98,14 @@ function setCache(data: AggregatedWeather): void {
   }
 }
 
+export function clearWeatherCache(): void {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch {
+    // Ignore cache clear failures
+  }
+}
+
 // ============================================
 // OPEN-METEO API
 // ============================================
