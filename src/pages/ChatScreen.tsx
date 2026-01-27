@@ -167,6 +167,24 @@ export const ChatScreen: React.FC = () => {
 
   const hasMessages = messages.length > 0;
 
+  // Measure composer height for dynamic message list padding
+  const composerRef = React.useRef<HTMLDivElement>(null);
+  const [composerHeight, setComposerHeight] = React.useState(56);
+
+  React.useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setComposerHeight(entry.contentRect.height);
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div 
       className="flex flex-col overflow-hidden"
@@ -198,6 +216,7 @@ export const ChatScreen: React.FC = () => {
           onToggleTimestamps={handleToggleTimestamps}
           onEditMessage={handleEditMessage}
           className="flex-1 min-h-0"
+          bottomPadding={composerHeight + 16}
         />
       ) : (
         <div 
@@ -217,6 +236,7 @@ export const ChatScreen: React.FC = () => {
       
       {/* Composer - in normal flow, shrink-0 to prevent compression */}
       <div 
+        ref={composerRef}
         className="shrink-0 bg-background border-t border-border"
         style={{ 
           paddingBottom: 'var(--bottom-nav-h-effective)'

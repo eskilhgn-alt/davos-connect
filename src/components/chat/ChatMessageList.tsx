@@ -17,6 +17,8 @@ interface ChatMessageListProps {
   onToggleTimestamps: () => void;
   onEditMessage: (messageId: string) => void;
   className?: string;
+  /** Extra bottom padding to account for composer height */
+  bottomPadding?: number;
 }
 
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
@@ -28,6 +30,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   onToggleTimestamps,
   onEditMessage,
   className,
+  bottomPadding = 72,
 }) => {
   const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -110,7 +113,8 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         className="h-full overflow-y-auto overscroll-contain"
         onScroll={handleScroll}
         style={{ 
-          WebkitOverflowScrolling: 'touch'
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: `calc(${bottomPadding}px + var(--bottom-nav-h-effective, 0px) + env(safe-area-inset-bottom, 0px))`,
         }}
       >
         <div className="flex flex-col py-4 px-2">
