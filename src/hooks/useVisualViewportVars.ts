@@ -26,6 +26,8 @@ export function useVisualViewportVars() {
       root.style.setProperty('--app-height', `${appHeight}px`);
       root.style.setProperty('--keyboard-inset', `${keyboardInset}px`);
       root.style.setProperty('--keyboard-open', open ? '1' : '0');
+      // Also set bottom-nav effective height for immediate JS-based updates
+      root.style.setProperty('--bottom-nav-h-effective', open ? '0px' : 'var(--bottom-nav-h)');
       root.dataset.keyboard = open ? 'open' : 'closed';
     };
 
