@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { X, ZoomIn, ZoomOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { mediaStorage } from '@/services/media-storage';
 
 interface MediaViewerModalProps {
   open: boolean;
@@ -20,24 +20,50 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
   alt = 'Media',
 }) => {
   const [zoom, setZoom] = React.useState(1);
+  const [resolvedSrc, setResolvedSrc] = React.useState<string | null>(null);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.5, 3));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.5, 0.5));
   const handleReset = () => setZoom(1);
 
-  // Reset zoom when modal closes
+  // Resolve media URL (handles indexed-db:// URLs)
+  React.useEffect(() => {
+    let cancelled = false;
+    
+    const resolveUrl = async () => {
+      const url = await mediaStorage.getMediaUrl(src);
+      if (!cancelled) {
+        setResolvedSrc(url);
+      }
+    };
+    
+    if (open && src) {
+      resolveUrl();
+    }
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [src, open]);
+
+  // Reset zoom and resolved URL when modal closes
   React.useEffect(() => {
     if (!open) {
       setZoom(1);
+      // Clean up blob URL if we created one
+      if (resolvedSrc && resolvedSrc.startsWith('blob:') && src.startsWith('indexed-db://')) {
+        URL.revokeObjectURL(resolvedSrc);
+      }
+      setResolvedSrc(null);
     }
-  }, [open]);
+  }, [open, resolvedSrc, src]);
+
+  const displaySrc = resolvedSrc || src;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none overflow-hidden">
-        <VisuallyHidden>
-          <DialogTitle>Vis media</DialogTitle>
-        </VisuallyHidden>
+        <DialogTitle className="sr-only">Vis media</DialogTitle>
         
         {/* Close button */}
         <button
@@ -85,9 +111,11 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
 
         {/* Media content */}
         <div className="flex items-center justify-center w-full h-full min-h-[50vh] overflow-auto">
-          {type === 'video' ? (
+          {!displaySrc ? (
+            <div className="text-white/60">Laster...</div>
+          ) : type === 'video' ? (
             <video
-              src={src}
+              src={displaySrc}
               controls
               autoPlay
               className="max-w-full max-h-[85vh] object-contain"
@@ -96,7 +124,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
             </video>
           ) : (
             <img
-              src={src}
+              src={displaySrc}
               alt={alt}
               className="object-contain transition-transform duration-200"
               style={{ 

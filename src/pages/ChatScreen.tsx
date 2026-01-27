@@ -12,6 +12,7 @@ import { MessageCircle, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const THREAD_ID = 'davos-crew';
+const FIRST_TIME_KEY = 'davos_chat_first_time';
 
 export const ChatScreen: React.FC = () => {
   const { user, updateName, isCurrentUser } = useCurrentUser();
@@ -19,13 +20,15 @@ export const ChatScreen: React.FC = () => {
   
   const [messages, setMessages] = React.useState<LocalMessage[]>([]);
   const [showTypingIndicator, setShowTypingIndicator] = React.useState(false);
+  const [showTimestamps, setShowTimestamps] = React.useState(false);
   const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
   const [editText, setEditText] = React.useState('');
   const [nameDialogOpen, setNameDialogOpen] = React.useState(false);
   const [newName, setNewName] = React.useState('');
   
-  // Typing indicator timeout
+  // Typing indicator refs for debounce
   const typingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideTypingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Subscribe to messages
   React.useEffect(() => {
@@ -34,6 +37,22 @@ export const ChatScreen: React.FC = () => {
     });
     return unsubscribe;
   }, []);
+
+  // First-time toast
+  React.useEffect(() => {
+    const hasSeenTip = localStorage.getItem(FIRST_TIME_KEY);
+    if (!hasSeenTip) {
+      const timer = setTimeout(() => {
+        toast({
+          title: "Tips",
+          description: "Hold inne en melding for reaksjoner og meny. Trykk for å vise tid.",
+          duration: 5000,
+        });
+        localStorage.setItem(FIRST_TIME_KEY, 'true');
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   // Simulate message status progression
   const simulateStatusProgression = React.useCallback((messageId: string) => {
@@ -64,25 +83,49 @@ export const ChatScreen: React.FC = () => {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
+    if (hideTypingTimeoutRef.current) {
+      clearTimeout(hideTypingTimeoutRef.current);
+      hideTypingTimeoutRef.current = null;
+    }
     setShowTypingIndicator(false);
   };
 
-  const handleTyping = () => {
-    // Clear previous timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    // Show typing indicator after 600ms of typing
-    typingTimeoutRef.current = setTimeout(() => {
-      setShowTypingIndicator(true);
+  // Proper debounced typing indicator
+  const handleTyping = React.useCallback((isTyping: boolean) => {
+    if (isTyping) {
+      // Clear any existing hide timeout
+      if (hideTypingTimeoutRef.current) {
+        clearTimeout(hideTypingTimeoutRef.current);
+        hideTypingTimeoutRef.current = null;
+      }
       
-      // Hide after 2 seconds
-      setTimeout(() => {
-        setShowTypingIndicator(false);
-      }, 2000);
-    }, 600);
-  };
+      // Debounce: only show after 600ms of continuous typing
+      if (!typingTimeoutRef.current) {
+        typingTimeoutRef.current = setTimeout(() => {
+          setShowTypingIndicator(true);
+          typingTimeoutRef.current = null;
+        }, 600);
+      }
+    } else {
+      // Clear show timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      
+      // Hide after 1 second of no typing
+      if (!hideTypingTimeoutRef.current) {
+        hideTypingTimeoutRef.current = setTimeout(() => {
+          setShowTypingIndicator(false);
+          hideTypingTimeoutRef.current = null;
+        }, 1000);
+      }
+    }
+  }, []);
+
+  const handleToggleTimestamps = React.useCallback(() => {
+    setShowTimestamps(prev => !prev);
+  }, []);
 
   const handleEditMessage = (messageId: string) => {
     const message = localChatService.getMessage(messageId);
@@ -148,20 +191,22 @@ export const ChatScreen: React.FC = () => {
           currentUserId={user.id}
           currentUserName={user.name}
           showTypingIndicator={showTypingIndicator}
+          showTimestamps={showTimestamps}
+          onToggleTimestamps={handleToggleTimestamps}
           onEditMessage={handleEditMessage}
           className="flex-1"
         />
       ) : (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center px-6">
           <DavosEmptyState
             icon={MessageCircle}
             title="Start en samtale"
-            description="Send tekst, emoji, GIF, bilde og video. Hold inne en melding for reaksjoner og meny."
+            description="Send tekst, emoji, GIF, bilde eller video. Hold inne en melding for reaksjoner og meny – trykk for å vise tidspunkt."
           />
         </div>
       )}
       
-      {/* Sticky composer with bottom nav offset */}
+      {/* Sticky composer - positioned above bottom nav */}
       <div 
         className="sticky bottom-0 z-30"
         style={{ 
