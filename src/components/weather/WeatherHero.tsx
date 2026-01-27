@@ -4,6 +4,7 @@ import { DavosBadge } from "@/components/ui/davos-badge";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { type DayAggregate, getWeatherIcon } from "@/services/weather.service";
 import { Snowflake, Droplets, Wind } from "lucide-react";
+import { formatWindDisplay } from "@/features/weather/windUtils";
 
 interface WeatherHeroProps {
   today: DayAggregate | null;
@@ -85,10 +86,15 @@ export const WeatherHero: React.FC<WeatherHeroProps> = ({ today, loading }) => {
           </div>
           <div className="text-center">
             <Wind className="h-5 w-5 mx-auto text-primary mb-1" />
-            <p className="font-mono text-lg font-semibold text-foreground">
-              {today.windMedian} m/s
+            <p className="font-mono text-sm font-semibold text-foreground">
+              {formatWindDisplay(today.windMedian, today.windDirectionDeg)}
             </p>
-            <p className="text-xs text-muted-foreground">Vind</p>
+            {today.windGustMax && (
+              <p className="text-xs text-muted-foreground">Kast: {today.windGustMax} m/s</p>
+            )}
+            {!today.windGustMax && (
+              <p className="text-xs text-muted-foreground">Vind</p>
+            )}
           </div>
         </div>
       </DavosCardContent>

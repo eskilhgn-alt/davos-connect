@@ -10,6 +10,7 @@ import {
 import { DavosBadge } from "@/components/ui/davos-badge";
 import { type DayAggregate, getWeatherIcon, getWeatherDescription } from "@/services/weather.service";
 import { Snowflake, Droplets, Wind, Thermometer, TrendingUp, TrendingDown } from "lucide-react";
+import { formatWindDisplay } from "@/features/weather/windUtils";
 
 interface WeatherDayDetailProps {
   day: DayAggregate | null;
@@ -101,8 +102,12 @@ export const WeatherDayDetail: React.FC<WeatherDayDetailProps> = ({
             </div>
             <div className="bg-muted/50 rounded-xl p-4 text-center">
               <Wind className="h-6 w-6 mx-auto text-primary mb-2" />
-              <p className="font-mono text-2xl font-bold">{day.windMedian}</p>
-              <p className="text-xs text-muted-foreground">m/s vind</p>
+              <p className="font-mono text-sm font-bold">
+                {formatWindDisplay(day.windMedian, day.windDirectionDeg)}
+              </p>
+              {day.windGustMax && (
+                <p className="text-xs text-muted-foreground">Kast: {day.windGustMax} m/s</p>
+              )}
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 // src/features/weather/kiWeatherQuote.ts
 
 import type { DayAggregate } from "@/services/weather.service";
-import { ANCHORMAN_QUOTES, type QuoteCategory, type AnchormanQuote } from "./anchormanQuotes";
+import { ANCHORMAN_QUOTES, ALLOWED_SPEAKERS, type QuoteCategory, type AnchormanQuote } from "./anchormanQuotes";
 
 export type { QuoteCategory };
 
@@ -22,6 +22,20 @@ function hashString(str: string): number {
     hash = hash & hash; // Convert to 32bit integer
   }
   return Math.abs(hash);
+}
+
+/**
+ * Validate that a speaker is in the allowlist
+ */
+function isAllowedSpeaker(speaker: string): boolean {
+  return ALLOWED_SPEAKERS.includes(speaker as typeof ALLOWED_SPEAKERS[number]);
+}
+
+/**
+ * Filter quotes to only include allowed speakers
+ */
+function getValidQuotes(category: QuoteCategory): AnchormanQuote[] {
+  return ANCHORMAN_QUOTES[category].filter(q => isAllowedSpeaker(q.speaker));
 }
 
 /**
@@ -84,30 +98,50 @@ export function classifyDay(day: DayAggregate, now?: Date): QuoteCategory {
 /**
  * Get a deterministic quote based on day and category
  * Same day + same category = same quote (stable across re-renders)
+ * Only returns quotes from allowed speakers
  */
 export function getKiWeatherQuote(
   day?: DayAggregate,
   now?: Date
 ): { category: QuoteCategory; quote: string; speaker: string } {
+  // Default fallback quote (always valid)
+  const defaultQuote = {
+    category: "sun_bluebird" as QuoteCategory,
+    quote: "You stay classy, San Diego.",
+    speaker: "Ron Burgundy",
+  };
+
   // Fallback for missing day
   if (!day) {
-    const fallback = ANCHORMAN_QUOTES.sun_bluebird[0];
-    return {
-      category: "sun_bluebird",
-      quote: fallback.quote,
-      speaker: fallback.speaker,
-    };
+    return defaultQuote;
   }
 
   const category = classifyDay(day, now);
-  const quotes = ANCHORMAN_QUOTES[category];
+  const validQuotes = getValidQuotes(category);
+
+  // If no valid quotes in category, fallback to sun_bluebird
+  if (validQuotes.length === 0) {
+    const fallbackQuotes = getValidQuotes("sun_bluebird");
+    if (fallbackQuotes.length === 0) {
+      return defaultQuote;
+    }
+    const seed = `${day.date}-sun_bluebird`;
+    const hash = hashString(seed);
+    const index = hash % fallbackQuotes.length;
+    const selected = fallbackQuotes[index];
+    return {
+      category: "sun_bluebird",
+      quote: selected.quote,
+      speaker: selected.speaker,
+    };
+  }
 
   // Deterministic selection based on date + category
   const seed = `${day.date}-${category}`;
   const hash = hashString(seed);
-  const index = hash % quotes.length;
+  const index = hash % validQuotes.length;
 
-  const selected = quotes[index];
+  const selected = validQuotes[index];
 
   return {
     category,

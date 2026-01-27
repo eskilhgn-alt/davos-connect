@@ -84,6 +84,27 @@ const WeatherScreen: React.FC = () => {
       const temps = dayData.map(d => d.temperature);
       const tempMaxes = dayData.map(d => d.temperatureMax);
       const tempMins = dayData.map(d => d.temperatureMin);
+      const winds = dayData.map(d => d.wind);
+      const windDirs = dayData
+        .map(d => d.windDirection)
+        .filter((d): d is number => d !== undefined && !isNaN(d));
+      const windGusts = dayData
+        .map(d => d.windGust)
+        .filter((g): g is number => g !== undefined && !isNaN(g));
+      
+      // Circular mean for wind direction
+      let windDirectionDeg: number | undefined;
+      if (windDirs.length > 0) {
+        let sinSum = 0, cosSum = 0;
+        for (const deg of windDirs) {
+          const rad = (deg * Math.PI) / 180;
+          sinSum += Math.sin(rad);
+          cosSum += Math.cos(rad);
+        }
+        let meanDeg = (Math.atan2(sinSum / windDirs.length, cosSum / windDirs.length) * 180) / Math.PI;
+        if (meanDeg < 0) meanDeg += 360;
+        windDirectionDeg = Math.round(meanDeg);
+      }
       
       result.push({
         date: dayData[0].date,
@@ -92,7 +113,9 @@ const WeatherScreen: React.FC = () => {
         tempMax: Math.round(Math.max(...tempMaxes)),
         precipMedian: Math.round(dayData.reduce((a, d) => a + d.precipitation, 0) / dayData.length * 10) / 10,
         snowMedian: Math.round(dayData.reduce((a, d) => a + d.snowfall, 0) / dayData.length * 10) / 10,
-        windMedian: Math.round(dayData.reduce((a, d) => a + d.wind, 0) / dayData.length),
+        windMedian: Math.round(winds.reduce((a, b) => a + b, 0) / winds.length),
+        windDirectionDeg,
+        windGustMax: windGusts.length > 0 ? Math.round(Math.max(...windGusts)) : undefined,
         weatherCode: dayData[0].weatherCode,
         confidence: "high" // Single model = always high confidence
       });

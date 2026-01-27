@@ -16,6 +16,19 @@ export type QuoteCategory =
   | "ice_hardpack"
   | "apres";
 
+// Allowlist of valid speakers - only these can be rendered
+export const ALLOWED_SPEAKERS = [
+  "Ron Burgundy",
+  "Brian Fantana",
+  "Champ Kind",
+  "Brick Tamland",
+  "Veronica Corningstone",
+  "Ed Harken",
+  "Arturo Mendez"
+] as const;
+
+export type AllowedSpeaker = typeof ALLOWED_SPEAKERS[number];
+
 export const ANCHORMAN_QUOTES: Record<QuoteCategory, AnchormanQuote[]> = {
   sun_bluebird: [
     { quote: "San Diego. Drink it in. It always goes down smooth.", speaker: "Ron Burgundy", use: "perfekt sol/bluebird" },
@@ -28,10 +41,6 @@ export const ANCHORMAN_QUOTES: Record<QuoteCategory, AnchormanQuote[]> = {
   powder_new_snow: [
     { quote: "Cannonball!", speaker: "Ron Burgundy", use: "send det i nysnø" },
     { quote: "Panda Watch! The mood is tense.", speaker: "Brian Fantana", use: "førstespor-stemning" },
-    { quote: "No commercials! No mercy!", speaker: "Public News anchor", use: "powder = null nåde" },
-    { quote: "That's how I roll!", speaker: "Motorcyclist", use: "først ned / hard charging" },
-    { quote: "This is happening.", speaker: "Motorcyclist", use: "nysnø = nå skjer det" },
-    { quote: "Go time.", speaker: "Narrator", use: "nysnø-morgen" },
   ],
   storm_wind: [
     { quote: "Boy, that escalated quickly.", speaker: "Ron Burgundy", use: "vær som går fra 0 til 100" },
