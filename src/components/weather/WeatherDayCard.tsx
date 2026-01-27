@@ -23,6 +23,10 @@ export const WeatherDayCard: React.FC<WeatherDayCardProps> = ({
     return format(date, "EEEE", { locale: nb });
   };
 
+  const getDateLabel = () => {
+    return format(date, "d. MMMM", { locale: nb });
+  };
+
   const confidenceColor = {
     high: "bg-secondary",
     medium: "bg-accent",
@@ -40,9 +44,15 @@ export const WeatherDayCard: React.FC<WeatherDayCardProps> = ({
     >
       <span className={cn(
         "text-xs font-medium capitalize truncate max-w-full",
-        selected ? "text-primary-foreground" : "text-muted-foreground"
+        selected ? "text-primary-foreground" : "text-foreground"
       )}>
         {getDayLabel()}
+      </span>
+      <span className={cn(
+        "text-[10px] capitalize",
+        selected ? "text-primary-foreground/80" : "text-muted-foreground"
+      )}>
+        {getDateLabel()}
       </span>
       
       <span className="text-2xl">{getWeatherIcon(day.weatherCode)}</span>
