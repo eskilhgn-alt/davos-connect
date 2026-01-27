@@ -1,13 +1,55 @@
 /**
  * LIFT & LAGER - Service Contracts
- * Sprint 1: Interface definitions only - no implementation
+ * Sprint 2: Local chat implementation with extended data model
  * 
  * These contracts define the expected API for each service module.
- * Implementation will be added in later sprints.
  */
 
 // ============================================
-// CHAT SERVICE
+// LOCAL USER & IDENTITY
+// ============================================
+
+export interface LocalUser {
+  id: string;
+  name: string;
+  avatarColor?: string;
+}
+
+// ============================================
+// LOCAL CHAT (Sprint 2.0)
+// ============================================
+
+export type MessageStatus = 'sent' | 'delivered' | 'seen';
+
+export interface MessageAttachment {
+  id: string;
+  type: 'image' | 'gif' | 'video';
+  url: string;
+  thumbUrl?: string;
+}
+
+export interface LocalMessage {
+  id: string;
+  threadId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  createdAt: number;
+  editedAt?: number;
+  deletedAt?: number;
+  status?: MessageStatus;
+  attachments: MessageAttachment[];
+  reactions: Record<string, string[]>; // emoji -> userIds
+}
+
+export interface LocalThread {
+  id: string;
+  title: string;
+  participantIds: string[];
+}
+
+// ============================================
+// LEGACY CHAT SERVICE (for future backend)
 // ============================================
 
 export interface ChatMessage {
@@ -36,22 +78,22 @@ export interface ChatService {
   createThread(participantIds: string[], name?: string): Promise<ChatThread>;
 }
 
-// Placeholder implementation
+// Placeholder - will be replaced with Supabase in later sprint
 export const chatService: ChatService = {
   getThreads: async () => {
-    throw new Error("Not implemented - Sprint 2+");
+    throw new Error("Not implemented - use localChatService for Sprint 2");
   },
   getMessages: async () => {
-    throw new Error("Not implemented - Sprint 2+");
+    throw new Error("Not implemented - use localChatService for Sprint 2");
   },
   sendMessage: async () => {
-    throw new Error("Not implemented - Sprint 2+");
+    throw new Error("Not implemented - use localChatService for Sprint 2");
   },
   markAsRead: async () => {
-    throw new Error("Not implemented - Sprint 2+");
+    throw new Error("Not implemented - use localChatService for Sprint 2");
   },
   createThread: async () => {
-    throw new Error("Not implemented - Sprint 2+");
+    throw new Error("Not implemented - use localChatService for Sprint 2");
   },
 };
 
