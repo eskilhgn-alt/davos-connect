@@ -8,7 +8,7 @@ import { mediaStorage } from '@/services/media-storage';
 
 interface ChatComposerProps {
   onSend: (text: string, attachments: MessageAttachment[]) => void;
-  onTyping?: () => void;
+  onTyping?: (isTyping: boolean) => void;
   disabled?: boolean;
   className?: string;
 }
@@ -17,7 +17,7 @@ interface PendingAttachment {
   id: string;
   file: File;
   type: 'image' | 'video';
-  previewUrl: string;
+  previewUrl: string; // Blob URL for immediate preview
 }
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
@@ -30,6 +30,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const [pendingAttachments, setPendingAttachments] = React.useState<PendingAttachment[]>([]);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const lastTextRef = React.useRef('');
 
   const canSend = text.trim().length > 0 || pendingAttachments.length > 0;
 
@@ -42,12 +43,22 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     }
   }, [text]);
 
-  // Notify typing
+  // Notify typing with proper isTyping boolean
   React.useEffect(() => {
-    if (text.length > 0 && onTyping) {
-      const timer = setTimeout(onTyping, 100);
-      return () => clearTimeout(timer);
+    if (!onTyping) return;
+    
+    const wasTyping = lastTextRef.current.length > 0;
+    const isTyping = text.length > 0;
+    
+    // Only notify on change
+    if (isTyping !== wasTyping) {
+      onTyping(isTyping);
+    } else if (isTyping && text !== lastTextRef.current) {
+      // Still typing, notify to reset debounce
+      onTyping(true);
     }
+    
+    lastTextRef.current = text;
   }, [text, onTyping]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -60,10 +71,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const handleSend = async () => {
     if (!canSend || disabled) return;
 
+    // Notify stop typing
+    onTyping?.(false);
+
     // Convert pending attachments to final attachments
     const attachments: MessageAttachment[] = await Promise.all(
       pendingAttachments.map(async (pending) => {
-        // Save to IndexedDB and get permanent URL
+        // Save to IndexedDB and get permanent URL (indexed-db://...)
         const url = await mediaStorage.saveMedia(pending.id, pending.file);
         return {
           id: pending.id,
@@ -75,10 +89,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
     onSend(text.trim(), attachments);
     setText('');
-    setPendingAttachments([]);
     
-    // Revoke preview URLs
+    // Revoke preview blob URLs after sending
     pendingAttachments.forEach(p => URL.revokeObjectURL(p.previewUrl));
+    setPendingAttachments([]);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,7 +112,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         id: crypto.randomUUID(),
         file,
         type: isVideo ? 'video' : 'image',
-        previewUrl: URL.createObjectURL(file),
+        previewUrl: URL.createObjectURL(file), // Immediate blob URL for preview
       });
     }
 
@@ -136,7 +150,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
   return (
     <div className={cn("bg-background border-t border-border", className)}>
-      {/* Attachment previews */}
+      {/* Attachment previews - using immediate blob URLs */}
       {pendingAttachments.length > 0 && (
         <div className="flex gap-2 px-4 pt-3 pb-2 overflow-x-auto">
           {pendingAttachments.map((attachment) => (

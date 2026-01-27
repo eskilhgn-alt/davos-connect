@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isSameDay } from 'date-fns';
@@ -14,6 +13,8 @@ interface ChatMessageListProps {
   currentUserId: string;
   currentUserName: string;
   showTypingIndicator?: boolean;
+  showTimestamps: boolean;
+  onToggleTimestamps: () => void;
   onEditMessage: (messageId: string) => void;
   className?: string;
 }
@@ -23,12 +24,13 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   currentUserId,
   currentUserName,
   showTypingIndicator = false,
+  showTimestamps,
+  onToggleTimestamps,
   onEditMessage,
   className,
 }) => {
-  const [showTimestamps, setShowTimestamps] = React.useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
-  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const isAtBottomRef = React.useRef(true);
   const prevMessageCountRef = React.useRef(messages.length);
@@ -47,9 +49,11 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   }, []);
 
   // Detect scroll position
-  const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLDivElement;
-    const { scrollTop, scrollHeight, clientHeight } = target;
+  const handleScroll = React.useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = container;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     
     isAtBottomRef.current = distanceFromBottom < 50;
@@ -58,10 +62,6 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const handleToggleTimestamp = () => {
-    setShowTimestamps(prev => !prev);
   };
 
   const handleReaction = (messageId: string, emoji: string) => {
@@ -104,13 +104,14 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
 
   return (
     <div className={cn("relative flex-1 overflow-hidden", className)}>
-      <ScrollArea className="h-full">
-        <div 
-          ref={scrollAreaRef}
-          className="flex flex-col py-4"
-          onScroll={handleScroll}
-        >
-          {groupedMessages.map((group, groupIndex) => (
+      {/* Custom scroll container for proper scroll detection */}
+      <div 
+        ref={scrollContainerRef}
+        className="h-full overflow-y-auto overscroll-contain"
+        onScroll={handleScroll}
+      >
+        <div className="flex flex-col py-4">
+          {groupedMessages.map((group) => (
             <React.Fragment key={group.date.toISOString()}>
               <DateSeparator date={group.date} />
               
@@ -121,7 +122,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                   isOwnMessage={message.senderId === currentUserId}
                   showTimestamp={showTimestamps}
                   showSenderName={shouldShowSenderName(message, messageIndex, group.messages)}
-                  onToggleTimestamp={handleToggleTimestamp}
+                  onToggleTimestamp={onToggleTimestamps}
                   onEdit={() => onEditMessage(message.id)}
                   onDelete={() => handleDelete(message.id)}
                   onReact={(emoji) => handleReaction(message.id, emoji)}
@@ -137,7 +138,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
           {/* Scroll anchor */}
           <div ref={bottomRef} className="h-1" />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Scroll to bottom button */}
       {showScrollToBottom && (
