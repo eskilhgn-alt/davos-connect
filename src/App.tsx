@@ -8,6 +8,7 @@ import ChatScreen from "./pages/ChatScreen";
 import MapScreen from "./pages/MapScreen";
 import FeedScreen from "./pages/FeedScreen";
 import MoreScreen from "./pages/MoreScreen";
+import WeatherScreen from "./pages/WeatherScreen";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<ChatScreen />} />
+            <Route path="/vaer" element={<WeatherScreen />} />
             <Route path="/kart" element={<MapScreen />} />
             <Route path="/feed" element={<FeedScreen />} />
             <Route path="/mer" element={<MoreScreen />} />
