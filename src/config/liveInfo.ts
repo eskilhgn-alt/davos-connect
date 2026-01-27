@@ -18,14 +18,6 @@ export interface FeaturedWebcam {
   pageUrl: string;
 }
 
-// Driftstatus embed
-export const DRIFT_STATUS: LiveInfoSource = {
-  id: "drift",
-  title: "Driftstatus",
-  url: "https://www.davosklostersmountains.ch/en/mountains/winter/live-info/current-operating-infos?active=maps",
-  description: "Oversikt over åpne heiser og løyper"
-};
-
 // Map sources
 export const MAPS: Record<string, LiveInfoSource> = {
   nord: {
