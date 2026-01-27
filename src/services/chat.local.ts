@@ -1,14 +1,19 @@
 /**
  * Local Chat Service Implementation
  * Uses localStorage for messages and thread metadata
+ * Event-driven updates (no polling)
  */
 
 import type { LocalMessage, LocalThread, MessageAttachment, MessageStatus } from './contracts';
+import { galleryService } from './gallery.local';
 
 const STORAGE_KEYS = {
   MESSAGES: 'davos_messages',
   THREADS: 'davos_threads',
 } as const;
+
+// Custom event name for same-tab updates
+const CHAT_UPDATED_EVENT = 'liftlager:chat-updated';
 
 // Default thread for the app
 const DEFAULT_THREAD: LocalThread = {
@@ -27,10 +32,12 @@ function getStoredData<T>(key: string, defaultValue: T): T {
   }
 }
 
-// Helper to save data to localStorage
+// Helper to save data to localStorage and dispatch update event
 function saveStoredData<T>(key: string, data: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(data));
+    // Dispatch custom event for same-tab listeners
+    window.dispatchEvent(new CustomEvent(CHAT_UPDATED_EVENT, { detail: { key } }));
   } catch (error) {
     console.error('Failed to save to localStorage:', error);
   }
@@ -76,6 +83,11 @@ export function sendMessage(
   
   messages.push(newMessage);
   saveStoredData(STORAGE_KEYS.MESSAGES, messages);
+  
+  // Add attachments to gallery index
+  if (newMessage.attachments.length > 0) {
+    galleryService.addFromMessage(newMessage);
+  }
   
   return newMessage;
 }
@@ -167,31 +179,40 @@ export function getMessage(messageId: string): LocalMessage | null {
   return messages.find(m => m.id === messageId) || null;
 }
 
-// Subscribe to message changes (polling-based for localStorage)
+// Subscribe to message changes (event-driven, no polling)
 export function subscribeToMessages(
   threadId: string,
   callback: (messages: LocalMessage[]) => void
 ): () => void {
-  const checkForUpdates = () => {
-    callback(listMessages(threadId));
+  let isMounted = true;
+
+  const notifyChange = () => {
+    if (isMounted) {
+      callback(listMessages(threadId));
+    }
   };
   
   // Initial call
-  checkForUpdates();
+  notifyChange();
   
-  // Poll every 500ms (localStorage doesn't support real events across tabs easily)
-  const interval = setInterval(checkForUpdates, 500);
+  // Listen for same-tab updates via custom event
+  const handleChatUpdated = () => {
+    notifyChange();
+  };
+  window.addEventListener(CHAT_UPDATED_EVENT, handleChatUpdated);
   
-  // Also listen for storage events (cross-tab)
+  // Listen for cross-tab updates via storage event
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_KEYS.MESSAGES) {
-      checkForUpdates();
+      notifyChange();
     }
   };
   window.addEventListener('storage', handleStorage);
   
+  // Cleanup function
   return () => {
-    clearInterval(interval);
+    isMounted = false;
+    window.removeEventListener(CHAT_UPDATED_EVENT, handleChatUpdated);
     window.removeEventListener('storage', handleStorage);
   };
 }

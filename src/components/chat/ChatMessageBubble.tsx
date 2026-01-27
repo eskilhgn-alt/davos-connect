@@ -51,28 +51,63 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
   const [mediaViewerOpen, setMediaViewerOpen] = React.useState(false);
   const [selectedMedia, setSelectedMedia] = React.useState<{ src: string; type: 'image' | 'gif' | 'video' } | null>(null);
   const [mediaUrls, setMediaUrls] = React.useState<Record<string, string>>({});
+  
+  // Track blob URLs created in this component for cleanup
+  const blobUrlsRef = React.useRef<Set<string>>(new Set());
 
   const isDeleted = !!message.deletedAt;
   const isEdited = !!message.editedAt;
   const hasReactions = Object.keys(message.reactions).length > 0;
   const hasAttachments = message.attachments.length > 0;
 
-  // Load media URLs from IndexedDB if needed
+  // Load media URLs from IndexedDB if needed, with proper cleanup
   React.useEffect(() => {
+    let isMounted = true;
+    const newBlobUrls: string[] = [];
+    
     const loadMediaUrls = async () => {
       const urls: Record<string, string> = {};
       for (const attachment of message.attachments) {
-        const url = await mediaStorage.getMediaUrl(attachment.url);
-        if (url) {
+        // Prefer thumbUrl for list view, fall back to original
+        const urlToResolve = attachment.thumbUrl || attachment.url;
+        const url = await mediaStorage.getMediaUrl(urlToResolve);
+        if (url && isMounted) {
           urls[attachment.id] = url;
+          // Track blob URLs we created
+          if (url.startsWith('blob:')) {
+            newBlobUrls.push(url);
+            blobUrlsRef.current.add(url);
+          }
         }
       }
-      setMediaUrls(urls);
+      if (isMounted) {
+        setMediaUrls(urls);
+      }
     };
+    
     if (hasAttachments) {
       loadMediaUrls();
     }
+    
+    return () => {
+      isMounted = false;
+      // Revoke blob URLs when component unmounts or attachments change
+      newBlobUrls.forEach(url => {
+        URL.revokeObjectURL(url);
+        blobUrlsRef.current.delete(url);
+      });
+    };
   }, [message.attachments, hasAttachments]);
+
+  // Cleanup all blob URLs on unmount
+  React.useEffect(() => {
+    return () => {
+      blobUrlsRef.current.forEach(url => {
+        URL.revokeObjectURL(url);
+      });
+      blobUrlsRef.current.clear();
+    };
+  }, []);
 
   const longPressHandlers = useLongPress({
     onLongPress: () => {
@@ -93,10 +128,17 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
     onCopy();
   };
 
-  const openMediaViewer = (attachment: { id: string; type: 'image' | 'gif' | 'video'; url: string }) => {
-    const url = mediaUrls[attachment.id] || attachment.url;
-    setSelectedMedia({ src: url, type: attachment.type });
-    setMediaViewerOpen(true);
+  const openMediaViewer = async (attachment: { id: string; type: 'image' | 'gif' | 'video'; url: string }) => {
+    // For fullscreen, always use original URL (not thumb)
+    const resolvedUrl = await mediaStorage.getMediaUrl(attachment.url);
+    if (resolvedUrl) {
+      // Track this blob URL
+      if (resolvedUrl.startsWith('blob:')) {
+        blobUrlsRef.current.add(resolvedUrl);
+      }
+      setSelectedMedia({ src: resolvedUrl, type: attachment.type });
+      setMediaViewerOpen(true);
+    }
   };
 
   return (
@@ -152,7 +194,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 {hasAttachments && (
                   <div className="flex flex-wrap gap-2 mb-2">
                     {message.attachments.map((attachment) => {
-                      const url = mediaUrls[attachment.id] || attachment.url;
+                      const url = mediaUrls[attachment.id] || attachment.thumbUrl || attachment.url;
                       return (
                         <button
                           key={attachment.id}
@@ -164,11 +206,11 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                           className="relative overflow-hidden rounded-lg max-w-[200px] hover:opacity-90 transition-opacity"
                         >
                           {attachment.type === 'video' ? (
-                            <video
+                            <img
                               src={url}
+                              alt="Video"
                               className="max-w-full h-auto rounded-lg"
-                              muted
-                              playsInline
+                              loading="lazy"
                             />
                           ) : (
                             <img
