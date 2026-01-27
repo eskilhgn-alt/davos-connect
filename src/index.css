@@ -151,7 +151,7 @@
     @apply border-border;
   }
 
-  /* PWA height stability */
+  /* PWA app-shell: lock viewport, prevent body scroll */
   html, body, #root {
     height: 100%;
   }
@@ -166,11 +166,27 @@
     @apply bg-background text-foreground;
     font-family: var(--font-body);
     -webkit-text-size-adjust: 100%;
+    /* iOS PWA: prevent body scroll and layout shift */
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+
+  #root {
+    overflow: hidden;
+  }
+
+  /* iOS input zoom prevention - only on touch devices */
+  @supports (-webkit-touch-callout: none) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
   }
 
   /* Hide bottom nav when keyboard is open */
   :root[data-keyboard="open"] {
     --bottom-nav-h: 0px;
+    --bottom-nav-h-effective: 0px;
   }
 
   h1, h2, h3, h4, h5, h6 {

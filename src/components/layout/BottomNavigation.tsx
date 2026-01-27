@@ -20,7 +20,7 @@ export const BottomNavigation: React.FC = () => {
   const location = useLocation();
   const [isKeyboardOpen, setIsKeyboardOpen] = React.useState(false);
 
-  // Watch for keyboard state changes via CSS variable
+  // Watch for keyboard state changes via data-keyboard attribute
   React.useEffect(() => {
     const checkKeyboard = () => {
       const keyboardOpen = document.documentElement.dataset.keyboard === 'open';
@@ -47,14 +47,14 @@ export const BottomNavigation: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
+  // CRITICAL: Fully unmount when keyboard is open to prevent iOS from
+  // dragging fixed elements up over the keyboard
+  if (isKeyboardOpen) {
+    return null;
+  }
+
   return (
-    <nav 
-      className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 safe-area-bottom",
-        "transition-transform duration-200 ease-out",
-        isKeyboardOpen && "translate-y-full pointer-events-none"
-      )}
-    >
+    <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
       <div className="bg-primary shadow-nav border-t border-primary/20">
         <div className="flex items-center justify-around h-16">
           {navItems.map((item) => {
