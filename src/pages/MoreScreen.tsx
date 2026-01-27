@@ -19,10 +19,19 @@ export const MoreScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div 
+      className="flex flex-col overflow-hidden bg-background"
+      style={{ height: "var(--app-height)" }}
+    >
       <AppHeader title="Mer" subtitle="Innstillinger & info" />
       
-      <div className="flex-1">
+      <div 
+        className="flex-1 overflow-y-auto overscroll-contain"
+        style={{ 
+          paddingBottom: "var(--bottom-nav-h-effective)",
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
         {state === "loading" && (
           <div className="w-full">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -32,7 +41,7 @@ export const MoreScreen: React.FC = () => {
         )}
         
         {state === "error" && (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center min-h-[50vh]">
             <DavosErrorState onRetry={() => {}} />
           </div>
         )}

@@ -103,19 +103,17 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   };
 
   return (
-    <div className={cn("relative flex-1 overflow-hidden", className)}>
-      {/* Custom scroll container for proper scroll detection */}
+    <div className={cn("relative overflow-hidden", className)}>
+      {/* Scroll container - fills available space */}
       <div 
         ref={scrollContainerRef}
         className="h-full overflow-y-auto overscroll-contain"
         onScroll={handleScroll}
         style={{ 
-          WebkitOverflowScrolling: 'touch',
-          // Padding to account for composer + bottom nav + keyboard
-          paddingBottom: 'calc(var(--composer-h) + var(--bottom-nav-h) + var(--keyboard-inset) + env(safe-area-inset-bottom, 0px) + 1rem)'
+          WebkitOverflowScrolling: 'touch'
         }}
       >
-        <div className="flex flex-col py-4">
+        <div className="flex flex-col py-4 px-2">
           {groupedMessages.map((group) => (
             <React.Fragment key={group.date.toISOString()}>
               <DateSeparator date={group.date} />

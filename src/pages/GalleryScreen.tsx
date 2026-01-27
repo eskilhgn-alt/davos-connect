@@ -110,10 +110,19 @@ export const GalleryScreen: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div 
+      className="flex flex-col overflow-hidden bg-background"
+      style={{ height: "var(--app-height)" }}
+    >
       <AppHeader title="Galleri" subtitle="Lokalt på denne enheten" />
       
-      <div className="flex-1 p-4">
+      <div 
+        className="flex-1 overflow-y-auto overscroll-contain p-4"
+        style={{ 
+          paddingBottom: "var(--bottom-nav-h-effective)",
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
         {items.length === 0 ? (
           <div className="flex-1 flex items-center justify-center min-h-[50vh]">
             <DavosEmptyState

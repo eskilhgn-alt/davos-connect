@@ -12,10 +12,19 @@ export const FeedScreen: React.FC = () => {
   const [state] = React.useState<ScreenState>("empty");
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div 
+      className="flex flex-col overflow-hidden bg-background"
+      style={{ height: "var(--app-height)" }}
+    >
       <AppHeader title="Feed" subtitle="Bilder & oppdateringer" />
       
-      <div className="flex-1 flex items-center justify-center">
+      <div 
+        className="flex-1 overflow-y-auto overscroll-contain"
+        style={{ 
+          paddingBottom: "var(--bottom-nav-h-effective)",
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
         {state === "loading" && (
           <div className="w-full p-4 space-y-4">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -27,19 +36,23 @@ export const FeedScreen: React.FC = () => {
         )}
         
         {state === "error" && (
-          <DavosErrorState 
-            title="Feeden kunne ikke lastes"
-            description="Noe gikk galt ved lasting av innholdet."
-            onRetry={() => {}} 
-          />
+          <div className="flex-1 flex items-center justify-center min-h-[50vh]">
+            <DavosErrorState 
+              title="Feeden kunne ikke lastes"
+              description="Noe gikk galt ved lasting av innholdet."
+              onRetry={() => {}} 
+            />
+          </div>
         )}
         
         {state === "empty" && (
-          <DavosEmptyState
-            icon={Newspaper}
-            title="Ingen oppdateringer ennå"
-            description="Del bilder og øyeblikk fra turen her."
-          />
+          <div className="flex-1 flex items-center justify-center min-h-[50vh]">
+            <DavosEmptyState
+              icon={Newspaper}
+              title="Ingen oppdateringer ennå"
+              description="Del bilder og øyeblikk fra turen her."
+            />
+          </div>
         )}
       </div>
     </div>

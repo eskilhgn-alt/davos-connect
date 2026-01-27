@@ -138,7 +138,10 @@ const WeatherScreen: React.FC = () => {
   const showPullIndicator = isPulling || isRefreshing;
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-background">
+    <div 
+      className="flex flex-col overflow-hidden bg-background"
+      style={{ height: "var(--app-height)" }}
+    >
       <AppHeader
         title="Vær"
         subtitle={selectedModel === "consensus" ? "Davos konsensus" : selectedModel}
@@ -152,7 +155,7 @@ const WeatherScreen: React.FC = () => {
       {/* Pull-to-refresh indicator */}
       <div 
         className={cn(
-          "flex items-center justify-center overflow-hidden transition-all duration-200",
+          "flex items-center justify-center overflow-hidden transition-all duration-200 shrink-0",
           showPullIndicator ? "opacity-100" : "opacity-0"
         )}
         style={{ height: pullDistance }}
@@ -180,11 +183,13 @@ const WeatherScreen: React.FC = () => {
         ref={containerRef}
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{ 
+          paddingBottom: "var(--bottom-nav-h-effective)",
+          WebkitOverflowScrolling: 'touch',
           transform: `translateY(${pullDistance > 0 ? 0 : 0}px)`,
           touchAction: pullDistance > 0 ? 'none' : 'auto'
         }}
       >
-        <div className="pb-24">
+        <div className="pb-4">
           {error ? (
             <div className="px-4 py-8 text-center">
               <p className="text-muted-foreground">{error}</p>

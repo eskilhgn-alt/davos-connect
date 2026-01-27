@@ -23,7 +23,8 @@
     --app-height: 100dvh;
     --keyboard-inset: 0px;
     --keyboard-open: 0;
-    --bottom-nav-h: 4rem;
+    --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom));
+    --bottom-nav-h-effective: var(--bottom-nav-h);
     --composer-h: 56px;
 
     /* === DAVOS PRIMARY COLORS (HSL) === */
@@ -137,6 +138,11 @@
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 206 71% 20%;
     --sidebar-ring: 44 88% 60%;
+  }
+
+  /* Keyboard open state - hide bottom nav effective height */
+  :root[data-keyboard="open"] {
+    --bottom-nav-h-effective: env(safe-area-inset-bottom);
   }
 }
 
