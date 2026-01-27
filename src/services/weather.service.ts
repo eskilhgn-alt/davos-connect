@@ -5,6 +5,7 @@
  */
 
 import { MOUNTAINS, type Mountain } from "@/config/mountains";
+import { circularMeanDegrees } from "@/features/weather/windUtils";
 
 // ============================================
 // TYPES
@@ -20,6 +21,8 @@ export interface DayForecast {
   precipitation: number;
   snowfall: number;
   wind: number;
+  windDirection?: number;
+  windGust?: number;
   weatherCode: number;
 }
 
@@ -31,6 +34,8 @@ export interface DayAggregate {
   precipMedian: number;
   snowMedian: number;
   windMedian: number;
+  windDirectionDeg?: number;
+  windGustMax?: number;
   weatherCode: number;
   confidence: ConfidenceLevel;
 }
@@ -118,6 +123,8 @@ interface OpenMeteoResponse {
     precipitation_sum: number[];
     snowfall_sum: number[];
     wind_speed_10m_max: number[];
+    wind_direction_10m_dominant?: number[];
+    wind_gusts_10m_max?: number[];
     weather_code: number[];
   };
 }
@@ -130,7 +137,7 @@ async function fetchModelForecast(
   const url = new URL("https://api.open-meteo.com/v1/forecast");
   url.searchParams.set("latitude", mountain.lat.toString());
   url.searchParams.set("longitude", mountain.lon.toString());
-  url.searchParams.set("daily", "temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum,wind_speed_10m_max,weather_code");
+  url.searchParams.set("daily", "temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum,wind_speed_10m_max,wind_direction_10m_dominant,wind_gusts_10m_max,weather_code");
   url.searchParams.set("models", modelId);
   url.searchParams.set("forecast_days", days.toString());
   url.searchParams.set("timezone", "Europe/Zurich");
@@ -151,6 +158,8 @@ async function fetchModelForecast(
     precipitation: data.daily.precipitation_sum[i] || 0,
     snowfall: data.daily.snowfall_sum[i] || 0,
     wind: data.daily.wind_speed_10m_max[i] || 0,
+    windDirection: data.daily.wind_direction_10m_dominant?.[i],
+    windGust: data.daily.wind_gusts_10m_max?.[i],
     weatherCode: data.daily.weather_code[i] || 0
   }));
 }
@@ -193,6 +202,12 @@ function aggregateForecasts(
     const precips = dayData.map(d => d.precipitation);
     const snows = dayData.map(d => d.snowfall);
     const winds = dayData.map(d => d.wind);
+    const windDirs = dayData
+      .map(d => d.windDirection)
+      .filter((d): d is number => d !== undefined && !isNaN(d));
+    const windGusts = dayData
+      .map(d => d.windGust)
+      .filter((g): g is number => g !== undefined && !isNaN(g));
     
     const tempMin = Math.min(...tempMins);
     const tempMax = Math.max(...tempMaxes);
@@ -206,6 +221,8 @@ function aggregateForecasts(
       precipMedian: Math.round(median(precips) * 10) / 10,
       snowMedian: Math.round(median(snows) * 10) / 10,
       windMedian: Math.round(median(winds)),
+      windDirectionDeg: windDirs.length > 0 ? circularMeanDegrees(windDirs) : undefined,
+      windGustMax: windGusts.length > 0 ? Math.round(Math.max(...windGusts)) : undefined,
       weatherCode: dayData[0].weatherCode,
       confidence: calculateConfidence(tempSpan)
     });
