@@ -2,6 +2,7 @@ import * as React from "react";
 import { AppHeader } from "@/components/layout";
 import {
   WeatherHero,
+  WeatherKiQuote,
   WeatherDayStrip,
   WeatherDayDetail,
   WeatherModelTabs,
@@ -175,6 +176,9 @@ const WeatherScreen: React.FC = () => {
             <>
               {/* Hero - Today's weather */}
               <WeatherHero today={today} loading={loading} />
+
+              {/* KI interprets the weather */}
+              <WeatherKiQuote day={today || undefined} isLoading={loading} />
 
               {/* 7-day strip */}
               <div className="mt-4">
