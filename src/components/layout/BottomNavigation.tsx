@@ -12,7 +12,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: MessageCircle, label: "Chat", path: "/" },
   { icon: CloudSun, label: "Vær", path: "/vaer" },
-  { icon: Map, label: "Kart", path: "/kart" },
+  { icon: Map, label: "Løypekart", path: "/kart" },
   { icon: MoreHorizontal, label: "Mer", path: "/mer" },
 ];
 

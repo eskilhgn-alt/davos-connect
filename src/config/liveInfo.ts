@@ -8,6 +8,7 @@ export interface LiveInfoSource {
   title: string;
   url: string;
   description?: string;
+  embeddable?: boolean; // Default true if not specified
 }
 
 export interface FeaturedWebcam {
@@ -20,32 +21,36 @@ export interface FeaturedWebcam {
 
 // Map sources
 export const MAPS: Record<string, LiveInfoSource> = {
+  interaktiv: {
+    id: "interaktiv",
+    title: "Interaktivt kart",
+    url: "https://api.davos.ch/fileadmin/davos/various/interaktivekarte/?season=wi&lang=en",
+    description: "Full kartvisning med POI",
+    embeddable: true
+  },
   nord: {
     id: "nord",
     title: "Kart Nord",
     url: "https://www.siscontrol.ch/d001/sismap/davos-nord/2",
-    description: "Parsenn, Pischa, Madrisa"
+    description: "Parsenn, Pischa, Madrisa",
+    embeddable: true
   },
   syd: {
     id: "syd",
     title: "Kart Sør",
     url: "https://www.siscontrol.ch/d001/sismap/davos-sued/2",
-    description: "Jakobshorn, Rinerhorn"
-  },
-  interaktiv: {
-    id: "interaktiv",
-    title: "Interaktivt kart",
-    url: "https://api.davos.ch/fileadmin/davos/various/interaktivekarte/?season=wi&lang=en",
-    description: "Full kartvisning med POI"
+    description: "Jakobshorn, Rinerhorn",
+    embeddable: true
   }
 };
 
-// Webcams page embed
+// Webcams page embed - may be blocked by X-Frame-Options
 export const WEBCAMS_PAGE: LiveInfoSource = {
   id: "webcams",
   title: "Alle webcams",
   url: "https://www.davosklostersmountains.ch/en/mountains/winter/live-info/webcams",
-  description: "Live-bilder fra hele skiområdet"
+  description: "Live-bilder fra hele skiområdet",
+  embeddable: false // davosklostersmountains blocks iframes
 };
 
 // Featured webcams - one per mountain area

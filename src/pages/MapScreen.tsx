@@ -3,7 +3,6 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { DavosSegmented } from "@/components/ui/davos-segmented";
 import { DavosWebEmbed } from "@/components/live/DavosWebEmbed";
 import { WebcamCard } from "@/components/live/WebcamCard";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +18,7 @@ import {
 } from "@/config/liveInfo";
 
 type MainTab = "kart" | "webcams";
-type MapSubTab = "nord" | "syd" | "interaktiv";
+type MapSubTab = "interaktiv" | "nord" | "syd";
 
 const MAIN_TABS = [
   { value: "kart", label: "Kart" },
@@ -27,24 +26,27 @@ const MAIN_TABS = [
 ];
 
 const MAP_TABS = [
+  { value: "interaktiv", label: "Interaktiv" },
   { value: "nord", label: "Nord" },
   { value: "syd", label: "Sør" },
-  { value: "interaktiv", label: "Interaktiv" },
 ];
 
 export const MapScreen: React.FC = () => {
   const [mainTab, setMainTab] = React.useState<MainTab>("kart");
-  const [mapSubTab, setMapSubTab] = React.useState<MapSubTab>("nord");
+  const [mapSubTab, setMapSubTab] = React.useState<MapSubTab>("interaktiv");
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   const currentMap = MAPS[mapSubTab];
 
   return (
-    <div className="flex flex-col h-[100dvh]">
-      <AppHeader title="Live Info" subtitle="Davos Klosters" />
+    <div 
+      className="flex flex-col overflow-hidden"
+      style={{ height: "var(--app-height)" }}
+    >
+      <AppHeader title="Løypekart" subtitle="Davos Klosters" />
 
       {/* Sticky segmented control */}
-      <div className="sticky top-14 z-30 bg-background border-b border-border px-4 py-3 safe-area-top">
+      <div className="shrink-0 bg-background border-b border-border px-4 py-3">
         <DavosSegmented
           options={MAIN_TABS}
           value={mainTab}
@@ -54,89 +56,93 @@ export const MapScreen: React.FC = () => {
       </div>
 
       {/* Scrollable content area */}
-      <ScrollArea className="flex-1">
-        <div className="pb-24">
+      <div 
+        className="flex-1 overflow-y-auto overscroll-contain"
+        style={{ paddingBottom: "var(--bottom-nav-h-effective)" }}
+      >
+        {/* KART TAB */}
+        {mainTab === "kart" && (
+          <div className="flex flex-col h-full p-4">
+            {/* Map sub-tabs */}
+            <div className="mb-4 shrink-0">
+              <DavosSegmented
+                options={MAP_TABS}
+                value={mapSubTab}
+                onChange={(v) => setMapSubTab(v as MapSubTab)}
+                className="w-full"
+              />
+            </div>
 
-          {/* KART TAB */}
-          {mainTab === "kart" && (
-            <div className="p-4">
-              {/* Map sub-tabs */}
-              <div className="mb-4">
-                <DavosSegmented
-                  options={MAP_TABS}
-                  value={mapSubTab}
-                  onChange={(v) => setMapSubTab(v as MapSubTab)}
-                  className="w-full"
-                />
+            {/* Map info */}
+            <div className="mb-4 flex items-start justify-between shrink-0">
+              <div>
+                <h2 className="font-heading text-lg font-semibold text-foreground">
+                  {currentMap.title}
+                </h2>
+                {currentMap.description && (
+                  <p className="text-sm text-muted-foreground">
+                    {currentMap.description}
+                  </p>
+                )}
               </div>
+              <DavosButton
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsFullscreen(true)}
+                aria-label="Fullskjerm"
+              >
+                <Maximize2 size={20} />
+              </DavosButton>
+            </div>
 
-              {/* Map info */}
-              <div className="mb-4 flex items-start justify-between">
-                <div>
-                  <h2 className="font-heading text-lg font-semibold text-foreground">
-                    {currentMap.title}
-                  </h2>
-                  {currentMap.description && (
-                    <p className="text-sm text-muted-foreground">
-                      {currentMap.description}
-                    </p>
-                  )}
-                </div>
-                <DavosButton
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsFullscreen(true)}
-                  aria-label="Fullskjerm"
-                >
-                  <Maximize2 size={20} />
-                </DavosButton>
-              </div>
-
-              {/* Map embed */}
+            {/* Map embed - fills remaining space */}
+            <div className="flex-1 min-h-[50vh]">
               <DavosWebEmbed
                 title={currentMap.title}
                 url={currentMap.url}
-                height="calc(100dvh - 320px)"
+                embeddable={currentMap.embeddable !== false}
+                height="100%"
               />
             </div>
-          )}
+          </div>
+        )}
 
-          {/* WEBCAMS TAB */}
-          {mainTab === "webcams" && (
-            <div className="p-4">
-              {/* Featured webcams */}
-              <div className="mb-6">
-                <h2 className="font-heading text-lg font-semibold text-foreground mb-1">
-                  Featured webcams
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Live-bilder fra fjellområdene
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {FEATURED_WEBCAMS.map((webcam) => (
-                    <WebcamCard key={webcam.id} webcam={webcam} />
-                  ))}
-                </div>
-              </div>
-
-              {/* All webcams embed */}
-              <div>
-                <h2 className="font-heading text-lg font-semibold text-foreground mb-1">
-                  Alle webcams
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Fullstendig oversikt over alle kameraer
-                </p>
-                <DavosWebEmbed
-                  title={WEBCAMS_PAGE.title}
-                  url={WEBCAMS_PAGE.url}
-                  height="60vh"
-                />
+        {/* WEBCAMS TAB */}
+        {mainTab === "webcams" && (
+          <div className="p-4">
+            {/* Featured webcams */}
+            <div className="mb-6">
+              <h2 className="font-heading text-lg font-semibold text-foreground mb-1">
+                Featured webcams
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Live-bilder fra fjellområdene
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {FEATURED_WEBCAMS.map((webcam) => (
+                  <WebcamCard key={webcam.id} webcam={webcam} />
+                ))}
               </div>
             </div>
-          )}
-        </div>
-      </ScrollArea>
+
+            {/* All webcams - use fallback card since it's not embeddable */}
+            <div>
+              <h2 className="font-heading text-lg font-semibold text-foreground mb-1">
+                Alle webcams
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Fullstendig oversikt over alle kameraer
+              </p>
+              <DavosWebEmbed
+                title={WEBCAMS_PAGE.title}
+                url={WEBCAMS_PAGE.url}
+                embeddable={WEBCAMS_PAGE.embeddable !== false}
+                height="60vh"
+              />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Fullscreen map modal */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>

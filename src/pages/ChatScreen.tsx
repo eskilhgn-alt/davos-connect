@@ -167,31 +167,9 @@ export const ChatScreen: React.FC = () => {
 
   const hasMessages = messages.length > 0;
 
-  // Track composer height for message list padding
-  const composerRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    const composer = composerRef.current;
-    if (!composer) return;
-
-    const updateComposerHeight = () => {
-      const height = composer.offsetHeight;
-      document.documentElement.style.setProperty('--composer-h', `${height}px`);
-    };
-
-    // Initial measurement
-    updateComposerHeight();
-
-    // Watch for size changes
-    const resizeObserver = new ResizeObserver(updateComposerHeight);
-    resizeObserver.observe(composer);
-
-    return () => resizeObserver.disconnect();
-  }, []);
-
   return (
     <div 
-      className="relative flex flex-col overflow-hidden"
+      className="flex flex-col overflow-hidden"
       style={{ height: 'var(--app-height)' }}
     >
       {/* Sticky header */}
@@ -209,7 +187,7 @@ export const ChatScreen: React.FC = () => {
         }
       />
       
-      {/* Message list or empty state */}
+      {/* Message list or empty state - flex-1 to take remaining space */}
       {hasMessages ? (
         <ChatMessageList
           messages={messages}
@@ -219,10 +197,16 @@ export const ChatScreen: React.FC = () => {
           showTimestamps={showTimestamps}
           onToggleTimestamps={handleToggleTimestamps}
           onEditMessage={handleEditMessage}
-          className="flex-1"
+          className="flex-1 min-h-0"
         />
       ) : (
-        <div className="flex-1 flex items-center justify-center px-6 overflow-y-auto">
+        <div 
+          className="flex-1 min-h-0 flex items-center justify-center px-6 overflow-y-auto"
+          style={{ 
+            paddingBottom: 'var(--bottom-nav-h-effective)',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
           <DavosEmptyState
             icon={MessageCircle}
             title="Start en samtale"
@@ -231,16 +215,11 @@ export const ChatScreen: React.FC = () => {
         </div>
       )}
       
-      {/* Composer - fixed to bottom, adjusts for keyboard */}
+      {/* Composer - in normal flow, shrink-0 to prevent compression */}
       <div 
-        ref={composerRef}
-        className="z-30 bg-background"
+        className="shrink-0 bg-background border-t border-border"
         style={{ 
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          bottom: 'calc(var(--keyboard-inset) + var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px))',
-          transition: 'bottom 0.1s ease-out'
+          paddingBottom: 'var(--bottom-nav-h-effective)'
         }}
       >
         <ChatComposer
