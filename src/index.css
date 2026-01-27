@@ -23,7 +23,9 @@
     --app-height: 100dvh;
     --keyboard-inset: 0px;
     --keyboard-open: 0;
+    /* Bottom nav height: 4rem (64px) tab bar + safe-area for home indicator */
     --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom));
+    /* Effective height - used by screens for padding. Becomes 0 when keyboard is open */
     --bottom-nav-h-effective: var(--bottom-nav-h);
     --composer-h: 56px;
 
@@ -140,9 +142,9 @@
     --sidebar-ring: 44 88% 60%;
   }
 
-  /* Keyboard open state - hide bottom nav effective height */
+  /* Keyboard open state - bottom nav hides, so effective height becomes just safe-area */
   :root[data-keyboard="open"] {
-    --bottom-nav-h-effective: env(safe-area-inset-bottom);
+    --bottom-nav-h-effective: 0px;
   }
 }
 
@@ -183,9 +185,8 @@
     }
   }
 
-  /* Hide bottom nav when keyboard is open */
+  /* When keyboard is open - bottom nav is unmounted so no height needed */
   :root[data-keyboard="open"] {
-    --bottom-nav-h: 0px;
     --bottom-nav-h-effective: 0px;
   }
 

@@ -225,12 +225,15 @@ export const ChatScreen: React.FC = () => {
         </div>
       )}
       
-      {/* Fixed Composer at bottom - Messenger style */}
+      {/* 
+        Composer container - MUST account for bottom nav height when keyboard is closed
+        When keyboard opens, --bottom-nav-h-effective becomes 0, so only safe-area remains
+      */}
       <div 
         ref={composerRef}
         className="shrink-0 bg-background border-t border-border"
         style={{ 
-          paddingBottom: 'calc(env(safe-area-inset-bottom) + var(--keyboard-inset, 0px))'
+          paddingBottom: 'calc(var(--bottom-nav-h-effective, 0px) + var(--keyboard-inset, 0px))'
         }}
       >
         <ChatComposer
