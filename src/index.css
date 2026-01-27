@@ -19,6 +19,13 @@
 
 @layer base {
   :root {
+    /* === PWA / KEYBOARD HANDLING DEFAULTS === */
+    --app-height: 100dvh;
+    --keyboard-inset: 0px;
+    --keyboard-open: 0;
+    --bottom-nav-h: 4rem;
+    --composer-h: 56px;
+
     /* === DAVOS PRIMARY COLORS (HSL) === */
     --davos-blue: 206 71% 21%;          /* #103A5D */
     --davos-yellow: 44 88% 60%;          /* #F4CD3C */
@@ -138,6 +145,11 @@
     @apply border-border;
   }
 
+  /* PWA height stability */
+  html, body, #root {
+    height: 100%;
+  }
+
   html {
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
@@ -147,6 +159,12 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Hide bottom nav when keyboard is open */
+  :root[data-keyboard="open"] {
+    --bottom-nav-h: 0px;
   }
 
   h1, h2, h3, h4, h5, h6 {

@@ -109,6 +109,11 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         ref={scrollContainerRef}
         className="h-full overflow-y-auto overscroll-contain"
         onScroll={handleScroll}
+        style={{ 
+          WebkitOverflowScrolling: 'touch',
+          // Padding to account for composer + bottom nav + keyboard
+          paddingBottom: 'calc(var(--composer-h) + var(--bottom-nav-h) + var(--keyboard-inset) + env(safe-area-inset-bottom, 0px) + 1rem)'
+        }}
       >
         <div className="flex flex-col py-4">
           {groupedMessages.map((group) => (

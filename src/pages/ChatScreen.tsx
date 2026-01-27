@@ -167,8 +167,33 @@ export const ChatScreen: React.FC = () => {
 
   const hasMessages = messages.length > 0;
 
+  // Track composer height for message list padding
+  const composerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+
+    const updateComposerHeight = () => {
+      const height = composer.offsetHeight;
+      document.documentElement.style.setProperty('--composer-h', `${height}px`);
+    };
+
+    // Initial measurement
+    updateComposerHeight();
+
+    // Watch for size changes
+    const resizeObserver = new ResizeObserver(updateComposerHeight);
+    resizeObserver.observe(composer);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden">
+    <div 
+      className="relative flex flex-col overflow-hidden"
+      style={{ height: 'var(--app-height)' }}
+    >
       {/* Sticky header */}
       <AppHeader 
         title="Chat" 
@@ -197,7 +222,7 @@ export const ChatScreen: React.FC = () => {
           className="flex-1"
         />
       ) : (
-        <div className="flex-1 flex items-center justify-center px-6">
+        <div className="flex-1 flex items-center justify-center px-6 overflow-y-auto">
           <DavosEmptyState
             icon={MessageCircle}
             title="Start en samtale"
@@ -206,11 +231,16 @@ export const ChatScreen: React.FC = () => {
         </div>
       )}
       
-      {/* Sticky composer - positioned above bottom nav */}
+      {/* Composer - fixed to bottom, adjusts for keyboard */}
       <div 
-        className="sticky bottom-0 z-30"
+        ref={composerRef}
+        className="z-30 bg-background"
         style={{ 
-          paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' 
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 'calc(var(--keyboard-inset) + var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px))',
+          transition: 'bottom 0.1s ease-out'
         }}
       >
         <ChatComposer
