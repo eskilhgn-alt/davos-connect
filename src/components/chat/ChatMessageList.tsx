@@ -51,6 +51,24 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     bottomRef.current?.scrollIntoView({ behavior: 'auto' });
   }, []);
 
+  // Listen for keyboard state changes to auto-scroll when keyboard opens
+  React.useEffect(() => {
+    const handleKeyboardChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ open: boolean; keyboardInset: number; appHeight: number }>;
+      if (customEvent.detail.open && isAtBottomRef.current) {
+        // Wait for layout to settle, then scroll to bottom
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        });
+      }
+    };
+    
+    window.addEventListener('keyboard-state-change', handleKeyboardChange);
+    return () => window.removeEventListener('keyboard-state-change', handleKeyboardChange);
+  }, []);
+
   // Detect scroll position
   const handleScroll = React.useCallback(() => {
     const container = scrollContainerRef.current;

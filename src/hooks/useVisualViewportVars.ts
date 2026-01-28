@@ -29,6 +29,11 @@ export function useVisualViewportVars() {
       // Also set bottom-nav effective height for immediate JS-based updates
       root.style.setProperty('--bottom-nav-h-effective', open ? '0px' : 'var(--bottom-nav-h)');
       root.dataset.keyboard = open ? 'open' : 'closed';
+      
+      // Dispatch custom event for components that need to react to keyboard changes
+      window.dispatchEvent(new CustomEvent('keyboard-state-change', { 
+        detail: { open, keyboardInset, appHeight } 
+      }));
     };
 
     const update = () => {
