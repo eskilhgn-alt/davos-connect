@@ -1,269 +1,177 @@
 
-# Sprint 2.0: Messenger-lignende Chat-opplevelse
 
-## Oversikt
+## Sprint 2.13: PWA iPhone Chat UX - Messenger-Style Rewrite
 
-Bygge en fullverdig lokal chat-app som føles "native" på mobil, med sticky header/input, meldingsliste som scroller, mediestøtte, reaksjoner og moderne interaksjoner.
+### Problem Analysis
 
-## Nåværende tilstand
+Based on the code review, the current implementation has these issues:
 
-- AppLayout har `pb-20` på main som må fjernes
-- ChatScreen er en tom "kommer snart"-side
-- Eksisterende komponenter: DavosButton, DavosInput, DavosAvatar, Dialog, Sheet, ContextMenu
-- chatService i contracts.ts er "not implemented"
-- Ingen GIPHY API-nøkkel konfigurert (må legges til for GIF-støtte)
+1. **Dynamic container height shrinks everything** - Using `height: var(--app-height)` causes the entire chat container to shrink when the keyboard opens. Combined with flex layout, this shrinks the message list proportionally.
 
-## Implementasjonsplan
+2. **Double compensation for keyboard** - The composer has `paddingBottom: calc(var(--bottom-nav-h-effective) + var(--keyboard-inset))`, but since `--app-height` also changes, this creates unpredictable behavior.
 
-### Fase 1: Layout-korreksjon (Kritisk grunnlag)
+3. **The Messenger model isn't properly implemented** - In real Messenger, the composer is **fixed to the screen bottom** (not to the flex container), and the message list has static padding at bottom.
 
-**1.1 Gjør AppLayout "tynn"**
+---
 
-Fil: `src/components/layout/AppLayout.tsx`
-- Fjern `pb-20` fra main-wrapper
-- La hver side håndtere egen spacing
-- Resultat: `<div className="min-h-screen bg-background"><Outlet /><BottomNavigation /></div>`
+### Solution: Fixed Composer + Static Message List Height
 
-**1.2 Restructurer ChatScreen layout**
+The fix requires restructuring ChatScreen to use a **fixed-position composer** that floats above the keyboard, while the message list uses the full available height (not dynamically shrinking).
 
-Fil: `src/pages/ChatScreen.tsx`
-- 100dvh-basert container med flex-col og overflow-hidden
-- AppHeader sticky øverst (safe-area-top)
-- MessageList = flex-1 med overflow-y-auto og overscroll-contain
-- ChatComposer sticky nederst med korrekt offset: `bottom: calc(4rem + env(safe-area-inset-bottom))`
+---
 
-### Fase 2: Datamodell og lokal lagring
+### Changes to Implement
 
-**2.1 Oppdater contracts.ts med utvidet datamodell**
+#### 1. `src/pages/ChatScreen.tsx` - Complete Layout Restructure
 
-Fil: `src/services/contracts.ts`
-
-```text
-Nye typer:
-- LocalUser: id, name, avatarColor
-- Thread: id, title, participantIds
-- Message: id, threadId, senderId, senderName, text, createdAt, 
-           editedAt?, deletedAt?, status, attachments[], reactions{}
-- Attachment: id, type (image|gif|video), url, thumbUrl?
-- MessageStatus: 'sent' | 'delivered' | 'seen'
+```tsx
+// ROOT: Use fixed inset-0 (full screen), NOT dynamic --app-height
+<div className="fixed inset-0 flex flex-col overflow-hidden">
+  
+  {/* Header - sticky at top, respects safe-area */}
+  <AppHeader ... className="safe-area-top" />
+  
+  {/* Message list - fills all space between header and composer */}
+  {/* Padding-bottom is STATIC: composer height + bottom-nav + safe-area */}
+  <ChatMessageList
+    className="flex-1 min-h-0"
+    bottomPadding={composerHeight + bottomNavHeight + safeAreaBottom}
+  />
+  
+  {/* Composer - FIXED at bottom, positioned above keyboard */}
+  <div 
+    className="fixed left-0 right-0 bg-background border-t"
+    style={{ 
+      // Position above keyboard when open, above bottom-nav when closed
+      bottom: 'calc(env(safe-area-inset-bottom) + var(--keyboard-inset, 0px))',
+      // When keyboard closed, also account for bottom nav
+      // When keyboard open, --bottom-nav-h-effective is 0
+      paddingBottom: 'var(--bottom-nav-h-effective, 0px)'
+    }}
+  >
+    <ChatComposer ... />
+  </div>
+</div>
 ```
 
-**2.2 Opprett chat.local.ts med localStorage/IndexedDB**
+**Key changes:**
+- Root container: `fixed inset-0` instead of `height: var(--app-height)`
+- Composer: `position: fixed` with `bottom` calculated from keyboard inset
+- Message list: Static padding that doesn't change with keyboard
 
-Ny fil: `src/services/chat.local.ts`
+---
 
-Implementerer:
-- `getThread()` - returnerer default Davos crew thread
-- `listMessages(threadId)` - henter meldinger fra localStorage
-- `sendMessage(threadId, payload)` - lagrer ny melding
-- `editMessage(messageId, newText)` - setter editedAt
-- `deleteMessage(messageId)` - setter deletedAt (soft delete)
-- `toggleReaction(messageId, emoji)` - legg til/fjern reaksjon
-- `updateMessageStatus(messageId, status)` - oppdater status
+#### 2. `src/hooks/useVisualViewportVars.ts` - Improved Keyboard Detection
 
-**2.3 IndexedDB wrapper for media**
+Current implementation is mostly good, but needs refinement:
 
-Ny fil: `src/services/media-storage.ts`
+```typescript
+// More aggressive scroll-to-bottom trigger when keyboard opens
+// Add a callback mechanism or custom event for chat to react
 
-- Lagrer Blob-data for bilder/video
-- Fallback til blob URL hvis IndexedDB feiler
-- Metoder: `saveMedia(id, blob)`, `getMedia(id)`, `deleteMedia(id)`
-
-**2.4 Brukeridentitet**
-
-Ny fil: `src/hooks/useCurrentUser.ts`
-
-- Genererer userId med crypto.randomUUID()
-- Lagrer i localStorage
-- Default name = "Meg"
-- Funksjon for å endre visningsnavn
-
-### Fase 3: Chat UI-komponenter
-
-Ny mappe: `src/components/chat/`
-
-**3.1 ChatMessageList.tsx**
-- ScrollArea-basert liste
-- Gruppering av meldinger fra samme avsender
-- Autoscroll til bunn ved ny melding
-- "Hopp til bunn"-knapp hvis bruker har scrollet opp
-- IntersectionObserver for "sett"-status
-
-**3.2 ChatMessageBubble.tsx**
-- Egen melding (høyre, accent-bakgrunn) vs andres (venstre, muted)
-- Viser avsendernavn for andres meldinger
-- Status-ikoner: sendt/levert/sett (kun egne)
-- "Redigert"-label hvis editedAt finnes
-- "Melding slettet"-state hvis deletedAt finnes
-- Timestamp som vises ved tap
-- Attachments (bilde/video/GIF thumbnail)
-- Reaksjoner under boblen som chips
-
-**3.3 DateSeparator.tsx**
-- "I dag", "I går", eller "dd.mm.yyyy"
-- Sentrert linje med dato
-
-**3.4 ChatComposer.tsx**
-- Textarea med auto-resize
-- Enter = send, Shift+Enter = ny linje
-- Knapper: Emoji, GIF, Vedlegg (+), Send
-- Preview av valgt media før sending
-- Fil-input (accept="image/*,video/*")
-
-**3.5 EmojiPicker.tsx**
-- Popover med ofte brukte emojis
-- Grid-layout, gruppert etter kategori
-- Ingen ekstern dependency - hardkodet emoji-liste
-
-**3.6 GifPicker.tsx**
-- Sheet (bottom drawer) med søkefelt
-- Grid av GIF-resultater fra Giphy API
-- Krever VITE_GIPHY_API_KEY (må legges til i secrets)
-- Fallback-melding hvis nøkkel mangler
-
-**3.7 ReactionBar.tsx**
-- Hurtigreaksjoner: thumbs up, heart, laugh, wow, sad, angry, plus
-- Vises ved long-press/høyreklikk på melding
-- Animert inn/ut
-
-**3.8 MessageActionsMenu.tsx**
-- ContextMenu (desktop) / Long-press popover (mobil)
-- Egne meldinger: Rediger, Slett, Kopier
-- Andres meldinger: Reager, Kopier
-- Bruker eksisterende DropdownMenu/ContextMenu
-
-**3.9 MediaViewerModal.tsx**
-- Dialog for fullskjerm visning av bilde/video
-- Object-contain for bilder
-- Video-player for video
-- Enkel zoom (+/-) for bilder
-
-**3.10 TypingIndicator.tsx**
-- Animert "..."-boble
-- Vises nær bunnen av meldingslisten
-- Simulert: trigges etter bruker har skrevet i 600ms
-
-### Fase 4: Interaksjoner og UX
-
-**4.1 Long-press håndtering**
-
-Ny hook: `src/hooks/useLongPress.ts`
-- Pointer events for touch/desktop
-- 500ms delay for å aktivere
-- Trigge ReactionBar + MessageActionsMenu
-
-**4.2 Timestamp toggle**
-- State for å vise/skjule timestamps globalt
-- Tap på hvilken som helst melding toggler
-
-**4.3 Auto-scroll logikk**
-- Scroll til bunn ved ny melding
-- Detekter om bruker har scrollet opp (via scroll-event)
-- Vis "Hopp til bunn"-knapp (floating action button)
-
-**4.4 Meldingsstatus-simulering**
-- "Sendt" umiddelbart
-- "Levert" etter 300ms timeout
-- "Sett" via IntersectionObserver når synlig i viewport
-
-**4.5 Typing-indicator simulering**
-- Debounce brukerens typing (600ms)
-- Vis "Davos crew skriver..." i 2-3 sekunder
-- Valgfritt: auto-reply med forhåndsdefinert melding
-
-### Fase 5: Tom-tilstand og discoverability
-
-**5.1 Oppdatert EmptyState**
-- Ikon og tekst som forklarer funksjonalitet
-- "Send tekst, emoji, GIF, bilde og video"
-- "Hold inne en melding for reaksjoner og meny"
-
-**5.2 Onboarding tooltip (valgfritt)**
-- Første gangs bruk: liten toast som forklarer long-press
-- Lagres i localStorage at den er vist
-
-**5.3 Endre navn i header**
-- Knapp i AppHeader (tannhjul eller profil-ikon)
-- Åpner Dialog for å skrive inn nytt navn
-
-## Filstruktur etter Sprint 2.0
-
-```text
-src/
-  components/
-    chat/
-      ChatMessageList.tsx
-      ChatMessageBubble.tsx
-      ChatComposer.tsx
-      DateSeparator.tsx
-      EmojiPicker.tsx
-      GifPicker.tsx
-      ReactionBar.tsx
-      MessageActionsMenu.tsx
-      MediaViewerModal.tsx
-      TypingIndicator.tsx
-      index.ts
-  hooks/
-    useCurrentUser.ts
-    useLongPress.ts
-  services/
-    chat.local.ts
-    media-storage.ts
-    contracts.ts (oppdatert)
-  pages/
-    ChatScreen.tsx (fullstendig refaktorert)
-  components/layout/
-    AppLayout.tsx (forenklet)
+const setKeyboardState = (open: boolean, keyboardInset: number, appHeight: number) => {
+  root.style.setProperty('--app-height', `${appHeight}px`);
+  root.style.setProperty('--keyboard-inset', `${keyboardInset}px`);
+  root.style.setProperty('--keyboard-open', open ? '1' : '0');
+  root.style.setProperty('--bottom-nav-h-effective', open ? '0px' : 'var(--bottom-nav-h)');
+  root.dataset.keyboard = open ? 'open' : 'closed';
+  
+  // NEW: Dispatch custom event for components that need to react
+  window.dispatchEvent(new CustomEvent('keyboard-state-change', { 
+    detail: { open, keyboardInset, appHeight } 
+  }));
+};
 ```
 
-## Tekniske detaljer
+---
 
-### Datalagring
-- **localStorage**: Meldinger (JSON), bruker-ID, visningsnavn, thread-metadata
-- **IndexedDB**: Media-blobs (bilder, video) - unngår 5MB localStorage-limit
-- **Fallback**: Blob URLs for media hvis IndexedDB feiler (ikke persistent)
+#### 3. `src/components/chat/ChatMessageList.tsx` - Keyboard-Aware Auto-Scroll
 
-### Keyboard-håndtering
-- `Enter` sender melding
-- `Shift+Enter` ny linje
-- Escape lukker emoji/GIF picker
+Add listener for keyboard state changes:
 
-### Safe area
-- Header: `safe-area-top` (allerede implementert)
-- Composer: `bottom: calc(4rem + env(safe-area-inset-bottom))`
-- Meldingsliste: padding-bottom for å ikke bli skjult av composer
+```typescript
+// When keyboard opens and user is at bottom, scroll to bottom after layout settles
+React.useEffect(() => {
+  const handleKeyboardChange = (e: CustomEvent) => {
+    if (e.detail.open && isAtBottomRef.current) {
+      // Wait for layout to settle, then scroll
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      });
+    }
+  };
+  
+  window.addEventListener('keyboard-state-change', handleKeyboardChange);
+  return () => window.removeEventListener('keyboard-state-change', handleKeyboardChange);
+}, []);
+```
 
-### Giphy-integrasjon
-- Krever VITE_GIPHY_API_KEY i miljøvariabler
-- Endpoint: `api.giphy.com/v1/gifs/search`
-- Viser feilmelding hvis nøkkel mangler
+---
 
-## Avhengigheter
+#### 4. `src/components/layout/BottomNavigation.tsx` - Verify Full Unmount
 
-Ingen nye dependencies. Bruker eksisterende:
-- Radix UI (Dialog, Sheet, Popover, ContextMenu, ScrollArea)
-- Lucide icons
-- class-variance-authority
-- date-fns for datoformatering
+Current implementation already unmounts when keyboard is open (return null). Verify this is working correctly:
 
-## Akseptansekriterier
+```typescript
+// The current approach is correct - full unmount prevents iOS from
+// dragging the fixed element up with keyboard
+if (isKeyboardOpen) {
+  return null;
+}
+```
 
-- [ ] `/` (Chat) er fullverdig chat med alle features
-- [ ] Sticky header + sticky composer, kun message-list scroller
-- [ ] Timestamps + dato-separatorer fungerer
-- [ ] Rediger/slett/reager fungerer
-- [ ] Emoji-picker fungerer
-- [ ] GIF-picker fungerer (med Giphy-nøkkel)
-- [ ] Bilde + video-opplasting fungerer
-- [ ] Typing-indikator (...) vises (lokal/simulert)
-- [ ] Status (sendt/levert/sett) vises for egne meldinger
-- [ ] Endringene i AppLayout ødelegger ikke øvrige tabs
-- [ ] Design følger Davos-tokens
+---
 
-## Estimat
+#### 5. `src/index.css` - CSS Variable Cleanup
 
-5-8 implementasjonsrunder fordelt på fasene.
+Ensure consistent variable usage:
 
-## Forberedelse før implementasjon
+```css
+:root {
+  --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom));
+  --bottom-nav-h-effective: var(--bottom-nav-h);
+  --keyboard-inset: 0px;
+}
 
-For GIF-funksjonalitet må du legge til `VITE_GIPHY_API_KEY` som en secret i prosjektet. Du kan få en gratis nøkkel på developers.giphy.com.
+:root[data-keyboard="open"] {
+  --bottom-nav-h-effective: 0px;
+}
+```
+
+---
+
+### Acceptance Criteria Verification
+
+| Criterion | Implementation |
+|-----------|----------------|
+| No iOS zoom on input focus | Already have `font-size: 16px !important` in CSS |
+| Chat history visible while typing | Fixed composer + static message list padding |
+| Bottom nav hidden when keyboard open | BottomNavigation unmounts (`return null`) |
+| Auto-scroll works correctly | Custom event listener + RAF + timeout |
+| No layout jumping | Fixed positioning instead of dynamic height |
+| Safe-area respected | `env(safe-area-inset-bottom)` in composer bottom calc |
+
+---
+
+### Files to Modify
+
+1. **`src/pages/ChatScreen.tsx`** - Major restructure to fixed layout model
+2. **`src/hooks/useVisualViewportVars.ts`** - Add custom event dispatch
+3. **`src/components/chat/ChatMessageList.tsx`** - Add keyboard state listener for auto-scroll
+4. **`src/index.css`** - Minor cleanup (optional)
+
+---
+
+### Testing Checklist
+
+After implementation, test on iPhone (Safari + Add to Home Screen):
+
+1. Tap in composer - keyboard should open, history stays visible
+2. Type multiple lines - composer grows, no layout collapse
+3. Scroll up in chat while keyboard open - should work smoothly
+4. Hide keyboard - bottom nav reappears, no layout jump
+5. Rotate device - layout should adapt correctly
+6. Send message with attachment - UI stays stable
+
