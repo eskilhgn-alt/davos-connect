@@ -1,11 +1,12 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-interface AppHeaderProps {
+export interface AppHeaderProps {
   title: string;
   subtitle?: string;
   leftAction?: React.ReactNode;
   rightAction?: React.ReactNode;
+  className?: string;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -13,9 +14,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   subtitle,
   leftAction,
   rightAction,
+  className,
 }) => {
   return (
-    <header className="sticky top-0 z-40 bg-primary text-primary-foreground safe-area-top">
+    <header className={cn("sticky top-0 z-40 bg-primary text-primary-foreground safe-area-top", className)}>
       <div className="flex items-center justify-between h-14 px-4">
         <div className="flex items-center gap-3 min-w-12">
           {leftAction}

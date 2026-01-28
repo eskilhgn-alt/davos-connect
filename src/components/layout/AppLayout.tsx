@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Outlet } from "react-router-dom";
 import { BottomNavigation } from "./BottomNavigation";
-import { useVisualViewportVars } from "@/hooks/useVisualViewportVars";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
 
 /**
  * AppLayout: Thin app-shell for PWA.
@@ -11,7 +11,7 @@ import { useVisualViewportVars } from "@/hooks/useVisualViewportVars";
  */
 export const AppLayout: React.FC = () => {
   // Initialize visual viewport CSS variables for keyboard handling
-  useVisualViewportVars();
+  useVisualViewport();
 
   return (
     <div className="h-full overflow-hidden bg-background">
