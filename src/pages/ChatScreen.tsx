@@ -176,11 +176,19 @@ export const ChatScreen: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
+  // Calculate static bottom padding for message list
+  // This doesn't shrink with keyboard - it accounts for fixed composer position
+  const getMessageListPadding = () => {
+    // Base: composer height + some spacing
+    // When keyboard closed: add bottom nav height (approx 64px + safe-area)
+    // The actual bottom nav height is handled by CSS var, but we need a reasonable default
+    const bottomNavEstimate = 80; // 64px + safe-area estimate
+    return composerHeight + bottomNavEstimate + 16;
+  };
+
   return (
-    <div 
-      className="flex flex-col overflow-hidden"
-      style={{ height: 'var(--app-height)' }}
-    >
+    // ROOT: Fixed inset-0 for stable full-screen layout (not dynamic --app-height)
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
       {/* Sticky header */}
       <AppHeader 
         title="Chat" 
@@ -196,7 +204,7 @@ export const ChatScreen: React.FC = () => {
         }
       />
       
-      {/* Message list - flex-1 takes available space between header and composer */}
+      {/* Message list - fills all space, with static bottom padding for composer */}
       {hasMessages ? (
         <ChatMessageList
           messages={messages}
@@ -207,13 +215,13 @@ export const ChatScreen: React.FC = () => {
           onToggleTimestamps={handleToggleTimestamps}
           onEditMessage={handleEditMessage}
           className="flex-1 min-h-0"
-          bottomPadding={composerHeight + 16}
+          bottomPadding={getMessageListPadding()}
         />
       ) : (
         <div 
           className="flex-1 min-h-0 flex items-center justify-center px-6 overflow-y-auto"
           style={{ 
-            paddingBottom: composerHeight + 16,
+            paddingBottom: getMessageListPadding(),
             WebkitOverflowScrolling: 'touch'
           }}
         >
@@ -226,14 +234,16 @@ export const ChatScreen: React.FC = () => {
       )}
       
       {/* 
-        Composer container - MUST account for bottom nav height when keyboard is closed
-        When keyboard opens, --bottom-nav-h-effective becomes 0, so only safe-area remains
+        Composer - FIXED at bottom, positioned above keyboard
+        bottom = safe-area + keyboard-inset
+        paddingBottom = bottom-nav height (becomes 0 when keyboard open)
       */}
       <div 
         ref={composerRef}
-        className="shrink-0 bg-background border-t border-border"
+        className="fixed left-0 right-0 bg-background border-t border-border z-40"
         style={{ 
-          paddingBottom: 'calc(var(--bottom-nav-h-effective, 0px) + var(--keyboard-inset, 0px))'
+          bottom: 'calc(env(safe-area-inset-bottom) + var(--keyboard-inset, 0px))',
+          paddingBottom: 'var(--bottom-nav-h-effective, 0px)'
         }}
       >
         <ChatComposer
