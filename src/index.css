@@ -185,9 +185,9 @@
     }
   }
 
-  /* When keyboard is open - bottom nav is unmounted so no height needed */
-  :root[data-keyboard="open"] {
-    --bottom-nav-h-effective: 0px;
+  /* When keyboard is open - bottom nav hides via CSS class, no height needed */
+  html.keyboard-open [data-bottom-nav="true"] {
+    display: none !important;
   }
 
   h1, h2, h3, h4, h5, h6 {

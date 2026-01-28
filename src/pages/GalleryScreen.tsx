@@ -2,7 +2,7 @@ import * as React from 'react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { galleryService, type GalleryItem } from '@/services/gallery.local';
 import { mediaStorage } from '@/services/media-storage';
-import { MediaViewerModal } from '@/components/chat/MediaViewerModal';
+import { MediaViewer } from '@/features/chat';
 import { DavosEmptyState } from '@/components/ui/davos-empty-state';
 import { Download, Play, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -112,7 +112,7 @@ export const GalleryScreen: React.FC = () => {
   return (
     <div 
       className="flex flex-col overflow-hidden bg-background"
-      style={{ height: "var(--app-height)" }}
+      style={{ height: "var(--vvh, 100dvh)" }}
     >
       <AppHeader title="Galleri" subtitle="Lokalt på denne enheten" />
       
@@ -189,9 +189,9 @@ export const GalleryScreen: React.FC = () => {
 
       {/* Media viewer modal */}
       {selectedItem && fullUrl && (
-        <MediaViewerModal
+        <MediaViewer
           open={viewerOpen}
-          onOpenChange={setViewerOpen}
+          onClose={() => setViewerOpen(false)}
           src={fullUrl}
           type={selectedItem.type}
         />
