@@ -1,16 +1,18 @@
 /**
  * Chat Store - localStorage-based persistence
- * Simple, robust, no external dependencies
+ * Extended for reactions, edit, delete, typing
  */
 
-import type { Message, User, Attachment } from './types';
+import type { Message, User, Attachment, TypingState } from './types';
 
 const STORAGE_KEYS = {
   MESSAGES: 'chat_messages',
   USER: 'chat_user',
+  TYPING: 'chat_typing',
 } as const;
 
 const CHAT_UPDATE_EVENT = 'chat:updated';
+const TYPING_UPDATE_EVENT = 'chat:typing';
 
 // ============ User Management ============
 
@@ -31,6 +33,13 @@ export function getUser(): User {
     // Ignore
   }
   const user = generateUser();
+  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  return user;
+}
+
+export function setUserName(name: string): User {
+  const user = getUser();
+  user.name = name.trim() || 'Meg';
   localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
   return user;
 }
@@ -72,18 +81,95 @@ export function sendMessage(text: string, attachments: Attachment[] = []): Messa
   return message;
 }
 
-export function deleteMessage(messageId: string): void {
-  const messages = listMessages().filter(m => m.id !== messageId);
-  saveMessages(messages);
-}
-
 export function editMessage(messageId: string, newText: string): void {
   const messages = listMessages();
   const idx = messages.findIndex(m => m.id === messageId);
-  if (idx !== -1) {
-    messages[idx] = { ...messages[idx], text: newText.trim() };
+  if (idx !== -1 && !messages[idx].deletedAt) {
+    messages[idx] = {
+      ...messages[idx],
+      text: newText.trim(),
+      editedAt: Date.now(),
+    };
     saveMessages(messages);
   }
+}
+
+export function deleteMessage(messageId: string): void {
+  const messages = listMessages();
+  const idx = messages.findIndex(m => m.id === messageId);
+  if (idx !== -1) {
+    // Soft delete - keep in list for stable rendering
+    messages[idx] = {
+      ...messages[idx],
+      deletedAt: Date.now(),
+    };
+    saveMessages(messages);
+  }
+}
+
+export function toggleReaction(messageId: string, emoji: string): void {
+  const user = getUser();
+  const messages = listMessages();
+  const idx = messages.findIndex(m => m.id === messageId);
+  
+  if (idx !== -1 && !messages[idx].deletedAt) {
+    const msg = messages[idx];
+    const reactions = msg.reactions || {};
+    const emojiReactions = reactions[emoji] || [];
+    
+    const userIdx = emojiReactions.indexOf(user.id);
+    if (userIdx === -1) {
+      // Add reaction
+      reactions[emoji] = [...emojiReactions, user.id];
+    } else {
+      // Remove reaction
+      reactions[emoji] = emojiReactions.filter(id => id !== user.id);
+      if (reactions[emoji].length === 0) {
+        delete reactions[emoji];
+      }
+    }
+    
+    messages[idx] = {
+      ...msg,
+      reactions: Object.keys(reactions).length > 0 ? reactions : undefined,
+    };
+    saveMessages(messages);
+  }
+}
+
+// ============ Typing State ============
+
+let typingTimeout: ReturnType<typeof setTimeout> | null = null;
+let typingState: TypingState = { isTyping: false, lastTypedAt: 0 };
+
+export function setTyping(isTyping: boolean): void {
+  if (typingTimeout) {
+    clearTimeout(typingTimeout);
+    typingTimeout = null;
+  }
+  
+  if (isTyping) {
+    typingState = { isTyping: true, lastTypedAt: Date.now() };
+    // Auto-clear after 1.5s of no activity
+    typingTimeout = setTimeout(() => {
+      typingState = { isTyping: false, lastTypedAt: Date.now() };
+      window.dispatchEvent(new CustomEvent(TYPING_UPDATE_EVENT));
+    }, 1500);
+  } else {
+    typingState = { isTyping: false, lastTypedAt: Date.now() };
+  }
+  
+  window.dispatchEvent(new CustomEvent(TYPING_UPDATE_EVENT));
+}
+
+export function getTypingState(): TypingState {
+  return typingState;
+}
+
+export function subscribeToTyping(callback: (state: TypingState) => void): () => void {
+  const handler = () => callback(getTypingState());
+  window.addEventListener(TYPING_UPDATE_EVENT, handler);
+  return () => window.removeEventListener(TYPING_UPDATE_EVENT, handler);
 }
 
 // ============ Subscription ============
@@ -113,9 +199,14 @@ export function subscribeToMessages(callback: (messages: Message[]) => void): ()
 
 export const chatStore = {
   getUser,
+  setUserName,
   listMessages,
   sendMessage,
-  deleteMessage,
   editMessage,
+  deleteMessage,
+  toggleReaction,
+  setTyping,
+  getTypingState,
+  subscribeToTyping,
   subscribeToMessages,
 };

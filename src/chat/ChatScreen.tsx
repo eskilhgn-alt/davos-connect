@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useVisualViewport } from './useVisualViewport';
 import { chatStore } from './store';
-import type { Message, Attachment } from './types';
+import type { Message, Attachment, TypingState } from './types';
 import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 
@@ -23,6 +23,7 @@ export const ChatScreen: React.FC = () => {
   const { vvh, kb } = useVisualViewport();
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [composerHeight, setComposerHeight] = React.useState(80);
+  const [typingState, setTypingState] = React.useState<TypingState>({ isTyping: false, lastTypedAt: 0 });
   const user = React.useMemo(() => chatStore.getUser(), []);
 
   // Lock body scroll on mount
@@ -36,6 +37,11 @@ export const ChatScreen: React.FC = () => {
   // Subscribe to messages
   React.useEffect(() => {
     return chatStore.subscribeToMessages(setMessages);
+  }, []);
+
+  // Subscribe to typing state
+  React.useEffect(() => {
+    return chatStore.subscribeToTyping(setTypingState);
   }, []);
 
   // Send message
@@ -79,6 +85,7 @@ export const ChatScreen: React.FC = () => {
         messages={messages}
         currentUserId={user.id}
         composerHeight={composerHeight}
+        isTyping={typingState.isTyping}
       />
 
       {/* Composer - fixed at bottom above keyboard */}

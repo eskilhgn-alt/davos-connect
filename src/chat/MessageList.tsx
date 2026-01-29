@@ -1,5 +1,5 @@
 /**
- * MessageList - Scrollable message container
+ * MessageList - Scrollable message container with typing indicator
  * Native scrolling, auto-scroll, "jump to bottom" button
  */
 
@@ -10,11 +10,18 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Message } from './types';
 import { MessageItem } from './MessageItem';
+import { TypingBubble } from './TypingBubble';
+import { ReactionBar } from './ReactionBar';
+import { ReactionsDialog } from './ReactionsDialog';
+import { MessageActionsSheet } from './MessageActionsSheet';
+import { EmojiPicker } from './EmojiPicker';
+import { chatStore } from './store';
 
 interface MessageListProps {
   messages: Message[];
   currentUserId: string;
   composerHeight: number;
+  isTyping: boolean;
 }
 
 function formatDateSeparator(timestamp: number): string {
@@ -45,11 +52,21 @@ export const MessageList: React.FC<MessageListProps> = ({
   messages,
   currentUserId,
   composerHeight,
+  isTyping,
 }) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const [showJump, setShowJump] = React.useState(false);
   const isNearBottomRef = React.useRef(true);
+
+  // UI state
+  const [activeMessage, setActiveMessage] = React.useState<Message | null>(null);
+  const [showActionsSheet, setShowActionsSheet] = React.useState(false);
+  const [showReactionBar, setShowReactionBar] = React.useState(false);
+  const [showReactionsDialog, setShowReactionsDialog] = React.useState(false);
+  const [reactionsToShow, setReactionsToShow] = React.useState<Record<string, string[]>>({});
+  const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+  const [emojiPickerMode, setEmojiPickerMode] = React.useState<'reaction' | 'compose'>('reaction');
 
   // Check if near bottom
   const checkNearBottom = React.useCallback(() => {
@@ -81,11 +98,96 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages.length, scrollToBottom]);
 
-  const groups = groupMessagesByDate(messages);
+  // Handle showing actions
+  const handleShowActions = React.useCallback((message: Message) => {
+    setActiveMessage(message);
+    setShowActionsSheet(true);
+  }, []);
 
-  // Calculate padding: composer height + safe area + keyboard
-  // The keyboard is handled by the shell, but we need space for composer
-  const paddingBottom = composerHeight + 16; // 16px extra breathing room
+  // Handle showing reactions dialog
+  const handleShowReactions = React.useCallback((reactions: Record<string, string[]>) => {
+    setReactionsToShow(reactions);
+    setShowReactionsDialog(true);
+  }, []);
+
+  // Handle reaction from bar
+  const handleReact = React.useCallback((emoji: string) => {
+    if (activeMessage) {
+      chatStore.toggleReaction(activeMessage.id, emoji);
+    }
+    setShowReactionBar(false);
+    setActiveMessage(null);
+  }, [activeMessage]);
+
+  // Handle opening emoji picker for reaction
+  const handleOpenReactionPicker = React.useCallback(() => {
+    setEmojiPickerMode('reaction');
+    setShowReactionBar(false);
+    setShowEmojiPicker(true);
+  }, []);
+
+  // Handle emoji selection
+  const handleEmojiSelect = React.useCallback((emoji: string) => {
+    if (emojiPickerMode === 'reaction' && activeMessage) {
+      chatStore.toggleReaction(activeMessage.id, emoji);
+    }
+    setShowEmojiPicker(false);
+    setActiveMessage(null);
+  }, [activeMessage, emojiPickerMode]);
+
+  // Handle actions from sheet
+  const handleEdit = React.useCallback(() => {
+    if (activeMessage) {
+      // Trigger edit mode via window function
+      const editFn = (window as unknown as Record<string, () => void>)[`editMessage_${activeMessage.id}`];
+      if (editFn) editFn();
+    }
+    setShowActionsSheet(false);
+    setActiveMessage(null);
+  }, [activeMessage]);
+
+  const handleDelete = React.useCallback(() => {
+    if (activeMessage) {
+      chatStore.deleteMessage(activeMessage.id);
+    }
+    setShowActionsSheet(false);
+    setActiveMessage(null);
+  }, [activeMessage]);
+
+  const handleCopy = React.useCallback(async () => {
+    if (activeMessage?.text) {
+      try {
+        await navigator.clipboard.writeText(activeMessage.text);
+      } catch {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = activeMessage.text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+    }
+    setShowActionsSheet(false);
+    setActiveMessage(null);
+  }, [activeMessage]);
+
+  const handleShowReactionBar = React.useCallback(() => {
+    setShowActionsSheet(false);
+    setShowReactionBar(true);
+  }, []);
+
+  // Get user name for reactions dialog
+  const getUserName = React.useCallback((userId: string) => {
+    const currentUser = chatStore.getUser();
+    if (userId === currentUser.id) return 'Du';
+    // Find in messages
+    const msg = messages.find(m => m.senderId === userId);
+    return msg?.senderName || 'Ukjent';
+  }, [messages]);
+
+  const groups = groupMessagesByDate(messages);
+  const paddingBottom = composerHeight + 16;
 
   return (
     <div className="relative flex-1 min-h-0">
@@ -127,11 +229,19 @@ export const MessageList: React.FC<MessageListProps> = ({
                     message={msg}
                     isOwn={isOwn}
                     showSender={showSender}
+                    currentUserId={currentUserId}
+                    onShowActions={handleShowActions}
+                    onShowReactions={handleShowReactions}
                   />
                 );
               })}
             </div>
           ))}
+
+          {/* Typing indicator - only show when near bottom */}
+          {isTyping && isNearBottomRef.current && (
+            <TypingBubble />
+          )}
         </div>
 
         {/* Scroll anchor */}
@@ -153,6 +263,54 @@ export const MessageList: React.FC<MessageListProps> = ({
         >
           <ChevronDown size={24} />
         </button>
+      )}
+
+      {/* Actions Sheet */}
+      {showActionsSheet && activeMessage && (
+        <MessageActionsSheet
+          isOwn={activeMessage.senderId === currentUserId}
+          onEdit={activeMessage.senderId === currentUserId ? handleEdit : undefined}
+          onDelete={activeMessage.senderId === currentUserId ? handleDelete : undefined}
+          onCopy={handleCopy}
+          onReact={handleShowReactionBar}
+          onClose={() => {
+            setShowActionsSheet(false);
+            setActiveMessage(null);
+          }}
+        />
+      )}
+
+      {/* Reaction Bar */}
+      {showReactionBar && activeMessage && (
+        <ReactionBar
+          onReact={handleReact}
+          onOpenPicker={handleOpenReactionPicker}
+          onClose={() => {
+            setShowReactionBar(false);
+            setActiveMessage(null);
+          }}
+          position="bottom"
+        />
+      )}
+
+      {/* Reactions Dialog */}
+      {showReactionsDialog && (
+        <ReactionsDialog
+          reactions={reactionsToShow}
+          getUserName={getUserName}
+          onClose={() => setShowReactionsDialog(false)}
+        />
+      )}
+
+      {/* Emoji Picker */}
+      {showEmojiPicker && (
+        <EmojiPicker
+          onSelect={handleEmojiSelect}
+          onClose={() => {
+            setShowEmojiPicker(false);
+            setActiveMessage(null);
+          }}
+        />
       )}
     </div>
   );
