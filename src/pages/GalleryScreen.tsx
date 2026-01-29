@@ -2,7 +2,7 @@ import * as React from 'react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { galleryService, type GalleryItem } from '@/services/gallery.local';
 import { mediaStorage } from '@/services/media-storage';
-import { MediaViewer } from '@/features/chat';
+import { MediaViewer } from '@/components/ui/MediaViewer';
 import { DavosEmptyState } from '@/components/ui/davos-empty-state';
 import { Download, Play, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
