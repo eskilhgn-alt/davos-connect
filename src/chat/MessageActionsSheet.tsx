@@ -105,8 +105,9 @@ export const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
               key={idx}
               type="button"
               onClick={() => {
+                // Just call the action - don't call onClose here
+                // Each action handler should handle cleanup
                 action.onClick();
-                onClose();
               }}
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-3',

@@ -137,42 +137,51 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   // Handle actions from sheet
   const handleEdit = React.useCallback(() => {
-    if (activeMessage) {
-      // Trigger edit mode via window function
-      const editFn = (window as unknown as Record<string, () => void>)[`editMessage_${activeMessage.id}`];
-      if (editFn) editFn();
-    }
+    const msgId = activeMessage?.id;
     setShowActionsSheet(false);
     setActiveMessage(null);
+    
+    if (msgId) {
+      // Trigger edit mode via window function (after state cleanup)
+      requestAnimationFrame(() => {
+        const editFn = (window as unknown as Record<string, () => void>)[`editMessage_${msgId}`];
+        if (editFn) editFn();
+      });
+    }
   }, [activeMessage]);
 
   const handleDelete = React.useCallback(() => {
-    if (activeMessage) {
-      chatStore.deleteMessage(activeMessage.id);
-    }
+    const msgId = activeMessage?.id;
     setShowActionsSheet(false);
     setActiveMessage(null);
+    
+    if (msgId) {
+      chatStore.deleteMessage(msgId);
+    }
   }, [activeMessage]);
 
   const handleCopy = React.useCallback(async () => {
-    if (activeMessage?.text) {
+    const text = activeMessage?.text;
+    setShowActionsSheet(false);
+    setActiveMessage(null);
+    
+    if (text) {
       try {
-        await navigator.clipboard.writeText(activeMessage.text);
+        await navigator.clipboard.writeText(text);
       } catch {
         // Fallback for older browsers
         const textarea = document.createElement('textarea');
-        textarea.value = activeMessage.text;
+        textarea.value = text;
         document.body.appendChild(textarea);
         textarea.select();
         document.execCommand('copy');
         document.body.removeChild(textarea);
       }
     }
-    setShowActionsSheet(false);
-    setActiveMessage(null);
   }, [activeMessage]);
 
   const handleShowReactionBar = React.useCallback(() => {
+    // Keep activeMessage intact for reaction bar
     setShowActionsSheet(false);
     setShowReactionBar(true);
   }, []);
