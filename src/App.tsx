@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/layout";
+import { ChatLayout } from "@/layouts/ChatLayout";
 import ChatScreen from "./pages/ChatScreen";
 import MapScreen from "./pages/MapScreen";
 import FeedScreen from "./pages/FeedScreen";
@@ -21,14 +22,18 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route element={<AppLayout />}>
+          <Route element={<ChatLayout />}>
             <Route path="/" element={<ChatScreen />} />
+          </Route>
+          
+          <Route element={<AppLayout />}>
             <Route path="/vaer" element={<WeatherScreen />} />
             <Route path="/kart" element={<MapScreen />} />
             <Route path="/feed" element={<FeedScreen />} />
             <Route path="/mer" element={<MoreScreen />} />
             <Route path="/galleri" element={<GalleryScreen />} />
           </Route>
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
