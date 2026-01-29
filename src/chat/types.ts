@@ -1,6 +1,6 @@
 /**
- * Chat Types - Clean Room Implementation
- * Minimal, focused types for local chat
+ * Chat Types - Extended for reactions, edit, delete
+ * Backward compatible with existing data
  */
 
 export interface Message {
@@ -10,6 +10,10 @@ export interface Message {
   senderName: string;
   senderId: string;
   attachments: Attachment[];
+  // New fields (optional for backward compat)
+  editedAt?: number;
+  deletedAt?: number;
+  reactions?: Record<string, string[]>; // emoji -> array of senderIds
 }
 
 export interface Attachment {
@@ -21,4 +25,9 @@ export interface Attachment {
 export interface User {
   id: string;
   name: string;
+}
+
+export interface TypingState {
+  isTyping: boolean;
+  lastTypedAt: number;
 }
