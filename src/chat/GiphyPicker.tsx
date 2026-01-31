@@ -26,7 +26,7 @@ interface GiphyGif {
   };
 }
 
-const GIPHY_API_KEY = import.meta.env.VITE_GIPHY_API_KEY;
+const GIPHY_API_KEY = 'hAwed0ucv0YtNteeatxffbPeVYg6rDox';
 
 export const GiphyPicker: React.FC<GiphyPickerProps> = ({ onSelect, onClose }) => {
   const [query, setQuery] = React.useState('');
