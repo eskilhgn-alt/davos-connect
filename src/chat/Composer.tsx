@@ -1,5 +1,5 @@
 /**
- * Composer - Message input with attachments and emoji
+ * Composer - Message input with attachments, emoji, and GIFs
  * Fixed at bottom, stable, no iOS zoom
  */
 
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import type { Attachment } from './types';
 import { chatStore } from './store';
 import { EmojiPicker } from './EmojiPicker';
-
+import { GiphyPicker } from './GiphyPicker';
 interface ComposerProps {
   onSend: (text: string, attachments: Attachment[]) => void;
   onHeightChange: (height: number) => void;
@@ -19,6 +19,7 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
   const [text, setText] = React.useState('');
   const [attachments, setAttachments] = React.useState<Attachment[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+  const [showGiphyPicker, setShowGiphyPicker] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -138,6 +139,17 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
     setShowEmojiPicker(false);
   };
 
+  // Handle GIF selection
+  const handleGifSelect = (gifUrl: string) => {
+    const gifAttachment: Attachment = {
+      id: crypto.randomUUID(),
+      kind: 'gif',
+      objectUrl: gifUrl,
+    };
+    setAttachments((prev) => [...prev, gifAttachment]);
+    setShowGiphyPicker(false);
+  };
+
   const canSend = text.trim() || attachments.length > 0;
 
   return (
@@ -154,15 +166,15 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
           <div className="flex gap-2 px-4 py-2 overflow-x-auto">
             {attachments.map((att) => (
               <div key={att.id} className="relative flex-shrink-0">
-                {att.kind === 'image' ? (
-                  <img
+                {att.kind === 'video' ? (
+                  <video
                     src={att.objectUrl}
-                    alt="Vedlegg"
                     className="h-16 w-16 object-cover rounded-lg"
                   />
                 ) : (
-                  <video
+                  <img
                     src={att.objectUrl}
+                    alt="Vedlegg"
                     className="h-16 w-16 object-cover rounded-lg"
                   />
                 )}
@@ -223,6 +235,15 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
             <Smile size={24} />
           </button>
 
+          {/* GIF button */}
+          <button
+            type="button"
+            onClick={() => setShowGiphyPicker(true)}
+            className="tap-target flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors font-semibold text-xs"
+          >
+            GIF
+          </button>
+
           {/* Text input - 16px to prevent iOS zoom */}
           <div className="flex-1 min-w-0">
             <textarea
@@ -269,6 +290,14 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
         <EmojiPicker
           onSelect={handleEmojiSelect}
           onClose={() => setShowEmojiPicker(false)}
+        />
+      )}
+
+      {/* Giphy Picker */}
+      {showGiphyPicker && (
+        <GiphyPicker
+          onSelect={handleGifSelect}
+          onClose={() => setShowGiphyPicker(false)}
         />
       )}
     </>
