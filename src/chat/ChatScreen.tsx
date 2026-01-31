@@ -14,9 +14,12 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useVisualViewport } from './useVisualViewport';
 import { chatStore } from './store';
+import { oneSignalService } from '@/services/onesignal';
 import type { Message, Attachment, TypingState } from './types';
 import { MessageList } from './MessageList';
 import { Composer } from './Composer';
+
+const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
 export const ChatScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -25,6 +28,11 @@ export const ChatScreen: React.FC = () => {
   const [composerHeight, setComposerHeight] = React.useState(80);
   const [typingState, setTypingState] = React.useState<TypingState>({ isTyping: false, lastTypedAt: 0 });
   const user = React.useMemo(() => chatStore.getUser(), []);
+
+  // Initialize OneSignal on mount
+  React.useEffect(() => {
+    oneSignalService.init(user.id);
+  }, [user.id]);
 
   // Lock body scroll on mount
   React.useEffect(() => {
@@ -44,10 +52,22 @@ export const ChatScreen: React.FC = () => {
     return chatStore.subscribeToTyping(setTypingState);
   }, []);
 
-  // Send message
+  // Send message and trigger push notification
   const handleSend = React.useCallback((text: string, attachments: Attachment[]) => {
     chatStore.sendMessage(text, attachments);
-  }, []);
+    
+    // Trigger push notification to other users
+    const preview = attachments.length > 0 && !text 
+      ? `📷 ${attachments.length === 1 ? 'Bilde' : `${attachments.length} bilder`}`
+      : text;
+    
+    oneSignalService.triggerPushNotification(
+      DEFAULT_THREAD_ID,
+      user.id,
+      user.name,
+      preview
+    );
+  }, [user.id, user.name]);
 
   // Handle composer height change
   const handleComposerHeight = React.useCallback((height: number) => {
