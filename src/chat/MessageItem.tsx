@@ -131,19 +131,25 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               key={att.id}
               className="rounded-2xl overflow-hidden max-w-[260px]"
             >
-              {att.kind === 'image' ? (
-                <img
-                  src={att.objectUrl}
-                  alt="Vedlegg"
-                  className="max-w-full h-auto"
-                  loading="lazy"
-                />
-              ) : (
+              {att.kind === 'video' ? (
                 <video
                   src={att.objectUrl}
                   controls
                   playsInline
                   className="max-w-full h-auto"
+                />
+              ) : att.kind === 'gif' ? (
+                <img
+                  src={att.objectUrl}
+                  alt="GIF"
+                  className="max-w-full h-auto"
+                />
+              ) : (
+                <img
+                  src={att.objectUrl}
+                  alt="Vedlegg"
+                  className="max-w-full h-auto"
+                  loading="lazy"
                 />
               )}
             </div>
