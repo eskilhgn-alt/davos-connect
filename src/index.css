@@ -60,6 +60,10 @@
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
+    /* Warning color (amber) */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+
     --muted: 30 10% 92%;
     --muted-foreground: 60 1% 50%;
 
