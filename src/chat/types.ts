@@ -18,8 +18,8 @@ export interface Message {
 
 export interface Attachment {
   id: string;
-  kind: 'image' | 'video';
-  objectUrl: string; // For immediate preview
+  kind: 'image' | 'video' | 'gif';
+  objectUrl: string; // For immediate preview (or gif URL)
 }
 
 export interface User {
