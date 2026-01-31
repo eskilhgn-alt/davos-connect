@@ -12,7 +12,7 @@ export const moreMenuItems: MenuItem[] = [
   { icon: Users, title: "Gruppen", subtitle: "Se alle deltakere" },
   { icon: Trophy, title: "Utfordringer", subtitle: "Ski-challenges & poeng" },
   { icon: CloudSun, title: "Værmelding", subtitle: "Davos Klosters", path: "/vaer" },
-  { icon: Bell, title: "Varsler", subtitle: "Push-innstillinger" },
+  { icon: Bell, title: "Varsler", subtitle: "Push-innstillinger", path: "/varsler" },
   { icon: Settings, title: "Innstillinger", subtitle: "Profil & preferanser" },
   { icon: HelpCircle, title: "Hjelp", subtitle: "FAQ & support" },
 ];
