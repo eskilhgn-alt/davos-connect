@@ -1,9 +1,15 @@
+/**
+ * Davos Web Embed Component
+ * Generic iframe embed for external content with error handling
+ * Used for webcam video players (feratel webtv) and other embeds
+ */
+
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosCard } from "@/components/ui/davos-card";
 import { DavosButton } from "@/components/ui/davos-button";
-import { ExternalLink, Globe } from "lucide-react";
+import { ExternalLink, Globe, Maximize2 } from "lucide-react";
 
 export interface DavosWebEmbedProps {
   title: string;
@@ -12,6 +18,10 @@ export interface DavosWebEmbedProps {
   height?: string;
   className?: string;
   embeddable?: boolean;
+  /** Show floating maximize button */
+  showMaximize?: boolean;
+  /** Allow autoplay for video content */
+  allowAutoplay?: boolean;
 }
 
 type LoadState = "loading" | "loaded" | "error";
@@ -23,6 +33,8 @@ export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
   height = "100%",
   className,
   embeddable = true,
+  showMaximize = false,
+  allowAutoplay = false,
 }) => {
   const [loadState, setLoadState] = React.useState<LoadState>("loading");
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
@@ -65,7 +77,7 @@ export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
           </div>
           <DavosButton onClick={openInBrowser} className="gap-2">
             <ExternalLink size={16} />
-            Åpne hos Davos Klosters
+            Åpne i nettleser
           </DavosButton>
         </DavosCard>
       </div>
@@ -79,12 +91,12 @@ export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
       )}
       
       <div 
-        className="relative flex-1 w-full rounded-lg overflow-hidden bg-muted"
+        className="relative flex-1 w-full rounded-lg overflow-hidden bg-black"
         style={{ minHeight: height !== "100%" ? height : undefined }}
       >
         {/* Loading state */}
         {loadState === "loading" && (
-          <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-muted">
             <div className="w-full h-full p-4">
               <DavosSkeleton variant="rectangular" className="w-full h-full" />
             </div>
@@ -112,6 +124,17 @@ export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
           </div>
         )}
 
+        {/* Maximize button */}
+        {showMaximize && loadState === "loaded" && (
+          <button
+            onClick={openInBrowser}
+            className="absolute top-3 right-3 p-2 bg-background/90 backdrop-blur-sm rounded-lg hover:bg-background transition-colors z-20"
+            aria-label="Åpne i fullskjerm"
+          >
+            <Maximize2 size={18} className="text-foreground" />
+          </button>
+        )}
+
         {/* Iframe */}
         <iframe
           ref={iframeRef}
@@ -120,6 +143,8 @@ export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
           loading="lazy"
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
           referrerPolicy="no-referrer"
+          allow={allowAutoplay ? "autoplay; fullscreen" : "fullscreen"}
+          allowFullScreen
           onLoad={handleLoad}
           onError={handleError}
           className={cn(
