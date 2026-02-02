@@ -1,6 +1,7 @@
 /**
  * Weather Engine Refresh - Cron-triggered Edge Function
  * Fetches Open-Meteo forecasts for all mountains, computes consensus, caches results
+ * Uses OpenAI for AI summaries (today + tomorrow)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -119,6 +120,8 @@ const ANCHORMAN_QUOTES: Record<QuoteCategory, AnchormanQuote[]> = {
   powder_new_snow: [
     { quote: "Cannonball!", speaker: "Ron Burgundy", use: "send det i nysnø" },
     { quote: "Panda Watch! The mood is tense.", speaker: "Brian Fantana", use: "førstespor-stemning" },
+    { quote: "It's so fluffy I'm gonna die!", speaker: "Ron Burgundy", use: "episk pudder" },
+    { quote: "Great Odin's raven!", speaker: "Ron Burgundy", use: "snøfall + wow" },
   ],
   storm_wind: [
     { quote: "Boy, that escalated quickly.", speaker: "Ron Burgundy", use: "vær som går fra 0 til 100" },
@@ -537,52 +540,101 @@ function selectQuote(
 }
 
 // ============================================
-// AI SUMMARY (OPTIONAL)
+// AI SUMMARY (OpenAI)
 // ============================================
 
-async function generateAiSummary(
+interface AiSummaries {
+  today: string | null;
+  tomorrow: string | null;
+}
+
+async function generateAiSummaries(
   mountainName: string,
-  consensus: ConsensusDay
-): Promise<string | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) {
-    return null;
+  today: ConsensusDay,
+  tomorrow: ConsensusDay | null,
+  modelWeights: Record<string, number>
+): Promise<AiSummaries> {
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) {
+    console.warn("OPENAI_API_KEY not configured, skipping AI summaries");
+    return { today: null, tomorrow: null };
   }
 
   try {
-    const prompt = `Du er en erfaren skiinstruktør i Davos. Gi en kort, personlig væranbefaling (maks 1 setning) basert på dette:
-Fjell: ${mountainName}
-Dato: ${consensus.date}
-Temp: ${consensus.tempMin}° til ${consensus.tempMax}°C
-Snøfall: ${consensus.snowfall} cm
-Vind: ${consensus.windSpeed} m/s (${consensus.windLabel}) fra ${consensus.windCompass}
-Nedbør: ${consensus.precipitation} mm
+    const weightsStr = Object.entries(modelWeights)
+      .map(([model, weight]) => `${model.replace('_seamless', '').replace('_ifs025', '').toUpperCase()}: ${Math.round(weight * 100)}%`)
+      .join(', ');
 
-Svar på norsk, vær kort og konkret. Bruk gjerne humor.`;
+    const prompt = `Du er en erfaren skiinstruktør i Davos, Sveits. Gi korte, personlige væranbefaling (maks 1-2 setninger hver) for i dag og i morgen.
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+FJELL: ${mountainName}
+
+I DAG (${today.date}):
+- Temp: ${today.tempMin}° til ${today.tempMax}°C (median ${today.tempMedian}°)
+- Snøfall: ${today.snowfall} cm
+- Vind: ${today.windSpeed} m/s (${today.windLabel}) fra ${today.windCompass}, kast opp til ${today.windGust} m/s
+- Nedbør: ${today.precipitation} mm
+- Modellsikkerhet: ${today.confidence}
+
+${tomorrow ? `I MORGEN (${tomorrow.date}):
+- Temp: ${tomorrow.tempMin}° til ${tomorrow.tempMax}°C (median ${tomorrow.tempMedian}°)
+- Snøfall: ${tomorrow.snowfall} cm
+- Vind: ${tomorrow.windSpeed} m/s (${tomorrow.windLabel}) fra ${tomorrow.windCompass}, kast opp til ${tomorrow.windGust} m/s
+- Nedbør: ${tomorrow.precipitation} mm
+- Modellsikkerhet: ${tomorrow.confidence}` : 'Ingen data for i morgen.'}
+
+MODELLVEKTER: ${weightsStr}
+
+Svar i JSON-format:
+{"today": "din anbefaling for i dag", "tomorrow": "din anbefaling for i morgen"}
+
+Regler:
+- Svar på norsk
+- Vær kort og konkret
+- Bruk gjerne humor
+- IKKE oppfinn tall eller data
+- Fokuser på praktiske skiråd`;
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 100,
+        max_tokens: 200,
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
-      console.warn("AI summary failed:", response.status);
-      return null;
+      console.warn("OpenAI API failed:", response.status);
+      return { today: null, tomorrow: null };
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || null;
+    const content = data.choices?.[0]?.message?.content?.trim();
+    
+    if (!content) {
+      return { today: null, tomorrow: null };
+    }
+
+    // Parse JSON response
+    try {
+      const parsed = JSON.parse(content);
+      return {
+        today: parsed.today || null,
+        tomorrow: parsed.tomorrow || null,
+      };
+    } catch {
+      // If not valid JSON, use content as today's summary
+      return { today: content, tomorrow: null };
+    }
   } catch (error) {
     console.warn("AI summary error:", error);
-    return null;
+    return { today: null, tomorrow: null };
   }
 }
 
@@ -654,16 +706,17 @@ Deno.serve(async (req) => {
       // Compute consensus
       const consensus = computeConsensus(validForecasts, weights);
 
-      // Get today's consensus for quote and AI
+      // Get today's and tomorrow's consensus
       const today = consensus.daily[0];
+      const tomorrow = consensus.daily[1] || null;
       const avgCloudCover = consensus.hourly.slice(0, 24).reduce((sum, h) => sum + h.cloudCover, 0) / 24;
 
       // Classify weather and select quote
       const category = classifyWeather(today, avgCloudCover);
       const quote = selectQuote(mountain.id, today.date, category);
 
-      // Optional AI summary
-      const aiSummary = await generateAiSummary(mountain.name, today);
+      // AI summaries for today and tomorrow
+      const aiSummaries = await generateAiSummaries(mountain.name, today, tomorrow, weights);
 
       // Build payload
       const payload = {
@@ -683,7 +736,10 @@ Deno.serve(async (req) => {
         weights,
         confidence: today.confidence,
         quote,
-        aiSummary,
+        aiSummary: aiSummaries.today, // Keep for backward compatibility
+        aiSummaryToday: aiSummaries.today,
+        aiSummaryTomorrow: aiSummaries.tomorrow,
+        dataSource: "Konsensus",
       };
 
       // Upsert to cache
@@ -712,15 +768,25 @@ Deno.serve(async (req) => {
 
     if (allCached && allCached.length > 0) {
       // Create regional summary from first mountain's today data
-      const firstPayload = allCached[0].payload as { consensus: { daily: ConsensusDay[] }; quote: { quote: string; speaker: string; category: QuoteCategory } };
+      const firstPayload = allCached[0].payload as { 
+        consensus: { daily: ConsensusDay[] }; 
+        quote: { quote: string; speaker: string; category: QuoteCategory };
+        aiSummaryToday?: string | null;
+        aiSummaryTomorrow?: string | null;
+      };
       const todayConsensus = firstPayload.consensus.daily[0];
+      const tomorrowConsensus = firstPayload.consensus.daily[1] || null;
       
       const davosPayload = {
         region: "davos",
         generatedAt: new Date().toISOString(),
         mountains: MOUNTAINS.map(m => m.id),
         todaySummary: todayConsensus,
+        tomorrowSummary: tomorrowConsensus,
         quote: firstPayload.quote,
+        aiSummaryToday: firstPayload.aiSummaryToday,
+        aiSummaryTomorrow: firstPayload.aiSummaryTomorrow,
+        dataSource: "Konsensus",
       };
 
       await supabase

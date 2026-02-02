@@ -12,6 +12,7 @@ import MoreScreen from "./pages/MoreScreen";
 import WeatherScreen from "./pages/WeatherScreen";
 import GalleryScreen from "./pages/GalleryScreen";
 import NotificationsScreen from "./pages/NotificationsScreen";
+import WebcamsScreen from "./pages/WebcamsScreen";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/vaer" element={<WeatherScreen />} />
             <Route path="/kart" element={<MapScreen />} />
+            <Route path="/webcams" element={<WebcamsScreen />} />
             <Route path="/feed" element={<FeedScreen />} />
             <Route path="/mer" element={<MoreScreen />} />
             <Route path="/galleri" element={<GalleryScreen />} />

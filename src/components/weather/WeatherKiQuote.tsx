@@ -3,7 +3,7 @@ import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { getKiWeatherQuote } from "@/features/weather/kiWeatherQuote";
 import type { DayAggregate } from "@/services/weather.service";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Sun, CloudSun } from "lucide-react";
 
 interface BackendQuote {
   quote: string;
@@ -15,6 +15,9 @@ interface WeatherKiQuoteProps {
   day?: DayAggregate;
   isLoading?: boolean;
   backendQuote?: BackendQuote;
+  aiSummaryToday?: string | null;
+  aiSummaryTomorrow?: string | null;
+  /** @deprecated Use aiSummaryToday instead */
   aiSummary?: string | null;
 }
 
@@ -22,6 +25,8 @@ export const WeatherKiQuote: React.FC<WeatherKiQuoteProps> = ({
   day, 
   isLoading,
   backendQuote,
+  aiSummaryToday,
+  aiSummaryTomorrow,
   aiSummary 
 }) => {
   // Use backend quote if available, otherwise compute locally
@@ -35,6 +40,9 @@ export const WeatherKiQuote: React.FC<WeatherKiQuoteProps> = ({
     }
     return getKiWeatherQuote(day);
   }, [backendQuote, day?.date, day?.weatherCode, day?.snowMedian, day?.tempMin, day?.tempMax]);
+
+  // Use new format if available, fall back to old
+  const todaySummary = aiSummaryToday || aiSummary;
 
   if (isLoading) {
     return (
@@ -50,25 +58,44 @@ export const WeatherKiQuote: React.FC<WeatherKiQuoteProps> = ({
   return (
     <DavosCard className="mx-4 mt-3">
       <DavosCardContent className="p-4">
-        {/* AI Summary if available */}
-        {aiSummary && (
-          <div className="flex items-start gap-2 mb-3 pb-3 border-b border-border">
-            <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">KI-tolker vær</p>
-              <p className="text-sm text-foreground">{aiSummary}</p>
+        {/* AI Summaries - Today and Tomorrow */}
+        {(todaySummary || aiSummaryTomorrow) && (
+          <div className="space-y-3 mb-3 pb-3 border-b border-border">
+            <div className="flex items-start gap-2 text-xs font-medium text-muted-foreground mb-2">
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              KI-tolker vær
             </div>
+            
+            {/* Today */}
+            {todaySummary && (
+              <div className="flex items-start gap-2">
+                <Sun className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">I dag</p>
+                  <p className="text-sm text-foreground">{todaySummary}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Tomorrow */}
+            {aiSummaryTomorrow && (
+              <div className="flex items-start gap-2">
+                <CloudSun className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">I morgen</p>
+                  <p className="text-sm text-foreground">{aiSummaryTomorrow}</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Quote */}
+        {/* Quote - format: quote + newline + " - Speaker" */}
         <p className="text-base italic text-foreground leading-relaxed">
           {quoteData.quote}
         </p>
-
-        {/* Speaker - format: " - Speaker Name" */}
         <p className="mt-2 text-sm text-muted-foreground">
-          &nbsp;- {quoteData.speaker}
+          - {quoteData.speaker}
         </p>
       </DavosCardContent>
     </DavosCard>
