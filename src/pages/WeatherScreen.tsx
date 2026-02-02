@@ -11,17 +11,17 @@ import {
   type ModelSelection
 } from "@/components/weather";
 import {
-  getAggregatedWeather,
-  clearWeatherCache,
-  type AggregatedWeather,
-  type DayAggregate
-} from "@/services/weather.service";
+  getBackendWeather,
+  clearBackendWeatherCache,
+  type WeatherWithQuote
+} from "@/services/weather-backend.service";
+import { type DayAggregate } from "@/services/weather.service";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Cloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const WeatherScreen: React.FC = () => {
-  const [weather, setWeather] = React.useState<AggregatedWeather | null>(null);
+  const [weather, setWeather] = React.useState<WeatherWithQuote | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = React.useState(0);
@@ -33,9 +33,9 @@ const WeatherScreen: React.FC = () => {
     setError(null);
     try {
       if (forceRefresh) {
-        clearWeatherCache();
+        clearBackendWeatherCache();
       }
-      const data = await getAggregatedWeather(7);
+      const data = await getBackendWeather(7);
       setWeather(data);
     } catch (err) {
       console.error("Failed to load weather:", err);
@@ -206,8 +206,13 @@ const WeatherScreen: React.FC = () => {
               {/* Hero - Today's weather */}
               <WeatherHero today={today} loading={loading} />
 
-              {/* KI interprets the weather */}
-              <WeatherKiQuote day={today || undefined} isLoading={loading} />
+              {/* KI interprets the weather - use backend quote if available */}
+              <WeatherKiQuote 
+                day={today || undefined} 
+                isLoading={loading}
+                backendQuote={weather?.quote}
+                aiSummary={weather?.aiSummary}
+              />
 
               {/* 7-day strip */}
               <div className="mt-4">

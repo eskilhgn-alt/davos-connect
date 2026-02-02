@@ -2,3 +2,9 @@ project_id = "psupgftxzyoyeyuhtqgw"
 
 [functions.send-push-notification]
 verify_jwt = false
+
+[functions.weather-engine-refresh]
+verify_jwt = false
+
+[functions.weather-engine-get]
+verify_jwt = false

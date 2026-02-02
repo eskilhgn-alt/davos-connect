@@ -114,6 +114,42 @@ export type Database = {
         }
         Relationships: []
       }
+      weather_cache: {
+        Row: {
+          generated_at: string
+          mountain_id: string
+          payload: Json
+        }
+        Insert: {
+          generated_at?: string
+          mountain_id: string
+          payload: Json
+        }
+        Update: {
+          generated_at?: string
+          mountain_id?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
+      weather_model_weights: {
+        Row: {
+          mountain_id: string
+          updated_at: string
+          weights: Json
+        }
+        Insert: {
+          mountain_id: string
+          updated_at?: string
+          weights: Json
+        }
+        Update: {
+          mountain_id?: string
+          updated_at?: string
+          weights?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

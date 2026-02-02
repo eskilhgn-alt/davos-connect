@@ -1,73 +1,78 @@
-# Welcome to your Lovable project
+# Davos Ski App
 
-## Project info
+A mobile-first web app for Davos ski area with weather forecasting, chat, and more.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Weather Engine
 
-## How can I edit this code?
+The app uses a backend "Weather Engine" that:
+- Fetches forecasts from Open-Meteo for 5 mountains (Parsenn, Jakobshorn, Pischa, Rinerhorn, Madrisa)
+- Uses 4 weather models: ECMWF, GFS, ICON, GEM
+- Computes weighted consensus forecasts
+- Caches results in the database for fast loading
+- Includes AI-generated weather summaries
+- Selects Anchorman quotes based on weather conditions
 
-There are several ways of editing your application.
+### Setting up Cron (for Eskil)
 
-**Use Lovable**
+The weather cache needs to be refreshed every 15 minutes. Set up a cron job in Lovable Cloud:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+1. Go to **Cloud View → Database → SQL Editor** (or use Supabase dashboard)
+2. Enable the `pg_cron` and `pg_net` extensions if not already enabled:
 
-Changes made via Lovable will be committed automatically to this repo.
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+```
 
-**Use your preferred IDE**
+3. Create the cron job:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```sql
+SELECT cron.schedule(
+  'weather-engine-refresh-15min',
+  '*/15 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://psupgftxzyoyeyuhtqgw.supabase.co/functions/v1/weather-engine-refresh',
+    headers := '{"Content-Type": "application/json", "x-cron-secret": "YOUR_CRON_SECRET_HERE"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+**IMPORTANT:** Replace `YOUR_CRON_SECRET_HERE` with the actual CRON_SECRET value stored in Cloud secrets.
 
-Follow these steps:
+4. Verify the cron job is running:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```sql
+SELECT * FROM cron.job;
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+5. Check job execution history:
 
-# Step 3: Install the necessary dependencies.
-npm i
+```sql
+SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 10;
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+## Technologies
+
+- Vite + React + TypeScript
+- Tailwind CSS + shadcn/ui
+- Lovable Cloud (Supabase) for backend
+- Open-Meteo API for weather data
+- Lovable AI for weather summaries
+
+## Development
+
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Project Structure
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- `src/pages/` - Page components
+- `src/components/` - Reusable UI components
+- `src/services/` - API and data services
+- `src/features/` - Feature-specific logic (weather quotes, etc.)
+- `supabase/functions/` - Edge Functions
