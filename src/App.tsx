@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/layout";
 import { ChatLayout } from "@/layouts/ChatLayout";
 import ChatScreen from "./pages/ChatScreen";
 import MapScreen from "./pages/MapScreen";
+import LiveScreen from "./pages/LiveScreen";
 import FeedScreen from "./pages/FeedScreen";
 import MoreScreen from "./pages/MoreScreen";
 import WeatherScreen from "./pages/WeatherScreen";
@@ -30,6 +31,7 @@ const App = () => (
           
           <Route element={<AppLayout />}>
             <Route path="/vaer" element={<WeatherScreen />} />
+            <Route path="/live" element={<LiveScreen />} />
             <Route path="/kart" element={<MapScreen />} />
             <Route path="/webcams" element={<WebcamsScreen />} />
             <Route path="/feed" element={<FeedScreen />} />

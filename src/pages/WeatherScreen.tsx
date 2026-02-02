@@ -6,8 +6,6 @@ import {
   WeatherDayStrip,
   WeatherModelTabs,
   WeatherMountainSection,
-  WeatherWebcamsSection,
-  WeatherMapSection,
   type ModelSelection
 } from "@/components/weather";
 import {
@@ -129,7 +127,6 @@ const WeatherScreen: React.FC = () => {
 
   const handleDaySelect = (index: number) => {
     setSelectedDayIndex(index);
-    // Removed popup - now just highlights the day inline
   };
 
   // Calculate pull indicator opacity and scale
@@ -224,7 +221,7 @@ const WeatherScreen: React.FC = () => {
                 aiSummaryTomorrow={weather?.aiSummaryTomorrow}
               />
 
-              {/* 7-day strip - inline preview, no popup */}
+              {/* 7-day strip - inline preview */}
               <div className="mt-4">
                 <h2 className="px-4 font-heading text-sm font-medium text-muted-foreground mb-2">
                   7-dagers varsel
@@ -247,12 +244,6 @@ const WeatherScreen: React.FC = () => {
                   onSelect={setSelectedModel}
                 />
               </div>
-
-              {/* Weather map */}
-              <WeatherMapSection />
-
-              {/* Webcams section */}
-              <WeatherWebcamsSection />
 
               {/* Mountains section */}
               <div className="mt-6">
