@@ -50,6 +50,9 @@ interface BackendMountainPayload {
   confidence: "high" | "medium" | "low";
   quote: BackendQuote;
   aiSummary: string | null;
+  aiSummaryToday?: string | null;
+  aiSummaryTomorrow?: string | null;
+  dataSource?: string;
 }
 
 interface BackendResponse {
@@ -62,7 +65,11 @@ interface BackendResponse {
     region: string;
     generatedAt: string;
     todaySummary: BackendConsensusDay;
+    tomorrowSummary?: BackendConsensusDay | null;
     quote: BackendQuote;
+    aiSummaryToday?: string | null;
+    aiSummaryTomorrow?: string | null;
+    dataSource?: string;
   } | null;
   stale: boolean;
   fetchedAt: string;
@@ -71,7 +78,10 @@ interface BackendResponse {
 export interface WeatherWithQuote extends AggregatedWeather {
   quote?: BackendQuote;
   aiSummary?: string | null;
+  aiSummaryToday?: string | null;
+  aiSummaryTomorrow?: string | null;
   isFromBackend: boolean;
+  dataSource?: string;
 }
 
 // ============================================
@@ -150,7 +160,9 @@ function transformBackendResponse(response: BackendResponse): WeatherWithQuote {
   const models: Record<string, Record<string, DayForecast[]>> = {};
   let davos: DayAggregate[] = [];
   let quote: BackendQuote | undefined;
-  let aiSummary: string | null = null;
+  let aiSummaryToday: string | null = null;
+  let aiSummaryTomorrow: string | null = null;
+  let dataSource: string | undefined;
 
   // Process each mountain
   for (const m of response.mountains) {
@@ -194,12 +206,34 @@ function transformBackendResponse(response: BackendResponse): WeatherWithQuote {
       }
     }
 
-    // Get quote and AI summary from first mountain
+    // Get quote and AI summaries from first mountain
     if (!quote && m.quote) {
       quote = m.quote;
     }
-    if (aiSummary === null && m.aiSummary) {
-      aiSummary = m.aiSummary;
+    if (aiSummaryToday === null && m.aiSummaryToday) {
+      aiSummaryToday = m.aiSummaryToday;
+    }
+    if (aiSummaryTomorrow === null && m.aiSummaryTomorrow) {
+      aiSummaryTomorrow = m.aiSummaryTomorrow;
+    }
+    if (!dataSource && m.dataSource) {
+      dataSource = m.dataSource;
+    }
+  }
+
+  // Use Davos region data if available
+  if (response.davos) {
+    if (response.davos.aiSummaryToday) {
+      aiSummaryToday = response.davos.aiSummaryToday;
+    }
+    if (response.davos.aiSummaryTomorrow) {
+      aiSummaryTomorrow = response.davos.aiSummaryTomorrow;
+    }
+    if (response.davos.quote) {
+      quote = response.davos.quote;
+    }
+    if (response.davos.dataSource) {
+      dataSource = response.davos.dataSource;
     }
   }
 
@@ -214,8 +248,11 @@ function transformBackendResponse(response: BackendResponse): WeatherWithQuote {
     models,
     fetchedAt: Date.now(),
     quote,
-    aiSummary,
+    aiSummary: aiSummaryToday, // backward compat
+    aiSummaryToday,
+    aiSummaryTomorrow,
     isFromBackend: true,
+    dataSource,
   };
 }
 

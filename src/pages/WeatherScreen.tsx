@@ -4,10 +4,10 @@ import {
   WeatherHero,
   WeatherKiQuote,
   WeatherDayStrip,
-  WeatherDayDetail,
   WeatherModelTabs,
   WeatherMountainSection,
   WeatherWebcamsSection,
+  WeatherMapSection,
   type ModelSelection
 } from "@/components/weather";
 import {
@@ -17,7 +17,7 @@ import {
 } from "@/services/weather-backend.service";
 import { type DayAggregate } from "@/services/weather.service";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { RefreshCw, Cloud } from "lucide-react";
+import { RefreshCw, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const WeatherScreen: React.FC = () => {
@@ -26,7 +26,6 @@ const WeatherScreen: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = React.useState(0);
   const [selectedModel, setSelectedModel] = React.useState<ModelSelection>("consensus");
-  const [detailOpen, setDetailOpen] = React.useState(false);
 
   const loadWeather = React.useCallback(async (forceRefresh = false) => {
     setLoading(true);
@@ -127,16 +126,18 @@ const WeatherScreen: React.FC = () => {
 
   const currentData = getCurrentData();
   const today = currentData[0] || null;
-  const selectedDay = currentData[selectedDayIndex] || null;
 
   const handleDaySelect = (index: number) => {
     setSelectedDayIndex(index);
-    setDetailOpen(true);
+    // Removed popup - now just highlights the day inline
   };
 
   // Calculate pull indicator opacity and scale
   const pullProgress = Math.min(pullDistance / 80, 1);
   const showPullIndicator = isPulling || isRefreshing;
+
+  // Data source label
+  const dataSourceLabel = weather?.dataSource || (weather?.isFromBackend ? "Konsensus" : "Open-Meteo direkte");
 
   return (
     <div 
@@ -206,15 +207,24 @@ const WeatherScreen: React.FC = () => {
               {/* Hero - Today's weather */}
               <WeatherHero today={today} loading={loading} />
 
-              {/* KI interprets the weather - use backend quote if available */}
+              {/* Data source badge */}
+              {weather && (
+                <div className="px-4 mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Database size={12} />
+                  <span>Datakilde: {dataSourceLabel}</span>
+                </div>
+              )}
+
+              {/* KI interprets the weather - today + tomorrow */}
               <WeatherKiQuote 
                 day={today || undefined} 
                 isLoading={loading}
                 backendQuote={weather?.quote}
-                aiSummary={weather?.aiSummary}
+                aiSummaryToday={weather?.aiSummaryToday}
+                aiSummaryTomorrow={weather?.aiSummaryTomorrow}
               />
 
-              {/* 7-day strip */}
+              {/* 7-day strip - inline preview, no popup */}
               <div className="mt-4">
                 <h2 className="px-4 font-heading text-sm font-medium text-muted-foreground mb-2">
                   7-dagers varsel
@@ -238,6 +248,9 @@ const WeatherScreen: React.FC = () => {
                 />
               </div>
 
+              {/* Weather map */}
+              <WeatherMapSection />
+
               {/* Webcams section */}
               <WeatherWebcamsSection />
 
@@ -254,13 +267,6 @@ const WeatherScreen: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Day detail sheet */}
-      <WeatherDayDetail
-        day={selectedDay}
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-      />
     </div>
   );
 };

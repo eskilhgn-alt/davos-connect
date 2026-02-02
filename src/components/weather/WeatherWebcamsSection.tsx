@@ -1,30 +1,33 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Camera, ExternalLink, ImageOff } from "lucide-react";
-import { FEATURED_WEBCAMS, WEBCAMS_PAGE, type FeaturedWebcam } from "@/config/liveInfo";
-import { DavosCard } from "@/components/ui/davos-card";
-import { DavosButton } from "@/components/ui/davos-button";
+import { Camera, RefreshCw, ImageOff } from "lucide-react";
+import { FEATURED_WEBCAMS, getWebcamProxyUrl, type Webcam } from "@/config/webcams";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
+import { Link } from "react-router-dom";
 
 interface WebcamThumbnailProps {
-  webcam: FeaturedWebcam;
+  webcam: Webcam;
 }
 
 const WebcamThumbnail: React.FC<WebcamThumbnailProps> = ({ webcam }) => {
   const [imageState, setImageState] = React.useState<"loading" | "loaded" | "error">("loading");
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
-  const openWebcam = () => {
-    window.open(webcam.pageUrl, "_blank", "noopener,noreferrer");
-  };
+  // Auto-refresh every 60 seconds
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshKey(k => k + 1);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const imageUrl = `${getWebcamProxyUrl(webcam.imageUrl)}&t=${refreshKey}`;
 
   return (
-    <button
-      type="button"
-      onClick={openWebcam}
+    <div
       className={cn(
         "flex-shrink-0 w-36 overflow-hidden rounded-lg",
-        "bg-muted focus:outline-none focus:ring-2 focus:ring-primary",
-        "active:scale-95 transition-transform"
+        "bg-muted"
       )}
     >
       {/* Image */}
@@ -40,8 +43,8 @@ const WebcamThumbnail: React.FC<WebcamThumbnailProps> = ({ webcam }) => {
         )}
 
         <img
-          src={`${webcam.imageUrl}?t=${Math.floor(Date.now() / 60000)}`}
-          alt={webcam.name}
+          src={imageUrl}
+          alt={webcam.area}
           loading="lazy"
           onLoad={() => setImageState("loaded")}
           onError={() => setImageState("error")}
@@ -60,21 +63,18 @@ const WebcamThumbnail: React.FC<WebcamThumbnailProps> = ({ webcam }) => {
       {/* Label */}
       <div className="px-2 py-1.5 text-left">
         <p className="font-heading text-xs font-semibold text-foreground truncate">
-          {webcam.name}
-        </p>
-        <p className="text-[10px] text-muted-foreground truncate">
           {webcam.area}
         </p>
+        <p className="text-[10px] text-muted-foreground truncate">
+          {webcam.name}
+          {webcam.elevation && ` • ${webcam.elevation}m`}
+        </p>
       </div>
-    </button>
+    </div>
   );
 };
 
 export const WeatherWebcamsSection: React.FC = () => {
-  const openAllWebcams = () => {
-    window.open(WEBCAMS_PAGE.url, "_blank", "noopener,noreferrer");
-  };
-
   return (
     <div className="mt-6">
       <div className="px-4 flex items-center justify-between mb-3">
@@ -82,13 +82,12 @@ export const WeatherWebcamsSection: React.FC = () => {
           <Camera className="h-5 w-5 text-primary" />
           Webcams
         </h2>
-        <button
-          type="button"
-          onClick={openAllWebcams}
-          className="text-xs text-primary flex items-center gap-1 tap-target"
+        <Link
+          to="/webcams"
+          className="text-xs text-primary flex items-center gap-1 tap-target hover:underline"
         >
-          Alle <ExternalLink size={12} />
-        </button>
+          Alle webcams
+        </Link>
       </div>
 
       {/* Horizontal scroll of webcam thumbnails */}
