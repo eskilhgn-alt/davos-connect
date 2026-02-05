@@ -37,7 +37,7 @@ export const MoreScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Mer" subtitle="Innstillinger & info" />
+      <AppHeader title="Mer" subtitle="Verktøy & info" />
       
       <div 
         className="flex-1 overflow-y-auto overscroll-contain"

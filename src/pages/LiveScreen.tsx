@@ -7,26 +7,25 @@ import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { WindyEmbed } from "@/components/live";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { WEBCAMS, getWebcamProxyUrl } from "@/config/webcams";
-import { Mountain, ExternalLink, Play } from "lucide-react";
+import { WEBCAMS, getWebcamProxyUrl, type Webcam } from "@/config/webcams";
+import { Mountain, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import { WebcamModal } from "@/components/webcams";
 
 export const LiveScreen: React.FC = () => {
   const [webcamErrors, setWebcamErrors] = React.useState<Set<string>>(new Set());
+  const [selectedWebcam, setSelectedWebcam] = React.useState<Webcam | null>(null);
 
   const handleWebcamError = (webcamId: string) => {
     setWebcamErrors(prev => new Set([...prev, webcamId]));
   };
 
-  const handleOpenWebcam = (webcam: typeof WEBCAMS[0]) => {
-    // Open Feratel video player in external browser
-    if (webcam.videoUrl) {
-      window.open(webcam.videoUrl, "_blank");
-    }
-  };
-
   const handleOpenWindy = () => {
     window.open("https://www.windy.com/nb/-V%C3%A6rradar-radar?radar,46.8,9.83,10", "_blank");
   };
+
+  // Show first 6 webcams
+  const displayedWebcams = WEBCAMS.slice(0, 6);
 
   return (
     <div 
@@ -69,24 +68,26 @@ export const LiveScreen: React.FC = () => {
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-heading text-sm font-medium text-muted-foreground">
-                Webcams ({WEBCAMS.length})
+                Webcams
               </h2>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Play size={12} />
-                Trykk for live video
-              </span>
+              <Link 
+                to="/webcams"
+                className="text-xs text-primary hover:underline"
+              >
+                Alle ({WEBCAMS.length})
+              </Link>
             </div>
             
             <div className="grid grid-cols-2 gap-3">
-              {WEBCAMS.map((webcam) => {
+              {displayedWebcams.map((webcam) => {
                 const hasError = webcamErrors.has(webcam.id);
-                const proxyUrl = getWebcamProxyUrl(webcam.imageUrl);
+                const proxyUrl = `${getWebcamProxyUrl(webcam.imageUrl)}&t=${Date.now()}`;
                 
                 return (
                   <button
                     key={webcam.id}
-                    onClick={() => handleOpenWebcam(webcam)}
-                    className="text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[var(--radius-card)]"
+                    onClick={() => setSelectedWebcam(webcam)}
+                    className="text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[var(--radius-card)] active:scale-[0.98] transition-transform"
                   >
                     <DavosCard className="overflow-hidden">
                       <div className="relative aspect-video bg-muted">
@@ -103,15 +104,9 @@ export const LiveScreen: React.FC = () => {
                               loading="lazy"
                               onError={() => handleWebcamError(webcam.id)}
                             />
-                            {/* Play indicator */}
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
-                              <div className="bg-white/90 rounded-full p-2">
-                                <Play className="h-5 w-5 text-foreground fill-current" />
-                              </div>
-                            </div>
-                            {/* External link badge */}
-                            <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
-                              <ExternalLink size={10} />
+                            {/* Live badge */}
+                            <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-destructive text-destructive-foreground text-[10px] font-medium rounded">
+                              LIVE
                             </div>
                           </>
                         )}
@@ -133,6 +128,13 @@ export const LiveScreen: React.FC = () => {
           </section>
         </div>
       </div>
+
+      {/* Fullscreen modal */}
+      <WebcamModal
+        webcam={selectedWebcam}
+        open={!!selectedWebcam}
+        onOpenChange={(open) => !open && setSelectedWebcam(null)}
+      />
     </div>
   );
 };
