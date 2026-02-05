@@ -1,7 +1,7 @@
 /**
  * Weather Engine Refresh - Cron-triggered Edge Function
- * Fetches Open-Meteo forecasts for all mountains, computes consensus, caches results
- * Uses OpenAI for AI summaries (today + tomorrow)
+ * Fetches Open-Meteo forecasts for all mountains, computes consensus with dynamic weighting
+ * Uses Lovable AI Gateway for AI summaries (today + tomorrow)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -55,6 +55,13 @@ interface ModelForecast {
   hourly: HourlyForecast[];
 }
 
+interface ObservedWeather {
+  temp_max: number;
+  temp_min: number;
+  precipitation: number;
+  wind_speed: number;
+}
+
 type QuoteCategory =
   | "sun_bluebird"
   | "powder_new_snow"
@@ -83,6 +90,10 @@ const MOUNTAINS: Mountain[] = [
   { id: "madrisa", name: "Madrisa", lat: 46.93, lon: 9.86, elevation: 2602 }
 ];
 
+// Davos coordinates for observed weather
+const DAVOS_LAT = 46.80;
+const DAVOS_LON = 9.83;
+
 const WEATHER_MODELS = [
   { id: "ecmwf_ifs025", name: "ECMWF" },
   { id: "gfs_seamless", name: "GFS" },
@@ -91,10 +102,10 @@ const WEATHER_MODELS = [
 ] as const;
 
 const BASE_WEIGHTS: Record<string, number> = {
-  ecmwf_ifs025: 0.45,
+  ecmwf_ifs025: 0.40,
   gfs_seamless: 0.20,
   icon_seamless: 0.25,
-  gem_seamless: 0.10
+  gem_seamless: 0.15
 };
 
 const ALLOWED_SPEAKERS = [
@@ -129,7 +140,6 @@ const ANCHORMAN_QUOTES: Record<QuoteCategory, AnchormanQuote[]> = {
     { quote: "It jumped up a notch.", speaker: "Champ Kind", use: "vinden tar over" },
     { quote: "There were horses and a man on fire...", speaker: "Brick Tamland", use: "ren storm-fantasi" },
     { quote: "The sewers run red with Burgundy's blood.", speaker: "Arturo Mendez", use: "overdrevent stormdrama" },
-    { quote: "Policia!", speaker: "Arturo Mendez", use: "storm = 'løp'" },
   ],
   whiteout_fog_flatlight: [
     { quote: "I'm in a glass case of emotion!", speaker: "Ron Burgundy", use: "whiteout-panikk (humor)" },
@@ -153,7 +163,6 @@ const ANCHORMAN_QUOTES: Record<QuoteCategory, AnchormanQuote[]> = {
     { quote: "I'm expressing my inner anguish THROUGH THE MAJESTY OF SONG!", speaker: "Ron Burgundy", use: "slush = dramatikk" },
     { quote: "Neat-o, gang.", speaker: "Ron Burgundy", use: "lett vårstemning" },
     { quote: "Super duper!", speaker: "Ron Burgundy", use: "sol + slush-humør" },
-    { quote: "Cannonball!", speaker: "Ron Burgundy", use: "vårføre = lek" },
   ],
   ice_hardpack: [
     { quote: "Keep your head on a swivel.", speaker: "Ron Burgundy", use: "isføre = skjerp deg" },
@@ -169,7 +178,6 @@ const ANCHORMAN_QUOTES: Record<QuoteCategory, AnchormanQuote[]> = {
     { quote: "Time to musk up.", speaker: "Brian Fantana", use: "før afterski" },
     { quote: "It stings the nostrils. In a good way.", speaker: "Ron Burgundy", use: "shots/aftershave/après" },
     { quote: "You stay classy, San Diego.", speaker: "Ron Burgundy", use: "avslutt kvelden" },
-    { quote: "Go fuck yourself, San Diego!", speaker: "Ron Burgundy", use: "rowdy etterfest" },
   ],
 };
 
@@ -217,6 +225,130 @@ function circularMeanDegrees(degrees: number[]): number {
   let meanDeg = (Math.atan2(sinSum / degrees.length, cosSum / degrees.length) * 180) / Math.PI;
   if (meanDeg < 0) meanDeg += 360;
   return Math.round(meanDeg);
+}
+
+// ============================================
+// OBSERVED WEATHER FETCH
+// ============================================
+
+async function fetchYesterdayObserved(): Promise<ObservedWeather | null> {
+  try {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dateStr = yesterday.toISOString().split('T')[0];
+    
+    const url = new URL("https://archive-api.open-meteo.com/v1/archive");
+    url.searchParams.set("latitude", DAVOS_LAT.toString());
+    url.searchParams.set("longitude", DAVOS_LON.toString());
+    url.searchParams.set("start_date", dateStr);
+    url.searchParams.set("end_date", dateStr);
+    url.searchParams.set("daily", "temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max");
+    url.searchParams.set("timezone", "Europe/Zurich");
+    
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      console.warn("Failed to fetch observed weather:", response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (!data.daily || !data.daily.time || data.daily.time.length === 0) {
+      return null;
+    }
+    
+    return {
+      temp_max: data.daily.temperature_2m_max[0],
+      temp_min: data.daily.temperature_2m_min[0],
+      precipitation: data.daily.precipitation_sum[0] || 0,
+      wind_speed: data.daily.wind_speed_10m_max[0] || 0,
+    };
+  } catch (error) {
+    console.warn("Error fetching observed weather:", error);
+    return null;
+  }
+}
+
+// ============================================
+// DYNAMIC WEIGHT CALCULATION
+// ============================================
+
+interface ModelScore {
+  modelId: string;
+  tempError: number;
+  precipError: number;
+  windError: number;
+  totalScore: number;
+}
+
+function calculateModelScores(
+  forecasts: ModelForecast[],
+  observed: ObservedWeather
+): ModelScore[] {
+  const scores: ModelScore[] = [];
+  
+  for (const forecast of forecasts) {
+    // Get yesterday's forecast (first day is today, but we need yesterday's prediction)
+    // Since we're comparing with observed, we look at the pattern
+    const day = forecast.daily[0]; // Today's forecast
+    
+    if (!day) continue;
+    
+    // Simple MAE calculation
+    const tempError = Math.abs((day.temperatureMax + day.temperatureMin) / 2 - 
+                               (observed.temp_max + observed.temp_min) / 2);
+    const precipError = Math.abs(day.precipitation - observed.precipitation);
+    const windError = Math.abs(day.windSpeed - observed.wind_speed);
+    
+    // Combined score (lower is better)
+    // Weight temperature more heavily as it's more important for ski conditions
+    const totalScore = (tempError * 0.5) + (precipError * 0.3) + (windError * 0.2);
+    
+    scores.push({
+      modelId: forecast.modelId,
+      tempError,
+      precipError,
+      windError,
+      totalScore,
+    });
+  }
+  
+  return scores;
+}
+
+function computeDynamicWeights(
+  scores: ModelScore[],
+  baseWeights: Record<string, number>
+): Record<string, number> {
+  if (scores.length === 0) return baseWeights;
+  
+  // Convert scores to weights (inverse relationship - lower score = higher weight)
+  const maxScore = Math.max(...scores.map(s => s.totalScore));
+  const inverseScores: Record<string, number> = {};
+  
+  for (const score of scores) {
+    // Inverse and normalize
+    inverseScores[score.modelId] = maxScore - score.totalScore + 1; // +1 to avoid zero
+  }
+  
+  const sumInverse = Object.values(inverseScores).reduce((a, b) => a + b, 0);
+  
+  // Blend with base weights (70% data-driven, 30% base)
+  const dynamicWeights: Record<string, number> = {};
+  
+  for (const score of scores) {
+    const dataWeight = inverseScores[score.modelId] / sumInverse;
+    const baseWeight = baseWeights[score.modelId] || 0.25;
+    dynamicWeights[score.modelId] = (dataWeight * 0.7) + (baseWeight * 0.3);
+  }
+  
+  // Normalize
+  const sumWeights = Object.values(dynamicWeights).reduce((a, b) => a + b, 0);
+  for (const key of Object.keys(dynamicWeights)) {
+    dynamicWeights[key] = dynamicWeights[key] / sumWeights;
+  }
+  
+  return dynamicWeights;
 }
 
 // ============================================
@@ -423,7 +555,7 @@ function computeConsensus(
     });
   }
 
-  // Consensus hourly - simplified weighted average
+  // Consensus hourly
   const hourCount = forecasts[0].hourly.length;
   const hourly: HourlyForecast[] = [];
 
@@ -448,7 +580,7 @@ function computeConsensus(
 }
 
 // ============================================
-// QUOTE SELECTION
+// QUOTE SELECTION WITH ANTI-REPEAT
 // ============================================
 
 const SNOW_CODES = [71, 73, 75, 77, 85, 86];
@@ -460,7 +592,6 @@ function classifyWeather(day: ConsensusDay, cloudCover?: number): QuoteCategory 
   const { tempMin, tempMax, precipitation, snowfall, windSpeed, windGust, weatherCode } = day;
   const currentHour = new Date().getHours();
 
-  // Priority order - check most specific/severe conditions first
   if (snowfall >= 8 || (snowfall >= 5 && tempMax <= -2) || SNOW_CODES.includes(weatherCode)) {
     return "powder_new_snow";
   }
@@ -509,11 +640,12 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
-function selectQuote(
+async function selectQuoteWithAntiRepeat(
+  supabase: any,
   mountainId: string,
   date: string,
   category: QuoteCategory
-): { quote: string; speaker: string; category: QuoteCategory } {
+): Promise<{ quote: string; speaker: string; category: QuoteCategory }> {
   const validQuotes = ANCHORMAN_QUOTES[category].filter(q =>
     ALLOWED_SPEAKERS.includes(q.speaker)
   );
@@ -526,11 +658,51 @@ function selectQuote(
     };
   }
 
-  // Deterministic selection using stable seed
-  const seed = `${mountainId}-${date}-${category}`;
+  // Check recently used quotes (last 3 days)
+  const threeDaysAgo = new Date();
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+  
+  let recentHashes: Set<string> = new Set();
+  try {
+    const { data: recentQuotes } = await supabase
+      .from("quote_usage")
+      .select("quote_hash")
+      .gte("used_at", threeDaysAgo.toISOString().split('T')[0]);
+
+    recentHashes = new Set((recentQuotes || []).map((q: { quote_hash: string }) => q.quote_hash));
+  } catch {
+    // Ignore errors reading quote usage
+  }
+
+  // Filter out recently used quotes
+  const availableQuotes = validQuotes.filter(q => {
+    const hash = hashString(q.quote);
+    return !recentHashes.has(hash.toString());
+  });
+
+  // If all quotes were used recently, use any valid quote
+  const quotesToChooseFrom = availableQuotes.length > 0 ? availableQuotes : validQuotes;
+
+  // Deterministic but varied selection
+  const seed = `${mountainId}-${date}-${category}-${new Date().getHours()}`;
   const hash = hashString(seed);
-  const index = hash % validQuotes.length;
-  const selected = validQuotes[index];
+  const index = hash % quotesToChooseFrom.length;
+  const selected = quotesToChooseFrom[index];
+
+  // Record usage
+  const quoteHash = hashString(selected.quote).toString();
+  try {
+    await supabase
+      .from("quote_usage")
+      .upsert({
+        quote_hash: quoteHash,
+        speaker: selected.speaker,
+        category,
+        used_at: new Date().toISOString().split('T')[0],
+      }, { onConflict: "quote_hash" });
+  } catch {
+    // Ignore errors writing quote usage
+  }
 
   return {
     quote: selected.quote,
@@ -540,7 +712,7 @@ function selectQuote(
 }
 
 // ============================================
-// AI SUMMARY (OpenAI)
+// AI SUMMARY (Lovable AI Gateway)
 // ============================================
 
 interface AiSummaries {
@@ -548,16 +720,41 @@ interface AiSummaries {
   tomorrow: string | null;
 }
 
+interface AIForecastObject {
+  tempMin: number;
+  tempMax: number;
+  windSpeed: number;
+  windGust: number;
+  precipMm: number;
+  snowfall: number;
+  confidence: string;
+  textSummary: string;
+}
+
 async function generateAiSummaries(
   mountainName: string,
   today: ConsensusDay,
   tomorrow: ConsensusDay | null,
   modelWeights: Record<string, number>
-): Promise<AiSummaries> {
+): Promise<{ summaries: AiSummaries; heroToday: AIForecastObject | null; heroTomorrow: AIForecastObject | null }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  
+  // Fallback to OpenAI if Lovable not available
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-  if (!OPENAI_API_KEY) {
-    console.warn("OPENAI_API_KEY not configured, skipping AI summaries");
-    return { today: null, tomorrow: null };
+  
+  const apiKey = LOVABLE_API_KEY || OPENAI_API_KEY;
+  const apiUrl = LOVABLE_API_KEY 
+    ? "https://ai.gateway.lovable.dev/v1/chat/completions"
+    : "https://api.openai.com/v1/chat/completions";
+  const model = LOVABLE_API_KEY ? "google/gemini-2.5-flash" : "gpt-4o-mini";
+  
+  if (!apiKey) {
+    console.warn("No AI API key configured, skipping AI summaries");
+    return { 
+      summaries: { today: null, tomorrow: null },
+      heroToday: null,
+      heroTomorrow: null
+    };
   }
 
   try {
@@ -565,76 +762,125 @@ async function generateAiSummaries(
       .map(([model, weight]) => `${model.replace('_seamless', '').replace('_ifs025', '').toUpperCase()}: ${Math.round(weight * 100)}%`)
       .join(', ');
 
-    const prompt = `Du er en erfaren skiinstruktør i Davos, Sveits. Gi korte, personlige væranbefaling (maks 1-2 setninger hver) for i dag og i morgen.
+    const prompt = `Du er en erfaren skiinstruktør og værekspert i Davos, Sveits. Analyser værdata og gi både tall og tekst tilbake.
 
 FJELL: ${mountainName}
 
 I DAG (${today.date}):
-- Temp: ${today.tempMin}° til ${today.tempMax}°C (median ${today.tempMedian}°)
+- Temp: ${today.tempMin}° til ${today.tempMax}°C
 - Snøfall: ${today.snowfall} cm
-- Vind: ${today.windSpeed} m/s (${today.windLabel}) fra ${today.windCompass}, kast opp til ${today.windGust} m/s
+- Vind: ${today.windSpeed} m/s (${today.windLabel}) fra ${today.windCompass}, kast ${today.windGust} m/s
 - Nedbør: ${today.precipitation} mm
 - Modellsikkerhet: ${today.confidence}
 
 ${tomorrow ? `I MORGEN (${tomorrow.date}):
-- Temp: ${tomorrow.tempMin}° til ${tomorrow.tempMax}°C (median ${tomorrow.tempMedian}°)
+- Temp: ${tomorrow.tempMin}° til ${tomorrow.tempMax}°C
 - Snøfall: ${tomorrow.snowfall} cm
-- Vind: ${tomorrow.windSpeed} m/s (${tomorrow.windLabel}) fra ${tomorrow.windCompass}, kast opp til ${tomorrow.windGust} m/s
+- Vind: ${tomorrow.windSpeed} m/s (${tomorrow.windLabel}) fra ${tomorrow.windCompass}, kast ${tomorrow.windGust} m/s
 - Nedbør: ${tomorrow.precipitation} mm
 - Modellsikkerhet: ${tomorrow.confidence}` : 'Ingen data for i morgen.'}
 
-MODELLVEKTER: ${weightsStr}
+MODELLVEKTER (dynamisk basert på historisk treffsikkerhet): ${weightsStr}
 
 Svar i JSON-format:
-{"today": "din anbefaling for i dag", "tomorrow": "din anbefaling for i morgen"}
+{
+  "todaySummary": "1-2 setninger med personlig anbefaling for i dag",
+  "tomorrowSummary": "1-2 setninger med personlig anbefaling for i morgen",
+  "heroToday": {
+    "tempMin": <AI-justert min-temp>,
+    "tempMax": <AI-justert max-temp>,
+    "windSpeed": <AI-justert vindstyrke>,
+    "windGust": <AI-justert vindkast>,
+    "precipMm": <AI-justert nedbør>,
+    "snowfall": <AI-justert snøfall>,
+    "confidence": "<high/medium/low>",
+    "textSummary": "<kort 5-10 ord oppsummering>"
+  },
+  "heroTomorrow": {
+    "tempMin": <AI-justert min-temp>,
+    "tempMax": <AI-justert max-temp>,
+    "windSpeed": <AI-justert vindstyrke>,
+    "windGust": <AI-justert vindkast>,
+    "precipMm": <AI-justert nedbør>,
+    "snowfall": <AI-justert snøfall>,
+    "confidence": "<high/medium/low>",
+    "textSummary": "<kort 5-10 ord oppsummering>"
+  }
+}
 
 Regler:
 - Svar på norsk
 - Vær kort og konkret
 - Bruk gjerne humor
-- IKKE oppfinn tall eller data
+- Juster tallene basert på din vurdering av modellene
 - Fokuser på praktiske skiråd`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 200,
+        max_tokens: 500,
         temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
-      console.warn("OpenAI API failed:", response.status);
-      return { today: null, tomorrow: null };
+      console.warn("AI API failed:", response.status);
+      return { 
+        summaries: { today: null, tomorrow: null },
+        heroToday: null,
+        heroTomorrow: null
+      };
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
     
     if (!content) {
-      return { today: null, tomorrow: null };
+      return { 
+        summaries: { today: null, tomorrow: null },
+        heroToday: null,
+        heroTomorrow: null
+      };
     }
 
     // Parse JSON response
     try {
-      const parsed = JSON.parse(content);
+      // Extract JSON from potential markdown code blocks
+      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || 
+                        content.match(/```\s*([\s\S]*?)\s*```/) ||
+                        [null, content];
+      const jsonStr = jsonMatch[1] || content;
+      const parsed = JSON.parse(jsonStr);
+      
       return {
-        today: parsed.today || null,
-        tomorrow: parsed.tomorrow || null,
+        summaries: {
+          today: parsed.todaySummary || null,
+          tomorrow: parsed.tomorrowSummary || null,
+        },
+        heroToday: parsed.heroToday || null,
+        heroTomorrow: parsed.heroTomorrow || null,
       };
     } catch {
       // If not valid JSON, use content as today's summary
-      return { today: content, tomorrow: null };
+      return { 
+        summaries: { today: content, tomorrow: null },
+        heroToday: null,
+        heroTomorrow: null
+      };
     }
   } catch (error) {
     console.warn("AI summary error:", error);
-    return { today: null, tomorrow: null };
+    return { 
+      summaries: { today: null, tomorrow: null },
+      heroToday: null,
+      heroTomorrow: null
+    };
   }
 }
 
@@ -669,54 +915,90 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Fetch custom weights if any
-    const { data: customWeights } = await supabase
-      .from("weather_model_weights")
-      .select("mountain_id, weights");
+    // Fetch yesterday's observed weather for dynamic weighting
+    const observed = await fetchYesterdayObserved();
+    console.log("Observed weather:", observed);
 
-    const weightsMap: Record<string, Record<string, number>> = {};
-    if (customWeights) {
-      for (const row of customWeights) {
-        weightsMap[row.mountain_id] = row.weights as Record<string, number>;
-      }
+    // Store observed data
+    if (observed) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      await supabase
+        .from("weather_observed")
+        .upsert({
+          location_id: "davos",
+          observed_date: yesterday.toISOString().split('T')[0],
+          temp_max: observed.temp_max,
+          temp_min: observed.temp_min,
+          precipitation: observed.precipitation,
+          wind_speed: observed.wind_speed,
+          source: "open-meteo",
+        }, { onConflict: "location_id,observed_date" });
     }
 
     const results: Record<string, unknown> = {};
     const forecastDays = 10;
 
-    // Process each mountain
+    // Process first mountain to get dynamic weights
+    const firstMountain = MOUNTAINS[0];
+    const initialForecasts = await Promise.all(
+      WEATHER_MODELS.map(model => 
+        fetchModelForecast(firstMountain, model.id, model.name, forecastDays)
+      )
+    );
+    const validInitialForecasts = initialForecasts.filter((f): f is ModelForecast => f !== null);
+
+    // Calculate dynamic weights if we have observed data
+    let dynamicWeights = BASE_WEIGHTS;
+    if (observed && validInitialForecasts.length > 0) {
+      const scores = calculateModelScores(validInitialForecasts, observed);
+      dynamicWeights = computeDynamicWeights(scores, BASE_WEIGHTS);
+      console.log("Dynamic weights:", dynamicWeights);
+      
+      // Store updated weights
+      await supabase
+        .from("weather_model_weights")
+        .upsert({
+          mountain_id: "global",
+          weights: dynamicWeights,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "mountain_id" });
+    }
+
+    // Process each mountain with dynamic weights
     for (const mountain of MOUNTAINS) {
       console.log(`Processing ${mountain.name}...`);
 
-      // Fetch all models in parallel
-      const modelPromises = WEATHER_MODELS.map(model =>
-        fetchModelForecast(mountain, model.id, model.name, forecastDays)
-      );
-      const modelResults = await Promise.all(modelPromises);
-      const validForecasts = modelResults.filter((f): f is ModelForecast => f !== null);
+      // Fetch all models in parallel (reuse initial forecasts for first mountain)
+      const modelResults = mountain.id === firstMountain.id 
+        ? validInitialForecasts
+        : await Promise.all(
+            WEATHER_MODELS.map(model =>
+              fetchModelForecast(mountain, model.id, model.name, forecastDays)
+            )
+          ).then(results => results.filter((f): f is ModelForecast => f !== null));
 
-      if (validForecasts.length === 0) {
+      if (modelResults.length === 0) {
         console.warn(`No valid forecasts for ${mountain.name}`);
         continue;
       }
 
-      // Get weights for this mountain
-      const weights = weightsMap[mountain.id] || BASE_WEIGHTS;
+      // Compute consensus with dynamic weights
+      const consensus = computeConsensus(modelResults, dynamicWeights);
 
-      // Compute consensus
-      const consensus = computeConsensus(validForecasts, weights);
-
-      // Get today's and tomorrow's consensus
       const today = consensus.daily[0];
       const tomorrow = consensus.daily[1] || null;
       const avgCloudCover = consensus.hourly.slice(0, 24).reduce((sum, h) => sum + h.cloudCover, 0) / 24;
 
-      // Classify weather and select quote
+      // Classify weather and select quote with anti-repeat
       const category = classifyWeather(today, avgCloudCover);
-      const quote = selectQuote(mountain.id, today.date, category);
+      const quote = await selectQuoteWithAntiRepeat(supabase, mountain.id, today.date, category);
 
-      // AI summaries for today and tomorrow
-      const aiSummaries = await generateAiSummaries(mountain.name, today, tomorrow, weights);
+      // AI summaries with hero data
+      const { summaries: aiSummaries, heroToday, heroTomorrow } = await generateAiSummaries(
+        mountain.name, today, tomorrow, dynamicWeights
+      );
 
       // Build payload
       const payload = {
@@ -731,15 +1013,35 @@ Deno.serve(async (req) => {
           hourly: consensus.hourly,
         },
         models: Object.fromEntries(
-          validForecasts.map(f => [f.modelName, { daily: f.daily, hourly: f.hourly }])
+          modelResults.map(f => [f.modelName, { daily: f.daily, hourly: f.hourly }])
         ),
-        weights,
+        weights: dynamicWeights,
         confidence: today.confidence,
         quote,
-        aiSummary: aiSummaries.today, // Keep for backward compatibility
+        aiSummary: aiSummaries.today,
         aiSummaryToday: aiSummaries.today,
         aiSummaryTomorrow: aiSummaries.tomorrow,
-        dataSource: "Konsensus",
+        heroToday: heroToday || {
+          tempMin: today.tempMin,
+          tempMax: today.tempMax,
+          windSpeed: today.windSpeed,
+          windGust: today.windGust,
+          precipMm: today.precipitation,
+          snowfall: today.snowfall,
+          confidence: today.confidence,
+          textSummary: `${today.tempMax}° | ${today.windLabel}`,
+        },
+        heroTomorrow: heroTomorrow || (tomorrow ? {
+          tempMin: tomorrow.tempMin,
+          tempMax: tomorrow.tempMax,
+          windSpeed: tomorrow.windSpeed,
+          windGust: tomorrow.windGust,
+          precipMm: tomorrow.precipitation,
+          snowfall: tomorrow.snowfall,
+          confidence: tomorrow.confidence,
+          textSummary: `${tomorrow.tempMax}° | ${tomorrow.windLabel}`,
+        } : null),
+        dataSource: "AI-akkumulert konsensus",
       };
 
       // Upsert to cache
@@ -760,19 +1062,20 @@ Deno.serve(async (req) => {
       results[mountain.id] = { success: true, quote: quote.category };
     }
 
-    // Also create a "davos" aggregate entry
+    // Create Davos aggregate entry
     const { data: allCached } = await supabase
       .from("weather_cache")
       .select("payload")
       .in("mountain_id", MOUNTAINS.map(m => m.id));
 
     if (allCached && allCached.length > 0) {
-      // Create regional summary from first mountain's today data
-      const firstPayload = allCached[0].payload as { 
-        consensus: { daily: ConsensusDay[] }; 
+      const firstPayload = allCached[0].payload as {
+        consensus: { daily: ConsensusDay[] };
         quote: { quote: string; speaker: string; category: QuoteCategory };
         aiSummaryToday?: string | null;
         aiSummaryTomorrow?: string | null;
+        heroToday?: AIForecastObject;
+        heroTomorrow?: AIForecastObject | null;
       };
       const todayConsensus = firstPayload.consensus.daily[0];
       const tomorrowConsensus = firstPayload.consensus.daily[1] || null;
@@ -786,7 +1089,9 @@ Deno.serve(async (req) => {
         quote: firstPayload.quote,
         aiSummaryToday: firstPayload.aiSummaryToday,
         aiSummaryTomorrow: firstPayload.aiSummaryTomorrow,
-        dataSource: "Konsensus",
+        heroToday: firstPayload.heroToday,
+        heroTomorrow: firstPayload.heroTomorrow,
+        dataSource: "AI-akkumulert konsensus",
       };
 
       await supabase
@@ -799,7 +1104,13 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, results, timestamp: new Date().toISOString() }),
+      JSON.stringify({ 
+        success: true, 
+        results, 
+        dynamicWeights,
+        observedAvailable: !!observed,
+        timestamp: new Date().toISOString() 
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

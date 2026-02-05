@@ -14,6 +14,88 @@ export type Database = {
   }
   public: {
     Tables: {
+      attachments: {
+        Row: {
+          created_at: string
+          file_size: number | null
+          height: number | null
+          id: string
+          message_id: string
+          storage_path: string
+          type: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          file_size?: number | null
+          height?: number | null
+          id?: string
+          message_id: string
+          storage_path: string
+          type: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          file_size?: number | null
+          height?: number | null
+          id?: string
+          message_id?: string
+          storage_path?: string
+          type?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gallery_items: {
+        Row: {
+          created_at: string
+          height: number | null
+          id: string
+          source_message_id: string | null
+          storage_path: string
+          type: string
+          uploaded_by: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          source_message_id?: string | null
+          storage_path: string
+          type: string
+          uploaded_by: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          source_message_id?: string | null
+          storage_path?: string
+          type?: string
+          uploaded_by?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_items_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       members: {
         Row: {
           created_at: string
@@ -96,6 +178,90 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          is_active: boolean
+          nickname: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          is_active?: boolean
+          nickname?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          is_active?: boolean
+          nickname?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      push_tokens: {
+        Row: {
+          created_at: string
+          device_type: string | null
+          id: string
+          player_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_type?: string | null
+          id?: string
+          player_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_type?: string | null
+          id?: string
+          player_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quote_usage: {
+        Row: {
+          category: string
+          id: string
+          quote_hash: string
+          speaker: string
+          used_at: string
+        }
+        Insert: {
+          category: string
+          id?: string
+          quote_hash: string
+          speaker: string
+          used_at?: string
+        }
+        Update: {
+          category?: string
+          id?: string
+          quote_hash?: string
+          speaker?: string
+          used_at?: string
+        }
+        Relationships: []
+      }
       threads: {
         Row: {
           created_at: string
@@ -111,6 +277,27 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -150,15 +337,61 @@ export type Database = {
         }
         Relationships: []
       }
+      weather_observed: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string
+          observed_date: string
+          precipitation: number | null
+          source: string
+          temp_max: number | null
+          temp_min: number | null
+          wind_gust: number | null
+          wind_speed: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id: string
+          observed_date: string
+          precipitation?: number | null
+          source?: string
+          temp_max?: number | null
+          temp_min?: number | null
+          wind_gust?: number | null
+          wind_speed?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string
+          observed_date?: string
+          precipitation?: number | null
+          source?: string
+          temp_max?: number | null
+          temp_min?: number | null
+          wind_gust?: number | null
+          wind_speed?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "user" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -285,6 +518,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["user", "admin"],
+    },
   },
 } as const
