@@ -11,7 +11,7 @@ import { Maximize2 } from "lucide-react";
 
 interface WindyEmbedProps {
   className?: string;
-  overlay?: "wind" | "rain" | "temp" | "clouds" | "snow";
+  overlay?: "wind" | "rain" | "temp" | "clouds" | "snow" | "radar";
 }
 
 // Davos coordinates
