@@ -159,7 +159,7 @@ export const InfoScreen: React.FC = () => {
 
           {/* Version footer */}
           <p className="text-center text-xs text-muted-foreground py-4">
-            Lift & Lansen v1.0.0 · Bygget med ❤️ for ski-crewet
+            Lift & Lager v1.0 · Bygget med ❤️ for ski-crewet
           </p>
         </div>
       </div>

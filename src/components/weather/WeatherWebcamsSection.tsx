@@ -1,15 +1,17 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Camera, RefreshCw, ImageOff } from "lucide-react";
+import { Camera, ImageOff } from "lucide-react";
 import { FEATURED_WEBCAMS, getWebcamProxyUrl, type Webcam } from "@/config/webcams";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { Link } from "react-router-dom";
+import { WebcamModal } from "@/components/webcams";
 
 interface WebcamThumbnailProps {
   webcam: Webcam;
+  onClick: () => void;
 }
 
-const WebcamThumbnail: React.FC<WebcamThumbnailProps> = ({ webcam }) => {
+const WebcamThumbnail: React.FC<WebcamThumbnailProps> = ({ webcam, onClick }) => {
   const [imageState, setImageState] = React.useState<"loading" | "loaded" | "error">("loading");
   const [refreshKey, setRefreshKey] = React.useState(0);
 
@@ -24,10 +26,14 @@ const WebcamThumbnail: React.FC<WebcamThumbnailProps> = ({ webcam }) => {
   const imageUrl = `${getWebcamProxyUrl(webcam.imageUrl)}&t=${refreshKey}`;
 
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
       className={cn(
         "flex-shrink-0 w-36 overflow-hidden rounded-lg",
-        "bg-muted"
+        "bg-muted text-left",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "active:scale-[0.98] transition-transform"
       )}
     >
       {/* Image */}
@@ -61,44 +67,59 @@ const WebcamThumbnail: React.FC<WebcamThumbnailProps> = ({ webcam }) => {
       </div>
       
       {/* Label */}
-      <div className="px-2 py-1.5 text-left">
+      <div className="px-2 py-1.5">
         <p className="font-heading text-xs font-semibold text-foreground truncate">
           {webcam.area}
         </p>
         <p className="text-[10px] text-muted-foreground truncate">
           {webcam.name}
-          {webcam.elevation && ` • ${webcam.elevation}m`}
+          {webcam.elevation && ` · ${webcam.elevation}m`}
         </p>
       </div>
-    </div>
+    </button>
   );
 };
 
 export const WeatherWebcamsSection: React.FC = () => {
+  const [selectedWebcam, setSelectedWebcam] = React.useState<Webcam | null>(null);
+
   return (
-    <div className="mt-6">
-      <div className="px-4 flex items-center justify-between mb-3">
-        <h2 className="font-heading text-lg font-semibold text-foreground flex items-center gap-2">
-          <Camera className="h-5 w-5 text-primary" />
-          Webcams
-        </h2>
-        <Link
-          to="/webcams"
-          className="text-xs text-primary flex items-center gap-1 tap-target hover:underline"
+    <>
+      <div className="mt-6">
+        <div className="px-4 flex items-center justify-between mb-3">
+          <h2 className="font-heading text-lg font-semibold text-foreground flex items-center gap-2">
+            <Camera className="h-5 w-5 text-primary" />
+            Webcams
+          </h2>
+          <Link
+            to="/webcams"
+            className="text-xs text-primary flex items-center gap-1 tap-target hover:underline"
+          >
+            Alle webcams
+          </Link>
+        </div>
+
+        {/* Horizontal scroll of webcam thumbnails */}
+        <div 
+          className="flex gap-3 px-4 overflow-x-auto overscroll-contain pb-2"
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          Alle webcams
-        </Link>
+          {FEATURED_WEBCAMS.map((webcam) => (
+            <WebcamThumbnail 
+              key={webcam.id} 
+              webcam={webcam} 
+              onClick={() => setSelectedWebcam(webcam)}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Horizontal scroll of webcam thumbnails */}
-      <div 
-        className="flex gap-3 px-4 overflow-x-auto overscroll-contain pb-2"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        {FEATURED_WEBCAMS.map((webcam) => (
-          <WebcamThumbnail key={webcam.id} webcam={webcam} />
-        ))}
-      </div>
-    </div>
+      {/* Fullscreen modal */}
+      <WebcamModal
+        webcam={selectedWebcam}
+        open={!!selectedWebcam}
+        onOpenChange={(open) => !open && setSelectedWebcam(null)}
+      />
+    </>
   );
 };

@@ -97,7 +97,7 @@ export const ChatScreen: React.FC = () => {
         >
           <ArrowLeft size={24} />
         </button>
-        <h1 className="font-heading text-lg font-semibold">Davos Crew</h1>
+        <h1 className="font-heading text-lg font-semibold">Lift & Lager</h1>
       </header>
 
       {/* Message list - scrolls */}

@@ -1,0 +1,1 @@
+export { WebcamModal } from "./WebcamModal";
