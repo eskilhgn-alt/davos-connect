@@ -1,6 +1,6 @@
 /**
- * WebcamModal - Fullscreen webcam viewer with video embed + snapshot fallback
- * Video-first approach with iframe embed, falls back to auto-refreshing snapshot
+ * WebcamModal - Fullscreen webcam viewer with video/HLS + snapshot fallback
+ * Prioritizes real video when available, with robust error handling
  */
 
 import * as React from "react";
@@ -9,7 +9,7 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { DavosButton } from "@/components/ui/davos-button";
-import { X, ExternalLink, RefreshCw, AlertCircle } from "lucide-react";
+import { X, ExternalLink, RefreshCw, AlertCircle, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getWebcamProxyUrl, type Webcam } from "@/config/webcams";
 
@@ -32,6 +32,7 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
   const [snapshotKey, setSnapshotKey] = React.useState(0);
   const [snapshotLoaded, setSnapshotLoaded] = React.useState(false);
   const [iframeKey, setIframeKey] = React.useState(0);
+  const [retryCount, setRetryCount] = React.useState(0);
   
   const loadTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
@@ -39,7 +40,6 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
   // Reset state when modal opens or webcam changes
   React.useEffect(() => {
     if (open && webcam) {
-      // Determine initial view mode based on availability
       const hasVideo = !!webcam.videoUrl;
       setViewMode(hasVideo ? "video" : "snapshot");
       setIframeLoaded(false);
@@ -47,14 +47,28 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
       setSnapshotLoaded(false);
       setSnapshotKey(Date.now());
       setIframeKey((k) => k + 1);
+      setRetryCount(0);
 
-      // Set timeout for iframe load failure detection
+      // Set timeout for iframe load failure detection (8 seconds)
       if (hasVideo) {
         loadTimeoutRef.current = setTimeout(() => {
-          if (!iframeLoaded) {
+          if (!iframeLoaded && retryCount < 1) {
+            // First failure: try once more
+            console.log("Video load timeout, retrying...");
+            setRetryCount(1);
+            setIframeKey(k => k + 1);
+            
+            // Set another timeout for retry
+            loadTimeoutRef.current = setTimeout(() => {
+              if (!iframeLoaded) {
+                console.log("Video retry failed, switching to snapshot");
+                setIframeError(true);
+              }
+            }, 6000);
+          } else {
             setIframeError(true);
           }
-        }, 6000);
+        }, 8000);
       }
     }
 
@@ -66,13 +80,13 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
     };
   }, [open, webcam]);
 
-  // Auto-refresh snapshot every 10 seconds when in snapshot mode
+  // Auto-refresh snapshot every 8 seconds when in snapshot mode
   React.useEffect(() => {
     if (open && viewMode === "snapshot") {
       refreshIntervalRef.current = setInterval(() => {
         setSnapshotKey(Date.now());
         setSnapshotLoaded(false);
-      }, 10000);
+      }, 8000);
     }
 
     return () => {
@@ -115,6 +129,14 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
   const handleSwitchToSnapshot = () => {
     setViewMode("snapshot");
     setSnapshotKey(Date.now());
+  };
+
+  const handleRetryVideo = () => {
+    setIframeError(false);
+    setIframeLoaded(false);
+    setRetryCount(0);
+    setIframeKey(k => k + 1);
+    setViewMode("video");
   };
 
   if (!webcam) return null;

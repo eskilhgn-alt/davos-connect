@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout";
 import { ChatLayout } from "@/layouts/ChatLayout";
 import ChatScreen from "./pages/ChatScreen";
+import HomeScreen from "./pages/HomeScreen";
 import MapScreen from "./pages/MapScreen";
 import LiveScreen from "./pages/LiveScreen";
 import FeedScreen from "./pages/FeedScreen";
@@ -53,12 +54,15 @@ const AppRoutes = () => (
     {/* Auth routes (public) */}
     <Route path="/auth" element={<AuthScreen />} />
     
-    {/* Protected routes */}
+    {/* Protected routes - Chat with its own layout */}
     <Route element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
-      <Route path="/" element={<ChatScreen />} />
+      <Route path="/chat" element={<ChatScreen />} />
     </Route>
     
+    {/* Protected routes - App layout with bottom nav */}
     <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+      <Route path="/" element={<Navigate to="/hjem" replace />} />
+      <Route path="/hjem" element={<HomeScreen />} />
       <Route path="/vaer" element={<WeatherScreen />} />
       <Route path="/live" element={<LiveScreen />} />
       <Route path="/kart" element={<MapScreen />} />

@@ -57,7 +57,7 @@ export const LiveScreen: React.FC = () => {
               </button>
             </div>
             
-            <WindyEmbed className="h-[350px]" overlay="rain" />
+            <WindyEmbed className="h-[350px]" overlay="radar" />
             
             <p className="text-xs text-muted-foreground mt-2 text-center">
               Animert nedbørradar fra Windy.com

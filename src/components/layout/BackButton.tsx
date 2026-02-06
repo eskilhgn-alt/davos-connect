@@ -1,0 +1,56 @@
+/**
+ * BackButton - Universal back navigation component
+ * Uses history.back() when possible, falls back to home
+ */
+
+import * as React from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface BackButtonProps {
+  fallbackPath?: string;
+  className?: string;
+  label?: string;
+}
+
+export const BackButton: React.FC<BackButtonProps> = ({
+  fallbackPath = "/hjem",
+  className,
+  label,
+}) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleBack = () => {
+    // Check if we have history to go back to
+    if (window.history.length > 2) {
+      navigate(-1);
+    } else {
+      // No history, go to fallback
+      navigate(fallbackPath, { replace: true });
+    }
+  };
+
+  // Don't show on root routes (bottom nav destinations)
+  const rootRoutes = ["/", "/vaer", "/live", "/kart", "/mer", "/hjem"];
+  if (rootRoutes.includes(location.pathname)) {
+    return null;
+  }
+
+  return (
+    <button
+      onClick={handleBack}
+      className={cn(
+        "flex items-center gap-1 text-primary-foreground/70 hover:text-primary-foreground tap-target transition-colors",
+        className
+      )}
+      aria-label="Tilbake"
+    >
+      <ChevronLeft size={24} />
+      {label && <span className="text-sm font-medium">{label}</span>}
+    </button>
+  );
+};
+
+export default BackButton;

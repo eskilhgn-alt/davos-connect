@@ -1,7 +1,7 @@
 import * as React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { MessageCircle, CloudSun, Radio, Map, MoreHorizontal, LucideIcon } from "lucide-react";
+import { Home, MessageCircle, CloudSun, Radio, MoreHorizontal, LucideIcon } from "lucide-react";
 
 interface NavItem {
   icon: LucideIcon;
@@ -10,10 +10,10 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { icon: MessageCircle, label: "Chat", path: "/" },
+  { icon: Home, label: "Hjem", path: "/hjem" },
+  { icon: MessageCircle, label: "Chat", path: "/chat" },
   { icon: CloudSun, label: "Vær", path: "/vaer" },
   { icon: Radio, label: "Live", path: "/live" },
-  { icon: Map, label: "Kart", path: "/kart" },
   { icon: MoreHorizontal, label: "Mer", path: "/mer" },
 ];
 

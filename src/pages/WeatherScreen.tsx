@@ -6,6 +6,7 @@ import {
   WeatherDayStrip,
   WeatherModelTabs,
   WeatherMountainSection,
+  YrWidgetPopup,
   type ModelSelection
 } from "@/components/weather";
 import {
@@ -15,7 +16,7 @@ import {
 } from "@/services/weather-backend.service";
 import { type DayAggregate } from "@/services/weather.service";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { RefreshCw, Database } from "lucide-react";
+import { RefreshCw, Database, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const WeatherScreen: React.FC = () => {
@@ -24,6 +25,7 @@ const WeatherScreen: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = React.useState(0);
   const [selectedModel, setSelectedModel] = React.useState<ModelSelection>("consensus");
+  const [showYrPopup, setShowYrPopup] = React.useState(false);
 
   const loadWeather = React.useCallback(async (forceRefresh = false) => {
     setLoading(true);
@@ -133,10 +135,10 @@ const WeatherScreen: React.FC = () => {
   const pullProgress = Math.min(pullDistance / 80, 1);
   const showPullIndicator = isPulling || isRefreshing;
 
-  // Data source label - show KI-tolket for consensus
+  // Data source label - show KI-akkumulert for consensus
   const dataSourceLabel = selectedModel === "consensus" 
-    ? (weather?.dataSource || "Konsensus (KI-tolket)")
-    : selectedModel;
+    ? (weather?.dataSource || "KI-akkumulert")
+    : selectedModel.toUpperCase();
 
   return (
     <div 
@@ -238,9 +240,18 @@ const WeatherScreen: React.FC = () => {
 
               {/* Model tabs */}
               <div className="mt-4">
-                <h2 className="px-4 font-heading text-sm font-medium text-muted-foreground mb-2">
-                  Datakilde
-                </h2>
+                <div className="flex items-center justify-between px-4 mb-2">
+                  <h2 className="font-heading text-sm font-medium text-muted-foreground">
+                    Datakilde
+                  </h2>
+                  <button
+                    onClick={() => setShowYrPopup(true)}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink size={12} />
+                    YR widget
+                  </button>
+                </div>
                 <WeatherModelTabs
                   selected={selectedModel}
                   onSelect={setSelectedModel}
@@ -260,6 +271,12 @@ const WeatherScreen: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* YR Widget Popup */}
+      <YrWidgetPopup
+        open={showYrPopup}
+        onOpenChange={setShowYrPopup}
+      />
     </div>
   );
 };

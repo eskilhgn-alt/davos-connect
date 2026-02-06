@@ -21,7 +21,7 @@ const ZOOM = 9;
 
 export const WindyEmbed: React.FC<WindyEmbedProps> = ({ 
   className,
-  overlay = "wind" 
+  overlay = "radar" // Default to radar mode per requirements
 }) => {
   const [isLoading, setIsLoading] = React.useState(true);
   const [hasError, setHasError] = React.useState(false);
