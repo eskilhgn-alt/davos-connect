@@ -119,11 +119,11 @@ serve(async (req) => {
       collapse_id: `thread_${thread_id}`,
     };
 
-    const response = await fetch("https://onesignal.com/api/v1/notifications", {
+    const response = await fetch("https://api.onesignal.com/notifications", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
+        Authorization: `Key ${ONESIGNAL_REST_API_KEY}`,
       },
       body: JSON.stringify(notificationPayload),
     });
