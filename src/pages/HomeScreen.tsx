@@ -9,6 +9,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { getBackendWeather, type WeatherWithQuote } from "@/services/weather-backend.service";
 import { getWeatherIcon } from "@/services/weather.service";
 import { 
@@ -27,15 +28,21 @@ interface ShortcutProps {
   icon: React.ReactNode;
   label: string;
   description: string;
+  badge?: number;
 }
 
-const Shortcut: React.FC<ShortcutProps> = ({ to, icon, label, description }) => (
+const Shortcut: React.FC<ShortcutProps> = ({ to, icon, label, description, badge }) => (
   <Link
     to={to}
     className="flex items-center gap-3 p-4 bg-card rounded-[var(--radius-card)] border border-border hover:bg-accent/10 active:scale-[0.98] transition-all"
   >
-    <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+    <div className="relative shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
       {icon}
+      {badge != null && badge > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1 leading-none">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </div>
     <div className="min-w-0">
       <p className="font-heading font-semibold text-foreground truncate">{label}</p>
@@ -46,6 +53,7 @@ const Shortcut: React.FC<ShortcutProps> = ({ to, icon, label, description }) => 
 
 export const HomeScreen: React.FC = () => {
   const { profile } = useAuth();
+  const unreadCount = useUnreadCount();
   const [weather, setWeather] = React.useState<WeatherWithQuote | null>(null);
   const [weatherLoading, setWeatherLoading] = React.useState(true);
 
@@ -174,6 +182,7 @@ export const HomeScreen: React.FC = () => {
                 icon={<MessageCircle size={20} />}
                 label="Chat"
                 description="Snakk med crewet"
+                badge={unreadCount}
               />
               <Shortcut
                 to="/vaer"

@@ -84,8 +84,17 @@ async function fetchMessages(): Promise<Message[]> {
 
 // ============ Message Subscription (Realtime) ============
 
+// Track active subscribers for immediate notification
+const activeSubscribers = new Set<(msgs: Message[]) => void>();
+
+async function notifySubscribers() {
+  const msgs = await fetchMessages();
+  activeSubscribers.forEach((cb) => cb(msgs));
+}
+
 export function subscribeToMessages(callback: (messages: Message[]) => void): () => void {
   let active = true;
+  activeSubscribers.add(callback);
 
   const refresh = async () => {
     const msgs = await fetchMessages();
@@ -112,6 +121,7 @@ export function subscribeToMessages(callback: (messages: Message[]) => void): ()
 
   return () => {
     active = false;
+    activeSubscribers.delete(callback);
     supabase.removeChannel(channel);
   };
 }
@@ -185,6 +195,9 @@ export async function sendMessage(
     console.error('Error sending message:', error);
     return null;
   }
+
+  // Notify all active subscribers immediately (don't wait for realtime)
+  notifySubscribers();
 
   return data ? dbToMessage(data as unknown as Record<string, unknown>) : null;
 }
