@@ -75,9 +75,9 @@ export const WebcamPreloadProvider: React.FC<{ children: React.ReactNode }> = ({
               left: isActive ? 0 : -9999,
               width: isActive ? '100vw' : 1,
               height: isActive ? '100dvh' : 1,
-              zIndex: isActive ? 45 : -1,
+              zIndex: isActive ? 50 : -1,
               overflow: 'hidden',
-              pointerEvents: isActive ? 'auto' : 'none',
+              pointerEvents: 'none',
               transition: 'none',
             }}
           >

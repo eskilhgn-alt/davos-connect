@@ -125,7 +125,7 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
   // Render as a plain fixed overlay — no Dialog overlay to block the iframe
   return (
     <div
-      className="fixed inset-0 z-50"
+      className="fixed inset-0 z-[51]"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
