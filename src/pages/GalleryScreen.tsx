@@ -1,141 +1,109 @@
 import * as React from 'react';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { galleryService, type GalleryItem } from '@/services/gallery.local';
-import { mediaStorage } from '@/services/media-storage';
+import { supabase } from '@/integrations/supabase/client';
 import { MediaViewer } from '@/components/ui/MediaViewer';
 import { DavosEmptyState } from '@/components/ui/davos-empty-state';
+import { DavosSkeleton } from '@/components/ui/davos-skeleton';
 import { Download, Play, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+interface GalleryRow {
+  id: string;
+  storage_path: string;
+  type: string;
+  created_at: string;
+  width: number | null;
+  height: number | null;
+  uploaded_by: string;
+  source_message_id: string | null;
+}
+
 export const GalleryScreen: React.FC = () => {
-  const [items, setItems] = React.useState<GalleryItem[]>([]);
-  const [thumbnailUrls, setThumbnailUrls] = React.useState<Record<string, string>>({});
-  const [selectedItem, setSelectedItem] = React.useState<GalleryItem | null>(null);
+  const [items, setItems] = React.useState<GalleryRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [selectedItem, setSelectedItem] = React.useState<GalleryRow | null>(null);
   const [viewerOpen, setViewerOpen] = React.useState(false);
-  const [fullUrl, setFullUrl] = React.useState<string | null>(null);
-  
-  // Track blob URLs for cleanup
-  const blobUrlsRef = React.useRef<Set<string>>(new Set());
 
-  // Load gallery items
+  // Fetch gallery items from Supabase
   React.useEffect(() => {
-    setItems(galleryService.getGalleryItems());
+    const load = async () => {
+      const { data, error } = await supabase
+        .from('gallery_items')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (error) {
+        console.error('Error loading gallery:', error);
+      } else {
+        setItems((data as GalleryRow[]) || []);
+      }
+      setLoading(false);
+    };
+    load();
   }, []);
 
-  // Load thumbnail URLs
-  React.useEffect(() => {
-    let isMounted = true;
-    
-    const loadThumbnails = async () => {
-      const urls: Record<string, string> = {};
-      
-      for (const item of items) {
-        const urlToResolve = item.thumbUrl || item.url;
-        const url = await mediaStorage.getMediaUrl(urlToResolve);
-        if (url && isMounted) {
-          urls[item.id] = url;
-          if (url.startsWith('blob:')) {
-            blobUrlsRef.current.add(url);
-          }
-        }
-      }
-      
-      if (isMounted) {
-        setThumbnailUrls(urls);
-      }
-    };
-    
-    if (items.length > 0) {
-      loadThumbnails();
-    }
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [items]);
-
-  // Cleanup blob URLs on unmount
-  React.useEffect(() => {
-    return () => {
-      blobUrlsRef.current.forEach(url => {
-        URL.revokeObjectURL(url);
-      });
-      blobUrlsRef.current.clear();
-    };
-  }, []);
-
-  const openViewer = async (item: GalleryItem) => {
-    const url = await mediaStorage.getMediaUrl(item.url);
-    if (url) {
-      if (url.startsWith('blob:')) {
-        blobUrlsRef.current.add(url);
-      }
-      setFullUrl(url);
-      setSelectedItem(item);
-      setViewerOpen(true);
-    }
+  const getPublicUrl = (storagePath: string) => {
+    const { data } = supabase.storage.from('chat-media').getPublicUrl(storagePath);
+    return data.publicUrl;
   };
 
-  const handleDownload = async (item: GalleryItem, e: React.MouseEvent) => {
+  const openViewer = (item: GalleryRow) => {
+    setSelectedItem(item);
+    setViewerOpen(true);
+  };
+
+  const handleDownload = async (item: GalleryRow, e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    const url = await mediaStorage.getMediaUrl(item.url);
-    if (!url) return;
-    
-    // Create temporary download link
+    const url = getPublicUrl(item.storage_path);
     const a = document.createElement('a');
     a.href = url;
     a.download = `davos-${item.type}-${item.id.slice(0, 8)}`;
+    a.target = '_blank';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    
-    // Revoke blob URL after short delay
-    if (url.startsWith('blob:')) {
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 1000);
-    }
   };
 
-  const getTypeIcon = (type: GalleryItem['type']) => {
-    switch (type) {
-      case 'video':
-        return <Play size={24} className="text-white" />;
-      case 'gif':
-        return <span className="text-white text-xs font-bold">GIF</span>;
-      default:
-        return null;
-    }
+  const getTypeIcon = (type: string) => {
+    if (type === 'video') return <Play size={24} className="text-white" />;
+    if (type === 'gif') return <span className="text-white text-xs font-bold">GIF</span>;
+    return null;
   };
 
   return (
-    <div 
+    <div
       className="flex flex-col overflow-hidden bg-background"
-      style={{ height: "var(--vvh, 100dvh)" }}
+      style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Galleri" subtitle="Lokalt på denne enheten" />
-      
-      <div 
+      <AppHeader title="Galleri" subtitle="Delte bilder og videoer" />
+
+      <div
         className="flex-1 overflow-y-auto overscroll-contain p-4"
-        style={{ 
+        style={{
           paddingBottom: "var(--bottom-nav-h-effective)",
           WebkitOverflowScrolling: 'touch'
         }}
       >
-        {items.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <DavosSkeleton key={i} className="aspect-square rounded-lg" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
           <div className="flex-1 flex items-center justify-center min-h-[50vh]">
             <DavosEmptyState
               icon={ImageIcon}
               title="Ingen media ennå"
-              description="Bilder, videoer og GIF-er du deler i chatten vil vises her."
+              description="Bilder, videoer og GIF-er delt i chatten vil vises her."
             />
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {items.map((item) => {
-              const thumbUrl = thumbnailUrls[item.id];
-              
+              const thumbUrl = getPublicUrl(item.storage_path);
+
               return (
                 <button
                   key={item.id}
@@ -147,27 +115,19 @@ export const GalleryScreen: React.FC = () => {
                     "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                   )}
                 >
-                  {thumbUrl ? (
-                    <img
-                      src={thumbUrl}
-                      alt={`${item.type}`}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon size={32} className="text-muted-foreground" />
-                    </div>
-                  )}
-                  
-                  {/* Type indicator */}
+                  <img
+                    src={thumbUrl}
+                    alt={item.type}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+
                   {item.type !== 'image' && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                       {getTypeIcon(item.type)}
                     </div>
                   )}
-                  
-                  {/* Download button */}
+
                   <button
                     type="button"
                     onClick={(e) => handleDownload(item, e)}
@@ -187,13 +147,12 @@ export const GalleryScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Media viewer modal */}
-      {selectedItem && fullUrl && (
+      {selectedItem && (
         <MediaViewer
           open={viewerOpen}
           onClose={() => setViewerOpen(false)}
-          src={fullUrl}
-          type={selectedItem.type}
+          src={getPublicUrl(selectedItem.storage_path)}
+          type={selectedItem.type as 'image' | 'video' | 'gif'}
         />
       )}
     </div>

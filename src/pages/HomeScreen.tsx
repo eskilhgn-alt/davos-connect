@@ -16,7 +16,7 @@ import {
   CloudSun, 
   Radio, 
   Map, 
-  Camera,
+  
   Sparkles,
   Wind,
   Snowflake
@@ -192,12 +192,6 @@ export const HomeScreen: React.FC = () => {
                 icon={<Map size={20} />}
                 label="Løypekart"
                 description="Pistemaps og status"
-              />
-              <Shortcut
-                to="/webcams"
-                icon={<Camera size={20} />}
-                label="Webcams"
-                description="Alle kameraer"
               />
             </div>
           </section>
