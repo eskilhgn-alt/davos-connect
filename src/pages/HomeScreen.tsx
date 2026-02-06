@@ -170,7 +170,7 @@ export const HomeScreen: React.FC = () => {
             </h2>
             <div className="grid grid-cols-1 gap-3">
               <Shortcut
-                to="/"
+                to="/chat"
                 icon={<MessageCircle size={20} />}
                 label="Chat"
                 description="Snakk med crewet"
@@ -202,21 +202,6 @@ export const HomeScreen: React.FC = () => {
             </div>
           </section>
 
-          {/* Quote */}
-          {weather?.quote && (
-            <section>
-              <DavosCard className="bg-primary/5 border-primary/20">
-                <DavosCardContent className="p-4">
-                  <p className="text-sm italic text-foreground">
-                    "{weather.quote.quote}"
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    - {weather.quote.speaker}
-                  </p>
-                </DavosCardContent>
-              </DavosCard>
-            </section>
-          )}
         </div>
       </div>
     </div>

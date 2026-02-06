@@ -41,6 +41,7 @@ export const WindyEmbed: React.FC<WindyEmbedProps> = ({
       level: "surface",
       lat: DAVOS_LAT.toString(),
       lon: DAVOS_LON.toString(),
+      autoplay: "true",
     });
     return `https://embed.windy.com/embed.html?${params.toString()}`;
   }, [overlay]);
