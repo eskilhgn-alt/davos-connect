@@ -238,6 +238,33 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_history: {
+        Row: {
+          category: string
+          id: number
+          last_used_at: string
+          quote_hash: string
+          speaker: string
+          used_count: number
+        }
+        Insert: {
+          category: string
+          id?: number
+          last_used_at?: string
+          quote_hash: string
+          speaker: string
+          used_count?: number
+        }
+        Update: {
+          category?: string
+          id?: number
+          last_used_at?: string
+          quote_hash?: string
+          speaker?: string
+          used_count?: number
+        }
+        Relationships: []
+      }
       quote_usage: {
         Row: {
           category: string
@@ -301,6 +328,59 @@ export type Database = {
         }
         Relationships: []
       }
+      weather_ai_daily: {
+        Row: {
+          ai_daily: Json
+          ai_summary_today: string | null
+          ai_summary_tomorrow: string | null
+          confidence: string
+          created_at: string
+          day_date: string
+          id: number
+          location_id: string
+          quote: Json | null
+          rationale_short: string
+          run_at: string
+          source_weights: Json
+        }
+        Insert: {
+          ai_daily: Json
+          ai_summary_today?: string | null
+          ai_summary_tomorrow?: string | null
+          confidence: string
+          created_at?: string
+          day_date: string
+          id?: number
+          location_id: string
+          quote?: Json | null
+          rationale_short: string
+          run_at?: string
+          source_weights: Json
+        }
+        Update: {
+          ai_daily?: Json
+          ai_summary_today?: string | null
+          ai_summary_tomorrow?: string | null
+          confidence?: string
+          created_at?: string
+          day_date?: string
+          id?: number
+          location_id?: string
+          quote?: Json | null
+          rationale_short?: string
+          run_at?: string
+          source_weights?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weather_ai_daily_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "weather_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weather_cache: {
         Row: {
           generated_at: string
@@ -316,6 +396,36 @@ export type Database = {
           generated_at?: string
           mountain_id?: string
           payload?: Json
+        }
+        Relationships: []
+      }
+      weather_locations: {
+        Row: {
+          created_at: string
+          elevation_m: number | null
+          id: string
+          is_active: boolean
+          lat: number
+          lon: number
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          elevation_m?: number | null
+          id: string
+          is_active?: boolean
+          lat: number
+          lon: number
+          name: string
+        }
+        Update: {
+          created_at?: string
+          elevation_m?: number | null
+          id?: string
+          is_active?: boolean
+          lat?: number
+          lon?: number
+          name?: string
         }
         Relationships: []
       }
@@ -373,6 +483,161 @@ export type Database = {
           temp_min?: number | null
           wind_gust?: number | null
           wind_speed?: number | null
+        }
+        Relationships: []
+      }
+      weather_observed_daily: {
+        Row: {
+          created_at: string
+          day_date: string
+          id: number
+          location_id: string
+          observed: Json
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          day_date: string
+          id?: number
+          location_id: string
+          observed: Json
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          day_date?: string
+          id?: number
+          location_id?: string
+          observed?: Json
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weather_observed_daily_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "weather_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weather_raw_daily: {
+        Row: {
+          created_at: string
+          day_date: string
+          id: number
+          location_id: string
+          payload: Json
+          run_at: string
+          source_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_date: string
+          id?: number
+          location_id: string
+          payload: Json
+          run_at?: string
+          source_id: string
+        }
+        Update: {
+          created_at?: string
+          day_date?: string
+          id?: number
+          location_id?: string
+          payload?: Json
+          run_at?: string
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weather_raw_daily_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "weather_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weather_raw_daily_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "weather_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weather_source_scores: {
+        Row: {
+          created_at: string
+          day_date: string
+          id: number
+          location_id: string
+          mae_precip: number
+          mae_snow: number
+          mae_temp: number
+          mae_wind: number
+          source_id: string
+          total_score: number
+        }
+        Insert: {
+          created_at?: string
+          day_date: string
+          id?: number
+          location_id: string
+          mae_precip: number
+          mae_snow: number
+          mae_temp: number
+          mae_wind: number
+          source_id: string
+          total_score: number
+        }
+        Update: {
+          created_at?: string
+          day_date?: string
+          id?: number
+          location_id?: string
+          mae_precip?: number
+          mae_snow?: number
+          mae_temp?: number
+          mae_wind?: number
+          source_id?: string
+          total_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weather_source_scores_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "weather_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weather_source_scores_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "weather_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weather_sources: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
         }
         Relationships: []
       }

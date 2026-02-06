@@ -55,7 +55,8 @@ export const WEATHER_MODELS = [
   { id: "ecmwf_ifs025", name: "ECMWF" },
   { id: "gfs_seamless", name: "GFS" },
   { id: "icon_seamless", name: "ICON" },
-  { id: "gem_seamless", name: "GEM" }
+  { id: "gem_seamless", name: "GEM" },
+  { id: "yr", name: "Yr" }
 ] as const;
 
 export type ModelId = typeof WEATHER_MODELS[number]["id"];

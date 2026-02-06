@@ -18,11 +18,12 @@ interface WeatherModelTabsProps {
 }
 
 const MODEL_INFO: Record<string, string> = {
-  "consensus": "Appens sammenslåing av modellene",
+  "consensus": "KI-tolket konsensus basert på vektet modelldata",
   "ECMWF": "European Centre for Medium-Range Weather Forecasts (IFS)",
   "GFS": "NOAA (USA)",
   "ICON": "DWD (Tyskland)",
-  "GEM": "ECCC (Canada)"
+  "GEM": "ECCC (Canada)",
+  "Yr": "Meteorologisk institutt (MET Norway)"
 };
 
 export const WeatherModelTabs: React.FC<WeatherModelTabsProps> = ({

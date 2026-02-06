@@ -268,9 +268,9 @@ export async function getBackendWeather(days: number = 7): Promise<WeatherWithQu
   }
 
   try {
-    // Call the Edge Function
+    // Call the V2 Edge Function (unified endpoint)
     const { data, error } = await supabase.functions.invoke<BackendResponse>(
-      "weather-engine-get",
+      "weather-engine-v2",
       {
         body: null,
         headers: {
@@ -280,12 +280,12 @@ export async function getBackendWeather(days: number = 7): Promise<WeatherWithQu
     );
 
     if (error) {
-      console.warn("Backend weather fetch failed:", error);
+      console.warn("Backend weather V2 fetch failed:", error);
       throw error;
     }
 
     if (!data || !data.mountains || data.mountains.length === 0) {
-      console.warn("Backend returned no data, falling back to direct fetch");
+      console.warn("Backend V2 returned no data, falling back to direct fetch");
       throw new Error("No backend data");
     }
 

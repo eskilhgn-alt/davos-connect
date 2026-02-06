@@ -9,5 +9,8 @@ verify_jwt = false
 [functions.weather-engine-get]
 verify_jwt = false
 
+[functions.weather-engine-v2]
+verify_jwt = false
+
 [functions.webcam-proxy]
 verify_jwt = false
