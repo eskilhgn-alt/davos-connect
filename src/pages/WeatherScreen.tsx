@@ -41,8 +41,10 @@ function dayLabel(dateStr: string, index: number): string {
 }
 
 const WeatherScreen: React.FC = () => {
-  const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary();
   const geo = useGeolocation();
+  const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary(
+    geo.position ? { lat: geo.position.lat, lon: geo.position.lon } : undefined
+  );
   const [data, setData] = React.useState<FullWeatherData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
