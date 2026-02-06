@@ -1,9 +1,8 @@
 /**
  * WebcamModal - Fullscreen webcam viewer with swipe navigation
  * 
- * - Shows snapshot instantly, auto-switches to video when ready
- * - Swipe left/right to navigate between webcams
- * - Uses preloaded iframes via DOM reparenting for instant video
+ * For preloaded webcams: activates the CSS-positioned iframe (no DOM move)
+ * For others: shows snapshot + fresh iframe with auto-switch
  */
 
 import * as React from "react";
@@ -29,85 +28,52 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
   onOpenChange,
 }) => {
   const [currentIndex, setCurrentIndex] = React.useState(0);
-  const [showVideo, setShowVideo] = React.useState(false);
   const [snapshotLoaded, setSnapshotLoaded] = React.useState(false);
   const [snapshotKey, setSnapshotKey] = React.useState(0);
   const [freshIframeReady, setFreshIframeReady] = React.useState(false);
+  const [showSnapshot, setShowSnapshot] = React.useState(false);
 
-  const videoSlotRef = React.useRef<HTMLDivElement>(null);
-  const originalParentRef = React.useRef<HTMLElement | null>(null);
-  const reparentedContainerRef = React.useRef<HTMLDivElement | null>(null);
   const refreshIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Swipe tracking
   const touchStartRef = React.useRef<{ x: number; y: number; t: number } | null>(null);
-  const swipeContainerRef = React.useRef<HTMLDivElement>(null);
 
-  const { getIframeContainer, isPreloaded } = useWebcamPreload();
+  const { setActiveId, isPreloaded } = useWebcamPreload();
+  const currentWebcam = WEBCAMS[currentIndex] ?? null;
 
-  const currentWebcam = React.useMemo(() => WEBCAMS[currentIndex] ?? null, [currentIndex]);
-
-  // Set initial index when webcam prop changes
+  // Set initial index
   React.useEffect(() => {
     if (open && webcam) {
       const idx = WEBCAMS.findIndex(w => w.id === webcam.id);
       setCurrentIndex(idx >= 0 ? idx : 0);
+      setShowSnapshot(false);
     }
   }, [open, webcam]);
 
-  // Cleanup reparented iframe
-  const returnIframe = React.useCallback(() => {
-    if (reparentedContainerRef.current && originalParentRef.current) {
-      const c = reparentedContainerRef.current;
-      c.style.cssText = "width:1px;height:1px;overflow:hidden;position:absolute;left:-9999px;";
-      originalParentRef.current.appendChild(c);
-      reparentedContainerRef.current = null;
-      originalParentRef.current = null;
+  // Activate/deactivate preloaded iframe via CSS
+  React.useEffect(() => {
+    if (!open || !currentWebcam) {
+      setActiveId(null);
+      return;
     }
-  }, []);
 
-  // Setup video for current webcam
-  const setupWebcam = React.useCallback((cam: Webcam) => {
-    // Return previous iframe first
-    returnIframe();
+    const preloaded = isPreloaded(currentWebcam.id);
+    if (preloaded && !showSnapshot) {
+      setActiveId(currentWebcam.id);
+    } else {
+      setActiveId(null);
+    }
 
+    // Reset snapshot/fresh state on webcam change
     setSnapshotLoaded(false);
     setSnapshotKey(Date.now());
     setFreshIframeReady(false);
 
-    const preloaded = isPreloaded(cam.id);
-    const container = getIframeContainer(cam.id);
+    return () => setActiveId(null);
+  }, [open, currentIndex, currentWebcam, isPreloaded, setActiveId, showSnapshot]);
 
-    if (preloaded && container && videoSlotRef.current) {
-      originalParentRef.current = container.parentElement;
-      reparentedContainerRef.current = container;
-      container.style.cssText = "width:100%;height:100%;position:absolute;inset:0;";
-      const iframe = container.querySelector("iframe");
-      if (iframe) iframe.style.cssText = "width:100%;height:100%;border:0;";
-      videoSlotRef.current.appendChild(container);
-      setShowVideo(true);
-    } else {
-      setShowVideo(false);
-    }
-  }, [isPreloaded, getIframeContainer, returnIframe]);
-
-  // On open or index change
+  // Auto-refresh snapshot when no video
+  const videoActive = currentWebcam && isPreloaded(currentWebcam.id) && !showSnapshot;
   React.useEffect(() => {
-    if (open && currentWebcam) {
-      setupWebcam(currentWebcam);
-    }
-    return () => {
-      returnIframe();
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-        refreshIntervalRef.current = null;
-      }
-    };
-  }, [open, currentIndex, currentWebcam, setupWebcam, returnIframe]);
-
-  // Auto-refresh snapshot
-  React.useEffect(() => {
-    if (open && !showVideo) {
+    if (open && !videoActive) {
       refreshIntervalRef.current = setInterval(() => setSnapshotKey(Date.now()), 8000);
     }
     return () => {
@@ -116,48 +82,44 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
         refreshIntervalRef.current = null;
       }
     };
-  }, [open, showVideo]);
+  }, [open, videoActive]);
 
   // Fresh iframe auto-switch
   const handleFreshIframeLoad = React.useCallback(() => {
     setFreshIframeReady(true);
-    setTimeout(() => setShowVideo(true), 100);
   }, []);
 
   // Navigation
   const goNext = React.useCallback(() => {
     setCurrentIndex(i => (i + 1) % WEBCAMS.length);
+    setShowSnapshot(false);
   }, []);
-
   const goPrev = React.useCallback(() => {
     setCurrentIndex(i => (i - 1 + WEBCAMS.length) % WEBCAMS.length);
+    setShowSnapshot(false);
   }, []);
 
-  // Touch/swipe handlers
+  // Touch swipe
   const handleTouchStart = React.useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY, t: Date.now() };
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
   }, []);
-
   const handleTouchEnd = React.useCallback((e: React.TouchEvent) => {
     if (!touchStartRef.current) return;
-    const touch = e.changedTouches[0];
-    const dx = touch.clientX - touchStartRef.current.x;
-    const dy = touch.clientY - touchStartRef.current.y;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartRef.current.x;
+    const dy = t.clientY - touchStartRef.current.y;
     const dt = Date.now() - touchStartRef.current.t;
     touchStartRef.current = null;
-
-    // Require horizontal swipe: |dx| > 50px, |dx| > |dy|, < 500ms
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) && dt < 500) {
-      if (dx < 0) goNext();
-      else goPrev();
+      dx < 0 ? goNext() : goPrev();
     }
   }, [goNext, goPrev]);
 
-  const handleSwitchToSnapshot = () => {
-    setShowVideo(false);
-    setSnapshotKey(Date.now());
-  };
+  const handleClose = React.useCallback(() => {
+    setActiveId(null);
+    onOpenChange(false);
+  }, [onOpenChange, setActiveId]);
 
   const handleOpenExternal = () => {
     const url = currentWebcam?.externalUrl || currentWebcam?.videoUrl;
@@ -167,26 +129,25 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
   if (!currentWebcam || !open) return null;
 
   const snapshotUrl = `${getWebcamProxyUrl(currentWebcam.snapshotUrl)}&t=${snapshotKey}`;
-  const hasVideo = !!currentWebcam.videoUrl;
   const preloaded = isPreloaded(currentWebcam.id);
-  const needsFreshIframe = hasVideo && !preloaded;
+  const showingPreloadedVideo = preloaded && !showSnapshot;
+  const needsFreshIframe = !!currentWebcam.videoUrl && !preloaded && !showSnapshot;
+  const showSnapshotLayer = !showingPreloadedVideo && !freshIframeReady;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent 
         className="fixed inset-0 w-screen h-[100dvh] max-w-none max-h-none p-0 m-0 rounded-none border-none bg-black overflow-hidden"
-        style={{ transform: 'none', left: 0, top: 0 }}
+        style={{ transform: 'none', left: 0, top: 0, zIndex: showingPreloadedVideo ? 44 : 50 }}
       >
-        {/* Swipe area */}
         <div
-          ref={swipeContainerRef}
           className="absolute inset-0"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
           {/* Top overlay */}
           <div 
-            className="absolute top-0 left-0 right-0 z-20 flex items-start justify-between p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent"
+            className="absolute top-0 left-0 right-0 z-[60] flex items-start justify-between p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent"
             style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}
           >
             <div className="text-white min-w-0 flex-1 pr-4">
@@ -199,19 +160,19 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
               <DavosButton variant="ghost" size="icon" onClick={handleOpenExternal} className="text-white/60 hover:text-white hover:bg-white/10" aria-label="Åpne eksternt">
                 <ExternalLink size={18} />
               </DavosButton>
-              <DavosButton variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="text-white hover:text-white hover:bg-white/10" aria-label="Lukk">
+              <DavosButton variant="ghost" size="icon" onClick={handleClose} className="text-white hover:text-white hover:bg-white/10" aria-label="Lukk">
                 <X size={24} />
               </DavosButton>
             </div>
           </div>
 
-          {/* Live badge + counter */}
-          <div className="absolute z-20 flex items-center gap-2" style={{ top: 'calc(max(env(safe-area-inset-top), 16px) + 72px)', left: '16px' }}>
+          {/* Live badge */}
+          <div className="absolute z-[60] flex items-center gap-2" style={{ top: 'calc(max(env(safe-area-inset-top), 16px) + 72px)', left: '16px' }}>
             <span className="px-2 py-1 bg-destructive text-destructive-foreground text-xs font-medium rounded flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
               LIVE
             </span>
-            {!showVideo && (
+            {showSnapshotLayer && (
               <span className="px-2 py-1 bg-black/60 text-white/80 text-xs rounded flex items-center gap-1">
                 <RefreshCw size={12} className="animate-spin" style={{ animationDuration: '3s' }} />
                 Oppdateres
@@ -219,52 +180,40 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
             )}
           </div>
 
-          {/* Navigation arrows (desktop) */}
-          <button
-            onClick={goPrev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/40 backdrop-blur-sm rounded-full text-white/70 hover:text-white hover:bg-black/60 transition-colors hidden sm:flex"
-            aria-label="Forrige kamera"
-          >
+          {/* Desktop nav arrows */}
+          <button onClick={goPrev} className="absolute left-2 top-1/2 -translate-y-1/2 z-[60] p-2 bg-black/40 backdrop-blur-sm rounded-full text-white/70 hover:text-white hover:bg-black/60 transition-colors hidden sm:flex" aria-label="Forrige">
             <ChevronLeft size={24} />
           </button>
-          <button
-            onClick={goNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/40 backdrop-blur-sm rounded-full text-white/70 hover:text-white hover:bg-black/60 transition-colors hidden sm:flex"
-            aria-label="Neste kamera"
-          >
+          <button onClick={goNext} className="absolute right-2 top-1/2 -translate-y-1/2 z-[60] p-2 bg-black/40 backdrop-blur-sm rounded-full text-white/70 hover:text-white hover:bg-black/60 transition-colors hidden sm:flex" aria-label="Neste">
             <ChevronRight size={24} />
           </button>
 
-          {/* Content */}
+          {/* Content layers */}
           <div className="absolute inset-0 flex items-center justify-center">
-            {/* Snapshot layer */}
-            <div className={cn(
-              "absolute inset-0 flex items-center justify-center transition-opacity duration-300",
-              showVideo ? "opacity-0 pointer-events-none" : "opacity-100"
-            )}>
-              {!snapshotLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black">
-                  <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                </div>
-              )}
-              <img
-                src={snapshotUrl}
-                alt={`${currentWebcam.name} - ${currentWebcam.area}`}
-                className={cn("max-w-full max-h-full object-contain", !snapshotLoaded && "invisible")}
-                onLoad={() => setSnapshotLoaded(true)}
-                onError={() => setSnapshotLoaded(true)}
-              />
-            </div>
+            {/* Snapshot layer - shown when no preloaded video or user chose snapshot */}
+            {showSnapshotLayer && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                {!snapshotLoaded && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black">
+                    <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  </div>
+                )}
+                <img
+                  src={snapshotUrl}
+                  alt={`${currentWebcam.name} - ${currentWebcam.area}`}
+                  className={cn("max-w-full max-h-full object-contain", !snapshotLoaded && "invisible")}
+                  onLoad={() => setSnapshotLoaded(true)}
+                  onError={() => setSnapshotLoaded(true)}
+                />
+              </div>
+            )}
 
-            {/* Video layer */}
-            <div
-              ref={videoSlotRef}
-              className={cn(
+            {/* Fresh iframe for non-preloaded webcams */}
+            {needsFreshIframe && currentWebcam.videoUrl && (
+              <div className={cn(
                 "absolute inset-0 transition-opacity duration-300",
-                showVideo ? "opacity-100" : "opacity-0 pointer-events-none"
-              )}
-            >
-              {needsFreshIframe && currentWebcam.videoUrl && (
+                freshIframeReady ? "opacity-100" : "opacity-0 pointer-events-none"
+              )}>
                 <iframe
                   src={currentWebcam.videoUrl}
                   className="w-full h-full border-0"
@@ -274,42 +223,39 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
                   onLoad={handleFreshIframeLoad}
                   title={`${currentWebcam.name} live`}
                 />
-              )}
-            </div>
+              </div>
+            )}
+            {/* Preloaded video is shown via the PreloadProvider's fixed-position div (z-index 45) */}
           </div>
 
           {/* Bottom controls */}
           <div 
-            className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-3 p-4 bg-gradient-to-t from-black/70 via-black/30 to-transparent"
+            className="absolute bottom-0 left-0 right-0 z-[60] flex flex-col items-center gap-3 p-4 bg-gradient-to-t from-black/70 via-black/30 to-transparent"
             style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
           >
-            {/* Dot indicators */}
+            {/* Dots */}
             <div className="flex items-center gap-1.5">
               {WEBCAMS.map((w, i) => (
                 <button
                   key={w.id}
-                  onClick={() => setCurrentIndex(i)}
+                  onClick={() => { setCurrentIndex(i); setShowSnapshot(false); }}
                   className={cn(
                     "rounded-full transition-all",
-                    i === currentIndex 
-                      ? "w-2 h-2 bg-white" 
-                      : "w-1.5 h-1.5 bg-white/40 hover:bg-white/60"
+                    i === currentIndex ? "w-2 h-2 bg-white" : "w-1.5 h-1.5 bg-white/40 hover:bg-white/60"
                   )}
-                  aria-label={`Gå til ${w.area}`}
+                  aria-label={w.area}
                 />
               ))}
             </div>
 
-            {/* Snapshot toggle */}
-            {showVideo && (
-              <button onClick={handleSwitchToSnapshot}
+            {/* Toggle */}
+            {showingPreloadedVideo && (
+              <button onClick={() => setShowSnapshot(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 backdrop-blur-sm text-white text-xs rounded-full hover:bg-white/30 transition-colors">
-                <Image size={14} />
-                Stillbilde
+                <Image size={14} /> Stillbilde
               </button>
             )}
 
-            {/* Swipe hint (mobile only) */}
             <p className="text-[10px] text-white/30 sm:hidden">Sveip for å bytte kamera</p>
           </div>
         </div>
