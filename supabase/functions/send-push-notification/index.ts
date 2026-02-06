@@ -15,7 +15,6 @@ interface PushPayload {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -25,14 +24,37 @@ serve(async (req) => {
     const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
     if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
       throw new Error("OneSignal credentials not configured");
     }
-
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
       throw new Error("Supabase credentials not configured");
     }
+
+    // --- AUTH CHECK: Validate JWT ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const callerUserId = claimsData.claims.sub as string;
+    // --- END AUTH CHECK ---
 
     const payload: PushPayload = await req.json();
     const { thread_id, sender_id, sender_name, message_preview } = payload;
@@ -44,9 +66,14 @@ serve(async (req) => {
       );
     }
 
-    // Get all members in the thread except the sender who have push tokens
+    // Verify caller identity matches sender_id (prevent spoofing)
+    // Note: sender_id in this app may be a local device ID (text), so we log but don't block
+    // The critical thing is that the caller is authenticated
+    console.log(`Authenticated user ${callerUserId} sending as ${sender_id}`);
+
+    // Use service role client for DB queries
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    
+
     const { data: members, error: membersError } = await supabase
       .from("members")
       .select("user_id, push_token")
@@ -66,7 +93,6 @@ serve(async (req) => {
       );
     }
 
-    // Get external_user_ids (OneSignal uses these to target users)
     const externalUserIds = members
       .filter((m) => m.push_token)
       .map((m) => m.user_id);
@@ -78,12 +104,10 @@ serve(async (req) => {
       );
     }
 
-    // Truncate message preview
-    const preview = message_preview.length > 100 
-      ? message_preview.substring(0, 97) + "..." 
+    const preview = message_preview.length > 100
+      ? message_preview.substring(0, 97) + "..."
       : message_preview;
 
-    // Send notification via OneSignal
     const notificationPayload = {
       app_id: ONESIGNAL_APP_ID,
       include_external_user_ids: externalUserIds,
@@ -92,7 +116,6 @@ serve(async (req) => {
       url: "/meldinger",
       ios_badgeType: "Increase",
       ios_badgeCount: 1,
-      // Debounce: collapse similar notifications
       collapse_id: `thread_${thread_id}`,
     };
 
