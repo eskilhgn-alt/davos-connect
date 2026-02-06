@@ -18,6 +18,7 @@ import WebcamsScreen from "./pages/WebcamsScreen";
 import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
 import InfoScreen from "./pages/InfoScreen";
+import GroupScreen from "./pages/GroupScreen";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -68,6 +69,7 @@ const AppRoutes = () => (
       <Route path="/varsler" element={<NotificationsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
       <Route path="/info" element={<InfoScreen />} />
+      <Route path="/gruppe" element={<GroupScreen />} />
     </Route>
     
     <Route path="*" element={<NotFound />} />

@@ -1,6 +1,6 @@
 /**
  * MessageItem - Single message bubble with reactions, edit, actions
- * Integrated with long-press for actions
+ * Integrated with long-press for actions and tap for seen-by
  */
 
 import * as React from 'react';
@@ -18,6 +18,7 @@ interface MessageItemProps {
   currentUserId: string;
   onShowActions: (message: Message) => void;
   onShowReactions: (reactions: Record<string, string[]>) => void;
+  onShowSeenBy: (message: Message) => void;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -27,12 +28,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   currentUserId,
   onShowActions,
   onShowReactions,
+  onShowSeenBy,
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editText, setEditText] = React.useState(message.text);
   const editRef = React.useRef<HTMLTextAreaElement>(null);
 
-  // Long press handler
+  // Long press handler for actions
   const longPressHandlers = useLongPress({
     onLongPress: () => {
       if (!message.deletedAt && !isEditing) {
@@ -40,6 +42,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       }
     },
   });
+
+  // Handle tap on message bubble to show seen-by
+  const handleTap = () => {
+    if (!message.deletedAt && !isEditing) {
+      onShowSeenBy(message);
+    }
+  };
 
   // Format time
   const time = new Date(message.createdAt).toLocaleTimeString('nb-NO', {
@@ -116,9 +125,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       )}
       {...longPressHandlers}
     >
-      {/* Sender name for other users */}
-      {showSender && !isOwn && (
-        <span className="text-xs text-muted-foreground ml-3">
+      {/* Sender name for other users - always show */}
+      {!isOwn && (
+        <span className="text-xs font-medium text-muted-foreground ml-3">
           {message.senderName}
         </span>
       )}
@@ -130,6 +139,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             <div
               key={att.id}
               className="rounded-2xl overflow-hidden max-w-[260px]"
+              onClick={handleTap}
             >
               {att.kind === 'video' ? (
                 <video
@@ -199,8 +209,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           </div>
         ) : (
           <div
+            onClick={handleTap}
             className={cn(
-              'max-w-[75%] rounded-2xl px-4 py-2',
+              'max-w-[75%] rounded-2xl px-4 py-2 cursor-pointer',
               isOwn
                 ? 'bg-primary text-primary-foreground rounded-br-md'
                 : 'bg-muted text-foreground rounded-bl-md'
@@ -223,7 +234,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         />
       )}
 
-      {/* Timestamp + edited indicator */}
+      {/* Timestamp + edited indicator + seen count */}
       <div className="flex items-center gap-2 mx-3">
         <span className="text-[11px] text-muted-foreground">
           {time}
@@ -231,6 +242,14 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         {message.editedAt && (
           <span className="text-[11px] text-muted-foreground italic">
             (redigert)
+          </span>
+        )}
+        {isOwn && message.seenBy && message.seenBy.length > 0 && (
+          <span 
+            className="text-[11px] text-muted-foreground cursor-pointer hover:underline"
+            onClick={handleTap}
+          >
+            Sett av {message.seenBy.length}
           </span>
         )}
       </div>

@@ -23,7 +23,7 @@ const WebcamThumbnail: React.FC<WebcamThumbnailProps> = ({ webcam, onClick }) =>
     return () => clearInterval(interval);
   }, []);
 
-  const imageUrl = `${getWebcamProxyUrl(webcam.imageUrl)}&t=${refreshKey}`;
+  const imageUrl = `${getWebcamProxyUrl(webcam.snapshotUrl)}&t=${refreshKey}`;
 
   return (
     <button
