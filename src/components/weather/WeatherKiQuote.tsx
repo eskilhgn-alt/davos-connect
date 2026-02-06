@@ -69,7 +69,7 @@ export const WeatherKiQuote: React.FC<WeatherKiQuoteProps> = ({
             {/* Today */}
             {todaySummary && (
               <div className="flex items-start gap-2">
-                <Sun className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                <Sun className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">I dag</p>
                   <p className="text-sm text-foreground">{todaySummary}</p>
@@ -80,7 +80,7 @@ export const WeatherKiQuote: React.FC<WeatherKiQuoteProps> = ({
             {/* Tomorrow */}
             {aiSummaryTomorrow && (
               <div className="flex items-start gap-2">
-                <CloudSun className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                <CloudSun className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">I morgen</p>
                   <p className="text-sm text-foreground">{aiSummaryTomorrow}</p>
@@ -90,8 +90,8 @@ export const WeatherKiQuote: React.FC<WeatherKiQuoteProps> = ({
           </div>
         )}
 
-        {/* Quote - format: quote + newline + " - Speaker" */}
-        <p className="text-base italic text-foreground leading-relaxed">
+        {/* Quote - format: quote + newline + " - Speaker" (hyphen, not em-dash) */}
+        <p className="text-base italic text-foreground leading-relaxed whitespace-pre-line">
           {quoteData.quote}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">

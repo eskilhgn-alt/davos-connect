@@ -133,8 +133,10 @@ const WeatherScreen: React.FC = () => {
   const pullProgress = Math.min(pullDistance / 80, 1);
   const showPullIndicator = isPulling || isRefreshing;
 
-  // Data source label
-  const dataSourceLabel = weather?.dataSource || (weather?.isFromBackend ? "Konsensus" : "Open-Meteo direkte");
+  // Data source label - show KI-tolket for consensus
+  const dataSourceLabel = selectedModel === "consensus" 
+    ? (weather?.dataSource || "Konsensus (KI-tolket)")
+    : selectedModel;
 
   return (
     <div 
