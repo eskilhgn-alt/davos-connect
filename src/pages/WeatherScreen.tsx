@@ -1,6 +1,6 @@
 /**
- * WeatherScreen — Dual-source (Yr + MeteoSwiss) with mountain cards
- * Minimalist, mobile-first, no quotes/anchorman
+ * WeatherScreen — Dual-source (Yr + MeteoSwiss) with mountain cards + AI summary
+ * Minimalist, mobile-first
  */
 
 import * as React from "react";
@@ -20,7 +20,8 @@ import {
   type SourceForecast,
   type WeatherDaily,
 } from "@/services/weather-dual.service";
-import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin } from "lucide-react";
+import { useWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
+import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin, Sparkles, Sun, CloudSun, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SourceTab = "yr" | "meteoswiss";
@@ -39,6 +40,7 @@ function dayLabel(dateStr: string, index: number): string {
 }
 
 const WeatherScreen: React.FC = () => {
+  const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary();
   const [data, setData] = React.useState<FullWeatherData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -111,6 +113,9 @@ const WeatherScreen: React.FC = () => {
             <>
               {/* Hero card */}
               <HeroCard today={today} loading={loading} source={source} updatedAt={forecast?.updatedAt} />
+
+              {/* AI Summary Card */}
+              <AiSummaryCard summary={aiSummary} loading={aiLoading} />
 
               {/* 7-day strip */}
               <section className="mt-4">
@@ -322,5 +327,104 @@ const DayPill: React.FC<DayPillProps> = ({ day, index }) => (
     )}
   </div>
 );
+
+// ============================================
+// AI SUMMARY CARD
+// ============================================
+
+interface AiSummaryCardProps {
+  summary: ReturnType<typeof useWeatherAiSummary>["summary"];
+  loading: boolean;
+}
+
+const AiSummaryCard: React.FC<AiSummaryCardProps> = ({ summary, loading }) => {
+  if (loading) {
+    return (
+      <DavosCard className="mx-4 mt-3">
+        <DavosCardContent className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <DavosSkeleton className="h-4 w-4" />
+            <DavosSkeleton className="h-4 w-32" />
+          </div>
+          <DavosSkeleton className="h-4 w-full mb-2" />
+          <DavosSkeleton className="h-4 w-3/4 mb-2" />
+          <DavosSkeleton className="h-3 w-40" />
+        </DavosCardContent>
+      </DavosCard>
+    );
+  }
+
+  if (!summary) return null;
+
+  const confidenceColor =
+    summary.confidence === "high"
+      ? "text-green-500"
+      : summary.confidence === "medium"
+        ? "text-yellow-500"
+        : "text-red-400";
+
+  return (
+    <DavosCard className="mx-4 mt-3">
+      <DavosCardContent className="p-4">
+        <div className="space-y-3">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              AI-vurdering (OpenAI)
+            </div>
+            <div className={cn("flex items-center gap-1 text-[10px] font-medium", confidenceColor)}>
+              <Shield className="h-3 w-3" />
+              {summary.confidence === "high" ? "Høy" : summary.confidence === "medium" ? "Middels" : "Lav"} sikkerhet
+            </div>
+          </div>
+
+          {/* Ski conditions highlight */}
+          {summary.skiConditions && (
+            <div className="bg-primary/10 rounded-lg px-3 py-2">
+              <p className="text-sm font-medium text-foreground">{summary.skiConditions}</p>
+            </div>
+          )}
+
+          {/* Today */}
+          {summary.todaySummary && (
+            <div className="flex items-start gap-2">
+              <Sun className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">I dag</p>
+                <p className="text-sm text-foreground">{summary.todaySummary}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Tomorrow */}
+          {summary.tomorrowSummary && (
+            <div className="flex items-start gap-2">
+              <CloudSun className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">I morgen</p>
+                <p className="text-sm text-foreground">{summary.tomorrowSummary}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Source comparison */}
+          {summary.sourceComparison && (
+            <p className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
+              {summary.sourceComparison}
+            </p>
+          )}
+
+          {/* Timestamp */}
+          {summary.generatedAt && (
+            <p className="text-[10px] text-muted-foreground text-right">
+              Generert: {new Date(summary.generatedAt).toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
+        </div>
+      </DavosCardContent>
+    </DavosCard>
+  );
+};
 
 export default WeatherScreen;
