@@ -4,7 +4,7 @@ import { WEBCAMS, getWebcamProxyUrl, type Webcam } from "@/config/webcams";
 import { cn } from "@/lib/utils";
 import { Camera, RefreshCw, ImageOff, Mountain } from "lucide-react";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { WebcamModal } from "@/components/webcams";
+import { WebcamModal, WebcamPreloadProvider } from "@/components/webcams";
 
 interface WebcamCardProps {
   webcam: Webcam;
@@ -99,50 +99,50 @@ export const WebcamsScreen: React.FC = () => {
   const [selectedWebcam, setSelectedWebcam] = React.useState<Webcam | null>(null);
 
   return (
-    <div 
-      className="flex flex-col overflow-hidden bg-background"
-      style={{ height: "var(--app-height)" }}
-    >
-      <AppHeader
-        title="Webcams"
-        subtitle="Davos Klosters"
-        rightAction={
-          <Camera className="h-5 w-5 text-primary-foreground/70" />
-        }
-      />
-
+    <WebcamPreloadProvider>
       <div 
-        className="flex-1 overflow-y-auto"
-        style={{ 
-          paddingBottom: "var(--bottom-nav-h-effective)",
-          WebkitOverflowScrolling: 'touch'
-        }}
+        className="flex flex-col overflow-hidden bg-background"
+        style={{ height: "var(--app-height)" }}
       >
-        <div className="p-4">
-          <p className="text-sm text-muted-foreground mb-4">
-            Trykk på et bilde for fullskjermvisning med auto-oppdatering.
-          </p>
+        <AppHeader
+          title="Webcams"
+          subtitle="Davos Klosters"
+          rightAction={
+            <Camera className="h-5 w-5 text-primary-foreground/70" />
+          }
+        />
 
-          {/* Webcam grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {WEBCAMS.map((webcam) => (
-              <WebcamCard 
-                key={webcam.id} 
-                webcam={webcam} 
-                onSelect={setSelectedWebcam}
-              />
-            ))}
+        <div 
+          className="flex-1 overflow-y-auto"
+          style={{ 
+            paddingBottom: "var(--bottom-nav-h-effective)",
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
+          <div className="p-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Trykk på et bilde for fullskjermvisning med auto-oppdatering.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {WEBCAMS.map((webcam) => (
+                <WebcamCard 
+                  key={webcam.id} 
+                  webcam={webcam} 
+                  onSelect={setSelectedWebcam}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Fullscreen modal */}
-      <WebcamModal
-        webcam={selectedWebcam}
-        open={!!selectedWebcam}
-        onOpenChange={(open) => !open && setSelectedWebcam(null)}
-      />
-    </div>
+        <WebcamModal
+          webcam={selectedWebcam}
+          open={!!selectedWebcam}
+          onOpenChange={(open) => !open && setSelectedWebcam(null)}
+        />
+      </div>
+    </WebcamPreloadProvider>
   );
 };
 
