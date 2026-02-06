@@ -234,7 +234,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         />
       )}
 
-      {/* Timestamp + edited indicator + seen count */}
+      {/* Timestamp + edited indicator */}
       <div className="flex items-center gap-2 mx-3">
         <span className="text-[11px] text-muted-foreground">
           {time}
@@ -244,14 +244,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             (redigert)
           </span>
         )}
-        {isOwn && message.seenBy && message.seenBy.length > 0 && (
-          <span 
-            className="text-[11px] text-muted-foreground cursor-pointer hover:underline"
-            onClick={handleTap}
-          >
-            Sett av {message.seenBy.length}
-          </span>
-        )}
+        {/* Tap on bubble to see who has read the message */}
       </div>
     </div>
   );

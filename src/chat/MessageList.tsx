@@ -17,6 +17,8 @@ import { MessageActionsSheet } from './MessageActionsSheet';
 import { EmojiPicker } from './EmojiPicker';
 import { SeenBySheet } from './SeenBySheet';
 import { chatStore } from './store';
+import { useMarkAsRead } from './useMarkAsRead';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MessageListProps {
   messages: Message[];
@@ -60,6 +62,10 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [showJump, setShowJump] = React.useState(false);
   const isNearBottomRef = React.useRef(true);
 
+  // Auth and mark-as-read
+  const { user } = useAuth();
+  const { markAsRead } = useMarkAsRead();
+
   // UI state
   const [activeMessage, setActiveMessage] = React.useState<Message | null>(null);
   const [showActionsSheet, setShowActionsSheet] = React.useState(false);
@@ -69,7 +75,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const [emojiPickerMode, setEmojiPickerMode] = React.useState<'reaction' | 'compose'>('reaction');
   const [showSeenBySheet, setShowSeenBySheet] = React.useState(false);
-  const [seenByMessage, setSeenByMessage] = React.useState<Message | null>(null);
+  const [seenByMessageId, setSeenByMessageId] = React.useState<string | null>(null);
 
   // Check if near bottom
   const checkNearBottom = React.useCallback(() => {
@@ -115,9 +121,22 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   // Handle showing seen-by sheet
   const handleShowSeenBy = React.useCallback((message: Message) => {
-    setSeenByMessage(message);
+    setSeenByMessageId(message.id);
     setShowSeenBySheet(true);
   }, []);
+
+  // Mark messages as read when they become visible (effect on each render)
+  React.useEffect(() => {
+    if (!user) return;
+    
+    // Mark recent messages from others as read
+    const recentMessages = messages.slice(-20); // Last 20 messages
+    recentMessages.forEach((msg) => {
+      if (msg.senderId !== user.id && !msg.deletedAt) {
+        markAsRead(msg.id, msg.senderId);
+      }
+    });
+  }, [messages, user, markAsRead]);
 
   // Handle reaction from bar
   const handleReact = React.useCallback((emoji: string) => {
@@ -333,12 +352,12 @@ export const MessageList: React.FC<MessageListProps> = ({
       )}
 
       {/* Seen By Sheet */}
-      {showSeenBySheet && seenByMessage && (
+      {showSeenBySheet && seenByMessageId && (
         <SeenBySheet
-          seenBy={seenByMessage.seenBy || []}
+          messageId={seenByMessageId}
           onClose={() => {
             setShowSeenBySheet(false);
-            setSeenByMessage(null);
+            setSeenByMessageId(null);
           }}
         />
       )}

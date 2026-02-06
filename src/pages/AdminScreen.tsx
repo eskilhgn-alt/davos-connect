@@ -36,21 +36,26 @@ interface UserWithRole {
   role: "user" | "admin";
 }
 
+const ADMIN_EMAIL = "eskilhgn@gmail.com";
+
 export const AdminScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, user } = useAuth();
   const [users, setUsers] = React.useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
 
+  // Double-check: must be admin AND correct email
+  const isAuthorized = isAdmin && user?.email === ADMIN_EMAIL;
+
   // Redirect non-admins
   React.useEffect(() => {
-    if (!authLoading && !isAdmin) {
+    if (!authLoading && !isAuthorized) {
       toast.error("Ingen tilgang");
       navigate("/");
     }
-  }, [isAdmin, authLoading, navigate]);
+  }, [isAuthorized, authLoading, navigate]);
 
   const fetchUsers = React.useCallback(async () => {
     setIsLoading(true);
@@ -93,10 +98,10 @@ export const AdminScreen: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    if (isAdmin) {
+    if (isAuthorized) {
       fetchUsers();
     }
-  }, [isAdmin, fetchUsers]);
+  }, [isAuthorized, fetchUsers]);
 
   const toggleRole = async (userId: string, currentRole: "user" | "admin") => {
     setActionLoading(userId);
@@ -157,7 +162,7 @@ export const AdminScreen: React.FC = () => {
     );
   }, [users, searchQuery]);
 
-  if (authLoading || !isAdmin) {
+  if (authLoading || !isAuthorized) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
