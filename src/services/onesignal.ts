@@ -74,37 +74,48 @@ function loadOneSignalSDK(): Promise<void> {
 export async function initOneSignal(userId: string): Promise<void> {
   if (isInitialized) return;
   if (!ONESIGNAL_APP_ID) {
-    console.warn("OneSignal App ID not configured");
-    return;
+    console.error("OneSignal App ID not configured. VITE_ONESIGNAL_APP_ID is:", ONESIGNAL_APP_ID);
+    throw new Error("OneSignal App ID mangler. Sjekk at VITE_ONESIGNAL_APP_ID er konfigurert.");
   }
+
+  console.log("[OneSignal] Starting init with appId:", ONESIGNAL_APP_ID?.substring(0, 8) + "...");
 
   try {
     await loadOneSignalSDK();
+    console.log("[OneSignal] SDK script loaded");
 
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       window.OneSignalDeferred.push(async (OneSignal) => {
-        oneSignalInstance = OneSignal;
-        
-        await OneSignal.init({
-          appId: ONESIGNAL_APP_ID,
-          allowLocalhostAsSecureOrigin: true,
-          serviceWorkerPath: '/push/onesignal/OneSignalSDKWorker.js',
-          serviceWorkerParam: { scope: '/push/onesignal/' },
-          notifyButton: { enable: false },
-        });
+        try {
+          oneSignalInstance = OneSignal;
+          
+          await OneSignal.init({
+            appId: ONESIGNAL_APP_ID,
+            allowLocalhostAsSecureOrigin: true,
+            serviceWorkerPath: '/push/onesignal/OneSignalSDKWorker.js',
+            serviceWorkerParam: { scope: '/push/onesignal/' },
+            notifyButton: { enable: false },
+          });
+          console.log("[OneSignal] SDK initialized");
 
-        // Login with user's external ID
-        await OneSignal.login(userId);
-        
-        isInitialized = true;
-        resolve();
+          // Login with user's external ID
+          await OneSignal.login(userId);
+          console.log("[OneSignal] Logged in as", userId.substring(0, 8) + "...");
+          
+          isInitialized = true;
+          resolve();
+        } catch (innerError) {
+          console.error("[OneSignal] Init inner error:", innerError);
+          reject(innerError);
+        }
       });
     });
 
-    console.log("OneSignal initialized successfully");
+    console.log("[OneSignal] Fully initialized and ready");
   } catch (error) {
-    console.error("Error initializing OneSignal:", error);
+    console.error("[OneSignal] Init failed:", error);
+    throw error;
   }
 }
 
