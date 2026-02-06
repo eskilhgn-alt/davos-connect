@@ -268,7 +268,7 @@ async function fetchYrForecast(location: Location): Promise<DayPayload[] | null>
     
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "LiftLager/1.0 github.com/liftlager (support@liftlager.app)",
+        "User-Agent": "Lift & Lager (private beta) contact: eskilhgn@gmail.com",
       },
     });
     

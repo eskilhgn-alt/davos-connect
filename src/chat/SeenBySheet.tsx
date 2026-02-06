@@ -1,19 +1,73 @@
 /**
  * SeenBySheet - Bottom sheet showing who has seen a message
- * Displays list of users with timestamps
+ * Fetches from chat_reads table in Supabase
  */
 
 import * as React from "react";
-import { X, Eye } from "lucide-react";
+import { X, Eye, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { SeenByEntry } from "./types";
+import { supabase } from "@/integrations/supabase/client";
+
+interface SeenByEntry {
+  userId: string;
+  name: string;
+  seenAt: string;
+}
 
 interface SeenBySheetProps {
-  seenBy: SeenByEntry[];
+  messageId: string;
   onClose: () => void;
 }
 
-export const SeenBySheet: React.FC<SeenBySheetProps> = ({ seenBy, onClose }) => {
+export const SeenBySheet: React.FC<SeenBySheetProps> = ({ messageId, onClose }) => {
+  const [seenBy, setSeenBy] = React.useState<SeenByEntry[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchSeenBy = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("chat_reads")
+          .select(`
+            user_id,
+            read_at,
+            profiles:user_id (
+              nickname,
+              full_name,
+              email
+            )
+          `)
+          .eq("message_id", messageId)
+          .order("read_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching seen by:", error);
+          setSeenBy([]);
+          return;
+        }
+
+        const entries: SeenByEntry[] = (data || []).map((row: Record<string, unknown>) => {
+          const profile = row.profiles as { nickname?: string; full_name?: string; email?: string } | null;
+          return {
+            userId: row.user_id as string,
+            name: profile?.nickname || profile?.full_name || profile?.email || "Ukjent",
+            seenAt: row.read_at as string,
+          };
+        });
+
+        setSeenBy(entries);
+      } catch (err) {
+        console.error("Seen by fetch error:", err);
+        setSeenBy([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSeenBy();
+  }, [messageId]);
+
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -72,7 +126,11 @@ export const SeenBySheet: React.FC<SeenBySheetProps> = ({ seenBy, onClose }) => 
 
         {/* Content */}
         <div className="overflow-y-auto" style={{ maxHeight: "calc(60vh - 60px)" }}>
-          {seenBy.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={24} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : seenBy.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Eye size={32} className="mb-2 opacity-50" />
               <p className="text-sm">Ingen har sett denne ennå</p>
