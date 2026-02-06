@@ -1,0 +1,16 @@
+{
+  "name": "Lift & Lager",
+  "short_name": "Lift & Lager",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#103A5D",
+  "theme_color": "#103A5D",
+  "icons": [
+    {
+      "src": "/app-icon.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}
