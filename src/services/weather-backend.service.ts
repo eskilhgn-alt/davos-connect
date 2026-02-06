@@ -268,9 +268,9 @@ export async function getBackendWeather(days: number = 7): Promise<WeatherWithQu
   }
 
   try {
-    // Call the V2 Edge Function (unified endpoint)
+    // Call the V3 Edge Function (AI-accumulated consensus)
     const { data, error } = await supabase.functions.invoke<BackendResponse>(
-      "weather-engine-v2",
+      "weather-engine-v3",
       {
         body: null,
         headers: {
