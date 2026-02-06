@@ -258,7 +258,7 @@ export const MessageList: React.FC<MessageListProps> = ({
               {group.messages.map((msg, idx) => {
                 const isOwn = msg.senderId === currentUserId;
                 const prevMsg = idx > 0 ? group.messages[idx - 1] : null;
-                const showSender = !isOwn && (!prevMsg || prevMsg.senderId !== msg.senderId);
+                const showSender = !prevMsg || prevMsg.senderId !== msg.senderId;
 
                 return (
                   <MessageItem

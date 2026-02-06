@@ -125,9 +125,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       )}
       {...longPressHandlers}
     >
-      {/* Sender name for other users - always show */}
-      {!isOwn && (
-        <span className="text-xs font-medium text-muted-foreground ml-3">
+      {/* Sender name - show for all messages */}
+      {showSender && (
+        <span className={cn(
+          "text-xs font-medium ml-3",
+          isOwn ? "text-muted-foreground/60" : "text-muted-foreground"
+        )}>
           {message.senderName}
         </span>
       )}

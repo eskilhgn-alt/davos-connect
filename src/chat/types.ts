@@ -27,6 +27,7 @@ export interface Attachment {
   id: string;
   kind: 'image' | 'video' | 'gif';
   objectUrl: string; // For immediate preview (or gif URL)
+  file?: File; // For pending uploads to storage
 }
 
 export interface User {
