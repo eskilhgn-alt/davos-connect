@@ -1,7 +1,11 @@
 /**
  * WebcamModal - Fullscreen webcam viewer
- * Strategy: Show snapshot instantly, auto-switch to video when ready
- * Video iframe may already be preloaded by WebcamPreloader
+ * 
+ * Uses preloaded iframes: when a webcam is opened, its iframe container
+ * is moved from the hidden preload host into the modal (DOM reparenting).
+ * This means the video is ALREADY playing — zero wait time.
+ * 
+ * Falls back to fresh iframe + snapshot for non-preloaded webcams.
  */
 
 import * as React from "react";
@@ -29,34 +33,64 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
   const [showVideo, setShowVideo] = React.useState(false);
   const [snapshotLoaded, setSnapshotLoaded] = React.useState(false);
   const [snapshotKey, setSnapshotKey] = React.useState(0);
-  const [iframeReady, setIframeReady] = React.useState(false);
-  
-  const refreshIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
-  const { isPreloaded } = useWebcamPreload();
+  const [freshIframeReady, setFreshIframeReady] = React.useState(false);
 
-  // Reset on open
+  const videoSlotRef = React.useRef<HTMLDivElement>(null);
+  const originalParentRef = React.useRef<HTMLElement | null>(null);
+  const reparentedContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const refreshIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { getIframeContainer, isPreloaded } = useWebcamPreload();
+
+  // On open: reparent preloaded iframe into modal, or mount fresh one
   React.useEffect(() => {
-    if (open && webcam) {
-      const alreadyPreloaded = webcam.videoUrl && isPreloaded(webcam.id);
-      setShowVideo(false);
-      setSnapshotLoaded(false);
-      setSnapshotKey(Date.now());
-      setIframeReady(alreadyPreloaded ?? false);
-      
-      // If already preloaded, auto-switch immediately after snapshot paints
-      if (alreadyPreloaded) {
-        requestAnimationFrame(() => setShowVideo(true));
+    if (!open || !webcam) return;
+
+    setSnapshotLoaded(false);
+    setSnapshotKey(Date.now());
+    setFreshIframeReady(false);
+
+    const preloaded = isPreloaded(webcam.id);
+    const container = getIframeContainer(webcam.id);
+
+    if (preloaded && container && videoSlotRef.current) {
+      // Reparent: move the already-playing iframe into our modal
+      originalParentRef.current = container.parentElement;
+      reparentedContainerRef.current = container;
+
+      // Make it full-size
+      container.style.cssText = "width:100%;height:100%;position:absolute;inset:0;";
+      const iframe = container.querySelector("iframe");
+      if (iframe) {
+        iframe.style.cssText = "width:100%;height:100%;border:0;";
       }
+
+      videoSlotRef.current.appendChild(container);
+      setShowVideo(true);
+    } else if (webcam.videoUrl) {
+      // Not preloaded: show snapshot first, load fresh iframe
+      setShowVideo(false);
+    } else {
+      setShowVideo(false);
     }
+
     return () => {
+      // Return reparented iframe back to hidden host
+      if (reparentedContainerRef.current && originalParentRef.current) {
+        const c = reparentedContainerRef.current;
+        c.style.cssText = "width:1px;height:1px;overflow:hidden;position:absolute;left:-9999px;";
+        originalParentRef.current.appendChild(c);
+        reparentedContainerRef.current = null;
+        originalParentRef.current = null;
+      }
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
         refreshIntervalRef.current = null;
       }
     };
-  }, [open, webcam, isPreloaded]);
+  }, [open, webcam, isPreloaded, getIframeContainer]);
 
-  // Auto-refresh snapshot every 8s when snapshot is visible
+  // Auto-refresh snapshot every 8s when visible
   React.useEffect(() => {
     if (open && !showVideo) {
       refreshIntervalRef.current = setInterval(() => {
@@ -71,11 +105,10 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
     };
   }, [open, showVideo]);
 
-  // Auto-switch to video when iframe loads
-  const handleIframeLoad = React.useCallback(() => {
-    setIframeReady(true);
-    // Small delay so transition is smooth
-    setTimeout(() => setShowVideo(true), 150);
+  // Fresh iframe loaded → auto-switch
+  const handleFreshIframeLoad = React.useCallback(() => {
+    setFreshIframeReady(true);
+    setTimeout(() => setShowVideo(true), 100);
   }, []);
 
   const handleSwitchToSnapshot = () => {
@@ -92,6 +125,8 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
 
   const snapshotUrl = `${getWebcamProxyUrl(webcam.snapshotUrl)}&t=${snapshotKey}`;
   const hasVideo = !!webcam.videoUrl;
+  const preloaded = isPreloaded(webcam.id);
+  const needsFreshIframe = hasVideo && !preloaded;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -155,23 +190,27 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
             />
           </div>
 
-          {/* Video layer - auto-switches when loaded */}
-          {hasVideo && webcam.videoUrl && (
-            <div className={cn(
+          {/* Video layer - either reparented preloaded iframe or fresh */}
+          <div
+            ref={videoSlotRef}
+            className={cn(
               "absolute inset-0 transition-opacity duration-300",
               showVideo ? "opacity-100" : "opacity-0 pointer-events-none"
-            )}>
+            )}
+          >
+            {/* Fresh iframe for non-preloaded webcams */}
+            {needsFreshIframe && webcam.videoUrl && (
               <iframe
                 src={webcam.videoUrl}
                 className="w-full h-full border-0"
                 allow="autoplay; fullscreen; picture-in-picture"
                 sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
                 referrerPolicy="no-referrer-when-downgrade"
-                onLoad={handleIframeLoad}
+                onLoad={handleFreshIframeLoad}
                 title={`${webcam.name} live`}
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Bottom: switch back to snapshot */}
