@@ -1,6 +1,6 @@
 /**
  * WeatherScreen — Dual-source (Yr + MeteoSwiss) with mountain cards + AI summary
- * Minimalist, mobile-first
+ * Minimalist, mobile-first — supports GPS-based location
  */
 
 import * as React from "react";
@@ -21,7 +21,8 @@ import {
   type WeatherDaily,
 } from "@/services/weather-dual.service";
 import { useWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
-import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin, Sparkles, Sun, CloudSun, Shield } from "lucide-react";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin, Navigation, Sparkles, Sun, CloudSun, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SourceTab = "yr" | "meteoswiss";
@@ -41,6 +42,7 @@ function dayLabel(dateStr: string, index: number): string {
 
 const WeatherScreen: React.FC = () => {
   const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary();
+  const geo = useGeolocation();
   const [data, setData] = React.useState<FullWeatherData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -51,7 +53,8 @@ const WeatherScreen: React.FC = () => {
     setError(null);
     try {
       if (force) clearDualWeatherCache();
-      const result = await getDualWeather(force);
+      const customLoc = geo.position ? { lat: geo.position.lat, lon: geo.position.lon } : undefined;
+      const result = await getDualWeather(force, customLoc);
       setData(result);
     } catch (err) {
       console.error("Weather load failed:", err);
@@ -59,7 +62,7 @@ const WeatherScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [geo.position]);
 
   React.useEffect(() => { load(); }, [load]);
 
@@ -94,12 +97,27 @@ const WeatherScreen: React.FC = () => {
       >
         <div className="pb-6">
           {/* Source toggle */}
-          <div className="px-4 pt-4 pb-2">
-            <DavosSegmented
-              options={SOURCE_OPTIONS}
-              value={source}
-              onChange={(v) => setSource(v as SourceTab)}
-            />
+          <div className="px-4 pt-4 pb-2 flex items-center gap-2">
+            <div className="flex-1">
+              <DavosSegmented
+                options={SOURCE_OPTIONS}
+                value={source}
+                onChange={(v) => setSource(v as SourceTab)}
+              />
+            </div>
+            <button
+              onClick={() => geo.enabled ? geo.disable() : geo.request()}
+              disabled={geo.loading}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors shrink-0",
+                geo.enabled
+                  ? "bg-primary/15 text-primary border border-primary/30"
+                  : "bg-muted text-muted-foreground border border-border"
+              )}
+            >
+              <Navigation size={14} className={cn(geo.loading && "animate-spin")} />
+              {geo.loading ? "..." : geo.enabled ? "GPS" : "GPS"}
+            </button>
           </div>
 
           {error ? (
@@ -112,7 +130,7 @@ const WeatherScreen: React.FC = () => {
           ) : (
             <>
               {/* Hero card */}
-              <HeroCard today={today} loading={loading} source={source} updatedAt={forecast?.updatedAt} />
+              <HeroCard today={today} loading={loading} source={source} updatedAt={forecast?.updatedAt} locationName={data?.davos.location.name || "Davos"} />
 
               {/* AI Summary Card */}
               <AiSummaryCard summary={aiSummary} loading={aiLoading} />
@@ -225,9 +243,10 @@ interface HeroCardProps {
   loading: boolean;
   source: SourceTab;
   updatedAt?: string;
+  locationName: string;
 }
 
-const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt }) => {
+const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt, locationName }) => {
   if (loading || !today) {
     return (
       <DavosCard className="mx-4 mt-2">
@@ -250,6 +269,7 @@ const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt }
   }
 
   const sourceName = source === "yr" ? "Yr" : "MeteoSwiss";
+  const isCustomLocation = locationName !== "Davos";
 
   return (
     <DavosCard className="mx-4 mt-2">
@@ -257,8 +277,14 @@ const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt }
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <MapPin size={14} className="text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Davos · {sourceName}</span>
+              {isCustomLocation ? (
+                <Navigation size={14} className="text-primary" />
+              ) : (
+                <MapPin size={14} className="text-muted-foreground" />
+              )}
+              <span className="text-xs text-muted-foreground">
+                {locationName} · {sourceName}
+              </span>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="font-heading text-5xl font-bold text-foreground">

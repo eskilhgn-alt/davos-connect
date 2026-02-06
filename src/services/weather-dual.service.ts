@@ -149,15 +149,23 @@ async function fetchForLocation(loc: LocationPoint): Promise<DualWeatherData> {
 // MAIN SERVICE
 // ============================================
 
-export async function getDualWeather(forceRefresh = false): Promise<FullWeatherData> {
-  if (!forceRefresh) {
+export async function getDualWeather(
+  forceRefresh = false,
+  customLocation?: { lat: number; lon: number }
+): Promise<FullWeatherData> {
+  // Skip cache if custom location differs
+  if (!forceRefresh && !customLocation) {
     const cached = getCached();
     if (cached) return cached;
   }
 
-  // Fetch Davos + all mountains in parallel
+  const mainLocation: LocationPoint = customLocation
+    ? { id: "custom", name: "Din posisjon", lat: customLocation.lat, lon: customLocation.lon }
+    : DAVOS;
+
+  // Fetch main location + all mountains in parallel
   const [davos, ...mountainResults] = await Promise.all([
-    fetchForLocation(DAVOS),
+    fetchForLocation(mainLocation),
     ...MOUNTAIN_AREAS.map((m) => fetchForLocation(m)),
   ]);
 
