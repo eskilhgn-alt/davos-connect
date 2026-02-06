@@ -113,7 +113,7 @@ serve(async (req) => {
       include_external_user_ids: externalUserIds,
       headings: { en: sender_name },
       contents: { en: preview || "Ny melding" },
-      url: "/meldinger",
+      url: "/chat",
       ios_badgeType: "Increase",
       ios_badgeCount: 1,
       collapse_id: `thread_${thread_id}`,
