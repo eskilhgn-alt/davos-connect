@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.giphy-proxy]
 verify_jwt = false
+
+[functions.weather-yr]
+verify_jwt = false
+
+[functions.weather-meteoswiss]
+verify_jwt = false

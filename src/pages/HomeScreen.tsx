@@ -179,7 +179,7 @@ export const HomeScreen: React.FC = () => {
                 to="/vaer"
                 icon={<CloudSun size={20} />}
                 label="Vær"
-                description="KI-akkumulert prognose"
+                description="Yr + MeteoSwiss"
               />
               <Shortcut
                 to="/live"
