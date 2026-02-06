@@ -97,27 +97,39 @@ const WeatherScreen: React.FC = () => {
       >
         <div className="pb-6">
           {/* Source toggle */}
-          <div className="px-4 pt-4 pb-2 flex items-center gap-2">
-            <div className="flex-1">
-              <DavosSegmented
-                options={SOURCE_OPTIONS}
-                value={source}
-                onChange={(v) => setSource(v as SourceTab)}
-              />
+          <div className="px-4 pt-4 pb-2 space-y-2">
+            <DavosSegmented
+              options={SOURCE_OPTIONS}
+              value={source}
+              onChange={(v) => setSource(v as SourceTab)}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => geo.disable()}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                  !geo.enabled
+                    ? "bg-primary/15 text-primary border border-primary/30"
+                    : "bg-muted text-muted-foreground border border-border"
+                )}
+              >
+                <MapPin size={13} />
+                Davos
+              </button>
+              <button
+                onClick={() => geo.request()}
+                disabled={geo.loading}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                  geo.enabled
+                    ? "bg-primary/15 text-primary border border-primary/30"
+                    : "bg-muted text-muted-foreground border border-border"
+                )}
+              >
+                <Navigation size={13} className={cn(geo.loading && "animate-spin")} />
+                {geo.loading ? "Henter..." : "Min posisjon"}
+              </button>
             </div>
-            <button
-              onClick={() => geo.enabled ? geo.disable() : geo.request()}
-              disabled={geo.loading}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors shrink-0",
-                geo.enabled
-                  ? "bg-primary/15 text-primary border border-primary/30"
-                  : "bg-muted text-muted-foreground border border-border"
-              )}
-            >
-              <Navigation size={14} className={cn(geo.loading && "animate-spin")} />
-              {geo.loading ? "..." : geo.enabled ? "GPS" : "GPS"}
-            </button>
           </div>
 
           {error ? (
