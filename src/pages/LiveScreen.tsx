@@ -5,6 +5,7 @@
 
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { BackButton } from "@/components/layout/BackButton";
 import { WindyEmbed } from "@/components/live";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { WEBCAMS, getWebcamProxyUrl, type Webcam } from "@/config/webcams";
@@ -32,7 +33,11 @@ export const LiveScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Live" subtitle="Radar & webcams" />
+      <AppHeader 
+        title="Live" 
+        subtitle="Radar & webcams"
+        leftAction={<BackButton fallbackPath="/hjem" />}
+      />
 
       <div 
         className="flex-1 overflow-y-auto overscroll-contain"

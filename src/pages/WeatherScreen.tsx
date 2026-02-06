@@ -1,5 +1,6 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout";
+import { BackButton } from "@/components/layout/BackButton";
 import {
   WeatherHero,
   WeatherKiQuote,
@@ -148,6 +149,7 @@ const WeatherScreen: React.FC = () => {
       <AppHeader
         title="Vær"
         subtitle={selectedModel === "consensus" ? "Davos konsensus" : selectedModel}
+        leftAction={<BackButton fallbackPath="/hjem" />}
         rightAction={
           (loading || isRefreshing) ? (
             <RefreshCw className="h-5 w-5 animate-spin text-primary-foreground/70" />
