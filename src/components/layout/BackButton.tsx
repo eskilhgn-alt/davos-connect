@@ -32,9 +32,8 @@ export const BackButton: React.FC<BackButtonProps> = ({
     }
   };
 
-  // Don't show on root routes (bottom nav destinations)
-  const rootRoutes = ["/", "/vaer", "/live", "/kart", "/mer", "/hjem"];
-  if (rootRoutes.includes(location.pathname)) {
+  // Don't show on home route only
+  if (location.pathname === "/" || location.pathname === "/hjem") {
     return null;
   }
 

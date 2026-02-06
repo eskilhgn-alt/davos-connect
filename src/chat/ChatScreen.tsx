@@ -92,7 +92,7 @@ export const ChatScreen: React.FC = () => {
       >
         <button
           type="button"
-          onClick={() => navigate('/mer')}
+          onClick={() => navigate('/hjem')}
           className="tap-target flex items-center justify-center -ml-2"
         >
           <ArrowLeft size={24} />
