@@ -15,7 +15,7 @@ const WebcamCard: React.FC<WebcamCardProps> = ({ webcam, onSelect }) => {
   const [imageState, setImageState] = React.useState<"loading" | "loaded" | "error">("loading");
   const [refreshKey, setRefreshKey] = React.useState(0);
 
-  const imageUrl = `${getWebcamProxyUrl(webcam.imageUrl)}&t=${refreshKey}`;
+  const imageUrl = `${getWebcamProxyUrl(webcam.snapshotUrl)}&t=${refreshKey}`;
 
   const handleRefresh = (e: React.MouseEvent) => {
     e.stopPropagation();

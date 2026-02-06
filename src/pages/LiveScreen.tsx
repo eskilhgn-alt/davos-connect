@@ -81,7 +81,7 @@ export const LiveScreen: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               {displayedWebcams.map((webcam) => {
                 const hasError = webcamErrors.has(webcam.id);
-                const proxyUrl = `${getWebcamProxyUrl(webcam.imageUrl)}&t=${Date.now()}`;
+                const proxyUrl = `${getWebcamProxyUrl(webcam.snapshotUrl)}&t=${Date.now()}`;
                 
                 return (
                   <button

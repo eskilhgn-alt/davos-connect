@@ -15,6 +15,7 @@ import { ReactionBar } from './ReactionBar';
 import { ReactionsDialog } from './ReactionsDialog';
 import { MessageActionsSheet } from './MessageActionsSheet';
 import { EmojiPicker } from './EmojiPicker';
+import { SeenBySheet } from './SeenBySheet';
 import { chatStore } from './store';
 
 interface MessageListProps {
@@ -67,6 +68,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [reactionsToShow, setReactionsToShow] = React.useState<Record<string, string[]>>({});
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const [emojiPickerMode, setEmojiPickerMode] = React.useState<'reaction' | 'compose'>('reaction');
+  const [showSeenBySheet, setShowSeenBySheet] = React.useState(false);
+  const [seenByMessage, setSeenByMessage] = React.useState<Message | null>(null);
 
   // Check if near bottom
   const checkNearBottom = React.useCallback(() => {
@@ -108,6 +111,12 @@ export const MessageList: React.FC<MessageListProps> = ({
   const handleShowReactions = React.useCallback((reactions: Record<string, string[]>) => {
     setReactionsToShow(reactions);
     setShowReactionsDialog(true);
+  }, []);
+
+  // Handle showing seen-by sheet
+  const handleShowSeenBy = React.useCallback((message: Message) => {
+    setSeenByMessage(message);
+    setShowSeenBySheet(true);
   }, []);
 
   // Handle reaction from bar
@@ -241,6 +250,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                     currentUserId={currentUserId}
                     onShowActions={handleShowActions}
                     onShowReactions={handleShowReactions}
+                    onShowSeenBy={handleShowSeenBy}
                   />
                 );
               })}
@@ -318,6 +328,17 @@ export const MessageList: React.FC<MessageListProps> = ({
           onClose={() => {
             setShowEmojiPicker(false);
             setActiveMessage(null);
+          }}
+        />
+      )}
+
+      {/* Seen By Sheet */}
+      {showSeenBySheet && seenByMessage && (
+        <SeenBySheet
+          seenBy={seenByMessage.seenBy || []}
+          onClose={() => {
+            setShowSeenBySheet(false);
+            setSeenByMessage(null);
           }}
         />
       )}

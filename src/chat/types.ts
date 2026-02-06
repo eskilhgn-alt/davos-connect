@@ -1,7 +1,13 @@
 /**
- * Chat Types - Extended for reactions, edit, delete
+ * Chat Types - Extended for reactions, edit, delete, seen-by
  * Backward compatible with existing data
  */
+
+export interface SeenByEntry {
+  userId: string;
+  name: string;
+  seenAt: string; // ISO timestamp
+}
 
 export interface Message {
   id: string;
@@ -14,6 +20,7 @@ export interface Message {
   editedAt?: number;
   deletedAt?: number;
   reactions?: Record<string, string[]>; // emoji -> array of senderIds
+  seenBy?: SeenByEntry[]; // List of users who have seen this message
 }
 
 export interface Attachment {

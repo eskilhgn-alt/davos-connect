@@ -1,16 +1,19 @@
 /**
  * Webcam configuration for Davos Klosters
- * Uses feratel webcam images and video player URLs
+ * Supports both video embeds (feratel WebTV) and snapshot images
  */
 
 export interface Webcam {
   id: string;
   name: string;
   area: string;
-  imageUrl: string;
-  /** Feratel webtv video player URL (for live video stream) */
+  /** Snapshot image URL for fallback/thumbnail */
+  snapshotUrl: string;
+  /** Video embed URL (feratel WebTV) - if available, preferred for modal */
   videoUrl?: string;
-  /** Camera ID used by feratel (4-digit number) */
+  /** External URL for "open in browser" fallback */
+  externalUrl?: string;
+  /** Camera ID used by feratel */
   camId: string;
   elevation?: number;
 }
@@ -20,51 +23,61 @@ function getVideoUrl(camId: string): string {
   return `https://webtv.feratel.com/webtv/?design=v5&cam=${camId}&c1=0&c2=0`;
 }
 
+// Build external feratel page URL
+function getExternalUrl(camId: string): string {
+  return `https://webtv.feratel.com/webtv/?design=v5&cam=${camId}`;
+}
+
 export const WEBCAMS: Webcam[] = [
   // Panorama
   {
     id: "davos-dorf",
     name: "Davos Dorf",
     area: "Weissfluhjoch",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4002.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4002.jpeg",
     camId: "4002",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4002"),
+    externalUrl: getExternalUrl("4002"),
     elevation: 2660,
   },
   {
     id: "davos-platz-jakobshorn",
     name: "Davos Platz",
     area: "Jakobshorn",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4003.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4003.jpeg",
     camId: "4003",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4003"),
+    externalUrl: getExternalUrl("4003"),
     elevation: 2590,
   },
   {
     id: "davos-platz-tsz",
     name: "Davos Platz",
     area: "Tourismus- und Sportzentrum",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4004.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4004.jpeg",
     camId: "4004",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4004"),
+    externalUrl: getExternalUrl("4004"),
     elevation: 1560,
   },
   {
     id: "klosters-sportzentrum",
     name: "Klosters",
     area: "Sportzentrum",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4005.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4005.jpeg",
     camId: "4005",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4005"),
+    externalUrl: getExternalUrl("4005"),
     elevation: 1182,
   },
   {
     id: "davos-wolfgang",
     name: "Davos Wolfgang",
     area: "Davosersee",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4006.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4006.jpeg",
     camId: "4006",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4006"),
+    externalUrl: getExternalUrl("4006"),
     elevation: 1600,
   },
   // Mountains
@@ -72,72 +85,80 @@ export const WEBCAMS: Webcam[] = [
     id: "schaffurggli",
     name: "Klosters Dorf",
     area: "Bergstation Schaffürggli",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4007.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4007.jpeg",
     camId: "4007",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4007"),
+    externalUrl: getExternalUrl("4007"),
     elevation: 2390,
   },
   {
     id: "monbiel",
     name: "Klosters",
     area: "Monbiel Parkplatz",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4008.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4008.jpeg",
     camId: "4008",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4008"),
+    externalUrl: getExternalUrl("4008"),
     elevation: 1318,
   },
   {
     id: "garfiun",
     name: "Klosters",
     area: "Garfiun",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4009.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4009.jpeg",
     camId: "4009",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4009"),
+    externalUrl: getExternalUrl("4009"),
     elevation: 1375,
   },
   {
     id: "madrisaland",
     name: "Klosters Dorf",
     area: "Madrisaland",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4011.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4011.jpeg",
     camId: "4011",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4011"),
+    externalUrl: getExternalUrl("4011"),
     elevation: 1892,
   },
   {
     id: "jatzmeder",
     name: "Davos Glaris",
     area: "Jatzmeder",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4310.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4310.jpeg",
     camId: "4310",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4310"),
+    externalUrl: getExternalUrl("4310"),
     elevation: 2050,
   },
   {
     id: "bundelti",
     name: "Klosters",
     area: "Bündelti",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4311.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4311.jpeg",
     camId: "4311",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4311"),
+    externalUrl: getExternalUrl("4311"),
     elevation: 1225,
   },
   {
     id: "langlaufzentrum",
     name: "Davos",
     area: "Langlaufzentrum",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4312.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4312.jpeg",
     camId: "4312",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4312"),
+    externalUrl: getExternalUrl("4312"),
     elevation: 1545,
   },
   {
     id: "snowfarming",
     name: "Davos",
     area: "Snowfarming",
-    imageUrl: "https://wtvpict.feratel.com/picture/44/4313.jpeg",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4313.jpeg",
     camId: "4313",
-    get videoUrl() { return getVideoUrl(this.camId); },
+    videoUrl: getVideoUrl("4313"),
+    externalUrl: getExternalUrl("4313"),
     elevation: 1640,
   },
 ];
@@ -151,8 +172,8 @@ export const FEATURED_WEBCAMS: Webcam[] = [
   WEBCAMS[9], // Jatzmeder
 ];
 
-// Get proxy URL for a webcam image
-export function getWebcamProxyUrl(imageUrl: string): string {
+// Get proxy URL for a webcam snapshot image
+export function getWebcamProxyUrl(snapshotUrl: string): string {
   const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-  return `${baseUrl}/functions/v1/webcam-proxy?url=${encodeURIComponent(imageUrl)}`;
+  return `${baseUrl}/functions/v1/webcam-proxy?url=${encodeURIComponent(snapshotUrl)}`;
 }
