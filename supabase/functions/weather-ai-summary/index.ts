@@ -53,14 +53,25 @@ interface AISummaryResult {
 const DAVOS_LAT = "46.80";
 const DAVOS_LON = "9.84";
 
+function getLocationParams(req: Request): { lat: string; lon: string; locationId: string } {
+  const url = new URL(req.url);
+  const lat = url.searchParams.get("lat") || DAVOS_LAT;
+  const lon = url.searchParams.get("lon") || DAVOS_LON;
+  // Use "davos" as location_id if coordinates match default, otherwise create an id from coords
+  const locationId = (lat === DAVOS_LAT && lon === DAVOS_LON) ? "davos" : `custom_${lat}_${lon}`;
+  return { lat, lon, locationId };
+}
+
 async function fetchSourceForecast(
   baseUrl: string,
   anonKey: string,
-  fnName: string
+  fnName: string,
+  lat: string,
+  lon: string
 ): Promise<SourceData | null> {
   try {
     const response = await fetch(
-      `${baseUrl}/functions/v1/${fnName}?lat=${DAVOS_LAT}&lon=${DAVOS_LON}`,
+      `${baseUrl}/functions/v1/${fnName}?lat=${lat}&lon=${lon}`,
       {
         headers: {
           apikey: anonKey,
@@ -113,6 +124,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    const { lat, lon, locationId } = getLocationParams(req);
+
     // Check cache first (return cached if < 30 min old)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const today = new Date().toISOString().split("T")[0];
@@ -120,7 +133,7 @@ Deno.serve(async (req) => {
     const { data: cached } = await supabase
       .from("weather_ai_daily")
       .select("*")
-      .eq("location_id", "davos")
+      .eq("location_id", locationId)
       .eq("day_date", today)
       .order("run_at", { ascending: false })
       .limit(1)
@@ -146,10 +159,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch both sources in parallel
+    // Fetch both sources in parallel using the requested coordinates
     const [yr, meteoswiss] = await Promise.all([
-      fetchSourceForecast(SUPABASE_URL, SUPABASE_ANON_KEY, "weather-yr"),
-      fetchSourceForecast(SUPABASE_URL, SUPABASE_ANON_KEY, "weather-meteoswiss"),
+      fetchSourceForecast(SUPABASE_URL, SUPABASE_ANON_KEY, "weather-yr", lat, lon),
+      fetchSourceForecast(SUPABASE_URL, SUPABASE_ANON_KEY, "weather-meteoswiss", lat, lon),
     ]);
 
     if (!yr && !meteoswiss) {
@@ -168,7 +181,8 @@ Deno.serve(async (req) => {
       dataSection += `\n## MeteoSwiss (ICON-modell via Open-Meteo) — Sveitsisk Meteorologisk Institutt\n${formatDailyForPrompt(meteoswiss.daily)}\n`;
     }
 
-    const prompt = `Du er en ekspert-meteorolog som spesialiserer seg på alpint skivær i Davos, Sveits (1560 moh).
+    const locationLabel = locationId === "davos" ? "Davos, Sveits (1560 moh)" : `posisjon ${lat}°N, ${lon}°Ø`;
+    const prompt = `Du er en ekspert-meteorolog som spesialiserer seg på alpint skivær i ${locationLabel}.
 Du har fått prognoser fra to uavhengige værkilder. Analyser begge og gi en helhetlig vurdering.
 
 ${dataSection}
@@ -279,20 +293,23 @@ REGLER:
       confidenceReason: result.confidenceReason,
     };
 
-    await supabase.from("weather_ai_daily").upsert(
-      {
-        location_id: "davos",
-        day_date: today,
-        ai_daily: aiDailyPayload,
-        ai_summary_today: result.todaySummary,
-        ai_summary_tomorrow: result.tomorrowSummary,
-        confidence: result.confidence,
-        rationale_short: result.confidenceReason,
-        source_weights: { yr: yr ? 0.5 : 0, meteoswiss: meteoswiss ? 0.5 : 0 },
-        run_at: new Date().toISOString(),
-      },
-      { onConflict: "location_id,day_date" }
-    );
+    // Cache to DB — only for known locations (FK constraint on location_id)
+    if (locationId === "davos") {
+      await supabase.from("weather_ai_daily").upsert(
+        {
+          location_id: locationId,
+          day_date: today,
+          ai_daily: aiDailyPayload,
+          ai_summary_today: result.todaySummary,
+          ai_summary_tomorrow: result.tomorrowSummary,
+          confidence: result.confidence,
+          rationale_short: result.confidenceReason,
+          source_weights: { yr: yr ? 0.5 : 0, meteoswiss: meteoswiss ? 0.5 : 0 },
+          run_at: new Date().toISOString(),
+        },
+        { onConflict: "location_id,day_date" }
+      );
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
