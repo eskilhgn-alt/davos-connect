@@ -216,14 +216,15 @@ const WeatherScreen: React.FC = () => {
                 </div>
               )}
 
-              {/* KI interprets the weather - today + tomorrow */}
-              <WeatherKiQuote 
-                day={today || undefined} 
-                isLoading={loading}
-                backendQuote={weather?.quote}
-                aiSummaryToday={weather?.aiSummaryToday}
-                aiSummaryTomorrow={weather?.aiSummaryTomorrow}
-              />
+              {/* AI weather summary - today + tomorrow */}
+              {(weather?.aiSummaryToday || weather?.aiSummaryTomorrow) && (
+                <WeatherKiQuote 
+                  day={today || undefined} 
+                  isLoading={loading}
+                  aiSummaryToday={weather?.aiSummaryToday}
+                  aiSummaryTomorrow={weather?.aiSummaryTomorrow}
+                />
+              )}
 
               {/* 7-day strip - inline preview */}
               <div className="mt-4">

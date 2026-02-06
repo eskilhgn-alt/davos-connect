@@ -4,16 +4,10 @@
  */
 
 import * as React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { BottomNavigation } from '@/components/layout/BottomNavigation';
+import { Outlet } from 'react-router-dom';
 
 export const ChatLayout: React.FC = () => {
-  return (
-    <>
-      <Outlet />
-      <BottomNavigation />
-    </>
-  );
+  return <Outlet />;
 };
 
 export default ChatLayout;
