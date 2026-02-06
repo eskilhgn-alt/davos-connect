@@ -5,7 +5,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-const ONESIGNAL_APP_ID = "df7c293f-d521-419d-cbb-2843520ce5c4";
+const ONESIGNAL_APP_ID = "df7c293f-d521-419d-9cbb-2843520ce5c4";
 const PUSH_ENABLED_KEY = "push_notifications_enabled";
 const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
