@@ -264,57 +264,6 @@ export type Database = {
         }
         Relationships: []
       }
-      quote_history: {
-        Row: {
-          category: string
-          id: number
-          last_used_at: string
-          quote_hash: string
-          speaker: string
-          used_count: number
-        }
-        Insert: {
-          category: string
-          id?: number
-          last_used_at?: string
-          quote_hash: string
-          speaker: string
-          used_count?: number
-        }
-        Update: {
-          category?: string
-          id?: number
-          last_used_at?: string
-          quote_hash?: string
-          speaker?: string
-          used_count?: number
-        }
-        Relationships: []
-      }
-      quote_usage: {
-        Row: {
-          category: string
-          id: string
-          quote_hash: string
-          speaker: string
-          used_at: string
-        }
-        Insert: {
-          category: string
-          id?: string
-          quote_hash: string
-          speaker: string
-          used_at?: string
-        }
-        Update: {
-          category?: string
-          id?: string
-          quote_hash?: string
-          speaker?: string
-          used_at?: string
-        }
-        Relationships: []
-      }
       threads: {
         Row: {
           created_at: string
@@ -364,7 +313,6 @@ export type Database = {
           day_date: string
           id: number
           location_id: string
-          quote: Json | null
           rationale_short: string
           run_at: string
           source_weights: Json
@@ -378,7 +326,6 @@ export type Database = {
           day_date: string
           id?: number
           location_id: string
-          quote?: Json | null
           rationale_short: string
           run_at?: string
           source_weights: Json
@@ -392,7 +339,6 @@ export type Database = {
           day_date?: string
           id?: number
           location_id?: string
-          quote?: Json | null
           rationale_short?: string
           run_at?: string
           source_weights?: Json
