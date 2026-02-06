@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.webcam-proxy]
 verify_jwt = false
+
+[functions.giphy-proxy]
+verify_jwt = false
