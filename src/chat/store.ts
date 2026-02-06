@@ -1,143 +1,246 @@
 /**
- * Chat Store - localStorage-based persistence
- * Extended for reactions, edit, delete, typing
+ * Chat Store - Supabase-backed persistence with Realtime
+ * Replaces localStorage with server-authoritative data
  */
 
-import type { Message, User, Attachment, TypingState } from './types';
+import { supabase } from '@/integrations/supabase/client';
+import type { Message, Attachment, TypingState } from './types';
 
-const STORAGE_KEYS = {
-  MESSAGES: 'chat_messages',
-  USER: 'chat_user',
-  TYPING: 'chat_typing',
-} as const;
-
-const CHAT_UPDATE_EVENT = 'chat:updated';
+const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 const TYPING_UPDATE_EVENT = 'chat:typing';
 
-// ============ User Management ============
+// ============ Helpers ============
 
-function generateUser(): User {
+async function getCurrentUserId(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error('Not authenticated');
+  return session.user.id;
+}
+
+function dbToMessage(row: Record<string, unknown>): Message {
+  const attachments = Array.isArray(row.attachments) ? row.attachments : [];
   return {
-    id: crypto.randomUUID(),
-    name: 'Meg',
+    id: row.id as string,
+    text: (row.text as string) || '',
+    createdAt: new Date(row.created_at as string).getTime(),
+    senderName: row.sender_name as string,
+    senderId: row.sender_id as string,
+    attachments: attachments.map((a: Record<string, unknown>) => ({
+      id: (a.id as string) || crypto.randomUUID(),
+      kind: (a.kind as 'image' | 'video' | 'gif') || 'image',
+      objectUrl: (a.objectUrl as string) || (a.url as string) || '',
+    })),
+    editedAt: row.edited_at ? new Date(row.edited_at as string).getTime() : undefined,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at as string).getTime() : undefined,
+    reactions: row.reactions && typeof row.reactions === 'object' && Object.keys(row.reactions as object).length > 0
+      ? (row.reactions as Record<string, string[]>)
+      : undefined,
   };
 }
 
-export function getUser(): User {
+// ============ User Management (backward compat) ============
+
+interface LocalUser {
+  id: string;
+  name: string;
+}
+
+const USER_KEY = 'chat_user';
+
+export function getUser(): LocalUser {
   try {
-    const stored = localStorage.getItem(STORAGE_KEYS.USER);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    // Ignore
-  }
-  const user = generateUser();
-  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    const stored = localStorage.getItem(USER_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch { /* ignore */ }
+  const user: LocalUser = { id: crypto.randomUUID(), name: 'Meg' };
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
   return user;
 }
 
-export function setUserName(name: string): User {
+export function setUserName(name: string): LocalUser {
   const user = getUser();
   user.name = name.trim() || 'Meg';
-  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
   return user;
 }
 
-// ============ Message Management ============
+// ============ Message Fetching ============
 
-export function listMessages(): Message[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEYS.MESSAGES);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    // Ignore
+async function fetchMessages(): Promise<Message[]> {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('thread_id', DEFAULT_THREAD_ID)
+    .order('created_at', { ascending: true })
+    .limit(500);
+
+  if (error) {
+    console.error('Error fetching messages:', error);
+    return [];
   }
+
+  return (data || []).map((row) => dbToMessage(row as unknown as Record<string, unknown>));
+}
+
+// ============ Message Subscription (Realtime) ============
+
+export function subscribeToMessages(callback: (messages: Message[]) => void): () => void {
+  let active = true;
+
+  const refresh = async () => {
+    const msgs = await fetchMessages();
+    if (active) callback(msgs);
+  };
+
+  // Initial fetch
+  refresh();
+
+  // Realtime subscription
+  const channel = supabase
+    .channel('chat-messages-rt')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'messages',
+        filter: `thread_id=eq.${DEFAULT_THREAD_ID}`,
+      },
+      () => { refresh(); }
+    )
+    .subscribe();
+
+  return () => {
+    active = false;
+    supabase.removeChannel(channel);
+  };
+}
+
+// For backward compat (some components call this synchronously)
+export function listMessages(): Message[] {
+  // Return empty - callers should use subscribeToMessages instead
   return [];
 }
 
-function saveMessages(messages: Message[]): void {
-  localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(messages));
-  window.dispatchEvent(new CustomEvent(CHAT_UPDATE_EVENT));
-}
+// ============ Message Operations ============
 
-export function sendMessage(text: string, attachments: Attachment[] = []): Message {
-  const user = getUser();
-  const message: Message = {
-    id: crypto.randomUUID(),
-    text: text.trim(),
-    createdAt: Date.now(),
-    senderName: user.name,
-    senderId: user.id,
-    attachments,
-  };
-  
-  const messages = listMessages();
-  messages.push(message);
-  saveMessages(messages);
-  
-  return message;
-}
-
-export function editMessage(messageId: string, newText: string): void {
-  const messages = listMessages();
-  const idx = messages.findIndex(m => m.id === messageId);
-  if (idx !== -1 && !messages[idx].deletedAt) {
-    messages[idx] = {
-      ...messages[idx],
-      text: newText.trim(),
-      editedAt: Date.now(),
-    };
-    saveMessages(messages);
+export async function sendMessage(
+  text: string,
+  attachments: Attachment[] = [],
+  senderId?: string,
+  senderName?: string
+): Promise<Message | null> {
+  // Get sender info from auth if not provided
+  let sid = senderId;
+  let sname = senderName;
+  if (!sid || !sname) {
+    sid = await getCurrentUserId();
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('nickname, full_name')
+      .eq('id', sid)
+      .maybeSingle();
+    sname = profile?.nickname || profile?.full_name || 'Ukjent';
   }
-}
 
-export function deleteMessage(messageId: string): void {
-  const messages = listMessages();
-  const idx = messages.findIndex(m => m.id === messageId);
-  if (idx !== -1) {
-    // Soft delete - keep in list for stable rendering
-    messages[idx] = {
-      ...messages[idx],
-      deletedAt: Date.now(),
-    };
-    saveMessages(messages);
-  }
-}
+  // Upload file attachments to Storage
+  const uploadedAttachments = await Promise.all(
+    attachments.map(async (att) => {
+      if (att.file) {
+        const ext = att.file.name.split('.').pop() || 'jpg';
+        const path = `${sid}/${crypto.randomUUID()}.${ext}`;
+        const { error } = await supabase.storage
+          .from('chat-media')
+          .upload(path, att.file, { contentType: att.file.type });
 
-export function toggleReaction(messageId: string, emoji: string): void {
-  const user = getUser();
-  const messages = listMessages();
-  const idx = messages.findIndex(m => m.id === messageId);
-  
-  if (idx !== -1 && !messages[idx].deletedAt) {
-    const msg = messages[idx];
-    const reactions = msg.reactions || {};
-    const emojiReactions = reactions[emoji] || [];
-    
-    const userIdx = emojiReactions.indexOf(user.id);
-    if (userIdx === -1) {
-      // Add reaction
-      reactions[emoji] = [...emojiReactions, user.id];
-    } else {
-      // Remove reaction
-      reactions[emoji] = emojiReactions.filter(id => id !== user.id);
-      if (reactions[emoji].length === 0) {
-        delete reactions[emoji];
+        if (error) {
+          console.error('Upload failed:', error);
+          return { id: att.id, kind: att.kind, objectUrl: att.objectUrl };
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('chat-media')
+          .getPublicUrl(path);
+
+        return { id: att.id, kind: att.kind, objectUrl: urlData.publicUrl };
       }
-    }
-    
-    messages[idx] = {
-      ...msg,
-      reactions: Object.keys(reactions).length > 0 ? reactions : undefined,
-    };
-    saveMessages(messages);
+      // GIFs already have external URLs
+      return { id: att.id, kind: att.kind, objectUrl: att.objectUrl };
+    })
+  );
+
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({
+      text: text.trim(),
+      thread_id: DEFAULT_THREAD_ID,
+      sender_id: sid,
+      sender_name: sname,
+      attachments: uploadedAttachments,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error sending message:', error);
+    return null;
   }
+
+  return data ? dbToMessage(data as unknown as Record<string, unknown>) : null;
 }
 
-// ============ Typing State ============
+export async function editMessage(messageId: string, newText: string): Promise<void> {
+  const { error } = await supabase
+    .from('messages')
+    .update({
+      text: newText.trim(),
+      edited_at: new Date().toISOString(),
+    })
+    .eq('id', messageId);
+
+  if (error) console.error('Error editing message:', error);
+}
+
+export async function deleteMessage(messageId: string): Promise<void> {
+  const { error } = await supabase
+    .from('messages')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', messageId);
+
+  if (error) console.error('Error deleting message:', error);
+}
+
+export async function toggleReaction(messageId: string, emoji: string): Promise<void> {
+  const userId = await getCurrentUserId();
+
+  const { data } = await supabase
+    .from('messages')
+    .select('reactions')
+    .eq('id', messageId)
+    .single();
+
+  const reactions = (data?.reactions as Record<string, string[]>) || {};
+  const emojiReactions = reactions[emoji] || [];
+
+  const userIdx = emojiReactions.indexOf(userId);
+  if (userIdx === -1) {
+    reactions[emoji] = [...emojiReactions, userId];
+  } else {
+    reactions[emoji] = emojiReactions.filter(id => id !== userId);
+    if (reactions[emoji].length === 0) {
+      delete reactions[emoji];
+    }
+  }
+
+  const { error } = await supabase
+    .from('messages')
+    .update({ reactions: Object.keys(reactions).length > 0 ? reactions : {} })
+    .eq('id', messageId);
+
+  if (error) console.error('Error toggling reaction:', error);
+}
+
+// ============ Typing State (local only - ephemeral) ============
 
 let typingTimeout: ReturnType<typeof setTimeout> | null = null;
 let typingState: TypingState = { isTyping: false, lastTypedAt: 0 };
@@ -147,10 +250,9 @@ export function setTyping(isTyping: boolean): void {
     clearTimeout(typingTimeout);
     typingTimeout = null;
   }
-  
+
   if (isTyping) {
     typingState = { isTyping: true, lastTypedAt: Date.now() };
-    // Auto-clear after 1.5s of no activity
     typingTimeout = setTimeout(() => {
       typingState = { isTyping: false, lastTypedAt: Date.now() };
       window.dispatchEvent(new CustomEvent(TYPING_UPDATE_EVENT));
@@ -158,7 +260,7 @@ export function setTyping(isTyping: boolean): void {
   } else {
     typingState = { isTyping: false, lastTypedAt: Date.now() };
   }
-  
+
   window.dispatchEvent(new CustomEvent(TYPING_UPDATE_EVENT));
 }
 
@@ -172,30 +274,7 @@ export function subscribeToTyping(callback: (state: TypingState) => void): () =>
   return () => window.removeEventListener(TYPING_UPDATE_EVENT, handler);
 }
 
-// ============ Subscription ============
-
-export function subscribeToMessages(callback: (messages: Message[]) => void): () => void {
-  // Initial call
-  callback(listMessages());
-  
-  const handler = () => callback(listMessages());
-  
-  // Same-tab updates
-  window.addEventListener(CHAT_UPDATE_EVENT, handler);
-  
-  // Cross-tab updates
-  const storageHandler = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEYS.MESSAGES) {
-      handler();
-    }
-  };
-  window.addEventListener('storage', storageHandler);
-  
-  return () => {
-    window.removeEventListener(CHAT_UPDATE_EVENT, handler);
-    window.removeEventListener('storage', storageHandler);
-  };
-}
+// ============ Export ============
 
 export const chatStore = {
   getUser,

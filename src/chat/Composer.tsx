@@ -11,7 +11,7 @@ import { chatStore } from './store';
 import { EmojiPicker } from './EmojiPicker';
 import { GiphyPicker } from './GiphyPicker';
 interface ComposerProps {
-  onSend: (text: string, attachments: Attachment[]) => void;
+  onSend: (text: string, attachments: Attachment[]) => void | Promise<void>;
   onHeightChange: (height: number) => void;
 }
 
@@ -103,6 +103,7 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
         id: crypto.randomUUID(),
         kind: file.type.startsWith('video/') ? 'video' : 'image',
         objectUrl,
+        file, // Keep File reference for upload
       });
     }
 

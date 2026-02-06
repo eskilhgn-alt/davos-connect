@@ -179,7 +179,7 @@ export const AdminScreen: React.FC = () => {
         title="Admin" 
         subtitle={`${users.length} brukere`}
         leftAction={
-          <button onClick={() => navigate("/mer")} className="p-2">
+          <button onClick={() => navigate("/hjem")} className="p-2">
             <ArrowLeft className="h-5 w-5" />
           </button>
         }
