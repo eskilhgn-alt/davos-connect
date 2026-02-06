@@ -13,7 +13,7 @@ import LiveScreen from "./pages/LiveScreen";
 import FeedScreen from "./pages/FeedScreen";
 import MoreScreen from "./pages/MoreScreen";
 import WeatherScreen from "./pages/WeatherScreen";
-import GalleryScreen from "./pages/GalleryScreen";
+
 import NotificationsScreen from "./pages/NotificationsScreen";
 import WebcamsScreen from "./pages/WebcamsScreen";
 import AuthScreen from "./pages/AuthScreen";
@@ -69,7 +69,7 @@ const AppRoutes = () => (
       <Route path="/webcams" element={<WebcamsScreen />} />
       <Route path="/feed" element={<FeedScreen />} />
       <Route path="/mer" element={<MoreScreen />} />
-      <Route path="/galleri" element={<GalleryScreen />} />
+      {/* Gallery removed — media lives in chat */}
       <Route path="/varsler" element={<NotificationsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
       <Route path="/info" element={<InfoScreen />} />

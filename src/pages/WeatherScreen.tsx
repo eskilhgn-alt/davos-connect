@@ -1,287 +1,326 @@
+/**
+ * WeatherScreen — Dual-source (Yr + MeteoSwiss) with mountain cards
+ * Minimalist, mobile-first, no quotes/anchorman
+ */
+
 import * as React from "react";
 import { AppHeader } from "@/components/layout";
 import { BackButton } from "@/components/layout/BackButton";
+import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
+import { DavosSkeleton } from "@/components/ui/davos-skeleton";
+import { DavosSegmented, type SegmentOption } from "@/components/ui/davos-segmented";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { MOUNTAIN_AREAS } from "@/config/locations";
 import {
-  WeatherHero,
-  WeatherKiQuote,
-  WeatherDayStrip,
-  WeatherModelTabs,
-  WeatherMountainSection,
-  YrWidgetPopup,
-  type ModelSelection
-} from "@/components/weather";
-import {
-  getBackendWeather,
-  clearBackendWeatherCache,
-  type WeatherWithQuote
-} from "@/services/weather-backend.service";
-import { type DayAggregate } from "@/services/weather.service";
-import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { RefreshCw, Database, ExternalLink } from "lucide-react";
+  getDualWeather,
+  clearDualWeatherCache,
+  getWeatherIcon,
+  getWeatherDescription,
+  type FullWeatherData,
+  type SourceForecast,
+  type WeatherDaily,
+} from "@/services/weather-dual.service";
+import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type SourceTab = "yr" | "meteoswiss";
+
+const SOURCE_OPTIONS: SegmentOption[] = [
+  { value: "yr", label: "Yr" },
+  { value: "meteoswiss", label: "MeteoSwiss" },
+];
+
+// Day name helper
+function dayLabel(dateStr: string, index: number): string {
+  if (index === 0) return "I dag";
+  if (index === 1) return "I morgen";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", "");
+}
+
 const WeatherScreen: React.FC = () => {
-  const [weather, setWeather] = React.useState<WeatherWithQuote | null>(null);
+  const [data, setData] = React.useState<FullWeatherData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [selectedDayIndex, setSelectedDayIndex] = React.useState(0);
-  const [selectedModel, setSelectedModel] = React.useState<ModelSelection>("consensus");
-  const [showYrPopup, setShowYrPopup] = React.useState(false);
+  const [source, setSource] = React.useState<SourceTab>("yr");
 
-  const loadWeather = React.useCallback(async (forceRefresh = false) => {
+  const load = React.useCallback(async (force = false) => {
     setLoading(true);
     setError(null);
     try {
-      if (forceRefresh) {
-        clearBackendWeatherCache();
-      }
-      const data = await getBackendWeather(7);
-      setWeather(data);
+      if (force) clearDualWeatherCache();
+      const result = await getDualWeather(force);
+      setData(result);
     } catch (err) {
-      console.error("Failed to load weather:", err);
-      setError("Kunne ikke hente værdata. Prøv igjen senere.");
+      console.error("Weather load failed:", err);
+      setError("Kunne ikke laste værdata.");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  React.useEffect(() => {
-    loadWeather();
-  }, [loadWeather]);
+  React.useEffect(() => { load(); }, [load]);
 
-  const handleRefresh = React.useCallback(async () => {
-    await loadWeather(true);
-  }, [loadWeather]);
-
-  const { containerRef, pullDistance, isRefreshing, isPulling } = usePullToRefresh({
-    onRefresh: handleRefresh,
-    threshold: 80,
-    maxPull: 120
-  });
-
-  const getCurrentData = (): DayAggregate[] => {
-    if (!weather) return [];
-    
-    if (selectedModel === "consensus") {
-      return weather.davos;
-    }
-    
-    // For specific models, aggregate across all mountains for that model
-    const modelData = weather.models[selectedModel];
-    if (!modelData) return [];
-    
-    // Get all forecasts for this model and aggregate
-    const allForecasts = Object.values(modelData);
-    if (allForecasts.length === 0) return [];
-    
-    // Simple aggregation: average across mountains
-    const dayCount = allForecasts[0]?.length || 0;
-    const result: DayAggregate[] = [];
-    
-    for (let i = 0; i < dayCount; i++) {
-      const dayData = allForecasts.map(f => f[i]).filter(Boolean);
-      if (dayData.length === 0) continue;
-      
-      const temps = dayData.map(d => d.temperature);
-      const tempMaxes = dayData.map(d => d.temperatureMax);
-      const tempMins = dayData.map(d => d.temperatureMin);
-      const winds = dayData.map(d => d.wind);
-      const windDirs = dayData
-        .map(d => d.windDirection)
-        .filter((d): d is number => d !== undefined && !isNaN(d));
-      const windGusts = dayData
-        .map(d => d.windGust)
-        .filter((g): g is number => g !== undefined && !isNaN(g));
-      
-      // Circular mean for wind direction
-      let windDirectionDeg: number | undefined;
-      if (windDirs.length > 0) {
-        let sinSum = 0, cosSum = 0;
-        for (const deg of windDirs) {
-          const rad = (deg * Math.PI) / 180;
-          sinSum += Math.sin(rad);
-          cosSum += Math.cos(rad);
-        }
-        let meanDeg = (Math.atan2(sinSum / windDirs.length, cosSum / windDirs.length) * 180) / Math.PI;
-        if (meanDeg < 0) meanDeg += 360;
-        windDirectionDeg = Math.round(meanDeg);
-      }
-      
-      result.push({
-        date: dayData[0].date,
-        tempMedian: Math.round(temps.reduce((a, b) => a + b, 0) / temps.length),
-        tempMin: Math.round(Math.min(...tempMins)),
-        tempMax: Math.round(Math.max(...tempMaxes)),
-        precipMedian: Math.round(dayData.reduce((a, d) => a + d.precipitation, 0) / dayData.length * 10) / 10,
-        snowMedian: Math.round(dayData.reduce((a, d) => a + d.snowfall, 0) / dayData.length * 10) / 10,
-        windMedian: Math.round(winds.reduce((a, b) => a + b, 0) / winds.length),
-        windDirectionDeg,
-        windGustMax: windGusts.length > 0 ? Math.round(Math.max(...windGusts)) : undefined,
-        weatherCode: dayData[0].weatherCode,
-        confidence: "high" // Single model = always high confidence
-      });
-    }
-    
-    return result;
+  const getForecast = (d: FullWeatherData | null): SourceForecast | null => {
+    if (!d) return null;
+    return source === "yr" ? d.davos.yr : d.davos.meteoswiss;
   };
 
-  const currentData = getCurrentData();
-  const today = currentData[0] || null;
-
-  const handleDaySelect = (index: number) => {
-    setSelectedDayIndex(index);
-  };
-
-  // Calculate pull indicator opacity and scale
-  const pullProgress = Math.min(pullDistance / 80, 1);
-  const showPullIndicator = isPulling || isRefreshing;
-
-  // Data source label - show KI-akkumulert for consensus
-  const dataSourceLabel = selectedModel === "consensus" 
-    ? (weather?.dataSource || "KI-akkumulert")
-    : selectedModel.toUpperCase();
+  const forecast = getForecast(data);
+  const today = forecast?.daily?.[0] || null;
 
   return (
-    <div 
+    <div
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
       <AppHeader
         title="Vær"
-        subtitle={selectedModel === "consensus" ? "Davos konsensus" : selectedModel}
+        subtitle="Davos Klosters"
         leftAction={<BackButton fallbackPath="/hjem" />}
         rightAction={
-          (loading || isRefreshing) ? (
-            <RefreshCw className="h-5 w-5 animate-spin text-primary-foreground/70" />
-          ) : null
+          loading ? <RefreshCw className="h-5 w-5 animate-spin text-primary-foreground/70" /> : null
         }
       />
 
-      {/* Pull-to-refresh indicator */}
-      <div 
-        className={cn(
-          "flex items-center justify-center overflow-hidden transition-all duration-200 shrink-0",
-          showPullIndicator ? "opacity-100" : "opacity-0"
-        )}
-        style={{ height: pullDistance }}
-      >
-        <div 
-          className="flex flex-col items-center gap-1"
-          style={{ 
-            transform: `scale(${0.5 + pullProgress * 0.5}) rotate(${pullProgress * 180}deg)`,
-            opacity: pullProgress
-          }}
-        >
-          <RefreshCw 
-            className={cn(
-              "h-6 w-6 text-primary",
-              isRefreshing && "animate-spin"
-            )} 
-          />
-        </div>
-        {pullProgress >= 1 && !isRefreshing && (
-          <span className="text-xs text-muted-foreground ml-2">Slipp for å oppdatere</span>
-        )}
-      </div>
-
-      <div 
-        ref={containerRef}
+      <div
         className="flex-1 overflow-y-auto overscroll-contain"
-        style={{ 
+        style={{
           paddingBottom: "var(--bottom-nav-h-effective)",
-          WebkitOverflowScrolling: 'touch',
-          transform: `translateY(${pullDistance > 0 ? 0 : 0}px)`,
-          touchAction: pullDistance > 0 ? 'none' : 'auto'
+          WebkitOverflowScrolling: "touch",
         }}
       >
-        <div className="pb-4">
+        <div className="pb-6">
+          {/* Source toggle */}
+          <div className="px-4 pt-4 pb-2">
+            <DavosSegmented
+              options={SOURCE_OPTIONS}
+              value={source}
+              onChange={(v) => setSource(v as SourceTab)}
+            />
+          </div>
+
           {error ? (
-            <div className="px-4 py-8 text-center">
+            <div className="px-4 py-12 text-center">
               <p className="text-muted-foreground">{error}</p>
-              <button
-                onClick={() => loadWeather(true)}
-                className="mt-4 text-primary underline"
-              >
+              <button onClick={() => load(true)} className="mt-4 text-primary underline text-sm">
                 Prøv igjen
               </button>
             </div>
           ) : (
             <>
-              {/* Hero - Today's weather */}
-              <WeatherHero today={today} loading={loading} />
+              {/* Hero card */}
+              <HeroCard today={today} loading={loading} source={source} updatedAt={forecast?.updatedAt} />
 
-              {/* Data source badge */}
-              {weather && (
-                <div className="px-4 mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Database size={12} />
-                  <span>Datakilde: {dataSourceLabel}</span>
-                </div>
-              )}
-
-              {/* AI weather summary - today + tomorrow */}
-              {(weather?.aiSummaryToday || weather?.aiSummaryTomorrow) && (
-                <WeatherKiQuote 
-                  day={today || undefined} 
-                  isLoading={loading}
-                  aiSummaryToday={weather?.aiSummaryToday}
-                  aiSummaryTomorrow={weather?.aiSummaryTomorrow}
-                />
-              )}
-
-              {/* 7-day strip - inline preview */}
-              <div className="mt-4">
+              {/* 7-day strip */}
+              <section className="mt-4">
                 <h2 className="px-4 font-heading text-sm font-medium text-muted-foreground mb-2">
                   7-dagers varsel
                 </h2>
-                <WeatherDayStrip
-                  days={currentData}
-                  selectedIndex={selectedDayIndex}
-                  onSelectDay={handleDaySelect}
-                  loading={loading}
-                />
-              </div>
+                {loading ? (
+                  <div className="px-4 flex gap-2 overflow-hidden">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <DavosSkeleton key={i} className="min-w-[72px] h-[100px] rounded-xl" />
+                    ))}
+                  </div>
+                ) : (
+                  <ScrollArea className="w-full">
+                    <div className="flex gap-2 px-4 py-1">
+                      {(forecast?.daily || []).map((day, i) => (
+                        <DayPill key={day.date} day={day} index={i} />
+                      ))}
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+                )}
+              </section>
 
-              {/* Model tabs */}
-              <div className="mt-4">
-                <div className="flex items-center justify-between px-4 mb-2">
-                  <h2 className="font-heading text-sm font-medium text-muted-foreground">
-                    Datakilde
-                  </h2>
-                  <button
-                    onClick={() => setShowYrPopup(true)}
-                    className="flex items-center gap-1 text-xs text-primary hover:underline"
-                  >
-                    <ExternalLink size={12} />
-                    YR widget
-                  </button>
-                </div>
-                <WeatherModelTabs
-                  selected={selectedModel}
-                  onSelect={setSelectedModel}
-                />
-              </div>
+              {/* Mountain areas */}
+              <section className="mt-6 px-4 space-y-3">
+                <h2 className="font-heading text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Mountain className="h-4 w-4 text-primary" />
+                  Fjellområder
+                </h2>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <DavosSkeleton key={i} className="h-16 rounded-card" />
+                  ))
+                ) : (
+                  MOUNTAIN_AREAS.map((mt) => {
+                    const mtData = data?.mountains.find((m) => m.mountain.id === mt.id);
+                    const mtForecast = source === "yr" ? mtData?.yr : mtData?.meteoswiss;
+                    const mtToday = mtForecast?.daily?.[0];
 
-              {/* Mountains section */}
-              <div className="mt-6">
-                <WeatherMountainSection
-                  mountains={weather?.mountains || {}}
-                  models={weather?.models || {}}
-                  selectedModel={selectedModel}
-                  loading={loading}
-                />
+                    return (
+                      <DavosCard key={mt.id}>
+                        <DavosCardContent className="p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">
+                              {mtToday ? getWeatherIcon(mtToday.weatherCode) : "☁️"}
+                            </span>
+                            <div>
+                              <p className="font-heading text-sm font-semibold text-foreground">
+                                {mt.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {mt.elevation}m
+                              </p>
+                            </div>
+                          </div>
+                          {mtToday ? (
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span className="font-mono font-semibold text-foreground text-sm">
+                                {mtToday.tempMax}° / {mtToday.tempMin}°
+                              </span>
+                              {mtToday.snow > 0 && (
+                                <span className="flex items-center gap-0.5">
+                                  <Snowflake size={12} className="text-primary" />
+                                  {mtToday.snow}cm
+                                </span>
+                              )}
+                              <span className="flex items-center gap-0.5">
+                                <Wind size={12} />
+                                {mtToday.wind}m/s
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">–</span>
+                          )}
+                        </DavosCardContent>
+                      </DavosCard>
+                    );
+                  })
+                )}
+              </section>
+
+              {/* Refresh */}
+              <div className="px-4 mt-6 text-center">
+                <button
+                  onClick={() => load(true)}
+                  disabled={loading}
+                  className="text-xs text-primary hover:underline disabled:opacity-50"
+                >
+                  Oppdater data
+                </button>
               </div>
             </>
           )}
         </div>
       </div>
-
-      {/* YR Widget Popup */}
-      <YrWidgetPopup
-        open={showYrPopup}
-        onOpenChange={setShowYrPopup}
-      />
     </div>
   );
 };
+
+// ============================================
+// SUB-COMPONENTS
+// ============================================
+
+interface HeroCardProps {
+  today: WeatherDaily | null;
+  loading: boolean;
+  source: SourceTab;
+  updatedAt?: string;
+}
+
+const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt }) => {
+  if (loading || !today) {
+    return (
+      <DavosCard className="mx-4 mt-2">
+        <DavosCardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <DavosSkeleton className="h-14 w-28" />
+              <DavosSkeleton className="h-4 w-20" />
+            </div>
+            <DavosSkeleton variant="circular" className="h-14 w-14" />
+          </div>
+          <div className="grid grid-cols-3 gap-4 mt-4">
+            <DavosSkeleton className="h-12" />
+            <DavosSkeleton className="h-12" />
+            <DavosSkeleton className="h-12" />
+          </div>
+        </DavosCardContent>
+      </DavosCard>
+    );
+  }
+
+  const sourceName = source === "yr" ? "Yr" : "MeteoSwiss";
+
+  return (
+    <DavosCard className="mx-4 mt-2">
+      <DavosCardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <MapPin size={14} className="text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Davos · {sourceName}</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-heading text-5xl font-bold text-foreground">
+                {today.tempMax}°
+              </span>
+              <span className="font-mono text-sm text-muted-foreground">
+                / {today.tempMin}°
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {getWeatherDescription(today.weatherCode)}
+            </p>
+          </div>
+          <span className="text-5xl">{getWeatherIcon(today.weatherCode)}</span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 mt-4 pt-3 border-t border-border">
+          <div className="text-center">
+            <Snowflake className="h-4 w-4 mx-auto text-primary mb-1" />
+            <p className="font-mono text-base font-semibold text-foreground">{today.snow} cm</p>
+            <p className="text-xs text-muted-foreground">Snø</p>
+          </div>
+          <div className="text-center">
+            <Droplets className="h-4 w-4 mx-auto text-primary mb-1" />
+            <p className="font-mono text-base font-semibold text-foreground">{today.precip} mm</p>
+            <p className="text-xs text-muted-foreground">Nedbør</p>
+          </div>
+          <div className="text-center">
+            <Wind className="h-4 w-4 mx-auto text-primary mb-1" />
+            <p className="font-mono text-base font-semibold text-foreground">{today.wind} m/s</p>
+            <p className="text-xs text-muted-foreground">Vind</p>
+          </div>
+        </div>
+
+        {updatedAt && (
+          <p className="text-[10px] text-muted-foreground mt-3 text-right">
+            Oppdatert: {new Date(updatedAt).toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        )}
+      </DavosCardContent>
+    </DavosCard>
+  );
+};
+
+interface DayPillProps {
+  day: WeatherDaily;
+  index: number;
+}
+
+const DayPill: React.FC<DayPillProps> = ({ day, index }) => (
+  <div
+    className={cn(
+      "flex flex-col items-center gap-1 min-w-[68px] rounded-xl px-2 py-2.5",
+      index === 0 ? "bg-primary/10 border border-primary/20" : "bg-card border border-border"
+    )}
+  >
+    <span className="text-[10px] font-medium text-muted-foreground uppercase">
+      {dayLabel(day.date, index)}
+    </span>
+    <span className="text-xl">{getWeatherIcon(day.weatherCode)}</span>
+    <span className="font-mono text-xs font-semibold text-foreground">
+      {day.tempMax}° / {day.tempMin}°
+    </span>
+    {day.snow > 0 && (
+      <span className="text-[10px] text-primary font-medium">{day.snow}cm ❄️</span>
+    )}
+  </div>
+);
 
 export default WeatherScreen;
