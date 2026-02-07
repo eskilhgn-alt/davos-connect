@@ -2,11 +2,23 @@ import * as React from 'react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { BackButton } from '@/components/layout/BackButton';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { MediaViewer } from '@/components/ui/MediaViewer';
 import { DavosEmptyState } from '@/components/ui/davos-empty-state';
 import { DavosSkeleton } from '@/components/ui/davos-skeleton';
-import { Download, Play, Image as ImageIcon } from 'lucide-react';
+import { Download, Play, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface GalleryRow {
   id: string;
@@ -20,29 +32,42 @@ interface GalleryRow {
 }
 
 export const GalleryScreen: React.FC = () => {
+  const { user, isAdmin } = useAuth();
   const [items, setItems] = React.useState<GalleryRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedItem, setSelectedItem] = React.useState<GalleryRow | null>(null);
   const [viewerOpen, setViewerOpen] = React.useState(false);
+  const [deleteTarget, setDeleteTarget] = React.useState<GalleryRow | null>(null);
 
-  // Fetch gallery items from Supabase
-  React.useEffect(() => {
-    const load = async () => {
-      const { data, error } = await supabase
-        .from('gallery_items')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(200);
+  const fetchGallery = React.useCallback(async () => {
+    const { data, error } = await supabase
+      .from('gallery_items')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
 
-      if (error) {
-        console.error('Error loading gallery:', error);
-      } else {
-        setItems((data as GalleryRow[]) || []);
-      }
-      setLoading(false);
-    };
-    load();
+    if (error) {
+      console.error('Error loading gallery:', error);
+    } else {
+      setItems((data as GalleryRow[]) || []);
+    }
+    setLoading(false);
   }, []);
+
+  React.useEffect(() => {
+    fetchGallery();
+  }, [fetchGallery]);
+
+  // Realtime: listen for new gallery inserts
+  React.useEffect(() => {
+    const channel = supabase
+      .channel('gallery-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery_items' }, () => {
+        fetchGallery();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchGallery]);
 
   const getPublicUrl = (storagePath: string) => {
     const { data } = supabase.storage.from('chat-media').getPublicUrl(storagePath);
@@ -66,6 +91,23 @@ export const GalleryScreen: React.FC = () => {
     document.body.removeChild(a);
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase
+      .from('gallery_items')
+      .delete()
+      .eq('id', deleteTarget.id);
+    if (error) {
+      toast.error('Kunne ikke slette');
+    } else {
+      setItems((prev) => prev.filter((i) => i.id !== deleteTarget.id));
+      toast.success('Slettet fra galleri');
+    }
+    setDeleteTarget(null);
+  };
+
+  const canDelete = (item: GalleryRow) => item.uploaded_by === user?.id || isAdmin;
+
   const getTypeIcon = (type: string) => {
     if (type === 'video') return <Play size={24} className="text-white" />;
     if (type === 'gif') return <span className="text-white text-xs font-bold">GIF</span>;
@@ -77,7 +119,7 @@ export const GalleryScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Galleri" subtitle="Delte bilder og videoer" leftAction={<BackButton fallbackPath="/hjem" />} />
+      <AppHeader title="Snap & Galleri" subtitle="Stories, bilder og videoer" leftAction={<BackButton fallbackPath="/hjem" />} />
 
       <div
         className="flex-1 overflow-y-auto overscroll-contain p-4"
@@ -87,9 +129,9 @@ export const GalleryScreen: React.FC = () => {
         }}
       >
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <DavosSkeleton key={i} className="aspect-square rounded-lg" />
+          <div className="grid grid-cols-3 gap-1">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <DavosSkeleton key={i} className="aspect-square rounded-sm" />
             ))}
           </div>
         ) : items.length === 0 ? (
@@ -97,24 +139,19 @@ export const GalleryScreen: React.FC = () => {
             <DavosEmptyState
               icon={ImageIcon}
               title="Ingen media ennå"
-              description="Bilder, videoer og GIF-er delt i chatten vil vises her."
+              description="Bilder, videoer og GIF-er delt i chatten eller stories vil vises her."
             />
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-1">
             {items.map((item) => {
               const thumbUrl = getPublicUrl(item.storage_path);
-
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => openViewer(item)}
-                  className={cn(
-                    "relative aspect-square overflow-hidden rounded-lg",
-                    "bg-muted hover:opacity-90 transition-opacity",
-                    "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                  )}
+                  className="relative aspect-square overflow-hidden rounded-sm bg-muted group"
                 >
                   <img
                     src={thumbUrl}
@@ -129,18 +166,25 @@ export const GalleryScreen: React.FC = () => {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={(e) => handleDownload(item, e)}
-                    className={cn(
-                      "absolute bottom-2 right-2 p-1.5 rounded-full",
-                      "bg-black/50 hover:bg-black/70 transition-colors",
-                      "text-white"
+                  {/* Action buttons – visible on hover/touch */}
+                  <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end gap-1 p-1.5 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={(e) => handleDownload(item, e)}
+                      className="p-1.5 rounded-full bg-black/40 text-white"
+                    >
+                      <Download size={14} />
+                    </button>
+                    {canDelete(item) && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); }}
+                        className="p-1.5 rounded-full bg-red-600/80 text-white"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     )}
-                    title="Last ned"
-                  >
-                    <Download size={16} />
-                  </button>
+                  </div>
                 </button>
               );
             })}
@@ -156,6 +200,24 @@ export const GalleryScreen: React.FC = () => {
           type={selectedItem.type as 'image' | 'video' | 'gif'}
         />
       )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slett fra galleri?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bildet fjernes fra galleriet, men forblir i chatten.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              Slett
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
