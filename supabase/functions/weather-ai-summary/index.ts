@@ -144,15 +144,18 @@ Deno.serve(async (req) => {
       const THIRTY_MIN = 30 * 60 * 1000;
       if (cacheAge < THIRTY_MIN) {
         console.log("Returning cached AI summary");
+        const cachedAiDaily = cached.ai_daily as Record<string, unknown>;
         return new Response(
           JSON.stringify({
             todaySummary: cached.ai_summary_today,
             tomorrowSummary: cached.ai_summary_tomorrow,
+            sourceComparison: cachedAiDaily?.sourceComparison || "",
+            skiConditions: cachedAiDaily?.skiConditions || "",
             confidence: cached.confidence,
-            rationale: cached.rationale_short,
-            sourceWeights: cached.source_weights,
+            confidenceReason: cached.rationale_short,
             generatedAt: cached.run_at,
             cached: true,
+            weather: cachedAiDaily?.weather || null,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -273,6 +276,23 @@ REGLER:
       );
     }
 
+    // Extract structured weather numbers from the source data for dashboard use
+    const msDaily = meteoswiss?.daily?.[0];
+    const yrNow = (yr as any)?.now;
+    const msNow = (meteoswiss as any)?.now;
+    const nowData = msNow || yrNow;
+
+    const weather = {
+      temp: nowData?.temp ?? msDaily?.tempMax ?? null,
+      tempMin: msDaily?.tempMin ?? yr?.daily?.[0]?.tempMin ?? null,
+      tempMax: msDaily?.tempMax ?? yr?.daily?.[0]?.tempMax ?? null,
+      wind: nowData?.wind ?? msDaily?.wind ?? null,
+      windDir: nowData?.windDir ?? msDaily?.windDir ?? 0,
+      weatherCode: nowData?.weatherCode ?? msDaily?.weatherCode ?? 0,
+      precip: msDaily?.precip ?? yr?.daily?.[0]?.precip ?? 0,
+      snow: msDaily?.snow ?? yr?.daily?.[0]?.snow ?? 0,
+    };
+
     const result = {
       todaySummary: (parsed.todaySummary as string) || "",
       tomorrowSummary: (parsed.tomorrowSummary as string) || "",
@@ -282,6 +302,7 @@ REGLER:
       confidenceReason: (parsed.confidenceReason as string) || "",
       generatedAt: new Date().toISOString(),
       cached: false,
+      weather,
     };
 
     // Cache to weather_ai_daily
@@ -291,6 +312,7 @@ REGLER:
       sourceComparison: result.sourceComparison,
       skiConditions: result.skiConditions,
       confidenceReason: result.confidenceReason,
+      weather,
     };
 
     // Cache to DB — only for known locations (FK constraint on location_id)
