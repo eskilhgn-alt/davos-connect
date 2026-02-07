@@ -16,7 +16,6 @@ import {
   Settings,
   Users,
   Bell,
-  Camera,
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -48,7 +47,6 @@ export const HomeScreen: React.FC = () => {
       { to: "/live", label: "Live", icon: Radio },
       { to: "/kart", label: "Løypekart", icon: Map },
       { to: "/shot", label: "Shoot", icon: Target },
-      { to: "/webcams", label: "Webcams", icon: Camera },
       { to: "/gruppe", label: "Gruppen", icon: Users },
       { to: "/varsler", label: "Varsler", icon: Bell },
       { to: "/info", label: "Info", icon: Settings },
