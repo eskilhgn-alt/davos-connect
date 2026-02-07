@@ -1,5 +1,5 @@
 /**
- * GroupScreen - Shows all participants in Lift & Lager
+ * GroupScreen - Shows all participants in Glühwein
  * Displays member list with "created by" indicator for first member
  */
 
@@ -68,12 +68,12 @@ export const GroupScreen: React.FC = () => {
     >
       <AppHeader
         title="Gruppen"
-        subtitle="Deltakere i Lift & Lager"
+        subtitle="Deltakere i Glühwein"
         leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
       <div
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto overscroll-contain"
         style={{
           paddingBottom: "var(--bottom-nav-h-effective)",
           WebkitOverflowScrolling: "touch",
@@ -100,7 +100,7 @@ export const GroupScreen: React.FC = () => {
             <DavosEmptyState
               icon={Users}
               title="Ingen deltakere ennå"
-              description="Inviter venner til Lift & Lager"
+              description="Inviter venner til Glühwein"
             />
           )}
 

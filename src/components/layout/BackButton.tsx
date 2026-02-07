@@ -41,7 +41,7 @@ export const BackButton: React.FC<BackButtonProps> = ({
     <button
       onClick={handleBack}
       className={cn(
-        "flex items-center gap-1 text-primary-foreground/70 hover:text-primary-foreground tap-target transition-colors",
+        "flex items-center gap-1 text-foreground/70 hover:text-foreground tap-target transition-colors",
         className
       )}
       aria-label="Tilbake"
