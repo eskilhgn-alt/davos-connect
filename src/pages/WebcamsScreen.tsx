@@ -106,7 +106,7 @@ export const WebcamsScreen: React.FC = () => {
     >
       <AppHeader
         title="Webcams"
-        subtitle="Davos Klosters"
+        subtitle="Davos Klosters webcams"
         leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
