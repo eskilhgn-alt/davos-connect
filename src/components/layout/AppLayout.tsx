@@ -2,6 +2,7 @@ import * as React from "react";
 import { Outlet } from "react-router-dom";
 import { BottomNavigation } from "./BottomNavigation";
 import { WebcamPreloadProvider } from "@/components/webcams";
+import { ShotBanOverlay } from "@/components/shot/ShotBanOverlay";
 
 /**
  * AppLayout: App shell with bottom navigation
@@ -16,6 +17,7 @@ export const AppLayout: React.FC = () => {
           <Outlet />
         </main>
         <BottomNavigation />
+        <ShotBanOverlay />
       </div>
     </WebcamPreloadProvider>
   );
