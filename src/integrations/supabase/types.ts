@@ -455,6 +455,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_locations: {
+        Row: {
+          lat: number
+          lon: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          lat: number
+          lon: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          lat?: number
+          lon?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

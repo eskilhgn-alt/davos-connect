@@ -10,6 +10,7 @@ import { prefetchWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
 import ChatScreen from "./pages/ChatScreen";
 import HomeScreen from "./pages/HomeScreen";
 import MapScreen from "./pages/MapScreen";
+import CrewMapScreen from "./pages/CrewMapScreen";
 import LiveScreen from "./pages/LiveScreen";
 import FeedScreen from "./pages/FeedScreen";
 import MoreScreen from "./pages/MoreScreen";
@@ -73,6 +74,7 @@ const AppRoutes = () => (
       <Route path="/vaer" element={<WeatherScreen />} />
       <Route path="/live" element={<LiveScreen />} />
       <Route path="/kart" element={<MapScreen />} />
+      <Route path="/crew-kart" element={<CrewMapScreen />} />
       <Route path="/webcams" element={<WebcamsScreen />} />
       <Route path="/feed" element={<FeedScreen />} />
       <Route path="/mer" element={<MoreScreen />} />
