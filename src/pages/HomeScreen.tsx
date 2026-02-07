@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   CalendarDays,
   Coins,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +46,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/shot", label: "Shoot", icon: Target },
       { to: "/tokens", label: "Tokens", icon: Coins },
       { to: "/agenda", label: "Agenda", icon: CalendarDays },
+      { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
     ];
     if (isAdmin) {

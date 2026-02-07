@@ -5,6 +5,7 @@
 
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { prefetchWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
 import type { User, Session } from "@supabase/supabase-js";
 
 interface Profile {
@@ -107,6 +108,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(currentSession?.user ?? null);
 
         if (currentSession?.user) {
+          // Prefetch weather on every auth event (login, token refresh, app wake)
+          prefetchWeatherAiSummary();
           // Defer profile fetch to avoid blocking
           setTimeout(async () => {
             const profileData = await fetchProfile(currentSession.user.id);
@@ -129,6 +132,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(initialSession?.user ?? null);
 
       if (initialSession?.user) {
+        // Kick off weather prefetch as early as possible
+        prefetchWeatherAiSummary();
         fetchProfile(initialSession.user.id).then(setProfile);
         checkAdminRole(initialSession.user.id).then(setIsAdmin);
       }
