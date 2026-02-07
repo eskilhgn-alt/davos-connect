@@ -17,6 +17,7 @@ import {
   Users,
   Bell,
   ShieldCheck,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/live", label: "Live", icon: Radio },
       { to: "/kart", label: "Løypekart", icon: Map },
       { to: "/shot", label: "Shoot", icon: Target },
+      { to: "/agenda", label: "Agenda", icon: CalendarDays },
       { to: "/gruppe", label: "Gruppen", icon: Users },
       { to: "/varsler", label: "Varsler", icon: Bell },
       { to: "/info", label: "Info", icon: Settings },
