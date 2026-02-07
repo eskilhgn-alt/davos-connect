@@ -12,17 +12,23 @@ import { Maximize2 } from "lucide-react";
 interface WindyEmbedProps {
   className?: string;
   overlay?: "wind" | "rain" | "temp" | "clouds" | "snow" | "radar";
+  lat?: number;
+  lon?: number;
 }
 
-// Davos coordinates
-const DAVOS_LAT = 46.8;
-const DAVOS_LON = 9.83;
+// Davos fallback coordinates
+const DEFAULT_LAT = 46.8;
+const DEFAULT_LON = 9.83;
 const ZOOM = 9;
 
 export const WindyEmbed: React.FC<WindyEmbedProps> = ({ 
   className,
-  overlay = "radar" // Default to radar mode per requirements
+  overlay = "radar",
+  lat,
+  lon,
 }) => {
+  const activeLat = lat ?? DEFAULT_LAT;
+  const activeLon = lon ?? DEFAULT_LON;
   const [isLoading, setIsLoading] = React.useState(true);
   const [hasError, setHasError] = React.useState(false);
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
@@ -39,17 +45,17 @@ export const WindyEmbed: React.FC<WindyEmbedProps> = ({
       overlay: overlay,
       product: "ecmwf",
       level: "surface",
-      lat: DAVOS_LAT.toString(),
-      lon: DAVOS_LON.toString(),
+      lat: activeLat.toString(),
+      lon: activeLon.toString(),
       autoplay: "true",
       animate: "true",
       message: "true",
     });
     return `https://embed.windy.com/embed.html?${params.toString()}`;
-  }, [overlay]);
+  }, [overlay, activeLat, activeLon]);
 
   // Fullscreen link
-  const fullscreenUrl = `https://www.windy.com/?${DAVOS_LAT},${DAVOS_LON},${ZOOM}`;
+  const fullscreenUrl = `https://www.windy.com/?${activeLat},${activeLon},${ZOOM}`;
 
   // Handle load timeout for iframe blocking detection
   React.useEffect(() => {
