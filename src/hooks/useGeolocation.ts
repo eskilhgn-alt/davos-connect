@@ -1,15 +1,17 @@
 /**
- * useGeolocation — returns the user's GPS position (cached in sessionStorage)
+ * useGeolocation — returns the user's GPS position with high accuracy
+ * Uses watchPosition for continuous updates on the Magnus? map
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export interface GeoPosition {
   lat: number;
   lon: number;
+  accuracy?: number; // meters
 }
 
 const CACHE_KEY = "geo-position";
-const CACHE_TTL = 10 * 60 * 1000; // 10 min
+const CACHE_TTL = 5 * 60 * 1000; // 5 min
 
 function getCached(): GeoPosition | null {
   try {
@@ -17,7 +19,7 @@ function getCached(): GeoPosition | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (Date.now() - parsed._ts > CACHE_TTL) return null;
-    return { lat: parsed.lat, lon: parsed.lon };
+    return { lat: parsed.lat, lon: parsed.lon, accuracy: parsed.accuracy };
   } catch {
     return null;
   }
@@ -33,9 +35,17 @@ export function useGeolocation() {
   const [position, setPosition] = useState<GeoPosition | null>(getCached);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const watchId = useRef<number | null>(null);
   const [enabled, setEnabled] = useState(() => {
     try { return localStorage.getItem("geo-enabled") === "true"; } catch { return false; }
   });
+
+  const stopWatch = useCallback(() => {
+    if (watchId.current !== null) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+  }, []);
 
   const request = useCallback(() => {
     if (!navigator.geolocation) {
@@ -44,11 +54,15 @@ export function useGeolocation() {
     }
     setLoading(true);
     setError(null);
-    navigator.geolocation.getCurrentPosition(
+
+    // Use watchPosition for continuous high-accuracy updates
+    stopWatch();
+    watchId.current = navigator.geolocation.watchPosition(
       (geo) => {
         const pos: GeoPosition = {
-          lat: Math.round(geo.coords.latitude * 100) / 100,
-          lon: Math.round(geo.coords.longitude * 100) / 100,
+          lat: geo.coords.latitude,
+          lon: geo.coords.longitude,
+          accuracy: geo.coords.accuracy,
         };
         setPosition(pos);
         setCache(pos);
@@ -61,25 +75,31 @@ export function useGeolocation() {
         setError("Kunne ikke hente posisjon");
         setLoading(false);
       },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 30000, // 30s cache for battery saving
+      }
     );
-  }, []);
+  }, [stopWatch]);
 
   const disable = useCallback(() => {
+    stopWatch();
     setEnabled(false);
     setPosition(null);
     try {
       localStorage.removeItem("geo-enabled");
       sessionStorage.removeItem(CACHE_KEY);
     } catch { /* */ }
-  }, []);
+  }, [stopWatch]);
 
   // Auto-request if previously enabled
   useEffect(() => {
-    if (enabled && !position) {
+    if (enabled && watchId.current === null) {
       request();
     }
-  }, [enabled, position, request]);
+    return () => stopWatch();
+  }, [enabled, request, stopWatch]);
 
   return { position, loading, error, enabled, request, disable };
 }
