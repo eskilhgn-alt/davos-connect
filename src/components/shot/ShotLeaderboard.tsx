@@ -81,17 +81,18 @@ export const ShotLeaderboard: React.FC<ShotLeaderboardProps> = ({ groupId }) => 
       ) : (
         <div className="space-y-0">
           {/* Header */}
-          <div className="grid grid-cols-6 gap-1 text-[10px] text-muted-foreground font-medium px-2 pb-1">
+          <div className="grid grid-cols-7 gap-1 text-[10px] text-muted-foreground font-medium px-2 pb-1">
             <span className="col-span-2">Navn</span>
-            <span className="text-center">🎯</span>
-            <span className="text-center">✅</span>
-            <span className="text-center">💀</span>
-            <span className="text-center">🔴</span>
+            <span className="text-center" title="Trukket">🎯</span>
+            <span className="text-center" title="Bekreftet">✅</span>
+            <span className="text-center" title="Straffet">💀</span>
+            <span className="text-center" title="Startet runder">🔴</span>
+            <span className="text-center" title="Vitnebekreftelser">👁</span>
           </div>
           {data.map((entry, i) => (
             <div
               key={entry.user_id}
-              className="grid grid-cols-6 gap-1 items-center py-2 px-2 border-b border-border last:border-0"
+              className="grid grid-cols-7 gap-1 items-center py-2 px-2 border-b border-border last:border-0"
             >
               <span className="col-span-2 text-sm font-medium text-foreground truncate">
                 {i + 1}. {entry.display_name}
@@ -100,6 +101,7 @@ export const ShotLeaderboard: React.FC<ShotLeaderboardProps> = ({ groupId }) => 
               <span className="text-center text-sm tabular-nums">{entry.times_confirmed}</span>
               <span className="text-center text-sm tabular-nums">{entry.times_punished}</span>
               <span className="text-center text-sm tabular-nums">{entry.times_started}</span>
+              <span className="text-center text-sm tabular-nums">{entry.times_witnessed}</span>
             </div>
           ))}
         </div>

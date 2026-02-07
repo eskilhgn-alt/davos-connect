@@ -79,6 +79,7 @@ export const WitnessOverlay: React.FC = () => {
       const { error } = await supabase.rpc("rpc_confirm_shot", {
         p_event_id: event.id,
         p_mode: confirm ? "witness" : "witness_deny",
+        p_witness_id: undefined,
       } as any);
       if (error) {
         toast.error(error.message);
