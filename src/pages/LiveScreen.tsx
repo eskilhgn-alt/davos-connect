@@ -12,8 +12,10 @@ import { WEBCAMS, getWebcamProxyUrl, type Webcam } from "@/config/webcams";
 import { Mountain, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { WebcamModal } from "@/components/webcams";
+import { useGeolocation } from "@/hooks/useGeolocation";
 
 export const LiveScreen: React.FC = () => {
+  const { position } = useGeolocation();
   const [webcamErrors, setWebcamErrors] = React.useState<Set<string>>(new Set());
   const [selectedWebcam, setSelectedWebcam] = React.useState<Webcam | null>(null);
 
@@ -62,7 +64,7 @@ export const LiveScreen: React.FC = () => {
               </button>
             </div>
             
-            <WindyEmbed className="h-[350px]" overlay="radar" />
+            <WindyEmbed className="h-[350px]" overlay="radar" lat={position?.lat} lon={position?.lon} />
             
             <p className="text-xs text-muted-foreground mt-2 text-center">
               Animert nedbørradar fra Windy.com
