@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout";
 import { ChatLayout } from "@/layouts/ChatLayout";
+import { prefetchWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
 import ChatScreen from "./pages/ChatScreen";
 import HomeScreen from "./pages/HomeScreen";
 import MapScreen from "./pages/MapScreen";
@@ -24,6 +25,9 @@ import InfoScreen from "./pages/InfoScreen";
 import GroupScreen from "./pages/GroupScreen";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
+
+// Start fetching weather AI data immediately on app load
+prefetchWeatherAiSummary();
 
 const queryClient = new QueryClient();
 

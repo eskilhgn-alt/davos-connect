@@ -4,7 +4,7 @@
 import * as React from "react";
 import { format, addDays, isSameDay } from "date-fns";
 import { nb } from "date-fns/locale";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { useAgenda, type AgendaEvent } from "@/hooks/useAgenda";
 import { AgendaEventDialog } from "@/components/agenda/AgendaEventDialog";
@@ -47,12 +47,16 @@ export const AgendaScreen: React.FC = () => {
     [weekStart]
   );
 
-  const handleLongPressStart = (day: Date, hour: number) => {
+  const handleLongPressStart = (day: Date, hour: number, e: React.PointerEvent | React.TouchEvent) => {
+    // Prevent context menu on desktop
+    e.preventDefault();
     longPressTimer.current = setTimeout(() => {
       setSelectedDate(day);
       setSelectedHour(hour);
       setEditEvent(null);
       setDialogOpen(true);
+      // Haptic feedback on iOS if available
+      if (navigator.vibrate) navigator.vibrate(10);
     }, 400);
   };
 
@@ -164,11 +168,15 @@ export const AgendaScreen: React.FC = () => {
                   {HOURS.map((hour) => (
                     <div
                       key={hour}
-                      className="absolute left-0 right-0 cursor-pointer"
+                      className="absolute left-0 right-0 cursor-pointer select-none"
                       style={{ top: hour * HOUR_HEIGHT, height: HOUR_HEIGHT }}
-                      onPointerDown={() => handleLongPressStart(day, hour)}
-                      onPointerUp={handleLongPressEnd}
-                      onPointerLeave={handleLongPressEnd}
+                      onTouchStart={(e) => handleLongPressStart(day, hour, e)}
+                      onTouchEnd={handleLongPressEnd}
+                      onTouchCancel={handleLongPressEnd}
+                      onPointerDown={(e) => { if (e.pointerType !== 'touch') handleLongPressStart(day, hour, e); }}
+                      onPointerUp={(e) => { if (e.pointerType !== 'touch') handleLongPressEnd(); }}
+                      onPointerLeave={(e) => { if (e.pointerType !== 'touch') handleLongPressEnd(); }}
+                      onContextMenu={(e) => e.preventDefault()}
                     >
                       {/* Events at this hour */}
                       {getEventsForDayHour(day, hour).map((ev) => {
@@ -221,6 +229,21 @@ export const AgendaScreen: React.FC = () => {
         initialHour={selectedHour}
         editEvent={editEvent}
       />
+
+      {/* FAB – quick create event (iOS-friendly) */}
+      <button
+        onClick={() => {
+          setSelectedDate(new Date());
+          setSelectedHour(new Date().getHours());
+          setEditEvent(null);
+          setDialogOpen(true);
+        }}
+        className="fixed right-4 z-30 w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+        style={{ bottom: "calc(var(--bottom-nav-h-effective) + 16px)" }}
+        aria-label="Opprett hendelse"
+      >
+        <Plus size={24} />
+      </button>
 
       {/* Bottom nav padding */}
       <div style={{ paddingBottom: "var(--bottom-nav-h-effective)" }} />
