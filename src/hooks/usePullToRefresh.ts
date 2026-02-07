@@ -1,4 +1,5 @@
 import * as React from "react";
+import { hapticMedium, hapticSuccess } from "@/utils/haptics";
 
 interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void>;
@@ -25,6 +26,7 @@ export function usePullToRefresh({
   
   const startY = React.useRef(0);
   const currentY = React.useRef(0);
+  const pullDistanceRef = React.useRef(0);
 
   React.useEffect(() => {
     const container = containerRef.current;
@@ -51,8 +53,16 @@ export function usePullToRefresh({
         // Apply resistance
         const resistance = 0.5;
         const pull = Math.min(diff * resistance, maxPull);
+        const wasBelow = pullDistanceRef.current < threshold;
+        const isAbove = pull >= threshold;
         setPullDistance(pull);
+        pullDistanceRef.current = pull;
         setIsPulling(true);
+        
+        // Haptic when crossing threshold
+        if (wasBelow && isAbove) {
+          hapticMedium();
+        }
         
         // Prevent default scroll when pulling
         if (pull > 10) {
@@ -71,6 +81,7 @@ export function usePullToRefresh({
         
         try {
           await onRefresh();
+          hapticSuccess();
         } finally {
           setIsRefreshing(false);
           setPullDistance(0);

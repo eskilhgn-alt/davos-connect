@@ -39,16 +39,22 @@ export const PullToRefreshWrapper: React.FC<PullToRefreshWrapperProps> = ({
           className="absolute left-0 right-0 flex items-center justify-center z-10 pointer-events-none"
           style={{ top: 0, height: Math.max(pullDistance, 0) }}
         >
-          {isRefreshing ? (
-            <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
-          ) : (
-            <ArrowDown
-              className={cn(
-                "h-5 w-5 text-muted-foreground transition-transform duration-200",
-                ready && "rotate-180 text-foreground"
-              )}
-            />
-          )}
+          <div className={cn(
+            "flex items-center justify-center rounded-full w-9 h-9",
+            "bg-muted/80 backdrop-blur-sm border border-border shadow-sm",
+            isRefreshing && "bg-primary/10"
+          )}>
+            {isRefreshing ? (
+              <Loader2 className="h-5 w-5 text-primary animate-spin" />
+            ) : (
+              <ArrowDown
+                className={cn(
+                  "h-5 w-5 text-muted-foreground transition-transform duration-200",
+                  ready && "rotate-180 text-primary"
+                )}
+              />
+            )}
+          </div>
         </div>
       )}
 
