@@ -95,13 +95,30 @@ export const MessageList: React.FC<MessageListProps> = ({
     });
   }, []);
 
-  // Initial scroll
+  // Track if initial scroll has happened
+  const hasInitialScrolled = React.useRef(false);
+
+  // Initial scroll - wait for messages to be available
   React.useEffect(() => {
-    scrollToBottom(false);
-  }, [scrollToBottom]);
+    if (messages.length > 0 && !hasInitialScrolled.current) {
+      hasInitialScrolled.current = true;
+      // Use double rAF to ensure DOM is fully rendered
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollToBottom(false));
+      });
+    }
+  }, [messages.length, scrollToBottom]);
+
+  // Always scroll to bottom on mount (even re-mount / navigation back)
+  React.useEffect(() => {
+    hasInitialScrolled.current = false;
+    // Immediate scroll attempt
+    requestAnimationFrame(() => scrollToBottom(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll on new messages if near bottom
   React.useEffect(() => {
+    if (!hasInitialScrolled.current) return;
     if (isNearBottomRef.current) {
       requestAnimationFrame(() => scrollToBottom(true));
     }

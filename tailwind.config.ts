@@ -111,9 +111,9 @@ export default {
 
       /* === DAVOS SHADOWS === */
       boxShadow: {
-        card: "0 2px 8px rgba(16, 58, 93, 0.08)",
-        "card-hover": "0 4px 16px rgba(16, 58, 93, 0.12)",
-        nav: "0 -2px 10px rgba(16, 58, 93, 0.1)",
+        card: "0 1px 3px rgba(0, 0, 0, 0.04)",
+        "card-hover": "0 2px 8px rgba(0, 0, 0, 0.06)",
+        nav: "0 -1px 0 rgba(0, 0, 0, 0.05)",
       },
 
       /* === ANIMATIONS === */

@@ -12,9 +12,8 @@
 @tailwind utilities;
 
 /* 
- * LIFT & LAGER - Design System
- * Based on Davos Klosters Mountains CI Manual
- * Mobile-first PWA for iPhone
+ * LIFT & LAGER – Minimal Design System
+ * Kinfolk / Apple inspired · iPhone-first PWA
  */
 
 @layer base {
@@ -23,63 +22,60 @@
     --app-height: 100dvh;
     --keyboard-inset: 0px;
     --keyboard-open: 0;
-    /* Bottom nav height: 4rem (64px) tab bar + safe-area for home indicator */
     --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom));
-    /* Effective height - used by screens for padding. Becomes 0 when keyboard is open */
     --bottom-nav-h-effective: var(--bottom-nav-h);
     --composer-h: 56px;
 
     /* === DAVOS PRIMARY COLORS (HSL) === */
     --davos-blue: 206 71% 21%;          /* #103A5D */
     --davos-yellow: 44 88% 60%;          /* #F4CD3C */
-    --grey-900: 60 1% 34%;               /* #575756 */
-    --grey-200: 30 14% 76%;              /* #CBC3BB */
-    --pure-white: 0 0% 100%;             /* #FFFFFF */
-    --pure-black: 0 0% 0%;               /* #000000 */
+    --grey-900: 0 0% 15%;                /* Near black for text */
+    --grey-600: 0 0% 40%;                /* Mid grey */
+    --grey-200: 0 0% 88%;                /* Light grey borders */
+    --pure-white: 0 0% 100%;
+    --pure-black: 0 0% 0%;
 
-    /* === SEMANTIC TOKENS === */
-    --background: 0 0% 98%;              /* Snow white feel */
-    --foreground: 60 1% 34%;             /* Dark Grey as default text */
+    /* === SEMANTIC TOKENS – Minimal white palette === */
+    --background: 0 0% 100%;             /* Pure white */
+    --foreground: 0 0% 10%;              /* Near black */
 
     --card: 0 0% 100%;
-    --card-foreground: 60 1% 34%;
+    --card-foreground: 0 0% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 60 1% 34%;
+    --popover-foreground: 0 0% 10%;
 
-    --primary: 206 71% 21%;              /* Davos Blue */
+    --primary: 206 71% 21%;              /* Davos Blue – accent only */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 30 14% 76%;             /* Light Grey */
-    --secondary-foreground: 60 1% 34%;
+    --secondary: 0 0% 96%;               /* Very light grey */
+    --secondary-foreground: 0 0% 10%;
 
     --accent: 44 88% 60%;                /* Davos Yellow */
     --accent-foreground: 0 0% 0%;
     
-    /* Success color for toasts/feedback (green within design system) */
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning color (amber) */
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 0%;
 
-    --muted: 30 10% 92%;
-    --muted-foreground: 60 1% 50%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 30 14% 85%;
-    --input: 30 14% 85%;
+    --border: 0 0% 92%;
+    --input: 0 0% 92%;
     --ring: 206 71% 21%;
 
-    /* === RADIUS TOKENS (8pt grid) === */
+    /* === RADIUS TOKENS === */
     --radius: 0.5rem;
-    --radius-card: 1rem;                 /* 16px */
+    --radius-card: 0.75rem;
     --radius-pill: 9999px;
 
-    /* === SPACING UNIT (8pt grid) === */
+    /* === SPACING (8pt grid) === */
     --space-unit: 8px;
     --space-xs: 4px;
     --space-sm: 8px;
@@ -96,57 +92,56 @@
     --font-body: "Inter", system-ui, sans-serif;
     --font-mono: "IBM Plex Mono", monospace;
 
-    /* === SIDEBAR (inherited for compatibility) === */
-    --sidebar-background: 206 71% 21%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 44 88% 60%;
-    --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 206 71% 28%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 206 71% 30%;
-    --sidebar-ring: 44 88% 60%;
+    /* === SIDEBAR === */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-primary: 206 71% 21%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 92%;
+    --sidebar-ring: 206 71% 21%;
   }
 
   .dark {
-    --background: 206 71% 10%;
+    --background: 0 0% 5%;
     --foreground: 0 0% 95%;
 
-    --card: 206 71% 15%;
+    --card: 0 0% 8%;
     --card-foreground: 0 0% 95%;
 
-    --popover: 206 71% 15%;
+    --popover: 0 0% 8%;
     --popover-foreground: 0 0% 95%;
 
     --primary: 44 88% 60%;
     --primary-foreground: 0 0% 0%;
 
-    --secondary: 206 50% 25%;
+    --secondary: 0 0% 12%;
     --secondary-foreground: 0 0% 95%;
 
     --accent: 44 88% 60%;
     --accent-foreground: 0 0% 0%;
 
-    --muted: 206 50% 20%;
-    --muted-foreground: 0 0% 70%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
 
     --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 206 50% 25%;
-    --input: 206 50% 25%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
     --ring: 44 88% 60%;
 
-    --sidebar-background: 206 71% 8%;
+    --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: 44 88% 60%;
     --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 206 71% 15%;
+    --sidebar-accent: 0 0% 10%;
     --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 206 71% 20%;
+    --sidebar-border: 0 0% 15%;
     --sidebar-ring: 44 88% 60%;
   }
 
-  /* Keyboard open state - bottom nav hides, so effective height becomes just safe-area */
   :root[data-keyboard="open"] {
     --bottom-nav-h-effective: 0px;
   }
@@ -157,7 +152,6 @@
     @apply border-border;
   }
 
-  /* PWA app-shell: lock viewport, prevent body scroll */
   html, body, #root {
     height: 100%;
   }
@@ -172,13 +166,11 @@
     @apply bg-background text-foreground;
     font-family: var(--font-body);
     -webkit-text-size-adjust: 100%;
-    /* iOS PWA: prevent body scroll and layout shift */
     overflow: hidden;
     position: fixed;
     width: 100%;
   }
 
-  /* Chat-specific body lock - extra safety */
   body.chat-lock {
     overflow: hidden;
     overscroll-behavior: none;
@@ -189,14 +181,12 @@
     overflow: hidden;
   }
 
-  /* iOS input zoom prevention - only on touch devices */
   @supports (-webkit-touch-callout: none) {
     input, textarea, select {
       font-size: 16px !important;
     }
   }
 
-  /* When keyboard is open - bottom nav hides via CSS class, no height needed */
   html.keyboard-open [data-bottom-nav="true"] {
     display: none !important;
   }
@@ -204,15 +194,14 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     font-weight: 600;
+    letter-spacing: -0.01em;
   }
 
-  /* Monospace for data/numbers */
   .font-data {
     font-family: var(--font-mono);
   }
 }
 
-/* === UTILITY CLASSES === */
 @layer utilities {
   .tap-target {
     min-height: var(--tap-target-min);
@@ -227,7 +216,6 @@
     box-shadow: 0 0 20px hsl(var(--davos-yellow) / 0.3);
   }
 
-  /* === SAFE AREA INSETS (iPhone notch/home bar) === */
   .safe-area-top {
     padding-top: env(safe-area-inset-top);
   }
@@ -261,7 +249,6 @@
     padding-left: env(safe-area-inset-left);
   }
 
-  /* Aliases for pt-safe/pb-safe */
   .pt-safe {
     padding-top: env(safe-area-inset-top);
   }
