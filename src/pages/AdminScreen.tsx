@@ -26,6 +26,10 @@ import {
   ArrowLeft,
   Mail,
   Send,
+  MessageCircle,
+  CalendarDays,
+  Target,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,6 +55,14 @@ export const AdminScreen: React.FC = () => {
   const [inviteEmail, setInviteEmail] = React.useState("");
   const [inviteMessage, setInviteMessage] = React.useState("");
   const [inviteSending, setInviteSending] = React.useState(false);
+  const [stats, setStats] = React.useState<{
+    totalUsers: number;
+    activeUsers: number;
+    totalMessages: number;
+    totalEvents: number;
+    totalShotRounds: number;
+    messagesLast7d: number;
+  } | null>(null);
 
   // Double-check: must be admin AND correct email
   const isAuthorized = isAdmin && user?.email === ADMIN_EMAIL;
@@ -103,11 +115,40 @@ export const AdminScreen: React.FC = () => {
     }
   }, []);
 
+  const fetchStats = React.useCallback(async () => {
+    try {
+      const [msgRes, msg7dRes, evtRes, shotRes] = await Promise.all([
+        supabase.from("messages").select("id", { count: "exact", head: true }),
+        supabase.from("messages").select("id", { count: "exact", head: true })
+          .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString()),
+        supabase.from("agenda_events").select("id", { count: "exact", head: true }),
+        supabase.from("shot_events").select("id", { count: "exact", head: true }),
+      ]);
+      const activeCount = users.filter(u => u.is_active).length;
+      setStats({
+        totalUsers: users.length,
+        activeUsers: activeCount,
+        totalMessages: msgRes.count ?? 0,
+        messagesLast7d: msg7dRes.count ?? 0,
+        totalEvents: evtRes.count ?? 0,
+        totalShotRounds: shotRes.count ?? 0,
+      });
+    } catch (err) {
+      console.error("Stats fetch error:", err);
+    }
+  }, [users]);
+
   React.useEffect(() => {
     if (isAuthorized) {
       fetchUsers();
     }
   }, [isAuthorized, fetchUsers]);
+
+  React.useEffect(() => {
+    if (users.length > 0) {
+      fetchStats();
+    }
+  }, [users, fetchStats]);
 
   const toggleRole = async (userId: string, currentRole: "user" | "admin") => {
     setActionLoading(userId);
@@ -215,6 +256,53 @@ export const AdminScreen: React.FC = () => {
           WebkitOverflowScrolling: 'touch'
         }}
       >
+        {/* Usage Statistics */}
+        {stats && (
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              <h2 className="font-heading font-semibold text-foreground">Bruksstatistikk</h2>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <DavosCard>
+                <DavosCardContent className="p-3 text-center">
+                  <Users className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                  <p className="text-lg font-bold text-foreground">{stats.activeUsers}/{stats.totalUsers}</p>
+                  <p className="text-[10px] text-muted-foreground">Aktive brukere</p>
+                </DavosCardContent>
+              </DavosCard>
+              <DavosCard>
+                <DavosCardContent className="p-3 text-center">
+                  <MessageCircle className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                  <p className="text-lg font-bold text-foreground">{stats.totalMessages}</p>
+                  <p className="text-[10px] text-muted-foreground">Meldinger totalt</p>
+                </DavosCardContent>
+              </DavosCard>
+              <DavosCard>
+                <DavosCardContent className="p-3 text-center">
+                  <MessageCircle className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                  <p className="text-lg font-bold text-foreground">{stats.messagesLast7d}</p>
+                  <p className="text-[10px] text-muted-foreground">Siste 7 dager</p>
+                </DavosCardContent>
+              </DavosCard>
+              <DavosCard>
+                <DavosCardContent className="p-3 text-center">
+                  <CalendarDays className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                  <p className="text-lg font-bold text-foreground">{stats.totalEvents}</p>
+                  <p className="text-[10px] text-muted-foreground">Agenda-hendelser</p>
+                </DavosCardContent>
+              </DavosCard>
+              <DavosCard>
+                <DavosCardContent className="p-3 text-center">
+                  <Target className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                  <p className="text-lg font-bold text-foreground">{stats.totalShotRounds}</p>
+                  <p className="text-[10px] text-muted-foreground">Shot-runder</p>
+                </DavosCardContent>
+              </DavosCard>
+            </div>
+          </div>
+        )}
+
         {/* Search & Actions */}
         <div className="p-4 space-y-4 sticky top-0 bg-background z-10 border-b border-border">
           <div className="flex gap-2">

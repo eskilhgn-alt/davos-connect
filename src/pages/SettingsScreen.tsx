@@ -1,13 +1,18 @@
 /**
- * SettingsScreen – Merged Varsler + Info into one settings page
+ * SettingsScreen – Full settings page with profile, theme, notifications, info
  */
 
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { PushNotificationToggle } from "@/components/settings/PushNotificationToggle";
 import { GeolocationToggle } from "@/components/settings/GeolocationToggle";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
+import { DavosButton } from "@/components/ui/davos-button";
+import { DavosInput } from "@/components/ui/davos-input";
+import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Code2,
   Shield,
@@ -20,9 +25,72 @@ import {
   Eye,
   Clock,
   MapPin,
+  User,
+  LogOut,
+  Moon,
+  Sun,
+  Loader2,
+  Check,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export const SettingsScreen: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, profile, signOut, updateProfile } = useAuth();
+
+  // Profile editing state
+  const [fullName, setFullName] = React.useState(profile?.full_name || "");
+  const [nickname, setNickname] = React.useState(profile?.nickname || "");
+  const [profileSaving, setProfileSaving] = React.useState(false);
+  const profileDirty =
+    fullName !== (profile?.full_name || "") ||
+    nickname !== (profile?.nickname || "");
+
+  React.useEffect(() => {
+    setFullName(profile?.full_name || "");
+    setNickname(profile?.nickname || "");
+  }, [profile]);
+
+  // Dark mode
+  const [isDark, setIsDark] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    return document.documentElement.classList.contains("dark");
+  });
+
+  const toggleDarkMode = (checked: boolean) => {
+    setIsDark(checked);
+    if (checked) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!fullName.trim() || !nickname.trim()) {
+      toast.error("Navn og kallenavn er påkrevd");
+      return;
+    }
+    setProfileSaving(true);
+    const { error } = await updateProfile({
+      full_name: fullName.trim(),
+      nickname: nickname.trim(),
+    });
+    setProfileSaving(false);
+    if (error) {
+      toast.error("Kunne ikke oppdatere profil");
+    } else {
+      toast.success("Profil oppdatert");
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
   return (
     <div
       className="flex flex-col overflow-hidden bg-background"
@@ -30,7 +98,7 @@ export const SettingsScreen: React.FC = () => {
     >
       <AppHeader
         title="Innstillinger"
-        subtitle="Varsler & info"
+        subtitle="Profil, varsler & info"
         leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
@@ -42,6 +110,80 @@ export const SettingsScreen: React.FC = () => {
         }}
       >
         <div className="p-4 space-y-4">
+          {/* Profile */}
+          <DavosCard>
+            <DavosCardContent className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <User className="h-5 w-5 text-primary" />
+                <h2 className="font-heading font-semibold text-foreground">
+                  Profil
+                </h2>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Fullt navn</label>
+                  <DavosInput
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Fullt navn"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Kallenavn</label>
+                  <DavosInput
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    placeholder="Kallenavn (vises i chat)"
+                  />
+                </div>
+                {user && (
+                  <p className="text-xs text-muted-foreground">
+                    E-post: {user.email}
+                  </p>
+                )}
+                {profileDirty && (
+                  <DavosButton
+                    onClick={handleSaveProfile}
+                    disabled={profileSaving}
+                    className="w-full"
+                    size="sm"
+                  >
+                    {profileSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    Lagre endringer
+                  </DavosButton>
+                )}
+              </div>
+            </DavosCardContent>
+          </DavosCard>
+
+          {/* Dark mode */}
+          <DavosCard>
+            <DavosCardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {isDark ? (
+                    <Moon className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Sun className="h-5 w-5 text-primary" />
+                  )}
+                  <div>
+                    <h2 className="font-heading font-semibold text-foreground">
+                      Utseende
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      {isDark ? "Mørk modus" : "Lys modus"}
+                    </p>
+                  </div>
+                </div>
+                <Switch checked={isDark} onCheckedChange={toggleDarkMode} />
+              </div>
+            </DavosCardContent>
+          </DavosCard>
+
           {/* Push notifications */}
           <DavosCard>
             <DavosCardContent className="p-4">
@@ -140,6 +282,16 @@ export const SettingsScreen: React.FC = () => {
               </div>
             </DavosCardContent>
           </DavosCard>
+
+          {/* Sign out */}
+          <DavosButton
+            variant="outline"
+            onClick={handleSignOut}
+            className="w-full text-destructive border-destructive/30"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logg ut
+          </DavosButton>
 
           <p className="text-center text-xs text-muted-foreground py-4">
             Glühwein v1.0 · Bygget med ❤️ for crewet

@@ -11,6 +11,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { AgendaEvent } from "@/hooks/useAgenda";
 
 const COLORS = [
@@ -35,12 +43,14 @@ export const AgendaEventDialog: React.FC<Props> = ({
 }) => {
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [selectedDate, setSelectedDate] = React.useState<Date>(new Date());
   const [startHour, setStartHour] = React.useState("12");
   const [startMin, setStartMin] = React.useState("00");
   const [endHour, setEndHour] = React.useState("13");
   const [endMin, setEndMin] = React.useState("00");
   const [color, setColor] = React.useState("primary");
   const [saving, setSaving] = React.useState(false);
+  const [datePickerOpen, setDatePickerOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (editEvent) {
@@ -48,6 +58,7 @@ export const AgendaEventDialog: React.FC<Props> = ({
       setDescription(editEvent.description ?? "");
       const s = new Date(editEvent.start_at);
       const e = new Date(editEvent.end_at);
+      setSelectedDate(s);
       setStartHour(String(s.getHours()).padStart(2, "0"));
       setStartMin(String(s.getMinutes()).padStart(2, "0"));
       setEndHour(String(e.getHours()).padStart(2, "0"));
@@ -56,6 +67,7 @@ export const AgendaEventDialog: React.FC<Props> = ({
     } else {
       setTitle("");
       setDescription("");
+      setSelectedDate(initialDate ?? new Date());
       const h = initialHour ?? 12;
       setStartHour(String(h).padStart(2, "0"));
       setStartMin("00");
@@ -63,14 +75,13 @@ export const AgendaEventDialog: React.FC<Props> = ({
       setEndMin("00");
       setColor("primary");
     }
-  }, [editEvent, initialHour, open]);
+  }, [editEvent, initialHour, initialDate, open]);
 
   const handleSave = async () => {
     if (!title.trim()) return;
     setSaving(true);
-    const baseDate = editEvent ? new Date(editEvent.start_at) : (initialDate ?? new Date());
-    const startAt = setMinutes(setHours(new Date(baseDate), parseInt(startHour)), parseInt(startMin));
-    const endAt = setMinutes(setHours(new Date(baseDate), parseInt(endHour)), parseInt(endMin));
+    const startAt = setMinutes(setHours(new Date(selectedDate), parseInt(startHour)), parseInt(startMin));
+    const endAt = setMinutes(setHours(new Date(selectedDate), parseInt(endHour)), parseInt(endMin));
     startAt.setSeconds(0, 0);
     endAt.setSeconds(0, 0);
     await onSave(title.trim(), description.trim(), startAt, endAt, color);
@@ -86,11 +97,32 @@ export const AgendaEventDialog: React.FC<Props> = ({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {initialDate && (
-            <p className="text-xs text-muted-foreground">
-              {format(editEvent ? new Date(editEvent.start_at) : initialDate, "EEEE d. MMMM", { locale: nb })}
-            </p>
-          )}
+          {/* Date picker */}
+          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn("w-full justify-start text-left font-normal")}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {format(selectedDate, "EEEE d. MMMM yyyy", { locale: nb })}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(d) => {
+                  if (d) {
+                    setSelectedDate(d);
+                    setDatePickerOpen(false);
+                  }
+                }}
+                locale={nb}
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
 
           <Input
             placeholder="Tittel"
