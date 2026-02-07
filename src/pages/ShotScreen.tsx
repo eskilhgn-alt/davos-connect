@@ -12,6 +12,7 @@ import { ShotButton } from "@/components/shot/ShotButton";
 import { ShotStatusCard } from "@/components/shot/ShotStatusCard";
 import { ShotEventFeed } from "@/components/shot/ShotEventFeed";
 import { ShotLeaderboard } from "@/components/shot/ShotLeaderboard";
+import { ShotTokenOverview } from "@/components/shot/ShotTokenOverview";
 import { ShotTransparency } from "@/components/shot/ShotTransparency";
 import { toast } from "sonner";
 
@@ -31,6 +32,7 @@ export interface ShotEvent {
   witness_confirmed_by: string | null;
   witness_confirmed_at: string | null;
   punishment_applied_at: string | null;
+  chosen_witness_id: string | null;
   group_id: string;
 }
 
@@ -191,7 +193,7 @@ export const ShotScreen: React.FC = () => {
               body: JSON.stringify({
                 type: "selected",
                 heading: "Vinner trukket! 🏆",
-                message: `${winnerName} må ta shot innen 24 timer!`,
+                message: `${winnerName} må ta shot innen 2 timer!`,
               }),
             }).catch(() => {});
           }
@@ -205,13 +207,20 @@ export const ShotScreen: React.FC = () => {
   }, [user, pressing, profiles]);
 
   // Confirm shot
-  const handleConfirm = React.useCallback(async (mode: "self" | "witness") => {
+  const handleConfirm = React.useCallback(async (mode: "self" | "witness", witnessId?: string) => {
     if (!activeEvent) return;
-    const { error } = await supabase.rpc("rpc_confirm_shot", { p_event_id: activeEvent.id, p_mode: mode });
+    const params: { p_event_id: string; p_mode: string; p_witness_id?: string } = {
+      p_event_id: activeEvent.id,
+      p_mode: mode,
+    };
+    if (mode === "self" && witnessId) {
+      params.p_witness_id = witnessId;
+    }
+    const { error } = await supabase.rpc("rpc_confirm_shot", params as any);
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success(mode === "self" ? "Shot bekreftet!" : "Vitnebekreftelse registrert!");
+      toast.success(mode === "self" ? "Shot bekreftet! Venter på vitne." : "Vitnebekreftelse registrert!");
     }
   }, [activeEvent]);
 
@@ -265,8 +274,12 @@ export const ShotScreen: React.FC = () => {
               currentUserId={user?.id || ""}
               getDisplayName={getDisplayName}
               onConfirm={handleConfirm}
+              profiles={profiles}
             />
           )}
+
+          {/* Token overview */}
+          <ShotTokenOverview />
 
           {/* Leaderboard */}
           <ShotLeaderboard groupId={GROUP_ID} />
