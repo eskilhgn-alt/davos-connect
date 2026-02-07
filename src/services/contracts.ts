@@ -1,5 +1,5 @@
 /**
- * GLÜHWEIN - Service Contracts
+ * GÜTTAHÜTTE - Service Contracts
  * Sprint 2: Local chat implementation with extended data model
  * 
  * These contracts define the expected API for each service module.

@@ -103,7 +103,7 @@ export const PushNotificationToggle: React.FC = () => {
             <div className="flex-1 space-y-2">
               <p className="text-sm font-medium text-warning">Installer appen først</p>
               <p className="text-xs text-warning/80">
-                Push-varsler krever at Glühwein installeres på hjemskjermen:
+                Push-varsler krever at GüttaHütte installeres på hjemskjermen:
               </p>
               <ol className="text-xs text-warning/80 list-decimal list-inside space-y-1">
                 <li>Trykk på <strong>Del</strong>-ikonet (firkant med pil opp) i Safari</li>

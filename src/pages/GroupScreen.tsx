@@ -1,5 +1,5 @@
 /**
- * GroupScreen - Shows all participants in Glühwein
+ * GroupScreen - Shows all participants in GüttaHütte
  * Displays member list with "created by" indicator for first member
  */
 
@@ -68,7 +68,7 @@ export const GroupScreen: React.FC = () => {
     >
       <AppHeader
         title="Gruppen"
-        subtitle="Deltakere i Glühwein"
+        subtitle="Deltakere i GüttaHütte"
         leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
@@ -100,7 +100,7 @@ export const GroupScreen: React.FC = () => {
             <DavosEmptyState
               icon={Users}
               title="Ingen deltakere ennå"
-              description="Inviter venner til Glühwein"
+              description="Inviter venner til GüttaHütte"
             />
           )}
 
