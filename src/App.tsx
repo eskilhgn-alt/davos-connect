@@ -74,7 +74,7 @@ const AppRoutes = () => (
       <Route path="/vaer" element={<WeatherScreen />} />
       <Route path="/live" element={<LiveScreen />} />
       <Route path="/kart" element={<MapScreen />} />
-      <Route path="/crew-kart" element={<CrewMapScreen />} />
+      <Route path="/magnus" element={<CrewMapScreen />} />
       <Route path="/webcams" element={<WebcamsScreen />} />
       <Route path="/feed" element={<FeedScreen />} />
       <Route path="/mer" element={<MoreScreen />} />
