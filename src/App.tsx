@@ -20,6 +20,7 @@ import ShotScreen from "./pages/ShotScreen";
 import AgendaScreen from "./pages/AgendaScreen";
 import TokensScreen from "./pages/TokensScreen";
 import FaktasjekkerScreen from "./pages/FaktasjekkerScreen";
+import StoriesScreen from "./pages/StoriesScreen";
 
 import SettingsScreen from "./pages/SettingsScreen";
 import WebcamsScreen from "./pages/WebcamsScreen";
@@ -88,6 +89,7 @@ const AppRoutes = () => (
       <Route path="/tokens" element={<TokensScreen />} />
       <Route path="/agenda" element={<AgendaScreen />} />
       <Route path="/faktasjekker" element={<FaktasjekkerScreen />} />
+      <Route path="/historier" element={<StoriesScreen />} />
     </Route>
     
     <Route path="*" element={<NotFound />} />
