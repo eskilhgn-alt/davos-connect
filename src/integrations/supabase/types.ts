@@ -772,6 +772,7 @@ export type Database = {
         Args: { p_group_id: string; p_user_id: string }
         Returns: undefined
       }
+      rpc_check_shot_ban: { Args: never; Returns: Json }
       rpc_confirm_shot:
         | { Args: { p_event_id: string; p_mode: string }; Returns: Json }
         | {
