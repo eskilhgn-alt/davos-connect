@@ -6,13 +6,13 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { ShotEvent } from "@/pages/ShotScreen";
-import { Check, Eye, AlertTriangle, Clock, ChevronDown } from "lucide-react";
+import { Check, Eye, AlertTriangle, Clock, ChevronDown, Ban } from "lucide-react";
 
 interface ShotStatusCardProps {
   event: ShotEvent;
   currentUserId: string;
   getDisplayName: (id: string | null) => string;
-  onConfirm: (mode: "self" | "witness", witnessId?: string) => void;
+  onConfirm: (mode: "self" | "witness" | "refuse" | "witness_timeout", witnessId?: string) => void;
   profiles: Record<string, string>;
 }
 
@@ -26,6 +26,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
   const [timeLeft, setTimeLeft] = React.useState("");
   const [selectedWitness, setSelectedWitness] = React.useState<string | null>(null);
   const [showWitnessPicker, setShowWitnessPicker] = React.useState(false);
+  const [witnessTimeLeft, setWitnessTimeLeft] = React.useState<number | null>(null);
 
   // Deadline countdown (2h)
   React.useEffect(() => {
@@ -51,6 +52,33 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [event.status, event.deadline_at]);
+
+  // Witness timeout: 5 min after self_confirmed, if no witness response → auto-confirm
+  React.useEffect(() => {
+    if (!event.self_confirmed || event.witness_confirmed_by || event.status !== "selected") {
+      setWitnessTimeLeft(null);
+      return;
+    }
+
+    // Estimate self_confirmed time from event timeline (use selected_at + reasonable offset)
+    // We'll use a 5-minute window from now as a simplified approach
+    const WITNESS_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const confirmTime = event.selected_at ? new Date(event.selected_at).getTime() : Date.now();
+    const witnessDeadline = confirmTime + WITNESS_TIMEOUT_MS;
+
+    const tick = () => {
+      const remaining = Math.max(0, witnessDeadline - Date.now());
+      setWitnessTimeLeft(Math.ceil(remaining / 1000));
+      if (remaining <= 0) {
+        // Auto-confirm via witness_timeout
+        onConfirm("witness_timeout");
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [event.self_confirmed, event.witness_confirmed_by, event.status, event.selected_at, onConfirm]);
 
   const isSelected = event.status === "selected";
   const isConfirmed = event.status === "confirmed";
@@ -110,7 +138,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
         </div>
       )}
 
-      {/* Step 1: Winner picks witness and confirms */}
+      {/* Step 1: Winner picks witness and confirms (or refuses) */}
       {isSelected && !event.self_confirmed && isWinner && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground text-center">
@@ -168,6 +196,16 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
             <Check size={18} />
             Shot tatt!
           </button>
+
+          {/* Refuse button */}
+          <button
+            type="button"
+            onClick={() => onConfirm("refuse")}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-destructive text-destructive text-sm font-medium transition-all active:scale-[0.98]"
+          >
+            <Ban size={16} />
+            Jeg nekter (2 straffeshots)
+          </button>
         </div>
       )}
 
@@ -190,16 +228,30 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
 
       {/* Waiting state for non-witness users */}
       {isSelected && event.self_confirmed && !event.witness_confirmed_by && !isChosenWitness && !isWinner && (
-        <p className="text-sm text-center text-muted-foreground py-2">
-          Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter...
-        </p>
+        <div className="text-center py-2 space-y-1">
+          <p className="text-sm text-muted-foreground">
+            Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter...
+          </p>
+          {witnessTimeLeft !== null && witnessTimeLeft > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Auto-bekreftes om {Math.floor(witnessTimeLeft / 60)}m {witnessTimeLeft % 60}s
+            </p>
+          )}
+        </div>
       )}
 
       {/* Winner waiting for witness */}
       {isSelected && event.self_confirmed && !event.witness_confirmed_by && isWinner && (
-        <p className="text-sm text-center text-muted-foreground py-2">
-          Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter...
-        </p>
+        <div className="text-center py-2 space-y-1">
+          <p className="text-sm text-muted-foreground">
+            Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter...
+          </p>
+          {witnessTimeLeft !== null && witnessTimeLeft > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Auto-bekreftes om {Math.floor(witnessTimeLeft / 60)}m {witnessTimeLeft % 60}s
+            </p>
+          )}
+        </div>
       )}
 
       {/* Status indicators */}

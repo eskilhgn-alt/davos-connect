@@ -14,6 +14,7 @@ import { ShotEventFeed } from "@/components/shot/ShotEventFeed";
 import { ShotLeaderboard } from "@/components/shot/ShotLeaderboard";
 import { ShotTokenOverview } from "@/components/shot/ShotTokenOverview";
 import { ShotTransparency } from "@/components/shot/ShotTransparency";
+import { ShotHistory } from "@/components/shot/ShotHistory";
 import { toast } from "sonner";
 
 const GROUP_ID = "global";
@@ -208,7 +209,7 @@ export const ShotScreen: React.FC = () => {
   }, [user, pressing, profiles]);
 
   // Confirm shot
-  const handleConfirm = React.useCallback(async (mode: "self" | "witness", witnessId?: string) => {
+  const handleConfirm = React.useCallback(async (mode: "self" | "witness" | "refuse" | "witness_timeout", witnessId?: string) => {
     if (!activeEvent) return;
     const { error } = await supabase.rpc("rpc_confirm_shot", {
       p_event_id: activeEvent.id,
@@ -217,10 +218,46 @@ export const ShotScreen: React.FC = () => {
     } as any);
     if (error) {
       toast.error(error.message);
-    } else {
-      toast.success(mode === "self" ? "Shot bekreftet! Venter på vitne." : "Vitnebekreftelse registrert!");
+      return;
     }
-  }, [activeEvent]);
+
+    const messages: Record<string, string> = {
+      self: "Shot bekreftet! Venter på vitne.",
+      witness: "Vitnebekreftelse registrert!",
+      refuse: "Du nektet – 2 straffeshots registrert.",
+      witness_timeout: "Vitne svarte ikke – automatisk bekreftet.",
+    };
+    toast.success(messages[mode] || "Oppdatert!");
+
+    // Send push for all confirmation events
+    const session = await supabase.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (token) {
+      const pushMessages: Record<string, { heading: string; message: string } | null> = {
+        self: {
+          heading: "Shot bekreftet! ✅",
+          message: `${profiles[user?.id || ""] || "Noen"} har tatt shotten – venter på vitne.`,
+        },
+        witness: {
+          heading: "Vitne bekreftet! 👁",
+          message: `${profiles[user?.id || ""] || "Noen"} bekreftet som vitne.`,
+        },
+        refuse: {
+          heading: "Nektet! 🙅",
+          message: `${profiles[user?.id || ""] || "Noen"} nektet å ta shotten – 2 straffeshots!`,
+        },
+        witness_timeout: null,
+      };
+      const push = pushMessages[mode];
+      if (push) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ type: mode, ...push }),
+        }).catch(() => {});
+      }
+    }
+  }, [activeEvent, profiles, user]);
 
   const canPress = !activeEvent && tokens && tokens.balance > 0 && !pressing;
 
@@ -275,6 +312,9 @@ export const ShotScreen: React.FC = () => {
               profiles={profiles}
             />
           )}
+
+          {/* My shot history */}
+          <ShotHistory getDisplayName={getDisplayName} />
 
           {/* Token overview */}
           <ShotTokenOverview />
