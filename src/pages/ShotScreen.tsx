@@ -12,6 +12,7 @@ import { ShotButton } from "@/components/shot/ShotButton";
 import { ShotStatusCard } from "@/components/shot/ShotStatusCard";
 import { ShotEventFeed } from "@/components/shot/ShotEventFeed";
 import { ShotLeaderboard } from "@/components/shot/ShotLeaderboard";
+import { ShotTransparency } from "@/components/shot/ShotTransparency";
 import { toast } from "sonner";
 
 const GROUP_ID = "global";
@@ -272,6 +273,9 @@ export const ShotScreen: React.FC = () => {
 
           {/* Feed */}
           <ShotEventFeed entries={logEntries} getDisplayName={getDisplayName} />
+
+          {/* Transparency / fairness checker */}
+          <ShotTransparency />
         </div>
       </div>
     </div>

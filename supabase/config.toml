@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.shot-push]
 verify_jwt = false
+
+[functions.shot-fairness-check]
+verify_jwt = false
