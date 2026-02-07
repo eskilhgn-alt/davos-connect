@@ -5,52 +5,20 @@ import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import { ArrowRightLeft, CalendarDays, Wind, Sun, Cloud, CloudSnow, CloudRain, CloudFog } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
 
 interface NextEvent {
   title: string;
   start_at: string;
 }
 
-interface WeatherNow {
-  temp: number;
-  tempMin: number;
-  tempMax: number;
-  wind: number;
-  weatherCode: number;
-  condition: string;
-}
-
-const WMO_MAP: Record<number, { label: string; icon: React.ElementType }> = {
-  0: { label: "Klart", icon: Sun },
-  1: { label: "Klart", icon: Sun },
-  2: { label: "Delvis skyet", icon: Cloud },
-  3: { label: "Skyet", icon: Cloud },
-  45: { label: "Tåke", icon: CloudFog },
-  48: { label: "Tåke", icon: CloudFog },
-  51: { label: "Yr", icon: CloudRain },
-  53: { label: "Yr", icon: CloudRain },
-  55: { label: "Yr", icon: CloudRain },
-  61: { label: "Regn", icon: CloudRain },
-  63: { label: "Regn", icon: CloudRain },
-  65: { label: "Kraftig regn", icon: CloudRain },
-  71: { label: "Snø", icon: CloudSnow },
-  73: { label: "Snø", icon: CloudSnow },
-  75: { label: "Kraftig snø", icon: CloudSnow },
-  85: { label: "Snøbyger", icon: CloudSnow },
-  86: { label: "Kraftig snøbyge", icon: CloudSnow },
-};
-
-function getCondition(code: number) {
-  return WMO_MAP[code] ?? { label: "Ukjent", icon: Cloud };
-}
-
 export const HomeDashboard: React.FC = () => {
   const { user } = useAuth();
   const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
   const [nextEvent, setNextEvent] = React.useState<NextEvent | null>(null);
-  const [weather, setWeather] = React.useState<WeatherNow | null>(null);
+  const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary();
 
-  // 1. NOK/CHF rate
+  // 1. NOK/CHF rate (ECB via Frankfurter)
   React.useEffect(() => {
     fetch("https://api.frankfurter.dev/v1/latest?base=CHF&symbols=NOK")
       .then((r) => r.json())
@@ -72,33 +40,14 @@ export const HomeDashboard: React.FC = () => {
       });
   }, [user]);
 
-  // 3. Weather from MeteoSwiss (Davos town: 46.8, 9.84)
-  React.useEffect(() => {
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/weather-meteoswiss?lat=46.8&lon=9.84`;
-    fetch(url, {
-      headers: {
-        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d?.now && d?.daily?.[0]) {
-          const cond = getCondition(d.now.weatherCode);
-          setWeather({
-            temp: d.now.temp,
-            tempMin: d.daily[0].tempMin,
-            tempMax: d.daily[0].tempMax,
-            wind: d.now.wind,
-            weatherCode: d.now.weatherCode,
-            condition: cond.label,
-          });
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const WeatherIcon = weather ? getCondition(weather.weatherCode).icon : Cloud;
+  // Extract a short weather line from AI summary
+  const weatherSnippet = React.useMemo(() => {
+    if (!aiSummary?.todaySummary) return null;
+    // Take first sentence
+    const full = aiSummary.todaySummary;
+    const first = full.split(/[.!]/).filter(Boolean)[0];
+    return first ? first.trim() + "." : full.slice(0, 80);
+  }, [aiSummary]);
 
   return (
     <section className="space-y-2">
@@ -133,29 +82,21 @@ export const HomeDashboard: React.FC = () => {
           )}
         </Link>
 
-        {/* Weather – live data */}
+        {/* Weather – AI vurdering */}
         <Link
           to="/vaer"
           className="rounded-xl bg-muted/50 border border-border p-3 flex flex-col items-center justify-center gap-0.5 text-center"
         >
-          {weather ? (
-            <>
-              <WeatherIcon size={18} className="text-foreground mb-0.5" />
-              <span className="font-heading text-sm font-bold text-foreground leading-none">
-                {weather.tempMax}° / {weather.tempMin}°
-              </span>
-              <span className="text-[10px] text-muted-foreground leading-tight">
-                {weather.condition}
-              </span>
-              <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-                <Wind size={9} /> {weather.wind} m/s
-              </span>
-            </>
+          <Sun size={16} className="text-foreground mb-0.5" />
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Vær</span>
+          {aiLoading ? (
+            <span className="text-[11px] text-muted-foreground">Laster…</span>
+          ) : weatherSnippet ? (
+            <span className="font-heading text-[10px] font-medium text-foreground leading-tight line-clamp-3 w-full">
+              {weatherSnippet}
+            </span>
           ) : (
-            <>
-              <Cloud size={14} className="text-muted-foreground" />
-              <span className="text-[11px] text-muted-foreground">Laster…</span>
-            </>
+            <span className="text-[11px] text-muted-foreground">Trykk for å se</span>
           )}
         </Link>
       </div>
