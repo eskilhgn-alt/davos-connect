@@ -1,6 +1,7 @@
 /**
- * Composer - Message input with attachments, emoji, and GIFs
- * Fixed at bottom, stable, no iOS zoom
+ * Composer - iMessage-style message input
+ * Full-width textarea on top, toolbar below
+ * Fixed at bottom, stable on iOS
  */
 
 import * as React from 'react';
@@ -10,6 +11,7 @@ import type { Attachment } from './types';
 import { chatStore } from './store';
 import { EmojiPicker } from './EmojiPicker';
 import { GiphyPicker } from './GiphyPicker';
+
 interface ComposerProps {
   onSend: (text: string, attachments: Attachment[]) => void | Promise<void>;
   onHeightChange: (height: number) => void;
@@ -37,7 +39,6 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
     });
 
     observer.observe(el);
-    // Initial measurement
     onHeightChange(el.offsetHeight);
 
     return () => observer.disconnect();
@@ -48,7 +49,7 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
     const ta = textareaRef.current;
     if (!ta) return;
     ta.style.height = 'auto';
-    const maxHeight = 120; // ~6 lines
+    const maxHeight = 140; // ~7 lines
     ta.style.height = `${Math.min(ta.scrollHeight, maxHeight)}px`;
   }, []);
 
@@ -72,7 +73,6 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
     setAttachments([]);
     chatStore.setTyping(false);
     
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -94,16 +94,14 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        continue;
-      }
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
 
       const objectUrl = URL.createObjectURL(file);
       newAttachments.push({
         id: crypto.randomUUID(),
         kind: file.type.startsWith('video/') ? 'video' : 'image',
         objectUrl,
-        file, // Keep File reference for upload
+        file,
       });
     }
 
@@ -114,9 +112,7 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
   const removeAttachment = (id: string) => {
     setAttachments((prev) => {
       const att = prev.find((a) => a.id === id);
-      if (att) {
-        URL.revokeObjectURL(att.objectUrl);
-      }
+      if (att) URL.revokeObjectURL(att.objectUrl);
       return prev.filter((a) => a.id !== id);
     });
   };
@@ -129,7 +125,6 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
       const end = ta.selectionEnd;
       const newText = text.slice(0, start) + emoji + text.slice(end);
       setText(newText);
-      // Set cursor after emoji
       requestAnimationFrame(() => {
         ta.focus();
         ta.setSelectionRange(start + emoji.length, start + emoji.length);
@@ -159,25 +154,18 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
         ref={containerRef}
         className="bg-background border-t border-border"
         style={{
-          paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         {/* Attachment previews */}
         {attachments.length > 0 && (
-          <div className="flex gap-2 px-4 py-2 overflow-x-auto">
+          <div className="flex gap-2 px-3 pt-2 overflow-x-auto">
             {attachments.map((att) => (
               <div key={att.id} className="relative flex-shrink-0">
                 {att.kind === 'video' ? (
-                  <video
-                    src={att.objectUrl}
-                    className="h-16 w-16 object-cover rounded-lg"
-                  />
+                  <video src={att.objectUrl} className="h-16 w-16 object-cover rounded-lg" />
                 ) : (
-                  <img
-                    src={att.objectUrl}
-                    alt="Vedlegg"
-                    className="h-16 w-16 object-cover rounded-lg"
-                  />
+                  <img src={att.objectUrl} alt="Vedlegg" className="h-16 w-16 object-cover rounded-lg" />
                 )}
                 <button
                   type="button"
@@ -191,15 +179,53 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
           </div>
         )}
 
-        {/* Input row */}
-        <div className="flex items-end gap-2 px-4 py-2">
-          {/* Camera button - opens camera directly on iPhone */}
+        {/* Textarea row – full width with send button */}
+        <div className="flex items-end gap-2 px-3 pt-2 pb-1">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={handleTextChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Skriv en melding..."
+            rows={1}
+            className={cn(
+              'flex-1 min-w-0 resize-none rounded-2xl border border-input bg-muted/50',
+              'px-4 py-3',
+              'text-[16px] leading-[22px]', // 16px prevents iOS zoom
+              'placeholder:text-muted-foreground',
+              'focus:outline-none focus:ring-1 focus:ring-ring'
+            )}
+            style={{
+              minHeight: '44px',
+              maxHeight: '140px',
+            }}
+          />
+
+          {/* Send button */}
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!canSend}
+            className={cn(
+              'flex-none flex items-center justify-center rounded-full',
+              'w-11 h-11 transition-colors mb-[1px]',
+              canSend
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground'
+            )}
+          >
+            <Send size={20} />
+          </button>
+        </div>
+
+        {/* Toolbar row – action buttons */}
+        <div className="flex items-center gap-1 px-3 pb-1">
           <button
             type="button"
             onClick={() => cameraInputRef.current?.click()}
-            className="tap-target flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            className="tap-target flex items-center justify-center text-muted-foreground active:text-foreground transition-colors"
           >
-            <Camera size={24} />
+            <Camera size={22} />
           </button>
           <input
             ref={cameraInputRef}
@@ -210,13 +236,12 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
             onChange={(e) => handleFiles(e.target.files)}
           />
 
-          {/* Gallery button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="tap-target flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            className="tap-target flex items-center justify-center text-muted-foreground active:text-foreground transition-colors"
           >
-            <ImageIcon size={24} />
+            <ImageIcon size={22} />
           </button>
           <input
             ref={fileInputRef}
@@ -227,61 +252,20 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
             onChange={(e) => handleFiles(e.target.files)}
           />
 
-          {/* Emoji button */}
           <button
             type="button"
             onClick={() => setShowEmojiPicker(true)}
-            className="tap-target flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            className="tap-target flex items-center justify-center text-muted-foreground active:text-foreground transition-colors"
           >
-            <Smile size={24} />
+            <Smile size={22} />
           </button>
 
-          {/* GIF button */}
           <button
             type="button"
             onClick={() => setShowGiphyPicker(true)}
-            className="tap-target flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors font-semibold text-xs"
+            className="tap-target flex items-center justify-center text-muted-foreground active:text-foreground transition-colors font-semibold text-xs"
           >
             GIF
-          </button>
-
-          {/* Text input - 16px to prevent iOS zoom */}
-          <div className="flex-1 min-w-0">
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={handleTextChange}
-              onKeyDown={handleKeyDown}
-              placeholder="Skriv en melding..."
-              rows={1}
-              className={cn(
-                'w-full resize-none rounded-2xl border border-input bg-background',
-                'px-4 py-2',
-                'text-[16px] leading-5', // 16px prevents iOS zoom
-                'placeholder:text-muted-foreground',
-                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
-              )}
-              style={{
-                minHeight: '40px',
-                maxHeight: '120px',
-              }}
-            />
-          </div>
-
-          {/* Send button */}
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={!canSend}
-            className={cn(
-              'tap-target flex items-center justify-center rounded-full',
-              'w-10 h-10 transition-colors',
-              canSend
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground'
-            )}
-          >
-            <Send size={20} />
           </button>
         </div>
       </div>
