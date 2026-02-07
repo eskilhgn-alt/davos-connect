@@ -19,9 +19,11 @@ const typeLabels: Record<string, { emoji: string; label: (name: string, payload?
   self_confirmed: { emoji: "✅", label: (n) => `${n} bekreftet: Shot tatt!` },
   witness_confirmed: { emoji: "👁", label: (n) => `${n} bekreftet som vitne` },
   witness_denied: { emoji: "🚫", label: (n) => `${n} avviste – straffeshot!` },
+  witness_timeout: { emoji: "⏰", label: () => "Vitne svarte ikke – auto-bekreftet" },
+  refused: { emoji: "🙅", label: (n) => `${n} nektet – 2 straffeshots!` },
   overdue: { emoji: "⚠️", label: (n) => `${n} tok ikke shot i tide` },
   punished: { emoji: "💀", label: (n, p) => {
-    const reason = p?.witness_id ? "Avvist av vitne" : "Ikke tatt i tide";
+    const reason = (p as any)?.reason === 'refused' ? "Nektet" : (p as any)?.witness_id ? "Avvist av vitne" : "Ikke tatt i tide";
     return `${reason} → straffeshot for ${n}`;
   }},
   bonus_token: { emoji: "🎁", label: (n) => `${n} fikk bonustoken` },

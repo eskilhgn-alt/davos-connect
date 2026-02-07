@@ -86,6 +86,21 @@ export const WitnessOverlay: React.FC = () => {
       } else {
         toast.success(confirm ? "Bekreftet!" : "Shot avvist – ekstra straffeshot!");
         setEvent(null);
+
+        // Send push to notify everyone
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        if (token) {
+          const heading = confirm ? "Vitne bekreftet! 👁" : "Shot avvist! 🚫";
+          const message = confirm
+            ? `Vitne bekreftet at ${winnerName} tok shotten.`
+            : `Vitne avviste – ${winnerName} får straffeshot!`;
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ type: confirm ? "witness_confirmed" : "witness_denied", heading, message }),
+          }).catch(() => {});
+        }
       }
     } catch {
       toast.error("Noe gikk galt");
