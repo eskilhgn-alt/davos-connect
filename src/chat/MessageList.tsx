@@ -16,6 +16,7 @@ import { ReactionsDialog } from './ReactionsDialog';
 import { MessageActionsSheet } from './MessageActionsSheet';
 import { EmojiPicker } from './EmojiPicker';
 import { SeenBySheet } from './SeenBySheet';
+import { MediaViewer } from '@/components/ui/MediaViewer';
 import { chatStore } from './store';
 import { useMarkAsRead } from './useMarkAsRead';
 import { useAuth } from '@/contexts/AuthContext';
@@ -76,6 +77,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [emojiPickerMode, setEmojiPickerMode] = React.useState<'reaction' | 'compose'>('reaction');
   const [showSeenBySheet, setShowSeenBySheet] = React.useState(false);
   const [seenByMessageId, setSeenByMessageId] = React.useState<string | null>(null);
+  const [viewerMedia, setViewerMedia] = React.useState<{ src: string; type: 'image' | 'video' | 'gif' } | null>(null);
 
   // Check if near bottom
   const checkNearBottom = React.useCallback(() => {
@@ -88,11 +90,15 @@ export const MessageList: React.FC<MessageListProps> = ({
     return nearBottom;
   }, []);
 
-  // Scroll to bottom
+  // Scroll to bottom using scrollTop for reliability
   const scrollToBottom = React.useCallback((smooth = true) => {
-    bottomRef.current?.scrollIntoView({
-      behavior: smooth ? 'smooth' : 'auto',
-    });
+    const el = scrollRef.current;
+    if (!el) return;
+    if (smooth) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
   }, []);
 
   // Track if initial scroll has happened
@@ -102,9 +108,14 @@ export const MessageList: React.FC<MessageListProps> = ({
   React.useEffect(() => {
     if (messages.length > 0 && !hasInitialScrolled.current) {
       hasInitialScrolled.current = true;
-      // Use double rAF to ensure DOM is fully rendered
+      // Use double rAF to ensure DOM is fully rendered, then a small timeout fallback
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => scrollToBottom(false));
+        requestAnimationFrame(() => {
+          scrollToBottom(false);
+          // Safety fallback after images may have loaded
+          setTimeout(() => scrollToBottom(false), 100);
+          setTimeout(() => scrollToBottom(false), 500);
+        });
       });
     }
   }, [messages.length, scrollToBottom]);
@@ -112,8 +123,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   // Always scroll to bottom on mount (even re-mount / navigation back)
   React.useEffect(() => {
     hasInitialScrolled.current = false;
-    // Immediate scroll attempt
     requestAnimationFrame(() => scrollToBottom(false));
+    setTimeout(() => scrollToBottom(false), 200);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll on new messages if near bottom
@@ -277,19 +288,20 @@ export const MessageList: React.FC<MessageListProps> = ({
                 const prevMsg = idx > 0 ? group.messages[idx - 1] : null;
                 const showSender = !prevMsg || prevMsg.senderId !== msg.senderId;
 
-                return (
-                  <MessageItem
-                    key={msg.id}
-                    message={msg}
-                    isOwn={isOwn}
-                    showSender={showSender}
-                    currentUserId={currentUserId}
-                    onShowActions={handleShowActions}
-                    onShowReactions={handleShowReactions}
-                    onShowSeenBy={handleShowSeenBy}
-                  />
-                );
-              })}
+                  return (
+                    <MessageItem
+                      key={msg.id}
+                      message={msg}
+                      isOwn={isOwn}
+                      showSender={showSender}
+                      currentUserId={currentUserId}
+                      onShowActions={handleShowActions}
+                      onShowReactions={handleShowReactions}
+                      onShowSeenBy={handleShowSeenBy}
+                    />
+                  );
+                })}
+
             </div>
           ))}
 
@@ -376,6 +388,16 @@ export const MessageList: React.FC<MessageListProps> = ({
             setShowSeenBySheet(false);
             setSeenByMessageId(null);
           }}
+        />
+      )}
+
+      {/* Media Viewer */}
+      {viewerMedia && (
+        <MediaViewer
+          open={true}
+          src={viewerMedia.src}
+          type={viewerMedia.type}
+          onClose={() => setViewerMedia(null)}
         />
       )}
     </div>
