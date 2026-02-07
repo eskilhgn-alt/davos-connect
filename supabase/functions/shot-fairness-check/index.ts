@@ -19,80 +19,185 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
-    // Gather data for analysis
-    const [eventsRes, tokensRes, profilesRes] = await Promise.all([
-      sb.from("shot_events").select("*").order("created_at", { ascending: false }).limit(50),
+    // Gather comprehensive data for analysis
+    const [eventsRes, tokensRes, profilesRes, logRes] = await Promise.all([
+      sb.from("shot_events").select("*").order("created_at", { ascending: false }).limit(100),
       sb.from("shot_tokens").select("*"),
       sb.from("profiles").select("id, nickname, full_name, email, is_active"),
+      sb.from("shot_event_log").select("*").order("created_at", { ascending: false }).limit(200),
     ]);
 
     const events = eventsRes.data ?? [];
     const tokens = tokensRes.data ?? [];
     const profiles = profilesRes.data ?? [];
+    const logs = logRes.data ?? [];
 
-    // Fetch the DB functions source code for the AI to audit
-    const { data: fnSources } = await sb.rpc("rpc_get_shot_leaderboard", { p_group_id: "global", p_days: 9999 });
+    // Fetch leaderboard
+    const { data: leaderboard } = await sb.rpc("rpc_get_shot_leaderboard", { p_group_id: "global", p_days: 9999 });
 
     // Build profile map
     const profileMap: Record<string, string> = {};
     profiles.forEach((p: any) => { profileMap[p.id] = p.nickname || p.full_name || p.email; });
 
-    // Build stats summary
-    const selectionCounts: Record<string, number> = {};
-    const startCounts: Record<string, number> = {};
-    events.forEach((e: any) => {
-      if (e.selected_user_id) selectionCounts[e.selected_user_id] = (selectionCounts[e.selected_user_id] || 0) + 1;
-      if (e.started_by) startCounts[e.started_by] = (startCounts[e.started_by] || 0) + 1;
+    // Detailed per-user stats
+    const userStats: Record<string, {
+      name: string;
+      times_selected: number;
+      times_started: number;
+      times_confirmed: number;
+      times_punished: number;
+      times_witnessed: number;
+      bonus_tokens: number;
+      selection_dates: string[];
+    }> = {};
+
+    profiles.forEach((p: any) => {
+      if (p.is_active) {
+        userStats[p.id] = {
+          name: p.nickname || p.full_name || p.email,
+          times_selected: 0,
+          times_started: 0,
+          times_confirmed: 0,
+          times_punished: 0,
+          times_witnessed: 0,
+          bonus_tokens: 0,
+          selection_dates: [],
+        };
+      }
     });
+
+    events.forEach((e: any) => {
+      if (e.selected_user_id && userStats[e.selected_user_id]) {
+        userStats[e.selected_user_id].times_selected++;
+        userStats[e.selected_user_id].selection_dates.push(e.created_at);
+        if (e.status === "confirmed") userStats[e.selected_user_id].times_confirmed++;
+        if (e.status === "punished") userStats[e.selected_user_id].times_punished++;
+      }
+      if (e.started_by && userStats[e.started_by]) {
+        userStats[e.started_by].times_started++;
+      }
+      if (e.witness_confirmed_by && userStats[e.witness_confirmed_by]) {
+        userStats[e.witness_confirmed_by].times_witnessed++;
+      }
+    });
+
+    logs.forEach((l: any) => {
+      if (l.type === "bonus_token" && l.actor_id && userStats[l.actor_id]) {
+        userStats[l.actor_id].bonus_tokens++;
+      }
+    });
+
+    // Identify the app creator/admin (Eskil) for explicit bias check
+    const adminCheck = Object.entries(userStats).map(([id, stats]) => ({
+      user_id: id,
+      ...stats,
+      is_potential_admin: stats.name.toLowerCase().includes("eskil"),
+    }));
+
+    // Calculate expected vs actual selection rates
+    const totalSelections = events.filter((e: any) => e.selected_user_id).length;
+    const activeUserCount = Object.keys(userStats).length;
+    const expectedRate = activeUserCount > 0 ? totalSelections / activeUserCount : 0;
+
+    // Recent pattern analysis (last 20 rounds)
+    const recentEvents = events.slice(0, 20);
+    const recentSelections: Record<string, number> = {};
+    recentEvents.forEach((e: any) => {
+      if (e.selected_user_id) {
+        recentSelections[e.selected_user_id] = (recentSelections[e.selected_user_id] || 0) + 1;
+      }
+    });
+
+    // Check for consecutive avoidance patterns
+    const selectionSequence = events
+      .filter((e: any) => e.selected_user_id)
+      .map((e: any) => ({
+        user: profileMap[e.selected_user_id] || e.selected_user_id,
+        date: e.created_at,
+        started_by: profileMap[e.started_by] || e.started_by,
+      }));
 
     const lastEvent = events[0];
     const lastUpdate = lastEvent ? lastEvent.created_at : "Ingen runder ennå";
 
     const dataForAi = {
       total_rounds: events.length,
+      active_users: activeUserCount,
       last_round_date: lastUpdate,
-      selection_distribution: Object.entries(selectionCounts).map(([uid, count]) => ({
-        user: profileMap[uid] || uid,
-        times_selected: count,
-      })),
-      starter_distribution: Object.entries(startCounts).map(([uid, count]) => ({
-        user: profileMap[uid] || uid,
-        times_started: count,
-      })),
+      expected_selections_per_user: Math.round(expectedRate * 100) / 100,
+      per_user_stats: adminCheck,
       token_balances: tokens.map((t: any) => ({
         user: profileMap[t.user_id] || t.user_id,
         balance: t.balance,
         last_refill: t.last_refill_at,
       })),
-      active_users: profiles.filter((p: any) => p.is_active).length,
-      total_profiles: profiles.length,
-      leaderboard: fnSources,
-      algorithm_description: `
-        The selection algorithm uses weighted random selection.
-        Each active user gets a weight of 1/(1 + recent_selections_in_7_days).
-        This means users who have been selected recently have a LOWER chance of being selected again.
-        The admin has NO special privileges in the selection.
-        All users are treated equally based on their selection history.
-        Tokens: Each user starts with 5, gets +1 per day (max 5). Starting a round costs 1 token.
-        There is a 5-minute cooldown between rounds.
-      `,
+      recent_20_selections: Object.entries(recentSelections).map(([uid, count]) => ({
+        user: profileMap[uid] || uid,
+        recent_count: count,
+      })),
+      selection_sequence_last_15: selectionSequence.slice(0, 15),
+      leaderboard,
+      game_rules: {
+        selection_algorithm: "Weighted random: weight = 1 / (1 + selections_last_7_days). Lower recent selections = higher chance. NO admin overrides possible.",
+        deadline: "40 minutes to take the shot",
+        punishment: "2 penalty shots if deadline missed",
+        tokens: "Start with 5, +1 per day (max 5). 1 token per round. Bonus +1 if leading by 2+ shots.",
+        cooldown: "None - new round can start immediately after previous ends",
+        witness_system: "Selected user must choose a specific witness to confirm",
+        code_location: "All logic runs in PostgreSQL SECURITY DEFINER functions - no client-side manipulation possible",
+      },
+      bias_check_targets: {
+        primary: "Eskil (app creator/admin) - MUST verify this user receives NO special treatment",
+        checks: [
+          "Is Eskil's selection rate statistically consistent with other users?",
+          "Does Eskil avoid being selected when Eskil starts rounds?",
+          "Are Eskil's token balances consistent with game rules?",
+          "Is there any code path that could exclude or favor Eskil?",
+          "Does the weighted algorithm treat Eskil identically to all other users?",
+          "Has Eskil been punished when overdue, same as others?",
+          "Are there suspicious patterns in who starts rounds vs who gets selected?",
+        ],
+      },
     };
 
-    const prompt = `Du er en uavhengig, nøytral rettferdighets-revisor for et "Shoot your shot"-spill.
-Din jobb er å analysere spilldata og algoritmen for å avdekke enhver form for bias, favorisering eller urettferdighet.
+    const prompt = `Du er en uavhengig, kritisk og grundig rettferdighets-revisor for et "Shoot your shot"-spill.
+Din VIKTIGSTE oppgave er å verifisere at spillets skaper (Eskil) IKKE får noen fordeler, unntak eller spesialbehandling.
 
-Her er spilldata og algoritmebeskrivelse:
+SPILLDATA OG REGLER:
 ${JSON.stringify(dataForAi, null, 2)}
 
-Analyser følgende og gi en NORSK rapport:
-1. **Algoritmevurdering**: Er vektingsalgoritmen rettferdig? Kan noen manipulere den?
-2. **Utvalgsfordeling**: Er det statistisk mistenkelige avvik i hvem som blir valgt?
-3. **Token-fordeling**: Er token-balansene rettferdige og konsistente?
-4. **Admin-sjekk**: Er det tegn på at noen bruker (spesielt admin/oppretteren) unngår å bli valgt?
-5. **Siste oppdatering**: Når skjedde siste runde, og hva var resultatet?
-6. **Samlet dom**: Gi en overordnet vurdering (✅ Rettferdig / ⚠️ Mulig skjevhet / ❌ Urettferdighet funnet)
+UTFØR FØLGENDE GRUNDIGE ANALYSE (på norsk):
 
-Vær ærlig, direkte og kort. Maks 300 ord. Bruk norsk.`;
+## 1. ESKIL-SJEKK (KRITISK)
+- Sammenlign Eskils utvalgsrate med forventet rate og andre brukere
+- Sjekk om Eskil unngår å bli valgt når han starter runder
+- Verifiser at Eskils token-balanse følger reglene
+- Undersøk om Eskil har fått straff når det er fortjent
+- Se etter korrelasjon mellom hvem som starter og hvem som velges
+
+## 2. ALGORITMEVURDERING
+- Er vektingsformelen (1/(1+siste_7_dager)) genuint rettferdig?
+- Kan noen bruker manipulere sin egen vekt?
+- Er det mulig å omgå algoritmen via klientkode? (Nei - SECURITY DEFINER)
+
+## 3. STATISTISK ANALYSE
+- Beregn chi-kvadrat eller avviksanalyse for seleksjonsfordelingen
+- Er fordelingen innenfor normale tilfeldige variasjoner?
+- Finn eventuelle outliers eller mistenkelige mønstre
+
+## 4. TOKEN-REVISJON
+- Er alle balanser konsistente med spillreglene?
+- Har noen fått uforklarte bonuser?
+
+## 5. TIDSLINJE-SJEKK
+- Se på rekkefølgen av de siste 15 rundene
+- Er det mistenkelige mønstre i hvem som starter vs hvem som velges?
+
+## 6. SAMLET DOM
+Gi en klar dom: ✅ RETTFERDIG / ⚠️ MULIG SKJEVHET / ❌ URETTFERDIGHET
+Inkluder konkret tallgrunnlag for konklusjonen.
+
+Vær EKSTREMT grundig og kritisk. Ikke godta noe uten bevis. Maks 500 ord.`;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -101,9 +206,9 @@ Vær ærlig, direkte og kort. Maks 300 ord. Bruk norsk.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "Du er en uavhengig revisor som sjekker rettferdighet i spill. Svar kun på norsk." },
+          { role: "system", content: "Du er en uavhengig, kritisk revisor som sjekker rettferdighet i spill. Du er spesielt oppmerksom på om spillets skaper (Eskil) får urettferdige fordeler. Svar kun på norsk. Vær grundig og analytisk." },
           { role: "user", content: prompt },
         ],
       }),
@@ -132,7 +237,7 @@ Vær ærlig, direkte og kort. Maks 300 ord. Bruk norsk.`;
       report,
       last_update: lastUpdate,
       total_rounds: events.length,
-      active_users: profiles.filter((p: any) => p.is_active).length,
+      active_users: activeUserCount,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
