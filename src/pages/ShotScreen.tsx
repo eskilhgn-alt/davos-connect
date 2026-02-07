@@ -6,6 +6,7 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
+import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { ShotButton } from "@/components/shot/ShotButton";
@@ -268,7 +269,8 @@ export const ShotScreen: React.FC = () => {
     >
       <AppHeader title="Shoot your shot" leftAction={<BackButton fallbackPath="/hjem" />} />
 
-      <div
+      <PullToRefreshWrapper
+        onRefresh={async () => { await Promise.all([loadTokens(), loadActiveEvent(), loadLog()]); }}
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{
           paddingBottom: "var(--bottom-nav-h-effective)",
@@ -328,7 +330,7 @@ export const ShotScreen: React.FC = () => {
           {/* Transparency / fairness checker */}
           <ShotTransparency />
         </div>
-      </div>
+      </PullToRefreshWrapper>
     </div>
   );
 };
