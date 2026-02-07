@@ -1,4 +1,4 @@
-import { Users, Bell, Info, Shield, MapPin, LucideIcon } from "lucide-react";
+import { Users, Settings, Shield, LucideIcon } from "lucide-react";
 
 export interface MenuItem {
   icon: LucideIcon;
@@ -9,9 +9,7 @@ export interface MenuItem {
 }
 
 export const moreMenuItems: MenuItem[] = [
-  { icon: MapPin, title: "Magnus?", subtitle: "Se hvor alle er", path: "/magnus" },
   { icon: Users, title: "Gruppen", subtitle: "Se alle deltakere", path: "/gruppe" },
-  { icon: Bell, title: "Varsler", subtitle: "Push-innstillinger", path: "/varsler" },
-  { icon: Info, title: "Info", subtitle: "Om appen & sikkerhet", path: "/info" },
+  { icon: Settings, title: "Innstillinger", subtitle: "Varsler & info", path: "/innstillinger" },
   { icon: Shield, title: "Admin", subtitle: "Brukeradministrasjon", path: "/admin", requiresAdmin: true },
 ];

@@ -13,10 +13,9 @@ import {
   CloudSun,
   Radio,
   Map,
+  MapPin,
   Target,
   Settings,
-  Users,
-  Bell,
   ShieldCheck,
   CalendarDays,
   Coins,
@@ -42,12 +41,11 @@ export const HomeScreen: React.FC = () => {
       { to: "/vaer", label: "Vær", icon: CloudSun },
       { to: "/live", label: "Live", icon: Radio },
       { to: "/kart", label: "Løypekart", icon: Map },
+      { to: "/magnus", label: "Magnus?", icon: MapPin },
       { to: "/shot", label: "Shoot", icon: Target },
       { to: "/tokens", label: "Tokens", icon: Coins },
       { to: "/agenda", label: "Agenda", icon: CalendarDays },
-      { to: "/gruppe", label: "Gruppen", icon: Users },
-      { to: "/varsler", label: "Varsler", icon: Bell },
-      { to: "/info", label: "Info", icon: Settings },
+      { to: "/innstillinger", label: "Innstillinger", icon: Settings },
     ];
     if (isAdmin) {
       base.push({ to: "/admin", label: "Admin", icon: ShieldCheck });

@@ -19,11 +19,10 @@ import ShotScreen from "./pages/ShotScreen";
 import AgendaScreen from "./pages/AgendaScreen";
 import TokensScreen from "./pages/TokensScreen";
 
-import NotificationsScreen from "./pages/NotificationsScreen";
+import SettingsScreen from "./pages/SettingsScreen";
 import WebcamsScreen from "./pages/WebcamsScreen";
 import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
-import InfoScreen from "./pages/InfoScreen";
 import GroupScreen from "./pages/GroupScreen";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
@@ -79,9 +78,8 @@ const AppRoutes = () => (
       <Route path="/feed" element={<FeedScreen />} />
       <Route path="/mer" element={<MoreScreen />} />
       {/* Gallery removed — media lives in chat */}
-      <Route path="/varsler" element={<NotificationsScreen />} />
+      <Route path="/innstillinger" element={<SettingsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
-      <Route path="/info" element={<InfoScreen />} />
       <Route path="/gruppe" element={<GroupScreen />} />
       <Route path="/shot" element={<ShotScreen />} />
       <Route path="/tokens" element={<TokensScreen />} />
