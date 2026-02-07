@@ -6,6 +6,7 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { BackButton } from "@/components/layout/BackButton";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosEmptyState } from "@/components/ui/davos-empty-state";
@@ -68,7 +69,7 @@ export const GroupScreen: React.FC = () => {
       <AppHeader
         title="Gruppen"
         subtitle="Deltakere i Lift & Lager"
-        rightAction={<Users className="h-5 w-5 text-primary-foreground/70" />}
+        leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
       <div

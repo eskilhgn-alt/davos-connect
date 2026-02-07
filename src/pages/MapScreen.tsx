@@ -1,5 +1,6 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { BackButton } from "@/components/layout/BackButton";
 import { DavosSegmented } from "@/components/ui/davos-segmented";
 import { DavosWebEmbed } from "@/components/live/DavosWebEmbed";
 import {
@@ -31,7 +32,7 @@ export const MapScreen: React.FC = () => {
       className="flex flex-col overflow-hidden"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Løypekart" subtitle="Davos Klosters" />
+      <AppHeader title="Løypekart" subtitle="Davos Klosters" leftAction={<BackButton fallbackPath="/hjem" />} />
 
       {/* Main content */}
       <div 

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { BackButton } from "@/components/layout/BackButton";
 import { DavosEmptyState } from "@/components/ui/davos-empty-state";
 import { DavosErrorState } from "@/components/ui/davos-error-state";
 import { DavosCardSkeleton } from "@/components/ui/davos-skeleton";
@@ -16,7 +17,7 @@ export const FeedScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Feed" subtitle="Bilder & oppdateringer" />
+      <AppHeader title="Feed" subtitle="Bilder & oppdateringer" leftAction={<BackButton fallbackPath="/hjem" />} />
       
       <div 
         className="flex-1 overflow-y-auto overscroll-contain"

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { BackButton } from "@/components/layout/BackButton";
 import { DavosErrorState } from "@/components/ui/davos-error-state";
 import { DavosListRowSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosListRow } from "@/components/ui/davos-list-row";
@@ -37,7 +38,7 @@ export const MoreScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Mer" subtitle="Verktøy & info" />
+      <AppHeader title="Mer" subtitle="Verktøy & info" leftAction={<BackButton fallbackPath="/hjem" />} />
       
       <div 
         className="flex-1 overflow-y-auto overscroll-contain"

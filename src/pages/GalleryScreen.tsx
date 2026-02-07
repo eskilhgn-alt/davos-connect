@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { AppHeader } from '@/components/layout/AppHeader';
+import { BackButton } from '@/components/layout/BackButton';
 import { supabase } from '@/integrations/supabase/client';
 import { MediaViewer } from '@/components/ui/MediaViewer';
 import { DavosEmptyState } from '@/components/ui/davos-empty-state';
@@ -76,7 +77,7 @@ export const GalleryScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Galleri" subtitle="Delte bilder og videoer" />
+      <AppHeader title="Galleri" subtitle="Delte bilder og videoer" leftAction={<BackButton fallbackPath="/hjem" />} />
 
       <div
         className="flex-1 overflow-y-auto overscroll-contain p-4"

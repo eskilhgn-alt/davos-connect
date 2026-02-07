@@ -1,5 +1,6 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { BackButton } from "@/components/layout/BackButton";
 import { WEBCAMS, getWebcamProxyUrl, type Webcam } from "@/config/webcams";
 import { cn } from "@/lib/utils";
 import { Camera, RefreshCw, ImageOff, Mountain } from "lucide-react";
@@ -106,9 +107,7 @@ export const WebcamsScreen: React.FC = () => {
       <AppHeader
         title="Webcams"
         subtitle="Davos Klosters"
-        rightAction={
-          <Camera className="h-5 w-5 text-primary-foreground/70" />
-        }
+        leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
       <div 

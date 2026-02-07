@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { BackButton } from "@/components/layout/BackButton";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosButton } from "@/components/ui/davos-button";
 import { DavosInput } from "@/components/ui/davos-input";
@@ -178,11 +179,7 @@ export const AdminScreen: React.FC = () => {
       <AppHeader 
         title="Admin" 
         subtitle={`${users.length} brukere`}
-        leftAction={
-          <button onClick={() => navigate("/hjem")} className="p-2">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-        }
+        leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
       <div 
