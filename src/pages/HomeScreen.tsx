@@ -118,6 +118,7 @@ export const HomeScreen: React.FC = () => {
 
           {/* Navigation – clean text list */}
           <nav className="space-y-0">
+            <NavRow to="/shot" label="Shoot your shot" detail="🎯" />
             <NavRow to="/chat" label="Chat" detail={unreadCount > 0 ? `${unreadCount} uleste` : undefined} />
             <NavRow to="/vaer" label="Vær" detail="Yr · MeteoSwiss" />
             <NavRow to="/live" label="Live" detail="Radar & webcams" />

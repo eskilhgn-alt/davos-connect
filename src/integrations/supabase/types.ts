@@ -264,6 +264,113 @@ export type Database = {
         }
         Relationships: []
       }
+      shot_event_log: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_id: string
+          id: string
+          payload: Json | null
+          type: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          payload?: Json | null
+          type: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          payload?: Json | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shot_event_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "shot_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shot_events: {
+        Row: {
+          confirmed_at: string | null
+          countdown_ends_at: string | null
+          created_at: string
+          deadline_at: string | null
+          group_id: string
+          id: string
+          punishment_applied_at: string | null
+          selected_at: string | null
+          selected_user_id: string | null
+          self_confirmed: boolean | null
+          started_by: string
+          status: string
+          witness_confirmed_at: string | null
+          witness_confirmed_by: string | null
+        }
+        Insert: {
+          confirmed_at?: string | null
+          countdown_ends_at?: string | null
+          created_at?: string
+          deadline_at?: string | null
+          group_id?: string
+          id?: string
+          punishment_applied_at?: string | null
+          selected_at?: string | null
+          selected_user_id?: string | null
+          self_confirmed?: boolean | null
+          started_by: string
+          status?: string
+          witness_confirmed_at?: string | null
+          witness_confirmed_by?: string | null
+        }
+        Update: {
+          confirmed_at?: string | null
+          countdown_ends_at?: string | null
+          created_at?: string
+          deadline_at?: string | null
+          group_id?: string
+          id?: string
+          punishment_applied_at?: string | null
+          selected_at?: string | null
+          selected_user_id?: string | null
+          self_confirmed?: boolean | null
+          started_by?: string
+          status?: string
+          witness_confirmed_at?: string | null
+          witness_confirmed_by?: string | null
+        }
+        Relationships: []
+      }
+      shot_tokens: {
+        Row: {
+          balance: number
+          last_refill_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          last_refill_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          last_refill_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       threads: {
         Row: {
           created_at: string
@@ -657,6 +764,18 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      rpc_apply_overdue: { Args: { p_event_id: string }; Returns: Json }
+      rpc_confirm_shot: {
+        Args: { p_event_id: string; p_mode: string }
+        Returns: Json
+      }
+      rpc_finalize_countdown: { Args: { p_event_id: string }; Returns: Json }
+      rpc_get_shot_leaderboard: {
+        Args: { p_days?: number; p_group_id?: string }
+        Returns: Json
+      }
+      rpc_get_shot_tokens: { Args: never; Returns: Json }
+      rpc_start_shot_round: { Args: { p_group_id?: string }; Returns: Json }
     }
     Enums: {
       app_role: "user" | "admin"

@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.weather-ai-summary]
 verify_jwt = false
+
+[functions.shot-push]
+verify_jwt = false
