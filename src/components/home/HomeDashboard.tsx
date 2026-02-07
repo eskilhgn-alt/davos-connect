@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
+import { CurrencyCalculator } from "./CurrencyCalculator";
 
 interface NextEvent {
   title: string;
@@ -47,6 +48,7 @@ export const HomeDashboard: React.FC = () => {
   const { user } = useAuth();
   const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
   const [nextEvent, setNextEvent] = React.useState<NextEvent | null>(null);
+  const [calcOpen, setCalcOpen] = React.useState(false);
 
   // AI weather summary (includes structured weather numbers)
   const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary();
@@ -79,17 +81,20 @@ export const HomeDashboard: React.FC = () => {
   return (
     <section className="space-y-2">
       <div className="grid grid-cols-3 gap-2">
-        {/* CHF → NOK */}
-        <div className="rounded-xl bg-muted/50 border border-border p-3 flex flex-col items-center justify-center gap-1">
+        {/* CHF → NOK – opens calculator */}
+        <button
+          onClick={() => setCalcOpen(true)}
+          className="rounded-xl bg-muted/50 border border-border p-3 flex flex-col items-center justify-center gap-1 text-left active:scale-[0.97] transition-transform"
+        >
           <ArrowRightLeft size={14} className="text-muted-foreground" />
           <span className="text-[10px] text-muted-foreground uppercase tracking-wide">1 CHF</span>
           <span className="font-heading text-sm font-bold text-foreground leading-none">
             {rate.loading ? "…" : rate.rate ? `${rate.rate.toFixed(2)} kr` : "–"}
           </span>
           <span className="text-[5px] text-muted-foreground/40 leading-none w-full text-center truncate">Den europeiske sentralbanken</span>
-        </div>
+        </button>
 
-        {/* Next event */}
+        {/* Next event → agenda */}
         <Link
           to="/agenda"
           className="rounded-xl bg-muted/50 border border-border p-3 flex flex-col items-center justify-center gap-1 text-center"
@@ -110,7 +115,7 @@ export const HomeDashboard: React.FC = () => {
           )}
         </Link>
 
-        {/* Weather – from AI assessment */}
+        {/* Weather → vær */}
         <Link
           to="/vaer"
           className="rounded-xl bg-muted/50 border border-border p-3 flex flex-col items-center justify-center gap-0.5 text-center"
@@ -141,6 +146,15 @@ export const HomeDashboard: React.FC = () => {
           )}
         </Link>
       </div>
+
+      {/* Currency calculator popup */}
+      {rate.rate && (
+        <CurrencyCalculator
+          rate={rate.rate}
+          open={calcOpen}
+          onClose={() => setCalcOpen(false)}
+        />
+      )}
     </section>
   );
 };

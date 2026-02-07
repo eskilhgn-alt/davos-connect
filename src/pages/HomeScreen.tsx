@@ -58,7 +58,7 @@ export const HomeScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Lift & Lager" />
+      <AppHeader title="Glühwein" />
 
       <div
         className="flex-1 overflow-y-auto overscroll-contain"
