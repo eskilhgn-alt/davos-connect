@@ -57,8 +57,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/shot", label: "Shoot", icon: Target },
       { to: "/tokens", label: "Tokens", icon: Coins },
       { to: "/agenda", label: "Agenda", icon: CalendarDays },
-      { to: "/historier", label: "Historier", icon: Film },
-      { to: "/galleri", label: "Galleri", icon: ImageIcon },
+      { to: "/galleri", label: "Snap & Galleri", icon: Film },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
     ];
