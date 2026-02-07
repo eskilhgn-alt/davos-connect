@@ -24,43 +24,21 @@ interface NextEvent {
   start_at: string;
 }
 
-interface WeatherData {
-  temp: number;
-  tempMin: number;
-  tempMax: number;
-  wind: number;
-  windDir: number;
-  weatherCode: number;
-  precip: number;
-  snow: number;
-}
-
-// WMO weather codes → icon + short label
-const WMO: Record<number, { icon: React.ElementType; label: string }> = {
-  0: { icon: Sun, label: "Klart" },
-  1: { icon: Sun, label: "Klart" },
-  2: { icon: Cloud, label: "Delvis skyet" },
-  3: { icon: Cloud, label: "Skyet" },
-  45: { icon: CloudFog, label: "Tåke" },
-  48: { icon: CloudFog, label: "Rimtåke" },
-  51: { icon: CloudDrizzle, label: "Yr" },
-  53: { icon: CloudDrizzle, label: "Yr" },
-  55: { icon: CloudDrizzle, label: "Yr" },
-  61: { icon: CloudRain, label: "Regn" },
-  63: { icon: CloudRain, label: "Regn" },
-  65: { icon: CloudRain, label: "Mye regn" },
-  71: { icon: CloudSnow, label: "Snø" },
-  73: { icon: CloudSnow, label: "Snø" },
-  75: { icon: CloudSnow, label: "Mye snø" },
-  85: { icon: CloudSnow, label: "Snøbyger" },
-  86: { icon: CloudSnow, label: "Kraftig snø" },
+// WMO weather codes → icon
+const WMO: Record<number, { icon: React.ElementType }> = {
+  0: { icon: Sun }, 1: { icon: Sun },
+  2: { icon: Cloud }, 3: { icon: Cloud },
+  45: { icon: CloudFog }, 48: { icon: CloudFog },
+  51: { icon: CloudDrizzle }, 53: { icon: CloudDrizzle }, 55: { icon: CloudDrizzle },
+  61: { icon: CloudRain }, 63: { icon: CloudRain }, 65: { icon: CloudRain },
+  71: { icon: CloudSnow }, 73: { icon: CloudSnow }, 75: { icon: CloudSnow },
+  85: { icon: CloudSnow }, 86: { icon: CloudSnow },
 };
 
-function getWmo(code: number) {
-  return WMO[code] ?? { icon: Cloud, label: "Ukjent" };
+function getWmoIcon(code: number) {
+  return WMO[code]?.icon ?? Cloud;
 }
 
-// Wind direction arrow rotation
 function windArrowRotation(deg: number) {
   return { transform: `rotate(${deg}deg)` };
 }
@@ -69,10 +47,10 @@ export const HomeDashboard: React.FC = () => {
   const { user } = useAuth();
   const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
   const [nextEvent, setNextEvent] = React.useState<NextEvent | null>(null);
-  const [wx, setWx] = React.useState<WeatherData | null>(null);
 
-  // Start AI summary fetch (warms cache for weather page)
-  useWeatherAiSummary();
+  // AI weather summary (includes structured weather numbers)
+  const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary();
+  const wx = aiSummary?.weather;
 
   // 1. NOK/CHF (ECB)
   React.useEffect(() => {
@@ -96,35 +74,7 @@ export const HomeDashboard: React.FC = () => {
       });
   }, [user]);
 
-  // 3. Weather numbers from MeteoSwiss (Davos 46.8, 9.84)
-  React.useEffect(() => {
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/weather-meteoswiss?lat=46.8&lon=9.84`;
-    fetch(url, {
-      headers: {
-        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d?.now && d?.daily?.[0]) {
-          setWx({
-            temp: d.now.temp,
-            tempMin: d.daily[0].tempMin,
-            tempMax: d.daily[0].tempMax,
-            wind: d.now.wind,
-            windDir: d.now.windDir,
-            weatherCode: d.now.weatherCode,
-            precip: d.daily[0].precip ?? 0,
-            snow: d.daily[0].snow ?? 0,
-          });
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const wmo = wx ? getWmo(wx.weatherCode) : null;
-  const WeatherIcon = wmo?.icon ?? Cloud;
+  const WeatherIcon = wx ? getWmoIcon(wx.weatherCode) : Cloud;
 
   return (
     <section className="space-y-2">
@@ -159,26 +109,26 @@ export const HomeDashboard: React.FC = () => {
           )}
         </Link>
 
-        {/* Weather – icons + numbers */}
+        {/* Weather – from AI assessment */}
         <Link
           to="/vaer"
           className="rounded-xl bg-muted/50 border border-border p-3 flex flex-col items-center justify-center gap-0.5 text-center"
         >
-          {wx ? (
+          {wx && !aiLoading ? (
             <>
               <WeatherIcon size={20} className="text-foreground" />
               <span className="font-heading text-sm font-bold text-foreground leading-none">
-                {wx.tempMax}° / {wx.tempMin}°
+                {wx.tempMax != null ? `${wx.tempMax}°` : "–"} / {wx.tempMin != null ? `${wx.tempMin}°` : "–"}
               </span>
               <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
                 <Wind size={9} />
-                <span>{wx.wind} m/s</span>
+                <span>{wx.wind ?? "–"} m/s</span>
                 <MoveRight size={8} style={windArrowRotation(wx.windDir)} />
               </div>
               {wx.snow > 0 && (
                 <div className="flex items-center gap-0.5 text-[9px] text-primary font-medium">
                   <Droplets size={8} />
-                  <span>{wx.snow} cm snø</span>
+                  <span>{wx.snow} cm</span>
                 </div>
               )}
             </>

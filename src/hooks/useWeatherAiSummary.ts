@@ -5,6 +5,17 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+export interface WeatherAiWeather {
+  temp: number | null;
+  tempMin: number | null;
+  tempMax: number | null;
+  wind: number | null;
+  windDir: number;
+  weatherCode: number;
+  precip: number;
+  snow: number;
+}
+
 export interface WeatherAiSummary {
   todaySummary: string;
   tomorrowSummary: string;
@@ -14,6 +25,7 @@ export interface WeatherAiSummary {
   confidenceReason?: string;
   generatedAt: string;
   cached?: boolean;
+  weather?: WeatherAiWeather | null;
 }
 
 interface UseWeatherAiSummaryOptions {
