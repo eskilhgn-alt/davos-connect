@@ -1,11 +1,13 @@
 /**
  * StoryViewer – Snapchat/Instagram-style fullscreen viewer
- * Features: progress bars, tap left/right, swipe between users, pause on hold
+ * Features: progress bars, tap left/right, swipe between users, pause on hold, view counter
  */
 
 import * as React from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { StoryViewers } from "@/components/stories/StoryViewers";
 import type { StoryGroup } from "@/hooks/useStories";
 
 interface StoryViewerProps {
@@ -21,6 +23,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   onClose,
   onViewed,
 }) => {
+  const { user } = useAuth();
   const [groupIdx, setGroupIdx] = React.useState(initialGroupIndex);
   const [storyIdx, setStoryIdx] = React.useState(0);
   const [progress, setProgress] = React.useState(0);
@@ -203,6 +206,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           />
         )}
       </div>
+
+      {/* View counter for own stories */}
+      {story && user && (
+        <StoryViewers storyId={story.id} isOwner={story.userId === user.id} />
+      )}
     </div>
   );
 };

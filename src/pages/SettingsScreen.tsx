@@ -8,11 +8,13 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { PushNotificationToggle } from "@/components/settings/PushNotificationToggle";
 import { GeolocationToggle } from "@/components/settings/GeolocationToggle";
+import { supabase } from "@/integrations/supabase/client";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosButton } from "@/components/ui/davos-button";
 import { DavosInput } from "@/components/ui/davos-input";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
+import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import {
   Code2,
   Shield,
@@ -31,6 +33,7 @@ import {
   Sun,
   Loader2,
   Check,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -120,6 +123,7 @@ export const SettingsScreen: React.FC = () => {
                 </h2>
               </div>
               <div className="space-y-3">
+                <AvatarUpload />
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Fullt navn</label>
                   <DavosInput
@@ -280,6 +284,36 @@ export const SettingsScreen: React.FC = () => {
                 <p><strong>Personvern:</strong> Data lagres i Europa (EU/Sveits). Du kan be om sletting når som helst.</p>
                 <p><strong>Ingen garanti:</strong> Appen leveres "som den er".</p>
               </div>
+            </DavosCardContent>
+          </DavosCard>
+
+          {/* Change password */}
+          <DavosCard>
+            <DavosCardContent className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <KeyRound className="h-5 w-5 text-primary" />
+                <h2 className="font-heading font-semibold text-foreground">
+                  Passord
+                </h2>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                Send en tilbakestillingslenke til e-posten din for å endre passord.
+              </p>
+              <DavosButton
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={async () => {
+                  if (!user?.email) return;
+                  const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+                    redirectTo: `${window.location.origin}/reset-password`,
+                  });
+                  if (error) toast.error(error.message);
+                  else toast.success("Sjekk e-posten din for lenke!");
+                }}
+              >
+                Send tilbakestillingslenke
+              </DavosButton>
             </DavosCardContent>
           </DavosCard>
 

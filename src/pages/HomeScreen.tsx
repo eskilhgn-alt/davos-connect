@@ -12,6 +12,7 @@ import { StoryCapture } from "@/components/stories/StoryCapture";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useStories } from "@/hooks/useStories";
+import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
 import {
   MessageCircle,
   CloudSun,
@@ -79,11 +80,10 @@ export const HomeScreen: React.FC = () => {
     >
       <AppHeader title="Glühwein" />
 
-      <div
+      <PullToRefreshWrapper
+        onRefresh={async () => { await refetch(); }}
         className="flex-1 overflow-y-auto overscroll-contain"
-        style={{
-          WebkitOverflowScrolling: "touch",
-        }}
+        style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="px-4 pt-4 pb-10 space-y-5">
           {/* Story rings – Instagram/Snapchat style */}
@@ -124,7 +124,7 @@ export const HomeScreen: React.FC = () => {
             ))}
           </nav>
         </div>
-      </div>
+      </PullToRefreshWrapper>
 
       {/* Story Viewer */}
       {viewerOpen && groups.length > 0 && (
