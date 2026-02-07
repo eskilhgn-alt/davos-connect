@@ -1,6 +1,6 @@
 /**
  * ChatScreen - Messenger-style chat for iPhone PWA
- * Uses Supabase Auth for user identity and realtime messages
+ * Minimal header, white background
  */
 
 import * as React from 'react';
@@ -28,14 +28,12 @@ export const ChatScreen: React.FC = () => {
   const displayName = profile?.nickname || profile?.full_name || 'Ukjent';
   const userId = user?.id || '';
 
-  // Initialize OneSignal on mount
   React.useEffect(() => {
     if (userId) {
       oneSignalService.init(userId);
     }
   }, [userId]);
 
-  // Lock body scroll on mount
   React.useEffect(() => {
     document.body.classList.add('chat-lock');
     return () => {
@@ -43,23 +41,19 @@ export const ChatScreen: React.FC = () => {
     };
   }, []);
 
-  // Subscribe to messages (Supabase Realtime)
   React.useEffect(() => {
     return chatStore.subscribeToMessages(setMessages);
   }, []);
 
-  // Subscribe to typing state
   React.useEffect(() => {
     return chatStore.subscribeToTyping(setTypingState);
   }, []);
 
-  // Send message and trigger push notification
   const handleSend = React.useCallback(async (text: string, attachments: Attachment[]) => {
     if (!userId) return;
 
     await chatStore.sendMessage(text, attachments, userId, displayName);
 
-    // Trigger push notification to other users
     const preview = attachments.length > 0 && !text
       ? `📷 ${attachments.length === 1 ? 'Bilde' : `${attachments.length} bilder`}`
       : text;
@@ -72,7 +66,6 @@ export const ChatScreen: React.FC = () => {
     );
   }, [userId, displayName]);
 
-  // Handle composer height change
   const handleComposerHeight = React.useCallback((height: number) => {
     setComposerHeight(height);
   }, []);
@@ -85,10 +78,10 @@ export const ChatScreen: React.FC = () => {
         top: 'var(--vvo, 0px)',
       }}
     >
-      {/* Header */}
+      {/* Minimal header */}
       <header
         className={cn(
-          'flex-none flex items-center gap-3 px-4 bg-primary text-primary-foreground',
+          'flex-none flex items-center gap-3 px-4 bg-background border-b border-border',
           'safe-area-top'
         )}
         style={{ minHeight: '56px' }}
@@ -96,14 +89,13 @@ export const ChatScreen: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate('/hjem')}
-          className="tap-target flex items-center justify-center -ml-2"
+          className="tap-target flex items-center justify-center -ml-2 text-foreground"
         >
-          <ArrowLeft size={24} />
+          <ArrowLeft size={22} strokeWidth={1.8} />
         </button>
-        <h1 className="font-heading text-lg font-semibold">Lift & Lager</h1>
+        <h1 className="font-heading text-base font-semibold text-foreground tracking-tight">Chat</h1>
       </header>
 
-      {/* Message list */}
       <MessageList
         messages={messages}
         currentUserId={userId}
@@ -111,7 +103,6 @@ export const ChatScreen: React.FC = () => {
         isTyping={typingState.isTyping}
       />
 
-      {/* Composer */}
       <div
         className="fixed left-0 right-0 z-10"
         style={{ bottom: `${kb}px` }}

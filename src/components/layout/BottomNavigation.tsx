@@ -24,7 +24,6 @@ export const BottomNavigation: React.FC = () => {
   const unreadCount = useUnreadCount();
   const [isKeyboardOpen, setIsKeyboardOpen] = React.useState(false);
 
-  // Watch for keyboard state changes via data-keyboard attribute
   React.useEffect(() => {
     const checkKeyboard = () => {
       const keyboardOpen = document.documentElement.dataset.keyboard === 'open';
@@ -55,8 +54,8 @@ export const BottomNavigation: React.FC = () => {
 
   return (
     <nav data-bottom-nav="true" className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
-      <div className="bg-primary shadow-nav border-t border-primary/20">
-        <div className="flex items-center justify-around h-16">
+      <div className="bg-background/95 backdrop-blur-md border-t border-border">
+        <div className="flex items-center justify-around h-14">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const showBadge = item.badge && unreadCount > 0;
@@ -65,19 +64,19 @@ export const BottomNavigation: React.FC = () => {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 tap-target px-4 py-2 transition-colors",
-                  isActive ? "text-accent" : "text-primary-foreground/70 hover:text-primary-foreground"
+                  "relative flex flex-col items-center justify-center gap-0.5 tap-target px-4 py-1.5 transition-colors",
+                  isActive ? "text-foreground" : "text-muted-foreground"
                 )}
               >
                 <div className="relative">
-                  <item.icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                  <item.icon size={22} strokeWidth={isActive ? 2.2 : 1.8} />
                   {showBadge && (
-                    <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1 leading-none">
+                    <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-foreground text-background text-[9px] font-bold px-1 leading-none">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}
                 </div>
-                <span className="font-body text-xs font-medium">{item.label}</span>
+                <span className={cn("text-[10px]", isActive ? "font-semibold" : "font-medium")}>{item.label}</span>
               </NavLink>
             );
           })}

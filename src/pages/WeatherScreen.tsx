@@ -398,10 +398,10 @@ const AiSummaryCard: React.FC<AiSummaryCardProps> = ({ summary, loading }) => {
 
   const confidenceColor =
     summary.confidence === "high"
-      ? "text-green-500"
+      ? "text-success"
       : summary.confidence === "medium"
-        ? "text-yellow-500"
-        : "text-red-400";
+        ? "text-warning"
+        : "text-destructive";
 
   return (
     <DavosCard className="mx-4 mt-3">
