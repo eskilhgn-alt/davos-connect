@@ -2,12 +2,11 @@ import * as React from "react";
 import { Outlet } from "react-router-dom";
 import { BottomNavigation } from "./BottomNavigation";
 import { WebcamPreloadProvider } from "@/components/webcams";
-import { ShotBanOverlay } from "@/components/shot/ShotBanOverlay";
+import { WitnessOverlay } from "@/components/shot/WitnessOverlay";
 
 /**
  * AppLayout: App shell with bottom navigation
- * WebcamPreloadProvider starts preloading video iframes as soon as
- * user enters any app route (live, webcams, home, etc.)
+ * WitnessOverlay shows fullscreen confirmation when user is chosen as witness
  */
 export const AppLayout: React.FC = () => {
   return (
@@ -17,7 +16,7 @@ export const AppLayout: React.FC = () => {
           <Outlet />
         </main>
         <BottomNavigation />
-        <ShotBanOverlay />
+        <WitnessOverlay />
       </div>
     </WebcamPreloadProvider>
   );
