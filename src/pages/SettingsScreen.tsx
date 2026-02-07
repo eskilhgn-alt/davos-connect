@@ -6,6 +6,7 @@ import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { PushNotificationToggle } from "@/components/settings/PushNotificationToggle";
+import { GeolocationToggle } from "@/components/settings/GeolocationToggle";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import {
   Code2,
@@ -18,6 +19,7 @@ import {
   Lock,
   Eye,
   Clock,
+  MapPin,
 } from "lucide-react";
 
 export const SettingsScreen: React.FC = () => {
@@ -50,6 +52,19 @@ export const SettingsScreen: React.FC = () => {
                 </h2>
               </div>
               <PushNotificationToggle />
+            </DavosCardContent>
+          </DavosCard>
+
+          {/* Geolocation */}
+          <DavosCard>
+            <DavosCardContent className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <MapPin className="h-5 w-5 text-primary" />
+                <h2 className="font-heading font-semibold text-foreground">
+                  Posisjon
+                </h2>
+              </div>
+              <GeolocationToggle />
             </DavosCardContent>
           </DavosCard>
 
