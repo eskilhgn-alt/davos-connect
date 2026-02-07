@@ -70,8 +70,22 @@ export const GalleryScreen: React.FC = () => {
   }, [fetchGallery]);
 
   const getPublicUrl = (storagePath: string) => {
+    // Stories are in "stories" bucket, chat media in "chat-media"
+    // Story paths start with userId/uuid.ext and were uploaded to stories bucket
+    // Chat paths also start with userId/uuid.ext but to chat-media bucket
+    // We check if this gallery item came from stories bucket by checking source_message_id
+    // For simplicity: try chat-media first (most common)
     const { data } = supabase.storage.from('chat-media').getPublicUrl(storagePath);
     return data.publicUrl;
+  };
+
+  const getPublicUrlForItem = (item: GalleryRow) => {
+    // If no source_message_id, it's likely from stories
+    if (!item.source_message_id) {
+      const { data } = supabase.storage.from('stories').getPublicUrl(item.storage_path);
+      return data.publicUrl;
+    }
+    return getPublicUrl(item.storage_path);
   };
 
   const openViewer = (item: GalleryRow) => {
@@ -145,7 +159,7 @@ export const GalleryScreen: React.FC = () => {
         ) : (
           <div className="grid grid-cols-3 gap-1">
             {items.map((item) => {
-              const thumbUrl = getPublicUrl(item.storage_path);
+              const thumbUrl = getPublicUrlForItem(item);
               return (
                 <button
                   key={item.id}
@@ -196,7 +210,7 @@ export const GalleryScreen: React.FC = () => {
         <MediaViewer
           open={viewerOpen}
           onClose={() => setViewerOpen(false)}
-          src={getPublicUrl(selectedItem.storage_path)}
+          src={getPublicUrlForItem(selectedItem)}
           type={selectedItem.type as 'image' | 'video' | 'gif'}
         />
       )}
