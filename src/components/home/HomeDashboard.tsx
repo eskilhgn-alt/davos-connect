@@ -44,7 +44,7 @@ function windArrowRotation(deg: number) {
   return { transform: `rotate(${deg}deg)` };
 }
 
-export const HomeDashboard: React.FC = () => {
+export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey }) => {
   const { user } = useAuth();
   const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
   const [nextEvent, setNextEvent] = React.useState<NextEvent | null>(null);
@@ -60,7 +60,7 @@ export const HomeDashboard: React.FC = () => {
       .then((r) => r.json())
       .then((d) => setRate({ rate: d?.rates?.NOK ?? null, loading: false }))
       .catch(() => setRate({ rate: null, loading: false }));
-  }, []);
+  }, [refreshKey]);
 
   // 2. Next agenda event
   React.useEffect(() => {
@@ -73,8 +73,9 @@ export const HomeDashboard: React.FC = () => {
       .limit(1)
       .then(({ data }) => {
         if (data && data.length > 0) setNextEvent(data[0] as NextEvent);
+        else setNextEvent(null);
       });
-  }, [user]);
+  }, [user, refreshKey]);
 
   const WeatherIcon = wx ? getWmoIcon(wx.weatherCode) : Cloud;
 

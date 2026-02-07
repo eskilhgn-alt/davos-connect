@@ -45,6 +45,7 @@ export const HomeScreen: React.FC = () => {
   const [viewerOpen, setViewerOpen] = React.useState(false);
   const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
   const [captureOpen, setCaptureOpen] = React.useState(false);
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
   const displayName = profile?.nickname || profile?.full_name?.split(" ")[0] || "";
 
@@ -81,7 +82,7 @@ export const HomeScreen: React.FC = () => {
       <AppHeader title="Glühwein" />
 
       <PullToRefreshWrapper
-        onRefresh={async () => { await refetch(); }}
+        onRefresh={async () => { await refetch(); setRefreshKey((k) => k + 1); }}
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
@@ -95,7 +96,7 @@ export const HomeScreen: React.FC = () => {
           />
 
           {/* Mini dashboard */}
-          <HomeDashboard />
+          <HomeDashboard refreshKey={refreshKey} />
 
           {/* Tile grid */}
           <nav className="grid grid-cols-2 gap-3">
