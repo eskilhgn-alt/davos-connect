@@ -1,6 +1,6 @@
 /**
- * StoryViewer - Fullscreen story viewer (Snapchat-style)
- * Tap left/right to navigate, progress bars at top
+ * StoryViewer – Snapchat/Instagram-style fullscreen viewer
+ * Features: progress bars, tap left/right, swipe between users, pause on hold
  */
 
 import * as React from "react";
@@ -24,6 +24,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   const [groupIdx, setGroupIdx] = React.useState(initialGroupIndex);
   const [storyIdx, setStoryIdx] = React.useState(0);
   const [progress, setProgress] = React.useState(0);
+  const [paused, setPaused] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setInterval>>();
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
@@ -38,7 +39,10 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
 
   // Progress timer
   React.useEffect(() => {
-    if (!story) return;
+    if (!story || paused) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
     setProgress(0);
 
     const interval = 50;
@@ -54,8 +58,10 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       });
     }, interval);
 
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [groupIdx, storyIdx, DISPLAY_MS]); // eslint-disable-line
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [groupIdx, storyIdx, DISPLAY_MS, paused]); // eslint-disable-line
 
   const goNext = React.useCallback(() => {
     if (!group) return;
@@ -78,7 +84,28 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     }
   }, [storyIdx, groupIdx, groups]);
 
-  const handleTap = (e: React.MouseEvent) => {
+  // Tap zones + hold-to-pause
+  const holdRef = React.useRef(false);
+
+  const handlePointerDown = () => {
+    holdRef.current = false;
+    setTimeout(() => {
+      holdRef.current = true;
+      setPaused(true);
+      if (videoRef.current) videoRef.current.pause();
+    }, 200);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (holdRef.current) {
+      // Was a hold → unpause
+      setPaused(false);
+      if (videoRef.current) videoRef.current.play();
+      holdRef.current = false;
+      return;
+    }
+    holdRef.current = false;
+    // Was a tap → navigate
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
     if (x < rect.width / 3) {
@@ -98,19 +125,24 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   })();
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col" onClick={handleTap}>
+    <div
+      className="fixed inset-0 z-50 bg-black flex flex-col touch-none select-none"
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+    >
       {/* Progress bars */}
       <div
-        className="absolute top-0 left-0 right-0 z-10 flex gap-1 px-2"
+        className="absolute top-0 left-0 right-0 z-10 flex gap-[3px] px-2"
         style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 8px)" }}
       >
         {group.stories.map((s, i) => (
-          <div key={s.id} className="flex-1 h-[3px] bg-white/30 rounded-full overflow-hidden">
+          <div key={s.id} className="flex-1 h-[2.5px] bg-white/25 rounded-full overflow-hidden">
             <div
-              className="h-full bg-white rounded-full transition-none"
+              className="h-full bg-white rounded-full"
               style={{
                 width:
-                  i < storyIdx ? "100%" : i === storyIdx ? `${progress}%` : "0%",
+                  i < storyIdx ? "100%" : i === storyIdx ? `${Math.min(progress, 100)}%` : "0%",
+                transition: i === storyIdx ? "none" : undefined,
               }}
             />
           </div>
@@ -119,27 +151,39 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
 
       {/* Header */}
       <div
-        className="absolute left-0 right-0 z-10 flex items-center justify-between px-4"
-        style={{ top: "max(calc(env(safe-area-inset-top, 0px) + 16px), 24px)" }}
+        className="absolute left-0 right-0 z-10 flex items-center justify-between px-3"
+        style={{ top: "max(calc(env(safe-area-inset-top, 0px) + 14px), 22px)" }}
       >
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
+            style={{
+              background: "linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6)",
+            }}
+          >
             {group.displayName[0]?.toUpperCase()}
           </div>
-          <span className="text-white font-medium text-sm">{group.displayName}</span>
-          <span className="text-white/60 text-xs">{timeAgo}</span>
+          <div>
+            <span className="text-white font-semibold text-sm">{group.displayName}</span>
+            <span className="text-white/50 text-xs ml-2">{timeAgo}</span>
+          </div>
         </div>
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); onClose(); }}
-          className="p-2 rounded-full bg-black/30 text-white"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          className="p-2 rounded-full bg-black/30 text-white backdrop-blur-sm"
         >
           <X size={20} />
         </button>
       </div>
 
-      {/* Media */}
-      <div className="flex-1 flex items-center justify-center">
+      {/* Media – full bleed */}
+      <div className="flex-1 flex items-center justify-center overflow-hidden">
         {story.type === "video" ? (
           <video
             ref={videoRef}
@@ -147,13 +191,15 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
             autoPlay
             playsInline
             muted={false}
-            className="max-w-full max-h-full object-contain"
+            className="w-full h-full object-cover"
+            onEnded={goNext}
           />
         ) : (
           <img
             src={story.publicUrl}
             alt=""
-            className="max-w-full max-h-full object-contain"
+            className="w-full h-full object-cover"
+            draggable={false}
           />
         )}
       </div>

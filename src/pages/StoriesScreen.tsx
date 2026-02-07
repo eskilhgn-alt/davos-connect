@@ -1,5 +1,5 @@
 /**
- * StoriesScreen - Main stories page with rings and add button
+ * StoriesScreen – Full stories page with rings + grid (like Snapchat Discover)
  */
 
 import * as React from "react";
@@ -8,10 +8,12 @@ import { BackButton } from "@/components/layout/BackButton";
 import { DavosEmptyState } from "@/components/ui/davos-empty-state";
 import { StoryViewer } from "@/components/stories/StoryViewer";
 import { StoryCapture } from "@/components/stories/StoryCapture";
+import { StoryRing } from "@/components/stories/StoryRing";
 import { useStories } from "@/hooks/useStories";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Film, Loader2 } from "lucide-react";
+import { Film, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 export const StoriesScreen: React.FC = () => {
   const { user } = useAuth();
@@ -25,6 +27,12 @@ export const StoriesScreen: React.FC = () => {
     setViewerOpen(true);
   };
 
+  // Get latest story thumbnail per group
+  const getThumbUrl = (storagePath: string) => {
+    const { data } = supabase.storage.from("stories").getPublicUrl(storagePath);
+    return data.publicUrl;
+  };
+
   return (
     <div
       className="flex flex-col overflow-hidden bg-background"
@@ -32,7 +40,6 @@ export const StoriesScreen: React.FC = () => {
     >
       <AppHeader
         title="Historier"
-        subtitle="Delt av crewet"
         leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
@@ -48,53 +55,16 @@ export const StoriesScreen: React.FC = () => {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="p-4 space-y-6">
-            {/* Story rings row */}
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-              {/* Add story button */}
-              <button
-                type="button"
-                onClick={() => setCaptureOpen(true)}
-                className="flex flex-col items-center gap-1.5 flex-shrink-0"
-              >
-                <div className={cn(
-                  "w-16 h-16 rounded-full border-2 border-dashed border-primary",
-                  "flex items-center justify-center",
-                  "active:scale-95 transition-transform"
-                )}>
-                  <Plus size={24} className="text-primary" />
-                </div>
-                <span className="text-xs text-muted-foreground font-medium">Ny story</span>
-              </button>
+          <div className="p-4 space-y-5">
+            {/* Story rings */}
+            <StoryRing
+              groups={groups}
+              loading={loading}
+              onAddStory={() => setCaptureOpen(true)}
+              onOpenStory={openStory}
+            />
 
-              {/* User story rings */}
-              {groups.map((group, idx) => (
-                <button
-                  key={group.userId}
-                  type="button"
-                  onClick={() => openStory(idx)}
-                  className="flex flex-col items-center gap-1.5 flex-shrink-0"
-                >
-                  <div className={cn(
-                    "w-16 h-16 rounded-full flex items-center justify-center",
-                    "text-white text-lg font-bold",
-                    group.hasUnviewed
-                      ? "bg-gradient-to-br from-primary to-accent ring-2 ring-primary ring-offset-2 ring-offset-background"
-                      : "bg-muted text-muted-foreground ring-2 ring-border ring-offset-1 ring-offset-background"
-                  )}>
-                    {group.displayName[0]?.toUpperCase()}
-                  </div>
-                  <span className={cn(
-                    "text-xs font-medium max-w-[64px] truncate",
-                    group.hasUnviewed ? "text-foreground" : "text-muted-foreground"
-                  )}>
-                    {group.userId === user?.id ? "Din" : group.displayName.split(" ")[0]}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Stories feed - visual grid */}
+            {/* Stories grid – Snapchat Discover style */}
             {groups.length === 0 ? (
               <DavosEmptyState
                 icon={Film}
@@ -102,44 +72,67 @@ export const StoriesScreen: React.FC = () => {
                 description="Trykk + for å dele din første story med crewet!"
               />
             ) : (
-              <div className="space-y-4">
-                {groups.map((group, idx) => (
-                  <button
-                    key={group.userId}
-                    type="button"
-                    onClick={() => openStory(idx)}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-xl",
-                      "bg-muted/50 border border-border",
-                      "active:scale-[0.98] transition-transform text-left"
-                    )}
-                  >
-                    <div className={cn(
-                      "w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center",
-                      "text-white font-bold",
-                      group.hasUnviewed
-                        ? "bg-gradient-to-br from-primary to-accent"
-                        : "bg-muted text-muted-foreground"
-                    )}>
-                      {group.displayName[0]?.toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">{group.displayName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {group.stories.length} {group.stories.length === 1 ? "story" : "stories"} · {(() => {
-                          const latest = group.stories[group.stories.length - 1];
-                          const diff = Date.now() - new Date(latest.createdAt).getTime();
-                          const mins = Math.floor(diff / 60000);
-                          if (mins < 60) return `${mins}m siden`;
-                          return `${Math.floor(mins / 60)}t siden`;
-                        })()}
-                      </p>
-                    </div>
-                    {group.hasUnviewed && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0" />
-                    )}
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2">
+                {groups.map((group, idx) => {
+                  const latestStory = group.stories[group.stories.length - 1];
+                  const thumbUrl = getThumbUrl(latestStory.storagePath);
+                  const diff = Date.now() - new Date(latestStory.createdAt).getTime();
+                  const mins = Math.floor(diff / 60000);
+                  const timeAgo = mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}t`;
+
+                  return (
+                    <button
+                      key={group.userId}
+                      type="button"
+                      onClick={() => openStory(idx)}
+                      className={cn(
+                        "relative aspect-[3/4] rounded-xl overflow-hidden",
+                        "active:scale-[0.97] transition-transform"
+                      )}
+                    >
+                      {/* Thumbnail */}
+                      {latestStory.type === "image" ? (
+                        <img
+                          src={thumbUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <video
+                          src={thumbUrl}
+                          className="w-full h-full object-cover"
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                      )}
+
+                      {/* Gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+
+                      {/* Unviewed indicator */}
+                      {group.hasUnviewed && (
+                        <div
+                          className="absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                          style={{ background: "linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6)" }}
+                        >
+                          {group.displayName[0]?.toUpperCase()}
+                        </div>
+                      )}
+
+                      {/* Name + time */}
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                        <p className="text-white text-sm font-semibold truncate">
+                          {group.userId === user?.id ? "Din story" : group.displayName.split(" ")[0]}
+                        </p>
+                        <p className="text-white/60 text-[11px]">
+                          {group.stories.length} {group.stories.length === 1 ? "story" : "stories"} · {timeAgo}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -151,7 +144,10 @@ export const StoriesScreen: React.FC = () => {
         <StoryViewer
           groups={groups}
           initialGroupIndex={viewerGroupIdx}
-          onClose={() => { setViewerOpen(false); refetch(); }}
+          onClose={() => {
+            setViewerOpen(false);
+            refetch();
+          }}
           onViewed={markViewed}
         />
       )}
@@ -160,7 +156,10 @@ export const StoriesScreen: React.FC = () => {
       {captureOpen && (
         <StoryCapture
           onClose={() => setCaptureOpen(false)}
-          onPublished={() => { setCaptureOpen(false); refetch(); }}
+          onPublished={() => {
+            setCaptureOpen(false);
+            refetch();
+          }}
         />
       )}
     </div>
