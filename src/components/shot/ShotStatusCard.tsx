@@ -224,7 +224,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
       {isPunished && (
         <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertTriangle size={14} />
-          <span>2 straffeshots registrert</span>
+          <span>1 straffeshot registrert</span>
         </div>
       )}
     </div>

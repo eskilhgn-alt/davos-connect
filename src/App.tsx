@@ -16,6 +16,7 @@ import MoreScreen from "./pages/MoreScreen";
 import WeatherScreen from "./pages/WeatherScreen";
 import ShotScreen from "./pages/ShotScreen";
 import AgendaScreen from "./pages/AgendaScreen";
+import TokensScreen from "./pages/TokensScreen";
 
 import NotificationsScreen from "./pages/NotificationsScreen";
 import WebcamsScreen from "./pages/WebcamsScreen";
@@ -81,6 +82,7 @@ const AppRoutes = () => (
       <Route path="/info" element={<InfoScreen />} />
       <Route path="/gruppe" element={<GroupScreen />} />
       <Route path="/shot" element={<ShotScreen />} />
+      <Route path="/tokens" element={<TokensScreen />} />
       <Route path="/agenda" element={<AgendaScreen />} />
     </Route>
     
