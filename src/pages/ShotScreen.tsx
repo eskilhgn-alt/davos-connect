@@ -193,7 +193,7 @@ export const ShotScreen: React.FC = () => {
               body: JSON.stringify({
                 type: "selected",
                 heading: "Vinner trukket! 🏆",
-                message: `${winnerName} må ta shot innen 2 timer!`,
+                message: `${winnerName} må ta shot innen 40 minutter!`,
               }),
             }).catch(() => {});
           }

@@ -26,13 +26,13 @@ const RULES = [
   },
   {
     icon: Clock,
-    title: "Token-system",
-    desc: "Alle starter med 5 tokens, +1 per dag (maks 5). Ingen kan kjøpe seg fordeler.",
+    title: "40 min frist",
+    desc: "Du har 40 minutter på å ta shotten og få bekreftelse. Ellers: 2 straffeshots.",
   },
   {
     icon: BookOpen,
-    title: "Åpen kildekode",
-    desc: "All spillogikk kjører i databasefunksjoner som kan revideres.",
+    title: "Eskil-sjekk",
+    desc: "AI verifiserer hver gang at spillets skaper (Eskil) ikke favoriseres.",
   },
 ];
 
