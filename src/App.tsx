@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout";
 import { ChatLayout } from "@/layouts/ChatLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { prefetchWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
 import ChatScreen from "./pages/ChatScreen";
 import HomeScreen from "./pages/HomeScreen";
@@ -27,6 +29,7 @@ import WebcamsScreen from "./pages/WebcamsScreen";
 import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
+import ResetPasswordScreen from "./pages/ResetPasswordScreen";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -63,6 +66,7 @@ const AppRoutes = () => (
   <Routes>
     {/* Auth routes (public) */}
     <Route path="/auth" element={<AuthScreen />} />
+    <Route path="/reset-password" element={<ResetPasswordScreen />} />
     
     {/* Protected routes - Chat with its own layout */}
     <Route element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
@@ -97,17 +101,20 @@ const AppRoutes = () => (
 );
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <OfflineIndicator />
+        <BrowserRouter>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
