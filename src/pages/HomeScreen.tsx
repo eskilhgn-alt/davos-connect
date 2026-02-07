@@ -5,6 +5,7 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { HomeDashboard } from "@/components/home/HomeDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import {
@@ -79,6 +80,9 @@ export const HomeScreen: React.FC = () => {
               {greeting},<br />{displayName}
             </h1>
           </section>
+
+          {/* Mini dashboard */}
+          <HomeDashboard />
 
           {/* Tile grid */}
           <nav className="grid grid-cols-2 gap-3">
