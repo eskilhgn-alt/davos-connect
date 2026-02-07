@@ -77,16 +77,7 @@ export const HomeScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader
-        title="GüttaHütte"
-        leftAction={
-          <img
-            src="/app-icon.jpeg"
-            alt="App ikon"
-            className="w-9 h-9 rounded-lg object-cover object-[50%_30%]"
-          />
-        }
-      />
+      <AppHeader title="Glühwein" />
 
       <div
         className="flex-1 overflow-y-auto overscroll-contain"
