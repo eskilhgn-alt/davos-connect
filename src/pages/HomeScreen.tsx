@@ -33,13 +33,6 @@ export const HomeScreen: React.FC = () => {
   const { profile, isAdmin } = useAuth();
   const unreadCount = useUnreadCount();
 
-  const greeting = React.useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 10) return "God morgen";
-    if (hour < 17) return "Hei";
-    return "God kveld";
-  }, []);
-
   const displayName = profile?.nickname || profile?.full_name?.split(" ")[0] || "";
 
   const tiles: TileItem[] = React.useMemo(() => {
@@ -73,14 +66,7 @@ export const HomeScreen: React.FC = () => {
           WebkitOverflowScrolling: "touch",
         }}
       >
-        <div className="px-4 pt-8 pb-10 space-y-8">
-          {/* Greeting */}
-          <section className="px-2">
-            <h1 className="font-heading text-3xl font-bold text-foreground leading-tight">
-              {greeting},<br />{displayName}
-            </h1>
-          </section>
-
+        <div className="px-4 pt-4 pb-10 space-y-6">
           {/* Mini dashboard */}
           <HomeDashboard />
 
