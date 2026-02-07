@@ -290,7 +290,7 @@ export const CrewMapScreen: React.FC = () => {
                   <input
                     type="text"
                     autoFocus
-                    placeholder="Søk etter sted i Davos..."
+                    placeholder="Søk etter lokasjon..."
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
