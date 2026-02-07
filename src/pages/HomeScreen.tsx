@@ -5,6 +5,7 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
+import appIcon from "@/assets/app-icon.jpeg";
 import { HomeDashboard } from "@/components/home/HomeDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
@@ -60,7 +61,18 @@ export const HomeScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Glühwein" />
+      <AppHeader 
+        title="Glühwein" 
+        leftAction={
+          <div className="w-9 h-9 rounded-[10px] overflow-hidden border border-border shadow-sm flex-shrink-0">
+            <img 
+              src={appIcon} 
+              alt="Glühwein" 
+              className="w-full h-full object-cover object-[center_30%]"
+            />
+          </div>
+        }
+      />
 
       <div
         className="flex-1 overflow-y-auto overscroll-contain"
