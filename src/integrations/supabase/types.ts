@@ -301,6 +301,7 @@ export type Database = {
       }
       shot_events: {
         Row: {
+          chosen_witness_id: string | null
           confirmed_at: string | null
           countdown_ends_at: string | null
           created_at: string
@@ -317,6 +318,7 @@ export type Database = {
           witness_confirmed_by: string | null
         }
         Insert: {
+          chosen_witness_id?: string | null
           confirmed_at?: string | null
           countdown_ends_at?: string | null
           created_at?: string
@@ -333,6 +335,7 @@ export type Database = {
           witness_confirmed_by?: string | null
         }
         Update: {
+          chosen_witness_id?: string | null
           confirmed_at?: string | null
           countdown_ends_at?: string | null
           created_at?: string
@@ -765,11 +768,18 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       rpc_apply_overdue: { Args: { p_event_id: string }; Returns: Json }
-      rpc_confirm_shot: {
-        Args: { p_event_id: string; p_mode: string }
-        Returns: Json
+      rpc_check_bonus_token: {
+        Args: { p_group_id: string; p_user_id: string }
+        Returns: undefined
       }
+      rpc_confirm_shot:
+        | { Args: { p_event_id: string; p_mode: string }; Returns: Json }
+        | {
+            Args: { p_event_id: string; p_mode: string; p_witness_id?: string }
+            Returns: Json
+          }
       rpc_finalize_countdown: { Args: { p_event_id: string }; Returns: Json }
+      rpc_get_all_shot_tokens: { Args: never; Returns: Json }
       rpc_get_shot_leaderboard: {
         Args: { p_days?: number; p_group_id?: string }
         Returns: Json
