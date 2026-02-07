@@ -32,10 +32,10 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         type="button"
         onClick={onClose}
         className={cn(
-          'absolute top-4 right-4 z-10 p-2 rounded-full',
-          'bg-black/50 text-white',
-          'safe-area-top'
+          'absolute z-10 p-2 rounded-full',
+          'bg-black/50 text-white hover:bg-black/70 transition-colors'
         )}
+        style={{ top: 'max(env(safe-area-inset-top, 0px), 16px)', right: '16px' }}
       >
         <X size={24} />
       </button>

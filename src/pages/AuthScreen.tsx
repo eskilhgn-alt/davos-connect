@@ -90,10 +90,10 @@ export const AuthScreen: React.FC = () => {
       <header className="flex items-center justify-center py-16 px-6">
         <div className="text-center">
           <h1 className="font-heading text-3xl font-bold text-foreground tracking-tight">
-            Lift & Lager
+            Glühwein
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Davos Klosters
+            Privat gruppe-app
           </p>
         </div>
       </header>
