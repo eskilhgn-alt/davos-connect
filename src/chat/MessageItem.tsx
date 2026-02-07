@@ -19,6 +19,7 @@ interface MessageItemProps {
   onShowActions: (message: Message) => void;
   onShowReactions: (reactions: Record<string, string[]>) => void;
   onShowSeenBy: (message: Message) => void;
+  onMediaTap?: (src: string, type: 'image' | 'video' | 'gif') => void;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -29,6 +30,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onShowActions,
   onShowReactions,
   onShowSeenBy,
+  onMediaTap,
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editText, setEditText] = React.useState(message.text);
@@ -141,14 +143,19 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           {message.attachments.map((att) => (
             <div
               key={att.id}
-              className="rounded-2xl overflow-hidden max-w-[260px]"
-              onClick={handleTap}
+              className="rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onMediaTap && att.objectUrl) {
+                  onMediaTap(att.objectUrl, att.kind === 'video' ? 'video' : att.kind === 'gif' ? 'gif' : 'image');
+                }
+              }}
             >
               {att.kind === 'video' ? (
                 <video
                   src={att.objectUrl}
-                  controls
                   playsInline
+                  muted
                   className="max-w-full h-auto"
                 />
               ) : att.kind === 'gif' ? (
