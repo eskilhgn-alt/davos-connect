@@ -36,12 +36,28 @@ export function useStories() {
     // Fetch active (non-expired) stories
     const { data: storiesData, error } = await supabase
       .from("stories")
-      .select(`
-        id, user_id, storage_path, type, duration_sec, created_at, expires_at,
-        profiles:user_id (nickname, full_name)
-      `)
+      .select("id, user_id, storage_path, type, duration_sec, created_at, expires_at")
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Stories fetch error:", error);
+      setLoading(false);
+      return;
+    }
+
+    // Fetch profile names separately
+    const userIds = [...new Set((storiesData || []).map((s: any) => s.user_id))];
+    const profileMap = new Map<string, { nickname: string | null; full_name: string | null }>();
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, nickname, full_name")
+        .in("id", userIds);
+      for (const p of (profiles || []) as any[]) {
+        profileMap.set(p.id, { nickname: p.nickname, full_name: p.full_name });
+      }
+    }
 
     if (error) {
       console.error("Stories fetch error:", error);
@@ -81,7 +97,7 @@ export function useStories() {
       };
 
       if (!groupMap.has(row.user_id)) {
-        const profile = row.profiles;
+        const profile = profileMap.get(row.user_id);
         groupMap.set(row.user_id, {
           userId: row.user_id,
           displayName: profile?.nickname || profile?.full_name || "Ukjent",
