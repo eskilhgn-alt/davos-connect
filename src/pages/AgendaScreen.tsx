@@ -6,6 +6,7 @@ import { format, addDays, isSameDay } from "date-fns";
 import { nb } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { BackButton } from "@/components/layout/BackButton";
 import { useAgenda, type AgendaEvent } from "@/hooks/useAgenda";
 import { AgendaEventDialog } from "@/components/agenda/AgendaEventDialog";
 import { cn } from "@/lib/utils";
@@ -88,7 +89,7 @@ export const AgendaScreen: React.FC = () => {
 
   return (
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
-      <AppHeader title="Agenda" />
+      <AppHeader title="Agenda" leftAction={<BackButton fallbackPath="/hjem" />} />
 
       {/* Week navigation */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border">
