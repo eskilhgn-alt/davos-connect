@@ -1,17 +1,17 @@
 /**
  * useGeolocation — returns the user's GPS position with high accuracy
- * Uses watchPosition for continuous updates on the Magnus? map
+ * Uses watchPosition for continuous updates
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 
 export interface GeoPosition {
   lat: number;
   lon: number;
-  accuracy?: number; // meters
+  accuracy?: number;
 }
 
 const CACHE_KEY = "geo-position";
-const CACHE_TTL = 5 * 60 * 1000; // 5 min
+const CACHE_TTL = 5 * 60 * 1000;
 
 function getCached(): GeoPosition | null {
   try {
@@ -32,20 +32,13 @@ function setCache(pos: GeoPosition) {
 }
 
 export function useGeolocation() {
-  const [position, setPosition] = useState<GeoPosition | null>(getCached);
+  const [position, setPosition] = useState<GeoPosition | null>(() => getCached());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const watchId = useRef<number | null>(null);
   const [enabled, setEnabled] = useState(() => {
     try { return localStorage.getItem("geo-enabled") === "true"; } catch { return false; }
   });
-
-  const stopWatch = useCallback(() => {
-    if (watchId.current !== null) {
-      navigator.geolocation.clearWatch(watchId.current);
-      watchId.current = null;
-    }
-  }, []);
+  const watchIdRef = useRef<number | null>(null);
 
   const request = useCallback(() => {
     if (!navigator.geolocation) {
@@ -55,9 +48,12 @@ export function useGeolocation() {
     setLoading(true);
     setError(null);
 
-    // Use watchPosition for continuous high-accuracy updates
-    stopWatch();
-    watchId.current = navigator.geolocation.watchPosition(
+    // Clear any existing watch
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
       (geo) => {
         const pos: GeoPosition = {
           lat: geo.coords.latitude,
@@ -78,28 +74,38 @@ export function useGeolocation() {
       {
         enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 30000, // 30s cache for battery saving
+        maximumAge: 30000,
       }
     );
-  }, [stopWatch]);
+  }, []);
 
   const disable = useCallback(() => {
-    stopWatch();
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
     setEnabled(false);
     setPosition(null);
     try {
       localStorage.removeItem("geo-enabled");
       sessionStorage.removeItem(CACHE_KEY);
     } catch { /* */ }
-  }, [stopWatch]);
+  }, []);
 
-  // Auto-request if previously enabled
+  // Auto-start watching if previously enabled
   useEffect(() => {
-    if (enabled && watchId.current === null) {
+    if (enabled) {
       request();
     }
-    return () => stopWatch();
-  }, [enabled, request, stopWatch]);
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+    // Only run on mount/unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return { position, loading, error, enabled, request, disable };
 }
