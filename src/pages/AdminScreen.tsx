@@ -23,7 +23,9 @@ import {
   UserCheck,
   RefreshCw,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  Mail,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +48,9 @@ export const AdminScreen: React.FC = () => {
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = React.useState("");
+  const [inviteMessage, setInviteMessage] = React.useState("");
+  const [inviteSending, setInviteSending] = React.useState(false);
 
   // Double-check: must be admin AND correct email
   const isAuthorized = isAdmin && user?.email === ADMIN_EMAIL;
@@ -163,6 +168,27 @@ export const AdminScreen: React.FC = () => {
     );
   }, [users, searchQuery]);
 
+  const sendInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    setInviteSending(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("send-invite", {
+        body: { email: inviteEmail.trim(), message: inviteMessage.trim() || undefined },
+      });
+      if (res.error) throw res.error;
+      toast.success(`Invitasjon sendt til ${inviteEmail}`);
+      setInviteEmail("");
+      setInviteMessage("");
+    } catch (err: any) {
+      console.error("Invite error:", err);
+      toast.error(err?.message || "Kunne ikke sende invitasjon");
+    } finally {
+      setInviteSending(false);
+    }
+  };
+
+
   if (authLoading || !isAuthorized) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -208,6 +234,43 @@ export const AdminScreen: React.FC = () => {
             </DavosButton>
           </div>
         </div>
+
+        {/* Invite Section */}
+        <div className="p-4 border-b border-border">
+          <DavosCard>
+            <DavosCardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Mail className="h-5 w-5 text-primary" />
+                <h2 className="font-heading font-semibold text-foreground">Send invitasjon</h2>
+              </div>
+              <DavosInput
+                type="email"
+                placeholder="E-postadresse"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+              <DavosInput
+                type="text"
+                placeholder="Personlig melding (valgfritt)"
+                value={inviteMessage}
+                onChange={(e) => setInviteMessage(e.target.value)}
+              />
+              <DavosButton
+                onClick={sendInvite}
+                disabled={inviteSending || !inviteEmail.trim()}
+                className="w-full"
+              >
+                {inviteSending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                Send invitasjon
+              </DavosButton>
+            </DavosCardContent>
+          </DavosCard>
+        </div>
+
 
         {/* User List */}
         <div className="p-4 space-y-3">
