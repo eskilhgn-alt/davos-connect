@@ -14,6 +14,7 @@ const GROUP_ID = "global";
 export const ShotBanOverlay: React.FC = () => {
   const { user } = useAuth();
   const [banned, setBanned] = React.useState(false);
+  const [reason, setReason] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [checked, setChecked] = React.useState(false);
 
@@ -22,8 +23,10 @@ export const ShotBanOverlay: React.FC = () => {
     const { data } = await supabase.rpc("rpc_check_shot_ban");
     if (data && (data as any).banned) {
       setBanned(true);
+      setReason((data as any).reason ?? null);
     } else {
       setBanned(false);
+      setReason(null);
     }
     setChecked(true);
   }, [user]);
@@ -80,10 +83,12 @@ export const ShotBanOverlay: React.FC = () => {
 
         <div className="space-y-2">
           <h1 className="font-heading text-2xl font-bold text-foreground">
-            Du er midlertidig utestengt
+            {reason === 'no_round_today' ? 'Du har ikke trukket i dag' : 'Du er midlertidig utestengt'}
           </h1>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            Du tok ikke shotten i tide og fikk 2 straffeshots. For å bruke appen videre må du starte en ny runde.
+            {reason === 'no_round_today'
+              ? 'Du må starte minst én shotterunde hver dag for å bruke appen. Trykk under for å trekke!'
+              : 'Du tok ikke shotten i tide og fikk 2 straffeshots. For å bruke appen videre må du starte en ny runde.'}
           </p>
         </div>
 
