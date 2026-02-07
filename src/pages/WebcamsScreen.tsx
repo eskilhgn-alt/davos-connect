@@ -111,7 +111,7 @@ export const WebcamsScreen: React.FC = () => {
       />
 
       <div 
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto overscroll-contain"
         style={{ 
           paddingBottom: "var(--bottom-nav-h-effective)",
           WebkitOverflowScrolling: 'touch'

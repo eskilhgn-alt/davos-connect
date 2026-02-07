@@ -29,7 +29,7 @@ export const MapScreen: React.FC = () => {
 
   return (
     <div 
-      className="flex flex-col overflow-hidden"
+      className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
       <AppHeader title="Løypekart" subtitle="Davos Klosters" leftAction={<BackButton fallbackPath="/hjem" />} />
