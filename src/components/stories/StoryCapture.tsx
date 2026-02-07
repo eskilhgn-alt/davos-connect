@@ -1,10 +1,13 @@
 /**
- * StoryCapture - Camera capture for creating stories
- * Supports photo and up to 60s video recording
+ * StoryCapture – Snapchat-style camera capture
+ * - Tap for photo
+ * - Hold for video (up to 60s)
+ * - Progress ring around capture button during recording
+ * - Front/back camera toggle
  */
 
 import * as React from "react";
-import { X, Camera, Video, Square, Send, RotateCcw, Loader2 } from "lucide-react";
+import { X, RotateCcw, Send, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,31 +24,33 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const streamRef = React.useRef<MediaStream | null>(null);
   const recorderRef = React.useRef<MediaRecorder | null>(null);
   const chunksRef = React.useRef<Blob[]>([]);
-  const timerRef = React.useRef<ReturnType<typeof setInterval>>();
+  const holdTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
+  const recordTimerRef = React.useRef<ReturnType<typeof setInterval>>();
 
   const [mode, setMode] = React.useState<"camera" | "preview">("camera");
   const [isRecording, setIsRecording] = React.useState(false);
   const [recordTime, setRecordTime] = React.useState(0);
-  const [capturedMedia, setCapturedMedia] = React.useState<{ blob: Blob; type: "image" | "video"; url: string } | null>(null);
+  const [capturedMedia, setCapturedMedia] = React.useState<{
+    blob: Blob;
+    type: "image" | "video";
+    url: string;
+  } | null>(null);
   const [uploading, setUploading] = React.useState(false);
   const [facingMode, setFacingMode] = React.useState<"user" | "environment">("environment");
+
+  const MAX_RECORD_SECS = 60;
 
   // Start camera
   const startCamera = React.useCallback(async () => {
     try {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode, width: { ideal: 1080 }, height: { ideal: 1920 } },
         audio: true,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.error("Camera error:", err);
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch {
       toast.error("Kunne ikke åpne kamera");
     }
   }, [facingMode]);
@@ -65,17 +70,20 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d")?.drawImage(video, 0, 0);
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        setCapturedMedia({ blob, type: "image", url });
-        setMode("preview");
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-      }
-    }, "image/jpeg", 0.85);
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          setCapturedMedia({ blob, type: "image", url: URL.createObjectURL(blob) });
+          setMode("preview");
+          streamRef.current?.getTracks().forEach((t) => t.stop());
+        }
+      },
+      "image/jpeg",
+      0.85
+    );
   };
 
-  // Start video recording
+  // Start recording
   const startRecording = () => {
     if (!streamRef.current) return;
     chunksRef.current = [];
@@ -84,11 +92,12 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         ? "video/webm;codecs=vp9"
         : "video/webm",
     });
-    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const url = URL.createObjectURL(blob);
-      setCapturedMedia({ blob, type: "video", url });
+      setCapturedMedia({ blob, type: "video", url: URL.createObjectURL(blob) });
       setMode("preview");
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
@@ -97,9 +106,9 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     setIsRecording(true);
     setRecordTime(0);
 
-    timerRef.current = setInterval(() => {
+    recordTimerRef.current = setInterval(() => {
       setRecordTime((t) => {
-        if (t >= 60) {
+        if (t >= MAX_RECORD_SECS) {
           stopRecording();
           return t;
         }
@@ -108,24 +117,36 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     }, 1000);
   };
 
-  // Stop video recording
   const stopRecording = () => {
-    if (recorderRef.current?.state === "recording") {
-      recorderRef.current.stop();
-    }
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
     setIsRecording(false);
-    if (timerRef.current) clearInterval(timerRef.current);
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
   };
 
-  // Flip camera
-  const flipCamera = () => {
-    setFacingMode((f) => (f === "user" ? "environment" : "user"));
+  // Hold-to-record: pointerdown starts timer, if held >300ms → record, else photo
+  const handlePointerDown = () => {
+    if (mode !== "camera") return;
+    holdTimerRef.current = setTimeout(() => {
+      startRecording();
+    }, 300);
   };
 
-  // Discard and retake
+  const handlePointerUp = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = undefined;
+    }
+    if (isRecording) {
+      stopRecording();
+    } else if (mode === "camera") {
+      takePhoto();
+    }
+  };
+
   const retake = () => {
     if (capturedMedia) URL.revokeObjectURL(capturedMedia.url);
     setCapturedMedia(null);
+    setRecordTime(0);
     setMode("camera");
   };
 
@@ -143,20 +164,18 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         .upload(path, capturedMedia.blob, {
           contentType: capturedMedia.type === "video" ? "video/webm" : "image/jpeg",
         });
-
       if (uploadErr) throw uploadErr;
 
+      // Insert story
       const { error: insertErr } = await supabase.from("stories").insert({
         user_id: user.id,
         storage_path: path,
         type: capturedMedia.type,
         duration_sec: capturedMedia.type === "video" ? recordTime : 0,
       });
-
       if (insertErr) throw insertErr;
 
       // Also add to gallery
-      const { data: urlData } = supabase.storage.from("stories").getPublicUrl(path);
       await supabase.from("gallery_items").insert({
         storage_path: path,
         type: capturedMedia.type,
@@ -174,27 +193,34 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     }
   };
 
+  // Progress ring for recording
+  const ringProgress = recordTime / MAX_RECORD_SECS;
+  const ringSize = 88;
+  const ringStroke = 4;
+  const ringRadius = (ringSize - ringStroke) / 2;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Close */}
       <button
         type="button"
         onClick={onClose}
-        className="absolute z-10 p-2 rounded-full bg-black/40 text-white"
+        className="absolute z-10 p-2.5 rounded-full bg-black/50 text-white backdrop-blur-sm"
         style={{ top: "max(env(safe-area-inset-top, 0px), 12px)", left: "12px" }}
       >
-        <X size={24} />
+        <X size={22} />
       </button>
 
-      {/* Flip camera button */}
+      {/* Flip camera */}
       {mode === "camera" && (
         <button
           type="button"
-          onClick={flipCamera}
-          className="absolute z-10 p-2 rounded-full bg-black/40 text-white"
+          onClick={() => setFacingMode((f) => (f === "user" ? "environment" : "user"))}
+          className="absolute z-10 p-2.5 rounded-full bg-black/50 text-white backdrop-blur-sm"
           style={{ top: "max(env(safe-area-inset-top, 0px), 12px)", right: "12px" }}
         >
-          <RotateCcw size={24} />
+          <RotateCcw size={22} />
         </button>
       )}
 
@@ -214,23 +240,25 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
             autoPlay
             playsInline
             loop
-            className="w-full h-full object-contain"
+            className="w-full h-full object-cover"
           />
         ) : (
           <img
             src={capturedMedia?.url}
             alt="Preview"
-            className="w-full h-full object-contain"
+            className="w-full h-full object-cover"
           />
         )}
 
-        {/* Recording indicator */}
+        {/* Recording time badge */}
         {isRecording && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 bg-red-600 rounded-full">
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 bg-red-600/90 rounded-full backdrop-blur-sm">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-            <span className="text-white text-sm font-mono">
-              {Math.floor(recordTime / 60).toString().padStart(2, "0")}:
-              {(recordTime % 60).toString().padStart(2, "0")}
+            <span className="text-white text-sm font-mono tabular-nums">
+              {Math.floor(recordTime / 60)
+                .toString()
+                .padStart(2, "0")}
+              :{(recordTime % 60).toString().padStart(2, "0")}
             </span>
           </div>
         )}
@@ -238,58 +266,76 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
 
       {/* Controls */}
       <div
-        className="flex items-center justify-center gap-8 py-6"
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 24px)" }}
+        className="flex items-center justify-center gap-6 py-5"
+        style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 20px)" }}
       >
         {mode === "camera" ? (
           <>
-            {/* Photo button */}
-            <button
-              type="button"
-              onClick={takePhoto}
-              disabled={isRecording}
-              className={cn(
-                "w-16 h-16 rounded-full border-4 border-white",
-                "flex items-center justify-center",
-                "active:scale-95 transition-transform",
-                isRecording && "opacity-30"
+            {/* Snapchat-style capture button: tap = photo, hold = video */}
+            <div className="relative flex items-center justify-center">
+              {/* Progress ring during recording */}
+              {isRecording && (
+                <svg
+                  width={ringSize}
+                  height={ringSize}
+                  className="absolute -rotate-90"
+                >
+                  <circle
+                    cx={ringSize / 2}
+                    cy={ringSize / 2}
+                    r={ringRadius}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.2)"
+                    strokeWidth={ringStroke}
+                  />
+                  <circle
+                    cx={ringSize / 2}
+                    cy={ringSize / 2}
+                    r={ringRadius}
+                    fill="none"
+                    stroke="#ef4444"
+                    strokeWidth={ringStroke}
+                    strokeDasharray={ringCircumference}
+                    strokeDashoffset={ringCircumference * (1 - ringProgress)}
+                    strokeLinecap="round"
+                  />
+                </svg>
               )}
-            >
-              <Camera size={24} className="text-white" />
-            </button>
+              <button
+                type="button"
+                onPointerDown={handlePointerDown}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerUp}
+                className={cn(
+                  "w-[72px] h-[72px] rounded-full border-[4px] border-white",
+                  "flex items-center justify-center",
+                  "active:scale-90 transition-transform touch-none",
+                  isRecording && "bg-red-500 border-red-400 scale-110"
+                )}
+              >
+                {isRecording ? (
+                  <div className="w-6 h-6 rounded-sm bg-white" />
+                ) : (
+                  <div className="w-[58px] h-[58px] rounded-full bg-white/90" />
+                )}
+              </button>
+            </div>
 
-            {/* Record / Stop button */}
-            {isRecording ? (
-              <button
-                type="button"
-                onClick={stopRecording}
-                className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center active:scale-95 transition-transform"
-              >
-                <Square size={24} className="text-white" fill="white" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={startRecording}
-                className="w-16 h-16 rounded-full border-4 border-red-500 flex items-center justify-center active:scale-95 transition-transform"
-              >
-                <Video size={24} className="text-red-500" />
-              </button>
-            )}
+            <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-white/50 text-[10px]">
+              Trykk for foto · Hold for video
+            </p>
           </>
         ) : (
           <>
-            {/* Retake */}
             <button
               type="button"
               onClick={retake}
               disabled={uploading}
-              className="px-6 py-3 rounded-full bg-white/20 text-white font-medium active:scale-95 transition-transform"
+              className="px-6 py-3 rounded-full bg-white/15 text-white font-medium active:scale-95 transition-transform backdrop-blur-sm"
             >
               Ta på nytt
             </button>
 
-            {/* Publish */}
             <button
               type="button"
               onClick={publish}

@@ -1,14 +1,17 @@
 /**
- * HomeScreen – Tile-based navigation hub (iOS-first, minimalist)
+ * HomeScreen – Tile-based navigation hub with story rings at top
  */
 
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
-
 import { HomeDashboard } from "@/components/home/HomeDashboard";
+import { StoryRing } from "@/components/stories/StoryRing";
+import { StoryViewer } from "@/components/stories/StoryViewer";
+import { StoryCapture } from "@/components/stories/StoryCapture";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
+import { useStories } from "@/hooks/useStories";
 import {
   MessageCircle,
   CloudSun,
@@ -36,6 +39,11 @@ interface TileItem {
 export const HomeScreen: React.FC = () => {
   const { profile, isAdmin } = useAuth();
   const unreadCount = useUnreadCount();
+  const { groups, loading: storiesLoading, refetch, markViewed } = useStories();
+
+  const [viewerOpen, setViewerOpen] = React.useState(false);
+  const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
+  const [captureOpen, setCaptureOpen] = React.useState(false);
 
   const displayName = profile?.nickname || profile?.full_name?.split(" ")[0] || "";
 
@@ -60,6 +68,11 @@ export const HomeScreen: React.FC = () => {
     return base;
   }, [unreadCount, isAdmin]);
 
+  const openStory = (idx: number) => {
+    setViewerGroupIdx(idx);
+    setViewerOpen(true);
+  };
+
   return (
     <div
       className="flex flex-col overflow-hidden bg-background"
@@ -73,7 +86,15 @@ export const HomeScreen: React.FC = () => {
           WebkitOverflowScrolling: "touch",
         }}
       >
-        <div className="px-4 pt-4 pb-10 space-y-6">
+        <div className="px-4 pt-4 pb-10 space-y-5">
+          {/* Story rings – Instagram/Snapchat style */}
+          <StoryRing
+            groups={groups}
+            loading={storiesLoading}
+            onAddStory={() => setCaptureOpen(true)}
+            onOpenStory={openStory}
+          />
+
           {/* Mini dashboard */}
           <HomeDashboard />
 
@@ -105,6 +126,30 @@ export const HomeScreen: React.FC = () => {
           </nav>
         </div>
       </div>
+
+      {/* Story Viewer */}
+      {viewerOpen && groups.length > 0 && (
+        <StoryViewer
+          groups={groups}
+          initialGroupIndex={viewerGroupIdx}
+          onClose={() => {
+            setViewerOpen(false);
+            refetch();
+          }}
+          onViewed={markViewed}
+        />
+      )}
+
+      {/* Story Capture */}
+      {captureOpen && (
+        <StoryCapture
+          onClose={() => setCaptureOpen(false)}
+          onPublished={() => {
+            setCaptureOpen(false);
+            refetch();
+          }}
+        />
+      )}
     </div>
   );
 };
