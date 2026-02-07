@@ -69,24 +69,24 @@ Deno.serve(async (req) => {
       : "";
 
     const { data: emailData, error: emailError } = await resend.emails.send({
-      from: "Glühwein <onboarding@resend.dev>",
+      from: "GüttaHütte <onboarding@resend.dev>",
       to: [email],
-      subject: "Du er invitert til Glühwein! 🍷",
+      subject: "Du er invitert til GüttaHütte! 🏔️",
       html: `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:480px;margin:0 auto;padding:32px 20px;">
           <div style="text-align:center;margin-bottom:24px;">
-            <h1 style="font-size:28px;margin:0;color:#103A5D;">Glühwein 🍷</h1>
+            <h1 style="font-size:28px;margin:0;color:#103A5D;">GüttaHütte 🏔️</h1>
             <p style="color:#666;margin-top:4px;">Privat gruppe-app for crewet</p>
           </div>
           
           <p style="font-size:16px;color:#333;">Hei!</p>
-          <p style="font-size:16px;color:#333;">Du har blitt invitert til <strong>Glühwein</strong> – vår private app for ski, chat og opplevelser.</p>
+          <p style="font-size:16px;color:#333;">Du har blitt invitert til <strong>GüttaHütte</strong> – vår private app for ski, chat og opplevelser.</p>
           
           ${personalMessage}
           
           <div style="text-align:center;margin:32px 0;">
             <a href="${appUrl}/auth" style="display:inline-block;padding:14px 32px;background:#103A5D;color:#fff;text-decoration:none;border-radius:10px;font-weight:600;font-size:16px;">
-              Bli med i Glühwein
+              Bli med i GüttaHütte
             </a>
           </div>
           
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
           </ol>
           
           <hr style="border:none;border-top:1px solid #eee;margin:32px 0;" />
-          <p style="font-size:12px;color:#999;text-align:center;">Denne invitasjonen ble sendt fra Glühwein-appen.</p>
+          <p style="font-size:12px;color:#999;text-align:center;">Denne invitasjonen ble sendt fra GüttaHütte-appen.</p>
         </div>
       `,
     });

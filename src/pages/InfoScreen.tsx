@@ -156,7 +156,7 @@ export const InfoScreen: React.FC = () => {
 
           {/* Version footer */}
           <p className="text-center text-xs text-muted-foreground py-4">
-            Glühwein v1.0 · Bygget med ❤️ for crewet
+            GüttaHütte v1.0 · Bygget med ❤️ for crewet
           </p>
         </div>
       </div>
