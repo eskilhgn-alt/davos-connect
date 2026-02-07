@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { BackButton } from '@/components/layout/BackButton';
+import { PullToRefreshWrapper } from '@/components/PullToRefreshWrapper';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { MediaViewer } from '@/components/ui/MediaViewer';
@@ -135,7 +136,8 @@ export const GalleryScreen: React.FC = () => {
     >
       <AppHeader title="Snap & Galleri" subtitle="Stories, bilder og videoer" leftAction={<BackButton fallbackPath="/hjem" />} />
 
-      <div
+      <PullToRefreshWrapper
+        onRefresh={async () => { setLoading(true); await fetchGallery(); }}
         className="flex-1 overflow-y-auto overscroll-contain p-4"
         style={{
           paddingBottom: "var(--bottom-nav-h-effective)",
@@ -204,7 +206,7 @@ export const GalleryScreen: React.FC = () => {
             })}
           </div>
         )}
-      </div>
+      </PullToRefreshWrapper>
 
       {selectedItem && (
         <MediaViewer

@@ -6,6 +6,7 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout";
 import { BackButton } from "@/components/layout/BackButton";
+import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosSegmented, type SegmentOption } from "@/components/ui/davos-segmented";
@@ -90,7 +91,8 @@ const WeatherScreen: React.FC = () => {
         }
       />
 
-      <div
+      <PullToRefreshWrapper
+        onRefresh={async () => { await load(true); }}
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{
           paddingBottom: "var(--bottom-nav-h-effective)",
@@ -243,7 +245,7 @@ const WeatherScreen: React.FC = () => {
             </>
           )}
         </div>
-      </div>
+      </PullToRefreshWrapper>
     </div>
   );
 };
