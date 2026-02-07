@@ -12,6 +12,7 @@ import HomeScreen from "./pages/HomeScreen";
 import MapScreen from "./pages/MapScreen";
 import CrewMapScreen from "./pages/CrewMapScreen";
 import LiveScreen from "./pages/LiveScreen";
+import GalleryScreen from "./pages/GalleryScreen";
 import FeedScreen from "./pages/FeedScreen";
 import MoreScreen from "./pages/MoreScreen";
 import WeatherScreen from "./pages/WeatherScreen";
@@ -78,7 +79,8 @@ const AppRoutes = () => (
       <Route path="/webcams" element={<WebcamsScreen />} />
       <Route path="/feed" element={<FeedScreen />} />
       <Route path="/mer" element={<MoreScreen />} />
-      {/* Gallery removed — media lives in chat */}
+      {/* Gallery */}
+      <Route path="/galleri" element={<GalleryScreen />} />
       <Route path="/innstillinger" element={<SettingsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
       <Route path="/gruppe" element={<GroupScreen />} />

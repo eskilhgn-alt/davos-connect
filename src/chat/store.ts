@@ -196,6 +196,30 @@ export async function sendMessage(
     return null;
   }
 
+  // Auto-insert uploaded images/videos into gallery_items
+  if (data) {
+    const messageId = (data as any).id;
+    for (const att of uploadedAttachments) {
+      if (att.objectUrl && att.objectUrl.includes('/chat-media/')) {
+        // Extract storage path from public URL
+        const pathMatch = att.objectUrl.split('/chat-media/')[1];
+        if (pathMatch) {
+          supabase
+            .from('gallery_items')
+            .insert({
+              storage_path: decodeURIComponent(pathMatch),
+              type: att.kind || 'image',
+              uploaded_by: sid!,
+              source_message_id: messageId,
+            })
+            .then(({ error: gErr }) => {
+              if (gErr) console.warn('Gallery insert error:', gErr);
+            });
+        }
+      }
+    }
+  }
+
   // Notify all active subscribers immediately (don't wait for realtime)
   notifySubscribers();
 
