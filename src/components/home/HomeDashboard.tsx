@@ -86,7 +86,7 @@ export const HomeDashboard: React.FC = () => {
           <span className="font-heading text-sm font-bold text-foreground leading-none">
             {rate.loading ? "…" : rate.rate ? `${rate.rate.toFixed(2)} kr` : "–"}
           </span>
-          <span className="text-[8px] text-muted-foreground/60 leading-tight">ECB</span>
+          <span className="text-[7px] text-muted-foreground/50 leading-tight w-full text-center">Den europeiske sentralbanken</span>
         </div>
 
         {/* Next event */}
