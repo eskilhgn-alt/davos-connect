@@ -194,6 +194,7 @@ export const ShotScreen: React.FC = () => {
                 type: "selected",
                 heading: "Vinner trukket! 🏆",
                 message: `${winnerName} må ta shot innen 15 minutter!`,
+                // Don't exclude anyone - all users should see the winner
               }),
             }).catch(() => {});
           }
@@ -209,14 +210,11 @@ export const ShotScreen: React.FC = () => {
   // Confirm shot
   const handleConfirm = React.useCallback(async (mode: "self" | "witness", witnessId?: string) => {
     if (!activeEvent) return;
-    const params: { p_event_id: string; p_mode: string; p_witness_id?: string } = {
+    const { error } = await supabase.rpc("rpc_confirm_shot", {
       p_event_id: activeEvent.id,
       p_mode: mode,
-    };
-    if (mode === "self" && witnessId) {
-      params.p_witness_id = witnessId;
-    }
-    const { error } = await supabase.rpc("rpc_confirm_shot", params as any);
+      p_witness_id: mode === "self" && witnessId ? witnessId : undefined,
+    } as any);
     if (error) {
       toast.error(error.message);
     } else {

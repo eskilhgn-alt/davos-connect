@@ -12,14 +12,18 @@ interface ShotEventFeedProps {
   getDisplayName: (id: string | null) => string;
 }
 
-const typeLabels: Record<string, { emoji: string; label: (name: string) => string }> = {
+const typeLabels: Record<string, { emoji: string; label: (name: string, payload?: Record<string, unknown>) => string }> = {
   pressed: { emoji: "🔴", label: (n) => `${n} trykket knappen` },
   countdown_started: { emoji: "⏱", label: () => "Nedtelling startet" },
   selected: { emoji: "🎯", label: (n) => `${n} ble trukket` },
   self_confirmed: { emoji: "✅", label: (n) => `${n} bekreftet: Shot tatt!` },
   witness_confirmed: { emoji: "👁", label: (n) => `${n} bekreftet som vitne` },
+  witness_denied: { emoji: "🚫", label: (n) => `${n} avviste – straffeshot!` },
   overdue: { emoji: "⚠️", label: (n) => `${n} tok ikke shot i tide` },
-  punished: { emoji: "💀", label: (n) => `2 straffeshots for ${n}` },
+  punished: { emoji: "💀", label: (n, p) => {
+    const reason = p?.witness_id ? "Avvist av vitne" : "Ikke tatt i tide";
+    return `${reason} → straffeshot for ${n}`;
+  }},
   bonus_token: { emoji: "🎁", label: (n) => `${n} fikk bonustoken` },
 };
 
@@ -35,13 +39,14 @@ export const ShotEventFeed: React.FC<ShotEventFeedProps> = ({ entries, getDispla
         {entries.map((entry) => {
           const config = typeLabels[entry.type] || { emoji: "•", label: () => entry.type };
           const name = getDisplayName(entry.actor_id);
+          const payload = entry.payload as Record<string, unknown> | undefined;
           const timeAgo = formatDistanceToNow(new Date(entry.created_at), { addSuffix: true, locale: nb });
 
           return (
             <div key={entry.id} className="flex items-start gap-3 py-2.5 border-b border-border last:border-0">
               <span className="text-base mt-0.5 shrink-0">{config.emoji}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground">{config.label(name)}</p>
+                <p className="text-sm text-foreground">{config.label(name, payload)}</p>
                 <p className="text-xs text-muted-foreground">{timeAgo}</p>
               </div>
             </div>

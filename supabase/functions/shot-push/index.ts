@@ -52,22 +52,28 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get all members with push tokens (exclude sender)
+    // Get all users with push tokens from push_tokens table (exclude sender if specified)
     let query = supabase
-      .from("members")
-      .select("user_id, push_token")
-      .not("push_token", "is", null);
+      .from("push_tokens")
+      .select("user_id, player_id")
+      .not("player_id", "is", null);
 
     if (exclude_user_id) {
       query = query.neq("user_id", exclude_user_id);
     }
 
-    const { data: members, error: membersError } = await query;
-    if (membersError) throw membersError;
+    const { data: tokens, error: tokensError } = await query;
+    if (tokensError) throw tokensError;
 
-    const externalUserIds = (members || [])
-      .filter((m) => m.push_token)
-      .map((m) => m.user_id);
+    // Deduplicate by user_id
+    const seen = new Set<string>();
+    const externalUserIds = (tokens || [])
+      .filter((t) => {
+        if (seen.has(t.user_id)) return false;
+        seen.add(t.user_id);
+        return true;
+      })
+      .map((t) => t.user_id);
 
     if (externalUserIds.length === 0) {
       return new Response(

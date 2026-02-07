@@ -913,12 +913,10 @@ export type Database = {
         Returns: undefined
       }
       rpc_check_shot_ban: { Args: never; Returns: Json }
-      rpc_confirm_shot:
-        | { Args: { p_event_id: string; p_mode: string }; Returns: Json }
-        | {
-            Args: { p_event_id: string; p_mode: string; p_witness_id?: string }
-            Returns: Json
-          }
+      rpc_confirm_shot: {
+        Args: { p_event_id: string; p_mode: string; p_witness_id?: string }
+        Returns: Json
+      }
       rpc_finalize_countdown: { Args: { p_event_id: string }; Returns: Json }
       rpc_get_all_shot_tokens: { Args: never; Returns: Json }
       rpc_get_shot_leaderboard: {
