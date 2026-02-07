@@ -23,6 +23,7 @@ export const BottomNavigation: React.FC = () => {
   const location = useLocation();
   const unreadCount = useUnreadCount();
   const [isKeyboardOpen, setIsKeyboardOpen] = React.useState(false);
+  const isHome = location.pathname === "/" || location.pathname === "/hjem";
 
   React.useEffect(() => {
     const checkKeyboard = () => {
@@ -48,7 +49,7 @@ export const BottomNavigation: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  if (isKeyboardOpen) {
+  if (isKeyboardOpen || isHome) {
     return null;
   }
 

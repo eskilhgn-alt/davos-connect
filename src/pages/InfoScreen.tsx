@@ -5,6 +5,7 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { BackButton } from "@/components/layout/BackButton";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { 
   Code2, 
@@ -128,11 +129,7 @@ export const InfoScreen: React.FC = () => {
       <AppHeader 
         title="Info" 
         subtitle="Om appen"
-        leftAction={
-          <button onClick={() => navigate("/mer")} className="p-2">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-        }
+        leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
       <div 
