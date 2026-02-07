@@ -1,17 +1,19 @@
 /**
- * ShotStatusCard – Shows current round status: selected user, deadline, confirm buttons
+ * ShotStatusCard – Shows current round status with witness picker flow
+ * Flow: selected user picks witness → confirms "Shot tatt!" → chosen witness confirms
  */
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { ShotEvent } from "@/pages/ShotScreen";
-import { Check, Eye, AlertTriangle, Clock } from "lucide-react";
+import { Check, Eye, AlertTriangle, Clock, ChevronDown } from "lucide-react";
 
 interface ShotStatusCardProps {
   event: ShotEvent;
   currentUserId: string;
   getDisplayName: (id: string | null) => string;
-  onConfirm: (mode: "self" | "witness") => void;
+  onConfirm: (mode: "self" | "witness", witnessId?: string) => void;
+  profiles: Record<string, string>;
 }
 
 export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
@@ -19,10 +21,13 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
   currentUserId,
   getDisplayName,
   onConfirm,
+  profiles,
 }) => {
   const [timeLeft, setTimeLeft] = React.useState("");
+  const [selectedWitness, setSelectedWitness] = React.useState<string | null>(null);
+  const [showWitnessPicker, setShowWitnessPicker] = React.useState(false);
 
-  // Deadline countdown
+  // Deadline countdown (2h)
   React.useEffect(() => {
     if (event.status !== "selected" || !event.deadline_at) return;
 
@@ -34,11 +39,16 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
       }
       const hours = Math.floor(remaining / 3600000);
       const mins = Math.floor((remaining % 3600000) / 60000);
-      setTimeLeft(`${hours}t ${mins}m igjen`);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      if (hours > 0) {
+        setTimeLeft(`${hours}t ${mins}m igjen`);
+      } else {
+        setTimeLeft(`${mins}m ${secs}s igjen`);
+      }
     };
 
     tick();
-    const interval = setInterval(tick, 30000);
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [event.status, event.deadline_at]);
 
@@ -46,8 +56,21 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
   const isConfirmed = event.status === "confirmed";
   const isPunished = event.status === "punished";
   const isWinner = event.selected_user_id === currentUserId;
+  const isChosenWitness = event.chosen_witness_id === currentUserId;
   const winnerName = getDisplayName(event.selected_user_id);
   const starterName = getDisplayName(event.started_by);
+
+  // Available witnesses (everyone except the selected user)
+  const witnessOptions = React.useMemo(() => {
+    return Object.entries(profiles)
+      .filter(([id]) => id !== event.selected_user_id)
+      .map(([id, name]) => ({ id, name }));
+  }, [profiles, event.selected_user_id]);
+
+  const handleSelfConfirm = () => {
+    if (!selectedWitness) return;
+    onConfirm("self", selectedWitness);
+  };
 
   return (
     <div className="border border-border rounded-xl p-5 space-y-4">
@@ -63,7 +86,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
           "bg-muted text-muted-foreground"
         )}>
           {isSelected && "Aktiv"}
-          {isConfirmed && (event.witness_confirmed_by ? "Bekreftet ✓" : "Ubekreftet")}
+          {isConfirmed && "Bekreftet"}
           {isPunished && "Straff!"}
           {event.status === "countdown" && "Nedtelling"}
         </span>
@@ -87,27 +110,96 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Step 1: Winner picks witness and confirms */}
       {isSelected && !event.self_confirmed && isWinner && (
-        <button
-          type="button"
-          onClick={() => onConfirm("self")}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-foreground text-background font-heading font-semibold transition-all active:scale-[0.98]"
-        >
-          <Check size={18} />
-          Shot tatt!
-        </button>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground text-center">
+            Velg hvem som skal bekrefte at du tar shotten:
+          </p>
+
+          {/* Witness picker */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowWitnessPicker(!showWitnessPicker)}
+              className="w-full flex items-center justify-between py-3 px-4 rounded-lg border border-border bg-muted/30 text-sm"
+            >
+              <span className={selectedWitness ? "text-foreground" : "text-muted-foreground"}>
+                {selectedWitness ? getDisplayName(selectedWitness) : "Velg vitne..."}
+              </span>
+              <ChevronDown size={16} className="text-muted-foreground" />
+            </button>
+
+            {showWitnessPicker && (
+              <div className="absolute z-10 mt-1 w-full bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                {witnessOptions.map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedWitness(w.id);
+                      setShowWitnessPicker(false);
+                    }}
+                    className={cn(
+                      "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                      selectedWitness === w.id
+                        ? "bg-foreground/5 font-medium"
+                        : "hover:bg-muted/50"
+                    )}
+                  >
+                    {w.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSelfConfirm}
+            disabled={!selectedWitness}
+            className={cn(
+              "w-full flex items-center justify-center gap-2 py-3 rounded-lg font-heading font-semibold transition-all active:scale-[0.98]",
+              selectedWitness
+                ? "bg-foreground text-background"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            <Check size={18} />
+            Shot tatt!
+          </button>
+        </div>
       )}
 
-      {(isSelected || isConfirmed) && event.self_confirmed && !event.witness_confirmed_by && !isWinner && (
-        <button
-          type="button"
-          onClick={() => onConfirm("witness")}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-lg border-2 border-foreground text-foreground font-heading font-semibold transition-all active:scale-[0.98]"
-        >
-          <Eye size={18} />
-          Bekreft som vitne
-        </button>
+      {/* Step 2: Chosen witness sees big confirm button */}
+      {isSelected && event.self_confirmed && !event.witness_confirmed_by && isChosenWitness && (
+        <div className="space-y-3">
+          <p className="text-sm text-center text-muted-foreground">
+            {winnerName} sier de har tatt shotten. Bekreft!
+          </p>
+          <button
+            type="button"
+            onClick={() => onConfirm("witness")}
+            className="w-full flex items-center justify-center gap-2 py-5 rounded-xl border-2 border-foreground text-foreground font-heading text-lg font-bold transition-all active:scale-[0.98]"
+          >
+            <Eye size={22} />
+            Ja, jeg bekrefter!
+          </button>
+        </div>
+      )}
+
+      {/* Waiting state for non-witness users */}
+      {isSelected && event.self_confirmed && !event.witness_confirmed_by && !isChosenWitness && !isWinner && (
+        <p className="text-sm text-center text-muted-foreground py-2">
+          Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter...
+        </p>
+      )}
+
+      {/* Winner waiting for witness */}
+      {isSelected && event.self_confirmed && !event.witness_confirmed_by && isWinner && (
+        <p className="text-sm text-center text-muted-foreground py-2">
+          Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter...
+        </p>
       )}
 
       {/* Status indicators */}
@@ -117,16 +209,22 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
           <span>{winnerName} har bekreftet</span>
         </div>
       )}
+      {event.chosen_witness_id && !event.witness_confirmed_by && event.self_confirmed && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Eye size={14} />
+          <span>Vitne: {getDisplayName(event.chosen_witness_id)}</span>
+        </div>
+      )}
       {event.witness_confirmed_by && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Eye size={14} className="text-success" />
-          <span>Vitne: {getDisplayName(event.witness_confirmed_by)}</span>
+          <span>Bekreftet av {getDisplayName(event.witness_confirmed_by)}</span>
         </div>
       )}
       {isPunished && (
         <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertTriangle size={14} />
-          <span>Straffeshot registrert</span>
+          <span>2 straffeshots registrert</span>
         </div>
       )}
     </div>

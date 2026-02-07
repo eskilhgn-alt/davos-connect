@@ -19,7 +19,8 @@ const typeLabels: Record<string, { emoji: string; label: (name: string) => strin
   self_confirmed: { emoji: "✅", label: (n) => `${n} bekreftet: Shot tatt!` },
   witness_confirmed: { emoji: "👁", label: (n) => `${n} bekreftet som vitne` },
   overdue: { emoji: "⚠️", label: (n) => `${n} tok ikke shot i tide` },
-  punished: { emoji: "💀", label: (n) => `Straffeshot for ${n}` },
+  punished: { emoji: "💀", label: (n) => `2 straffeshots for ${n}` },
+  bonus_token: { emoji: "🎁", label: (n) => `${n} fikk bonustoken` },
 };
 
 export const ShotEventFeed: React.FC<ShotEventFeedProps> = ({ entries, getDisplayName }) => {
