@@ -9,13 +9,17 @@
  * - Witness activity (confirmed/denied, not timeout): 1 point
  * - Story published: 2 points
  * - Ski vertical 100m+: 2 points per 100m
+ * 
+ * Supports CRON_SECRET header for cron-based invocation.
+ * Includes deduplication: checks last run time to avoid double-counting.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -24,11 +28,64 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Auth: accept either CRON_SECRET header or valid JWT
+    const cronSecret = req.headers.get("x-cron-secret");
+    const authHeader = req.headers.get("Authorization");
+    const expectedCronSecret = Deno.env.get("CRON_SECRET");
+
+    if (cronSecret && expectedCronSecret && cronSecret === expectedCronSecret) {
+      // Cron invocation - OK
+    } else if (authHeader?.startsWith("Bearer ")) {
+      // JWT check
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const anonClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const token = authHeader.replace("Bearer ", "");
+      const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+      if (claimsError || !claimsData?.claims) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Verify admin
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const adminClient = createClient(supabaseUrl, serviceKey);
+      const userId = claimsData.claims.sub as string;
+      const { data: isAdmin } = await adminClient.rpc("is_admin", { _user_id: userId });
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "Admin only" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Deduplication: check when points were last awarded
+    const { data: lastAward } = await sb
+      .from("points_ledger")
+      .select("created_at")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const lastAwardTime = lastAward && lastAward.length > 0
+      ? new Date(lastAward[0].created_at).toISOString()
+      : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Use the later of: last award time or 24h ago
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const since = lastAwardTime > twentyFourHoursAgo ? lastAwardTime : twentyFourHoursAgo;
+
+    console.log(`Awarding points for activity since: ${since}`);
+
     const awards: { user_id: string; points: number; reason: string; desc: string }[] = [];
 
     // 1. Chat messages (1 point each)
@@ -76,13 +133,9 @@ Deno.serve(async (req) => {
         if (e.status === "confirmed" && e.selected_user_id) {
           confirmCounts.set(e.selected_user_id, (confirmCounts.get(e.selected_user_id) || 0) + 1);
         }
-        // Witness gets point for active participation (confirmed or denied/disputed, NOT timeout)
-        if (e.witness_confirmed_by && e.status !== "punished") {
-          witnessCounts.set(e.witness_confirmed_by, (witnessCounts.get(e.witness_confirmed_by) || 0) + 1);
-        }
       });
 
-      // Also check log for witness_disputed entries (active denial = point)
+      // Witness gets point for active participation (confirmed or disputed, NOT timeout)
       const { data: logEntries } = await sb
         .from("shot_event_log")
         .select("actor_id, type")
@@ -91,7 +144,7 @@ Deno.serve(async (req) => {
       
       if (logEntries) {
         logEntries.forEach((l: any) => {
-          if (l.actor_id && !witnessCounts.has(l.actor_id)) {
+          if (l.actor_id) {
             witnessCounts.set(l.actor_id, (witnessCounts.get(l.actor_id) || 0) + 1);
           }
         });
@@ -153,60 +206,68 @@ Deno.serve(async (req) => {
       totalAwarded += award.points;
     }
 
-    // === Compute and store streaks for all users ===
+    // === Compute and store streaks for all users (batched) ===
     const { data: allProfiles } = await sb.from("profiles").select("id").eq("is_active", true);
+    let streaksUpdated = 0;
+    
     if (allProfiles) {
       for (const profile of allProfiles) {
         const uid = profile.id;
-        // Get all activity dates for this user
-        const [msgRes, galRes, shotRes, storyRes] = await Promise.all([
-          sb.from("messages").select("created_at").eq("sender_id", uid).is("deleted_at", null).order("created_at", { ascending: false }).limit(500),
-          sb.from("gallery_items").select("created_at").eq("uploaded_by", uid).order("created_at", { ascending: false }).limit(200),
-          sb.from("shot_events").select("created_at").or(`started_by.eq.${uid},selected_user_id.eq.${uid},witness_confirmed_by.eq.${uid}`).order("created_at", { ascending: false }).limit(200),
-          sb.from("stories").select("created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(100),
-        ]);
+        try {
+          const [msgRes, galRes, shotRes, storyRes] = await Promise.all([
+            sb.from("messages").select("created_at").eq("sender_id", uid).is("deleted_at", null).order("created_at", { ascending: false }).limit(365),
+            sb.from("gallery_items").select("created_at").eq("uploaded_by", uid).order("created_at", { ascending: false }).limit(100),
+            sb.from("shot_events").select("created_at").or(`started_by.eq.${uid},selected_user_id.eq.${uid},witness_confirmed_by.eq.${uid}`).order("created_at", { ascending: false }).limit(100),
+            sb.from("stories").select("created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(50),
+          ]);
 
-        const activeDays = new Set<string>();
-        const addDates = (rows: any[] | null) => rows?.forEach((r: any) => activeDays.add(r.created_at.split("T")[0]));
-        addDates(msgRes.data);
-        addDates(galRes.data);
-        addDates(shotRes.data);
-        addDates(storyRes.data);
+          const activeDays = new Set<string>();
+          const addDates = (rows: any[] | null) => rows?.forEach((r: any) => activeDays.add(r.created_at.split("T")[0]));
+          addDates(msgRes.data);
+          addDates(galRes.data);
+          addDates(shotRes.data);
+          addDates(storyRes.data);
 
-        const sorted = Array.from(activeDays).sort().reverse();
-        const today = new Date().toISOString().split("T")[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+          const sorted = Array.from(activeDays).sort().reverse();
+          const today = new Date().toISOString().split("T")[0];
+          const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
 
-        let streak = 0;
-        let checkDate = activeDays.has(today) ? today : (activeDays.has(yesterday) ? yesterday : null);
-        if (checkDate) {
-          const d = new Date(checkDate);
-          while (activeDays.has(d.toISOString().split("T")[0])) {
-            streak++;
-            d.setDate(d.getDate() - 1);
+          let streak = 0;
+          const checkDate = activeDays.has(today) ? today : (activeDays.has(yesterdayStr) ? yesterdayStr : null);
+          if (checkDate) {
+            const d = new Date(checkDate);
+            while (activeDays.has(d.toISOString().split("T")[0])) {
+              streak++;
+              d.setDate(d.getDate() - 1);
+            }
           }
-        }
 
-        let best = 0, cur = 1;
-        for (let i = 1; i < sorted.length; i++) {
-          const diff = (new Date(sorted[i - 1]).getTime() - new Date(sorted[i]).getTime()) / 86400000;
-          if (Math.round(diff) === 1) cur++;
-          else { best = Math.max(best, cur); cur = 1; }
-        }
-        best = Math.max(best, cur, streak);
+          let best = 0, cur = 1;
+          for (let i = 1; i < sorted.length; i++) {
+            const diff = (new Date(sorted[i - 1]).getTime() - new Date(sorted[i]).getTime()) / 86400000;
+            if (Math.round(diff) === 1) cur++;
+            else { best = Math.max(best, cur); cur = 1; }
+          }
+          best = Math.max(best, cur, streak);
 
-        await sb.from("user_streaks").upsert({
-          user_id: uid,
-          current_streak: streak,
-          best_streak: best,
-          last_active_date: sorted[0] || null,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id" });
+          await sb.from("user_streaks").upsert({
+            user_id: uid,
+            current_streak: streak,
+            best_streak: best,
+            last_active_date: sorted[0] || null,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "user_id" });
+          streaksUpdated++;
+        } catch (e) {
+          console.error(`Streak calc error for ${uid}:`, e);
+        }
       }
     }
 
+    console.log(`Awards: ${awards.length}, Points: ${totalAwarded}, Streaks: ${streaksUpdated}`);
+
     return new Response(
-      JSON.stringify({ success: true, awards_count: awards.length, total_points: totalAwarded }),
+      JSON.stringify({ success: true, awards_count: awards.length, total_points: totalAwarded, streaks_updated: streaksUpdated }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

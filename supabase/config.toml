@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.ski-daily-award]
 verify_jwt = false
+
+[functions.award-points]
+verify_jwt = false
