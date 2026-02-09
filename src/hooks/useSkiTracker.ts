@@ -9,7 +9,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
-const MIN_ALTITUDE = 1560; // meters
+const MIN_ALTITUDE = 1500; // meters
 const MIN_SPEED = 2.78; // m/s (~10 km/h)
 const RECORD_INTERVAL = 15_000; // 15 seconds
 

@@ -5,7 +5,6 @@
  * Point values:
  * - Chat message: 1 point
  * - Media share (image/video/gif): 3 points
- * - Agenda event created: 5 points
  * - Shot round started: 2 points
  * - Shot confirmed (took the shot): 3 points
  * - Witness confirmation: 2 points
@@ -67,21 +66,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. Agenda events (5 points each)
-    const { data: agendaEvents } = await sb
-      .from("agenda_events")
-      .select("created_by")
-      .gte("created_at", since);
-    
-    if (agendaEvents) {
-      const counts = new Map<string, number>();
-      agendaEvents.forEach((e: any) => {
-        counts.set(e.created_by, (counts.get(e.created_by) || 0) + 1);
-      });
-      counts.forEach((count, userId) => {
-        awards.push({ user_id: userId, points: count * 5, reason: "agenda_create", desc: `${count} hendelser opprettet` });
-      });
-    }
+    // 3. (Agenda removed from points)
 
     // 4. Shot rounds started (2 points) + confirmed (3 points) + witnessed (2 points)
     const { data: shotEvents } = await sb

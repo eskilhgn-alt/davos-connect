@@ -64,7 +64,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
       return;
     }
 
-    const WITNESS_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const WITNESS_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
     const confirmTime = event.selected_at ? new Date(event.selected_at).getTime() : Date.now();
     const witnessDeadline = confirmTime + WITNESS_TIMEOUT_MS;
 
