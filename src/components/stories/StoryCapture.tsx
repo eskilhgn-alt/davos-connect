@@ -108,6 +108,12 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
+      // Reset zoom to widest angle
+      const track = stream.getVideoTracks()[0];
+      const caps = track?.getCapabilities?.() as any;
+      if (caps?.zoom) {
+        track.applyConstraints({ advanced: [{ zoom: caps.zoom.min } as any] }).catch(() => {});
+      }
       setZoomLevel(1);
     } catch {
       toast.error("Kunne ikke åpne kamera");

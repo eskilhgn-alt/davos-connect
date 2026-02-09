@@ -48,7 +48,6 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
   }, [activeEvent]);
 
   const isCountdown = activeEvent?.status === "countdown" && countdown !== null && countdown > 0;
-  const isActive = !!activeEvent;
 
   // SVG circle params
   const size = 200;
@@ -92,7 +91,7 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
         <button
           type="button"
           onClick={onPress}
-          disabled={disabled || isActive}
+          disabled={disabled || isCountdown}
           style={{ width: size, height: size }}
           className={cn(
             "relative rounded-full",
@@ -102,9 +101,7 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
             "shadow-lg",
             isCountdown
               ? "bg-foreground text-background animate-pulse"
-              : isActive
-                ? "bg-muted text-muted-foreground cursor-not-allowed"
-                : disabled
+              : disabled
                   ? "bg-muted text-muted-foreground cursor-not-allowed"
                   : "bg-destructive text-destructive-foreground hover:brightness-110"
           )}
@@ -118,8 +115,6 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
             </>
           ) : loading ? (
             <span className="text-lg">Starter...</span>
-          ) : isActive ? (
-            <span className="text-lg">Runde pågår</span>
           ) : disabled ? (
             <>
               <span className="text-lg">Ingen tokens</span>

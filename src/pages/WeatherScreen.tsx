@@ -70,7 +70,14 @@ const WeatherScreen: React.FC = () => {
     }
   }, [geo.position]);
 
-  React.useEffect(() => { load(); }, [load]);
+  // Only load once on mount, not on every geo position change
+  const hasLoaded = React.useRef(false);
+  React.useEffect(() => {
+    if (!hasLoaded.current) {
+      hasLoaded.current = true;
+      load();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getForecast = (d: FullWeatherData | null): SourceForecast | null => {
     if (!d) return null;
