@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:480px;margin:0 auto;padding:32px 20px;">
           <div style="text-align:center;margin-bottom:24px;">
             <h1 style="font-size:28px;margin:0;color:#103A5D;">GüttaHütte 🏔️</h1>
-            <p style="color:#666;margin-top:4px;">Privat gruppe-app for crewet</p>
+            <p style="color:#666;margin-top:4px;">Privat app for Gütta</p>
           </div>
           
           <p style="font-size:16px;color:#333;">Hei!</p>

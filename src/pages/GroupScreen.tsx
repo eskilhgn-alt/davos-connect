@@ -67,8 +67,8 @@ export const GroupScreen: React.FC = () => {
       style={{ height: "var(--app-height)" }}
     >
       <AppHeader
-        title="Gruppen"
-        subtitle="Deltakere i GüttaHütte"
+        title="Gütta"
+        subtitle="Alle i GüttaHütte"
         leftAction={<BackButton fallbackPath="/hjem" />}
       />
 

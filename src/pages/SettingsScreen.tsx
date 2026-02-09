@@ -312,7 +312,7 @@ export const SettingsScreen: React.FC = () => {
                 </h2>
               </div>
               <div className="text-sm text-muted-foreground space-y-3">
-                <p><strong>Privat gruppe-app:</strong> Tilgang kun ved invitasjon.</p>
+                <p><strong>Privat app:</strong> Tilgang kun ved invitasjon.</p>
                 <p><strong>Personvern:</strong> Data lagres i Europa (EU/Sveits). Du kan be om sletting når som helst.</p>
                 <p><strong>Ingen garanti:</strong> Appen leveres "som den er".</p>
               </div>
@@ -360,7 +360,7 @@ export const SettingsScreen: React.FC = () => {
           </DavosButton>
 
           <p className="text-center text-xs text-muted-foreground py-4">
-            GüttaHütte v1.0 · Bygget med ❤️ for crewet
+            GüttaHütte v1.0 · Bygget med ❤️ for Gütta
           </p>
         </div>
       </div>

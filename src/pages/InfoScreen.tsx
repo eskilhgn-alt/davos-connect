@@ -93,7 +93,7 @@ export const InfoScreen: React.FC = () => {
       content: (
         <div className="text-sm text-muted-foreground space-y-3">
           <p>
-            <strong>Privat gruppe-app:</strong> Dette er en privat app for en lukket gruppe. 
+            <strong>Privat app:</strong> Dette er en privat app for Gütta. 
             Tilgang gis kun ved invitasjon.
           </p>
           <p>
@@ -156,7 +156,7 @@ export const InfoScreen: React.FC = () => {
 
           {/* Version footer */}
           <p className="text-center text-xs text-muted-foreground py-4">
-            GüttaHütte v1.0 · Bygget med ❤️ for crewet
+            GüttaHütte v1.0 · Bygget med ❤️ for Gütta
           </p>
         </div>
       </div>
