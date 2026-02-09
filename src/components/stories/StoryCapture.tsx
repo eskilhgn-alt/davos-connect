@@ -64,6 +64,8 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const drawContainerRef = React.useRef<HTMLDivElement>(null);
 
   const [mode, setMode] = React.useState<"camera" | "preview">("camera");
+  const [cameraError, setCameraError] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isRecording, setIsRecording] = React.useState(false);
   const [recordTime, setRecordTime] = React.useState(0);
   const [capturedMedia, setCapturedMedia] = React.useState<{
@@ -101,6 +103,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   // ─── Camera ───
   const startCamera = React.useCallback(async () => {
     try {
+      setCameraError(false);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode, width: { ideal: 1080 }, height: { ideal: 1920 } },
@@ -115,8 +118,9 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         track.applyConstraints({ advanced: [{ zoom: caps.zoom.min } as any] }).catch(() => {});
       }
       setZoomLevel(1);
-    } catch {
-      toast.error("Kunne ikke åpne kamera");
+    } catch (err) {
+      console.error("[StoryCapture] Camera error:", err);
+      setCameraError(true);
     }
   }, [facingMode]);
 
@@ -254,7 +258,19 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     setTextOverlays([]);
     setDrawPaths([]);
     setEditMode("none");
+    setCameraError(false);
     setMode("camera");
+  };
+
+  // ─── File input fallback ───
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const type = file.type.startsWith("video") ? "video" as const : "image" as const;
+    const url = URL.createObjectURL(file);
+    setCapturedMedia({ blob: file, type, url });
+    setMode("preview");
+    streamRef.current?.getTracks().forEach((t) => t.stop());
   };
 
   // ─── Drawing ───
@@ -510,6 +526,16 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* Hidden file input fallback */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileInput}
+      />
+
       {/* Top bar */}
       <div
         className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-3"
@@ -610,7 +636,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         onPointerMove={editMode === "draw" ? onDrawMove : draggingId ? onDragMove : undefined}
         onPointerUp={editMode === "draw" ? onDrawEnd : draggingId ? onDragEnd : undefined}
       >
-        {mode === "camera" ? (
+        {mode === "camera" && !cameraError ? (
           <video
             ref={videoRef}
             autoPlay
@@ -618,6 +644,18 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
             muted
             className="w-full h-full object-cover"
           />
+        ) : mode === "camera" && cameraError ? (
+          <div className="flex flex-col items-center justify-center gap-4 text-white text-center px-8">
+            <p className="text-lg font-semibold">Kunne ikke åpne kamera</p>
+            <p className="text-sm text-white/60">Sjekk at appen har tilgang til kamera i telefonens innstillinger, eller bruk knappen under for å ta bilde/video direkte.</p>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-6 py-3 rounded-full bg-white text-black font-semibold active:scale-95 transition-transform"
+            >
+              Velg bilde/video
+            </button>
+          </div>
         ) : capturedMedia?.type === "video" ? (
           <video
             src={capturedMedia.url}
