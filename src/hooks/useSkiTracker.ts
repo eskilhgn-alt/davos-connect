@@ -1,8 +1,8 @@
 /**
- * useSkiTracker — automatically records vertical meters when skiing criteria are met:
- * - Altitude > 1560m (above Davos Platz)
- * - Speed > 15 km/h (4.17 m/s)
- * Runs in background when geolocation is enabled.
+ * useSkiTracker — automatically records vertical meters and top speed when skiing:
+ * - Altitude > 1500m
+ * - Speed > 10 km/h (2.78 m/s)
+ * Also tracks daily top speed for speed leaderboard.
  */
 import { useEffect, useRef } from "react";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -18,6 +18,7 @@ export function useSkiTracker() {
   const { position, enabled } = useGeolocation();
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const lastRecordRef = useRef<number>(0);
+  const topSpeedTodayRef = useRef<number>(0);
 
   useEffect(() => {
     if (!user || !enabled || !position) return;
@@ -36,12 +37,39 @@ export function useSkiTracker() {
       if (now - lastRecordRef.current < RECORD_INTERVAL - 1000) return;
       lastRecordRef.current = now;
 
+      // Record vertical meters
       await supabase.rpc("rpc_record_ski_sample", {
         p_altitude: altitude,
         p_speed: speed,
         p_lat: position.lat,
         p_lon: position.lon,
       });
+
+      // Track top speed (convert m/s to km/h)
+      const speedKmh = speed * 3.6;
+      if (speedKmh > topSpeedTodayRef.current) {
+        topSpeedTodayRef.current = speedKmh;
+        // Upsert daily speed record
+        const today = new Date().toISOString().slice(0, 10);
+        await supabase
+          .from("ski_speed_records")
+          .upsert(
+            {
+              user_id: user.id,
+              day_date: today,
+              max_speed_kmh: Math.round(speedKmh * 100) / 100,
+              altitude_m: altitude,
+              lat: position.lat,
+              lon: position.lon,
+              recorded_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,day_date" }
+          )
+          .then(({ error }) => {
+            if (error) console.warn("Speed record upsert error:", error);
+          });
+      }
     };
 
     record();

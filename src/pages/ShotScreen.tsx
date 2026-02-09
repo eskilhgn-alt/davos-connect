@@ -17,6 +17,7 @@ import { ShotTokenOverview } from "@/components/shot/ShotTokenOverview";
 import { ShotTransparency } from "@/components/shot/ShotTransparency";
 import { ShotHistory } from "@/components/shot/ShotHistory";
 import { SkiVerticalCard } from "@/components/ski/SkiVerticalCard";
+import { SkiSpeedLeaderboard } from "@/components/ski/SkiSpeedLeaderboard";
 import { SkiAwardClaimDialog } from "@/components/ski/SkiAwardClaimDialog";
 import { useSkiTracker } from "@/hooks/useSkiTracker";
 import { toast } from "sonner";
@@ -98,7 +99,7 @@ export const ShotScreen: React.FC = () => {
       .from("shot_events")
       .select("*")
       .eq("group_id", GROUP_ID)
-      .in("status", ["countdown", "selected", "overdue", "disputed", "punished"])
+      .in("status", ["countdown", "selected", "overdue", "disputed", "confirmed"])
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -258,8 +259,6 @@ export const ShotScreen: React.FC = () => {
     const messages: Record<string, string> = {
       self: "Shot bekreftet! Venter på vitne.",
       witness: "Vitnebekreftelse registrert!",
-      refuse: "Du nektet – 2 straffeshots registrert.",
-      witness_timeout: "Vitne svarte ikke – straffeshot registrert!",
     };
     toast.success(messages[mode] || "Oppdatert!");
 
@@ -267,7 +266,7 @@ export const ShotScreen: React.FC = () => {
     const session = await supabase.auth.getSession();
     const token = session.data.session?.access_token;
     if (token) {
-      const refuserName = profiles[activeEvent?.selected_user_id || ""] || "Noen";
+      const selectedName = profiles[activeEvent?.selected_user_id || ""] || "Noen";
       const pushMessages: Record<string, { heading: string; message: string } | null> = {
         self: {
           heading: "Shot bekreftet! ✅",
@@ -277,17 +276,9 @@ export const ShotScreen: React.FC = () => {
           heading: "Vitne bekreftet! 👁",
           message: `${profiles[user?.id || ""] || "Noen"} bekreftet som vitne.`,
         },
-        refuse: {
-          heading: `🐔 FEIG! ${refuserName} nektet!`,
-          message: `${refuserName} er en feiging og nektet å ta shotten! 2 straffeshots registrert. Dette loggføres permanent under "${refuserName}" sin profil.`,
-        },
         witness_deny: {
           heading: "Dispute! ⚠️",
-          message: `Vitne avviste ${refuserName}s shot. Admin må avgjøre.`,
-        },
-        witness_timeout: {
-          heading: "Vitne svarte ikke! ⏰",
-          message: `Vitne til ${refuserName} svarte ikke innen fristen – straffeshot registrert.`,
+          message: `Vitne avviste ${selectedName}s shot. Admin må avgjøre.`,
         },
       };
       const push = pushMessages[mode];
@@ -373,6 +364,9 @@ export const ShotScreen: React.FC = () => {
 
           {/* Ski vertical meters */}
           <SkiVerticalCard />
+
+          {/* Speed leaderboard */}
+          <SkiSpeedLeaderboard />
 
           {/* Token overview */}
           <ShotTokenOverview />

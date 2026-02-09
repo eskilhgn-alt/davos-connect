@@ -1,14 +1,12 @@
 /**
  * ShotStatusCard – Shows current round status with witness picker flow
- * Now includes dispute reason dropdown for witness deny
- * Triggers punishment ban when straffeshot deadline expires
+ * Simplified: no punishment shots, standard confirm + witness flow only
  */
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { ShotEvent } from "@/pages/ShotScreen";
-import { supabase } from "@/integrations/supabase/client";
-import { Check, Eye, AlertTriangle, Clock, ChevronDown, Ban, Ticket, Shield } from "lucide-react";
+import { Check, Eye, AlertTriangle, Clock, ChevronDown, Ticket, Shield } from "lucide-react";
 
 interface ShotStatusCardProps {
   event: ShotEvent;
@@ -39,7 +37,6 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
   const [denyReason, setDenyReason] = React.useState("");
   const [denyDetails, setDenyDetails] = React.useState("");
   const [showDenyDropdown, setShowDenyDropdown] = React.useState(false);
-  const [punishmentTimeLeft, setPunishmentTimeLeft] = React.useState<number | null>(null);
 
   // Deadline countdown
   React.useEffect(() => {
@@ -67,35 +64,16 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
     const tick = () => {
       const remaining = Math.max(0, witnessDeadline - Date.now());
       setWitnessTimeLeft(Math.ceil(remaining / 1000));
-      if (remaining <= 0) onConfirm("witness_timeout");
     };
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [event.self_confirmed, event.witness_confirmed_by, event.status, event.selected_at, onConfirm]);
-
-  // Punishment deadline countdown + auto-ban when expired
-  React.useEffect(() => {
-    if (event.status !== "punished" || !event.punishment_deadline_at) {
-      setPunishmentTimeLeft(null); return;
-    }
-    const tick = () => {
-      const remaining = Math.max(0, new Date(event.punishment_deadline_at!).getTime() - Date.now());
-      setPunishmentTimeLeft(Math.ceil(remaining / 1000));
-      // Trigger ban when countdown expires
-      if (remaining <= 0) {
-        supabase.rpc("rpc_apply_punishment_ban", { p_event_id: event.id }).then(() => {});
-      }
-    };
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-  }, [event.status, event.punishment_deadline_at, event.id]);
+  }, [event.self_confirmed, event.witness_confirmed_by, event.status, event.selected_at]);
 
   const isSelected = event.status === "selected";
   const isConfirmed = event.status === "confirmed";
-  const isPunished = event.status === "punished";
   const isDisputed = event.status === "disputed";
+  const isOverdue = event.status === "overdue";
   const isWinner = event.selected_user_id === currentUserId;
   const isChosenWitness = event.chosen_witness_id === currentUserId;
   const winnerName = getDisplayName(event.selected_user_id);
@@ -126,13 +104,13 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
         <span className={cn(
           "text-xs font-medium px-2 py-0.5 rounded-full",
           isConfirmed ? "bg-success/10 text-success" :
-          isPunished ? "bg-destructive/10 text-destructive" :
+          isOverdue ? "bg-destructive/10 text-destructive" :
           isDisputed ? "bg-warning/10 text-warning" :
           "bg-muted text-muted-foreground"
         )}>
           {isSelected && "Aktiv"}
-          {isConfirmed && "Bekreftet"}
-          {isPunished && "Straff!"}
+          {isConfirmed && "Bekreftet ✅"}
+          {isOverdue && "Ikke tatt ⏰"}
           {isDisputed && "Dispute ⚠️"}
           {event.status === "countdown" && "Nedtelling"}
         </span>
@@ -142,7 +120,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
       {event.selected_user_id && (
         <div className="text-center py-2">
           <p className="text-xs text-muted-foreground mb-1">
-            {isPunished ? "Straffet" : isDisputed ? "Disputert" : "Trukket"}
+            {isDisputed ? "Disputert" : isOverdue ? "Ikke utført" : "Trukket"}
           </p>
           <p className="font-heading text-2xl font-bold text-foreground">{winnerName}</p>
           {isSelected && (
@@ -153,7 +131,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
         </div>
       )}
 
-      {/* Step 1: Winner picks witness and confirms (or refuses) */}
+      {/* Step 1: Winner picks witness and confirms */}
       {isSelected && !event.self_confirmed && isWinner && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground text-center">Velg hvem som skal bekrefte at du tar shotten:</p>
@@ -189,10 +167,6 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
               <Ticket size={16} /> Bruk frikort (stå over)
             </button>
           )}
-          <button type="button" onClick={() => onConfirm("refuse")}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-destructive text-destructive text-sm font-medium transition-all active:scale-[0.98]">
-            <Ban size={16} /> Jeg nekter (2 straffeshots)
-          </button>
         </div>
       )}
 
@@ -249,7 +223,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
                   Send dispute
                 </button>
               </div>
-              <p className="text-[10px] text-muted-foreground">Sendes til admin – ingen automatisk straff</p>
+              <p className="text-[10px] text-muted-foreground">Sendes til admin for avgjørelse</p>
             </div>
           )}
         </div>
@@ -260,7 +234,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
         <div className="text-center py-2 space-y-1">
           <p className="text-sm text-muted-foreground">Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter...</p>
           {witnessTimeLeft !== null && witnessTimeLeft > 0 && (
-            <p className="text-xs text-destructive">Straffeshot om {Math.floor(witnessTimeLeft / 60)}m {witnessTimeLeft % 60}s hvis vitne ikke svarer</p>
+            <p className="text-xs text-muted-foreground">Frist: {Math.floor(witnessTimeLeft / 60)}m {witnessTimeLeft % 60}s</p>
           )}
         </div>
       )}
@@ -270,7 +244,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
         <div className="text-center py-2 space-y-1">
           <p className="text-sm text-muted-foreground">Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter...</p>
           {witnessTimeLeft !== null && witnessTimeLeft > 0 && (
-            <p className="text-xs text-destructive">Straffeshot om {Math.floor(witnessTimeLeft / 60)}m {witnessTimeLeft % 60}s hvis vitne ikke svarer</p>
+            <p className="text-xs text-muted-foreground">Frist: {Math.floor(witnessTimeLeft / 60)}m {witnessTimeLeft % 60}s</p>
           )}
         </div>
       )}
@@ -289,121 +263,20 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
                 className="flex-1 py-2.5 rounded-lg bg-success/10 text-success text-sm font-semibold flex items-center justify-center gap-1.5">
                 <Shield size={14} /> Godkjenn
               </button>
-              <button type="button" onClick={() => onConfirm("admin_resolve", undefined, "punish")}
+              <button type="button" onClick={() => onConfirm("admin_resolve", undefined, "deny")}
                 className="flex-1 py-2.5 rounded-lg bg-destructive/10 text-destructive text-sm font-semibold flex items-center justify-center gap-1.5">
-                <Shield size={14} /> Straff
+                <Shield size={14} /> Avvis
               </button>
             </div>
           )}
         </div>
       )}
 
-      {/* Punishment: confirm straffeshot taken + witness flow */}
-      {isPunished && punishmentTimeLeft !== null && punishmentTimeLeft > 0 && (
-        <div className="space-y-3">
-          <div className="text-center py-2 space-y-1">
-            <p className="text-sm text-destructive font-semibold">
-              ⏰ Straffeshot må tas innen {Math.floor(punishmentTimeLeft / 60)}m {punishmentTimeLeft % 60}s
-            </p>
-            <p className="text-[10px] text-muted-foreground">Ellers blir du midlertidig utestengt</p>
-          </div>
-
-          {/* Winner confirms punishment shot taken */}
-          {isWinner && !event.self_confirmed && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground text-center">Ta straffeshot og velg vitne:</p>
-              <div className="relative">
-                <button type="button" onClick={() => setShowWitnessPicker(!showWitnessPicker)}
-                  className="w-full flex items-center justify-between py-3 px-4 rounded-lg border border-border bg-muted/30 text-sm">
-                  <span className={selectedWitness ? "text-foreground" : "text-muted-foreground"}>
-                    {selectedWitness ? getDisplayName(selectedWitness) : "Velg vitne..."}
-                  </span>
-                  <ChevronDown size={16} className="text-muted-foreground" />
-                </button>
-                {showWitnessPicker && (
-                  <div className="absolute z-10 mt-1 w-full bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {witnessOptions.map(w => (
-                      <button key={w.id} type="button"
-                        onClick={() => { setSelectedWitness(w.id); setShowWitnessPicker(false); }}
-                        className={cn("w-full text-left px-4 py-2.5 text-sm transition-colors",
-                          selectedWitness === w.id ? "bg-foreground/5 font-medium" : "hover:bg-muted/50")}>
-                        {w.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button type="button" onClick={handleSelfConfirm} disabled={!selectedWitness}
-                className={cn("w-full flex items-center justify-center gap-2 py-3 rounded-lg font-heading font-semibold transition-all active:scale-[0.98]",
-                  selectedWitness ? "bg-destructive text-destructive-foreground" : "bg-muted text-muted-foreground cursor-not-allowed")}>
-                <Check size={18} /> Straffeshot tatt!
-              </button>
-            </div>
-          )}
-
-          {/* Winner waiting for witness on punishment */}
-          {isWinner && event.self_confirmed && !event.witness_confirmed_by && (
-            <div className="text-center py-2">
-              <p className="text-sm text-muted-foreground">Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter straffeshot...</p>
-            </div>
-          )}
-
-          {/* Chosen witness confirms punishment shot */}
-          {isChosenWitness && event.self_confirmed && !event.witness_confirmed_by && (
-            <div className="space-y-3">
-              <p className="text-sm text-center text-muted-foreground">{winnerName} sier de har tatt straffeshotten. Bekreft!</p>
-              {!showDenyForm ? (
-                <>
-                  <button type="button" onClick={() => onConfirm("witness")}
-                    className="w-full flex items-center justify-center gap-2 py-5 rounded-xl border-2 border-foreground text-foreground font-heading text-lg font-bold transition-all active:scale-[0.98]">
-                    <Eye size={22} /> Ja, straffeshot tatt!
-                  </button>
-                  <button type="button" onClick={() => setShowDenyForm(true)}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-destructive text-destructive text-sm font-medium transition-all active:scale-[0.98]">
-                    <AlertTriangle size={16} /> Nei, avslå
-                  </button>
-                </>
-              ) : (
-                <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/20">
-                  <p className="text-sm font-semibold text-foreground">Hvorfor avslår du?</p>
-                  <div className="relative">
-                    <button type="button" onClick={() => setShowDenyDropdown(!showDenyDropdown)}
-                      className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg border border-border bg-background text-sm">
-                      <span className={denyReason ? "text-foreground" : "text-muted-foreground"}>
-                        {denyReason ? DENY_REASONS.find(r => r.value === denyReason)?.label : "Velg årsak..."}
-                      </span>
-                      <ChevronDown size={14} className="text-muted-foreground" />
-                    </button>
-                    {showDenyDropdown && (
-                      <div className="absolute z-10 mt-1 w-full bg-background border border-border rounded-lg shadow-lg">
-                        {DENY_REASONS.map(r => (
-                          <button key={r.value} type="button"
-                            onClick={() => { setDenyReason(r.value); setShowDenyDropdown(false); }}
-                            className={cn("w-full text-left px-3 py-2 text-sm", denyReason === r.value ? "bg-foreground/5" : "hover:bg-muted/50")}>
-                            {r.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {denyReason === "annet" && (
-                    <input type="text" placeholder="Beskriv årsaken..." value={denyDetails}
-                      onChange={e => setDenyDetails(e.target.value)}
-                      className="w-full py-2 px-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground" />
-                  )}
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => { setShowDenyForm(false); setDenyReason(""); }}
-                      className="flex-1 py-2 rounded-lg border border-border text-sm">Avbryt</button>
-                    <button type="button" onClick={handleDenySubmit} disabled={!denyReason}
-                      className={cn("flex-1 py-2 rounded-lg text-sm font-semibold",
-                        denyReason ? "bg-destructive text-destructive-foreground" : "bg-muted text-muted-foreground cursor-not-allowed")}>
-                      Send dispute
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+      {/* Overdue - shot not taken in time */}
+      {isOverdue && (
+        <div className="text-center py-2 space-y-1">
+          <p className="text-sm text-destructive font-medium">Shotten ble ikke tatt innen fristen</p>
+          <p className="text-xs text-muted-foreground">Logget i statistikken</p>
         </div>
       )}
 
@@ -423,11 +296,6 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Eye size={14} className="text-success" />
           <span>Bekreftet av {getDisplayName(event.witness_confirmed_by)}</span>
-        </div>
-      )}
-      {isPunished && !punishmentTimeLeft && (
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          <AlertTriangle size={14} /> <span>Straffeshot registrert</span>
         </div>
       )}
     </div>

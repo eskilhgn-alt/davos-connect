@@ -20,7 +20,7 @@ export interface Webcam {
 
 // Build feratel video player URL from cam ID
 function getVideoUrl(camId: string): string {
-  return `https://webtv.feratel.com/webtv/?design=v5&cam=${camId}&c1=0&c2=0`;
+  return `https://webtv.feratel.com/webtv/?design=v5&cam=${camId}&c1=0&c2=0&autoplay=1`;
 }
 
 // Build external feratel page URL

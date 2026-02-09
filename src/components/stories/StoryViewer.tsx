@@ -193,9 +193,14 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
             src={story.publicUrl}
             autoPlay
             playsInline
-            muted={false}
+            muted
             className="w-full h-full object-cover"
             onEnded={goNext}
+            onLoadedData={(e) => {
+              // Unmute after autoplay starts (iOS requires muted autoplay)
+              const v = e.currentTarget;
+              v.play().then(() => { v.muted = false; }).catch(() => {});
+            }}
           />
         ) : (
           <img

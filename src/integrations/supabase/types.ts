@@ -781,6 +781,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ski_speed_records: {
+        Row: {
+          altitude_m: number | null
+          day_date: string
+          id: string
+          lat: number | null
+          lon: number | null
+          max_speed_kmh: number
+          recorded_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          altitude_m?: number | null
+          day_date?: string
+          id?: string
+          lat?: number | null
+          lon?: number | null
+          max_speed_kmh?: number
+          recorded_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          altitude_m?: number | null
+          day_date?: string
+          id?: string
+          lat?: number | null
+          lon?: number | null
+          max_speed_kmh?: number
+          recorded_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stories: {
         Row: {
           created_at: string

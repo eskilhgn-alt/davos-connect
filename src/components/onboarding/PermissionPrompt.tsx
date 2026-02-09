@@ -24,14 +24,17 @@ export const PermissionPrompt: React.FC = () => {
       if (dismissed) return;
     } catch { /* */ }
 
-    // Show if push not enabled or location not enabled
-    const pushEnabled = oneSignalService.isPushEnabled();
-    const locationEnabled = geo.enabled;
+    // Delay showing to avoid overlapping with login toast
+    const timer = setTimeout(() => {
+      const pushEnabled = oneSignalService.isPushEnabled();
+      const locationEnabled = geo.enabled;
 
-    if (!pushEnabled || !locationEnabled) {
-      setVisible(true);
-      setStep(!pushEnabled ? "push" : "location");
-    }
+      if (!pushEnabled || !locationEnabled) {
+        setVisible(true);
+        setStep(!pushEnabled ? "push" : "location");
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
   }, [user, geo.enabled]);
 
   const dismiss = () => {
