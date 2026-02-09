@@ -1,26 +1,36 @@
 /**
- * AdminOverview – Quick stats + action buttons for admin dashboard
+ * AdminOverview – Quick stats + action buttons + share link + recent signups
  */
 import * as React from "react";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosButton } from "@/components/ui/davos-button";
-
 import {
-  Users, Target, Bell, BellOff, Loader2, Zap,
+  Users, Target, Bell, BellOff, Loader2, Zap, Link2, UserPlus, Check,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { AdminStats } from "./useAdminData";
+import type { AdminStats, AdminUser } from "./useAdminData";
 
 interface Props {
   stats: AdminStats | null;
+  users: AdminUser[];
   currentUserId: string;
   onNavigate: (tab: string) => void;
   onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
 }
 
-export const AdminOverview: React.FC<Props> = ({ stats, currentUserId, onNavigate, onLogAction }) => {
+const APP_URL = "https://davos-joy-connect.lovable.app";
+
+const SHARE_LINKS = [
+  { label: "Registrering", path: "/auth" },
+  { label: "Hjem", path: "/hjem" },
+  { label: "Chat", path: "/chat" },
+  { label: "Vær", path: "/vaer" },
+];
+
+export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, onNavigate, onLogAction }) => {
   const [testPushLoading, setTestPushLoading] = React.useState(false);
+  const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
 
   const sendTestPush = async () => {
     setTestPushLoading(true);
@@ -48,11 +58,37 @@ export const AdminOverview: React.FC<Props> = ({ stats, currentUserId, onNavigat
     }
   };
 
+  const copyLink = async (idx: number, path: string) => {
+    try {
+      await navigator.clipboard.writeText(`${APP_URL}${path}`);
+      setCopiedIdx(idx);
+      toast.success("Lenke kopiert!");
+      setTimeout(() => setCopiedIdx(null), 2000);
+    } catch {
+      toast.error("Kunne ikke kopiere");
+    }
+  };
+
+  // Recent signups (last 7 days)
+  const recentSignups = React.useMemo(() => {
+    const weekAgo = Date.now() - 7 * 86400000;
+    return users
+      .filter(u => new Date(u.created_at).getTime() > weekAgo)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [users]);
+
+  // Signups today
+  const todayCount = React.useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    return users.filter(u => new Date(u.created_at) >= todayStart).length;
+  }, [users]);
+
   return (
     <div className="px-4 space-y-4 pb-6">
       {/* Stats grid */}
       {stats && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <StatCard icon={Users} value={stats.activeUsers24h} label="Aktive (24t)" />
           <StatCard icon={Target} value={stats.shotRounds24h} label="Shot (24t)" />
           <StatCard
@@ -61,6 +97,7 @@ export const AdminOverview: React.FC<Props> = ({ stats, currentUserId, onNavigat
             label="Push-status"
             accent={stats.pushOk}
           />
+          <StatCard icon={UserPlus} value={todayCount} label="Nye i dag" />
         </div>
       )}
 
@@ -75,9 +112,71 @@ export const AdminOverview: React.FC<Props> = ({ stats, currentUserId, onNavigat
         </DavosButton>
       </div>
 
+      {/* Share links */}
+      <DavosCard>
+        <DavosCardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Link2 size={18} className="text-primary" />
+            <h3 className="font-heading font-semibold text-foreground text-sm">Del lenke</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {SHARE_LINKS.map((link, idx) => (
+              <DavosButton
+                key={link.path}
+                variant="outline"
+                size="sm"
+                className="justify-start gap-2 text-xs"
+                onClick={() => copyLink(idx, link.path)}
+              >
+                {copiedIdx === idx ? <Check size={14} className="text-success" /> : <Link2 size={14} />}
+                {link.label}
+              </DavosButton>
+            ))}
+          </div>
+        </DavosCardContent>
+      </DavosCard>
+
+      {/* Recent signups */}
+      <DavosCard>
+        <DavosCardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <UserPlus size={18} className="text-primary" />
+              <h3 className="font-heading font-semibold text-foreground text-sm">Siste registreringer</h3>
+            </div>
+            <span className="text-xs text-muted-foreground">{users.length} totalt</span>
+          </div>
+          {recentSignups.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Ingen nye siste 7 dager</p>
+          ) : (
+            <div className="space-y-2">
+              {recentSignups.slice(0, 8).map(u => (
+                <div key={u.id} className="flex items-center justify-between text-sm">
+                  <span className="text-foreground truncate flex-1">
+                    {u.nickname || u.full_name || u.email}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-2 shrink-0">
+                    {formatRelative(u.created_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </DavosCardContent>
+      </DavosCard>
     </div>
   );
 };
+
+function formatRelative(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m siden`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}t siden`;
+  const days = Math.floor(hours / 24);
+  return `${days}d siden`;
+}
 
 const StatCard: React.FC<{ icon: any; value: string | number; label: string; accent?: boolean }> = ({ icon: Icon, value, label, accent }) => (
   <DavosCard>
