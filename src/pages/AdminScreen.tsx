@@ -86,6 +86,7 @@ export const AdminScreen: React.FC = () => {
         {tab === "overview" && (
           <AdminOverview
             stats={stats}
+            users={users}
             currentUserId={user!.id}
             onNavigate={setTab}
             onLogAction={logAction}
