@@ -23,6 +23,7 @@ import AgendaScreen from "./pages/AgendaScreen";
 import TokensScreen from "./pages/TokensScreen";
 import FaktasjekkerScreen from "./pages/FaktasjekkerScreen";
 import StoriesScreen from "./pages/StoriesScreen";
+import RulesScreen from "./pages/RulesScreen";
 
 import SettingsScreen from "./pages/SettingsScreen";
 import WebcamsScreen from "./pages/WebcamsScreen";
@@ -54,8 +55,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/auth" replace />;
   }
 
-  // Require profile completion
-  if (user && (!profile?.full_name || !profile?.nickname)) {
+  // Require profile completion (including avatar)
+  if (user && (!profile?.full_name || !profile?.nickname || !profile?.avatar_url)) {
     return <Navigate to="/auth" replace />;
   }
 
@@ -109,6 +110,7 @@ const AppRoutes = () => (
       <Route path="/agenda" element={<AgendaScreen />} />
       <Route path="/faktasjekker" element={<FaktasjekkerScreen />} />
       <Route path="/historier" element={<StoriesScreen />} />
+      <Route path="/regler" element={<RulesScreen />} />
     </Route>
     
     <Route path="*" element={<NotFound />} />

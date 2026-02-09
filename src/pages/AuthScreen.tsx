@@ -1,5 +1,5 @@
 /**
- * AuthScreen – Minimal auth UI
+ * AuthScreen – Auth UI with mandatory avatar on onboarding
  */
 
 import * as React from "react";
@@ -7,7 +7,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { DavosButton } from "@/components/ui/davos-button";
 import { DavosInput } from "@/components/ui/davos-input";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { DavosAvatar } from "@/components/ui/davos-avatar";
+import { supabase } from "@/integrations/supabase/client";
+import { ArrowLeft, Loader2, Camera } from "lucide-react";
 import { toast } from "sonner";
 
 type AuthMode = "login" | "signup" | "forgot" | "onboarding";
@@ -26,13 +28,42 @@ export const AuthScreen: React.FC = () => {
   const [nickname, setNickname] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  // Avatar upload state for onboarding
+  const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = React.useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+
   React.useEffect(() => {
-    if (user && profile?.full_name && profile?.nickname) {
+    if (user && profile?.full_name && profile?.nickname && profile?.avatar_url) {
       navigate("/");
-    } else if (user && (!profile?.full_name || !profile?.nickname)) {
+    } else if (user && (!profile?.full_name || !profile?.nickname || !profile?.avatar_url)) {
       setMode("onboarding");
     }
   }, [user, profile, navigate]);
+
+  // Clean up preview URL
+  React.useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
+
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Kun bilder er tillatt");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Maks 5 MB");
+      return;
+    }
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +79,7 @@ export const AuthScreen: React.FC = () => {
     setIsSubmitting(true);
     const { error } = await signUp(email, password);
     if (error) toast.error(error.message);
-    else { toast.success("Sjekk e-posten din for bekreftelseslenke!"); setMode("login"); }
+    else { toast.success("Konto opprettet!"); }
     setIsSubmitting(false);
   };
 
@@ -63,13 +94,42 @@ export const AuthScreen: React.FC = () => {
 
   const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!avatarFile && !profile?.avatar_url) {
+      toast.error("Du må legge til et profilbilde");
+      return;
+    }
     setIsSubmitting(true);
+
+    let avatarUrl = profile?.avatar_url || null;
+
+    // Upload avatar if new file selected
+    if (avatarFile && user) {
+      setAvatarUploading(true);
+      try {
+        const ext = avatarFile.name.split(".").pop() || "jpg";
+        const path = `${user.id}/avatar.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(path, avatarFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+        avatarUrl = `${data.publicUrl}?t=${Date.now()}`;
+      } catch (err: any) {
+        toast.error("Kunne ikke laste opp bilde");
+        setIsSubmitting(false);
+        setAvatarUploading(false);
+        return;
+      }
+      setAvatarUploading(false);
+    }
+
     const { error } = await updateProfile({
       full_name: fullName.trim(),
       nickname: nickname.trim() || fullName.split(" ")[0],
+      avatar_url: avatarUrl,
     });
     if (error) toast.error(error.message);
-    else { toast.success("Profil oppdatert!"); navigate("/"); }
+    else { toast.success("Profil klar!"); navigate("/"); }
     setIsSubmitting(false);
   };
 
@@ -86,7 +146,6 @@ export const AuthScreen: React.FC = () => {
       className="flex flex-col bg-background"
       style={{ minHeight: "var(--app-height, 100dvh)" }}
     >
-      {/* Minimal header */}
       <header className="flex items-center justify-center py-16 px-6">
         <div className="text-center">
           <h1 className="font-heading text-3xl font-bold text-foreground tracking-tight">
@@ -105,14 +164,11 @@ export const AuthScreen: React.FC = () => {
               <div className="mb-8">
                 <h2 className="font-heading text-xl font-semibold">Logg inn</h2>
               </div>
-
               <DavosInput type="email" placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
               <DavosInput type="password" placeholder="Passord" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
-
               <DavosButton type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Logg inn"}
               </DavosButton>
-
               <div className="flex flex-col gap-2 text-center text-sm pt-2">
                 <button type="button" onClick={() => setMode("forgot")} className="text-muted-foreground hover:text-foreground transition-colors">
                   Glemt passord?
@@ -132,14 +188,11 @@ export const AuthScreen: React.FC = () => {
               <div className="mb-8">
                 <h2 className="font-heading text-xl font-semibold">Opprett konto</h2>
               </div>
-
               <DavosInput type="email" placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
               <DavosInput type="password" placeholder="Passord (minst 6 tegn)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" />
-
               <DavosButton type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Opprett konto"}
               </DavosButton>
-
               <p className="text-center text-sm text-muted-foreground">
                 Har du konto?{" "}
                 <button type="button" onClick={() => setMode("login")} className="text-foreground font-medium hover:underline">
@@ -152,17 +205,13 @@ export const AuthScreen: React.FC = () => {
           {mode === "forgot" && (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <button type="button" onClick={() => setMode("login")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                <ArrowLeft size={16} />
-                Tilbake
+                <ArrowLeft size={16} /> Tilbake
               </button>
-
               <div className="mb-8">
                 <h2 className="font-heading text-xl font-semibold">Glemt passord?</h2>
                 <p className="text-sm text-muted-foreground mt-1">Vi sender deg en tilbakestillingslenke</p>
               </div>
-
               <DavosInput type="email" placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-
               <DavosButton type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send lenke"}
               </DavosButton>
@@ -171,18 +220,45 @@ export const AuthScreen: React.FC = () => {
 
           {mode === "onboarding" && (
             <form onSubmit={handleOnboarding} className="space-y-4">
-              <div className="mb-8">
+              <div className="mb-6">
                 <h2 className="font-heading text-xl font-semibold">Fullfør profilen</h2>
                 <p className="text-sm text-muted-foreground mt-1">Hvem er du i crewet?</p>
               </div>
 
+              {/* Avatar upload */}
+              <div className="flex flex-col items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="relative group"
+                >
+                  <DavosAvatar
+                    src={avatarPreview || profile?.avatar_url || undefined}
+                    fallback={fullName || "?"}
+                    size="xl"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity">
+                    <Camera className="h-6 w-6 text-white" />
+                  </div>
+                </button>
+                <p className="text-xs text-muted-foreground">
+                  {avatarFile ? "✓ Bilde valgt" : "Trykk for å legge til profilbilde *"}
+                </p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarSelect}
+                  className="hidden"
+                />
+              </div>
+
               <DavosInput type="text" placeholder="Fullt navn" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoComplete="name" />
               <DavosInput type="text" placeholder="Kallenavn" value={nickname} onChange={(e) => setNickname(e.target.value)} autoComplete="nickname" />
-
               <p className="text-xs text-muted-foreground">Kallenavnet brukes i chat. Tomt = fornavn.</p>
 
               <DavosButton type="submit" className="w-full" disabled={isSubmitting || !fullName.trim()}>
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Kom i gang"}
+                {isSubmitting || avatarUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Kom i gang"}
               </DavosButton>
             </form>
           )}
