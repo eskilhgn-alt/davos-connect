@@ -153,6 +153,58 @@ Deno.serve(async (req) => {
       totalAwarded += award.points;
     }
 
+    // === Compute and store streaks for all users ===
+    const { data: allProfiles } = await sb.from("profiles").select("id").eq("is_active", true);
+    if (allProfiles) {
+      for (const profile of allProfiles) {
+        const uid = profile.id;
+        // Get all activity dates for this user
+        const [msgRes, galRes, shotRes, storyRes] = await Promise.all([
+          sb.from("messages").select("created_at").eq("sender_id", uid).is("deleted_at", null).order("created_at", { ascending: false }).limit(500),
+          sb.from("gallery_items").select("created_at").eq("uploaded_by", uid).order("created_at", { ascending: false }).limit(200),
+          sb.from("shot_events").select("created_at").or(`started_by.eq.${uid},selected_user_id.eq.${uid},witness_confirmed_by.eq.${uid}`).order("created_at", { ascending: false }).limit(200),
+          sb.from("stories").select("created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(100),
+        ]);
+
+        const activeDays = new Set<string>();
+        const addDates = (rows: any[] | null) => rows?.forEach((r: any) => activeDays.add(r.created_at.split("T")[0]));
+        addDates(msgRes.data);
+        addDates(galRes.data);
+        addDates(shotRes.data);
+        addDates(storyRes.data);
+
+        const sorted = Array.from(activeDays).sort().reverse();
+        const today = new Date().toISOString().split("T")[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+
+        let streak = 0;
+        let checkDate = activeDays.has(today) ? today : (activeDays.has(yesterday) ? yesterday : null);
+        if (checkDate) {
+          const d = new Date(checkDate);
+          while (activeDays.has(d.toISOString().split("T")[0])) {
+            streak++;
+            d.setDate(d.getDate() - 1);
+          }
+        }
+
+        let best = 0, cur = 1;
+        for (let i = 1; i < sorted.length; i++) {
+          const diff = (new Date(sorted[i - 1]).getTime() - new Date(sorted[i]).getTime()) / 86400000;
+          if (Math.round(diff) === 1) cur++;
+          else { best = Math.max(best, cur); cur = 1; }
+        }
+        best = Math.max(best, cur, streak);
+
+        await sb.from("user_streaks").upsert({
+          user_id: uid,
+          current_streak: streak,
+          best_streak: best,
+          last_active_date: sorted[0] || null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, awards_count: awards.length, total_points: totalAwarded }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
