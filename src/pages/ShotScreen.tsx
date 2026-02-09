@@ -260,6 +260,7 @@ export const ShotScreen: React.FC = () => {
     const session = await supabase.auth.getSession();
     const token = session.data.session?.access_token;
     if (token) {
+      const refuserName = profiles[activeEvent?.selected_user_id || ""] || "Noen";
       const pushMessages: Record<string, { heading: string; message: string } | null> = {
         self: {
           heading: "Shot bekreftet! ✅",
@@ -270,14 +271,17 @@ export const ShotScreen: React.FC = () => {
           message: `${profiles[user?.id || ""] || "Noen"} bekreftet som vitne.`,
         },
         refuse: {
-          heading: "Straffeshot! 🙅‍♂️",
-          message: `${profiles[activeEvent?.selected_user_id || ""] || "Noen"} nektet å ta shotten – 2 straffeshots! Grunn: Nektet.`,
+          heading: "🐔 FEIG! Nektet å ta shot!",
+          message: `${refuserName} er en feiging og nektet å ta shotten! 2 straffeshots registrert. Skyldig straff loggføres.`,
         },
         witness_deny: {
-          heading: "Straffeshot! 💀",
-          message: `${profiles[activeEvent?.selected_user_id || ""] || "Noen"} fikk straffeshot – vitne avviste! Grunn: Vitne bekreftet ikke.`,
+          heading: "Dispute! ⚠️",
+          message: `Vitne avviste ${refuserName}s shot. Admin må avgjøre.`,
         },
-        witness_timeout: null,
+        witness_timeout: {
+          heading: "Vitne svarte ikke! ⏰",
+          message: `Vitne til ${refuserName} svarte ikke innen fristen – straffeshot registrert.`,
+        },
       };
       const push = pushMessages[mode];
       if (push) {
