@@ -98,7 +98,7 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
           <span className="font-heading text-sm font-bold text-foreground leading-none">
             {rate.loading ? "…" : rate.rate ? `${rate.rate.toFixed(2)} kr` : "–"}
           </span>
-          <span className="text-[5px] text-muted-foreground/40 leading-none w-full text-center truncate">Den europeiske sentralbanken</span>
+          <span className="text-[8px] text-muted-foreground/60 leading-none w-full text-center truncate">ECB</span>
         </button>
 
         {/* Next event → agenda */}
