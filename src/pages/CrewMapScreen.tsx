@@ -240,7 +240,7 @@ export const CrewMapScreen: React.FC = () => {
     >
       <AppHeader
         title="Magnus?"
-        subtitle="Se hvor alle er"
+        subtitle="Sanntidsposisjon"
         leftAction={<BackButton fallbackPath="/hjem" />}
       />
 

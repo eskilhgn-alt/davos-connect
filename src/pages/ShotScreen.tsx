@@ -244,8 +244,12 @@ export const ShotScreen: React.FC = () => {
           message: `${profiles[user?.id || ""] || "Noen"} bekreftet som vitne.`,
         },
         refuse: {
-          heading: "Nektet! 🙅",
-          message: `${profiles[user?.id || ""] || "Noen"} nektet å ta shotten – 2 straffeshots!`,
+          heading: "Straffeshot! 🙅‍♂️",
+          message: `${profiles[activeEvent?.selected_user_id || ""] || "Noen"} nektet å ta shotten – 2 straffeshots! Grunn: Nektet.`,
+        },
+        witness_deny: {
+          heading: "Straffeshot! 💀",
+          message: `${profiles[activeEvent?.selected_user_id || ""] || "Noen"} fikk straffeshot – vitne avviste! Grunn: Vitne bekreftet ikke.`,
         },
         witness_timeout: null,
       };

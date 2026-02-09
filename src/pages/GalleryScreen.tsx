@@ -99,7 +99,7 @@ export const GalleryScreen: React.FC = () => {
     const url = getPublicUrl(item.storage_path);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `davos-${item.type}-${item.id.slice(0, 8)}`;
+    a.download = `guttahutte-${item.type}-${item.id.slice(0, 8)}`;
     a.target = '_blank';
     document.body.appendChild(a);
     a.click();
@@ -134,7 +134,7 @@ export const GalleryScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Snap & Galleri" subtitle="Stories, bilder og videoer" leftAction={<BackButton fallbackPath="/hjem" />} />
+      <AppHeader title="Galleri" subtitle="Bilder, videoer og stories" leftAction={<BackButton fallbackPath="/hjem" />} />
 
       <PullToRefreshWrapper
         onRefresh={async () => { setLoading(true); await fetchGallery(); }}
@@ -155,7 +155,7 @@ export const GalleryScreen: React.FC = () => {
             <DavosEmptyState
               icon={ImageIcon}
               title="Ingen media ennå"
-              description="Bilder, videoer og GIF-er delt i chatten eller stories vil vises her."
+              description="Bilder, videoer og stories vil vises her."
             />
           </div>
         ) : (

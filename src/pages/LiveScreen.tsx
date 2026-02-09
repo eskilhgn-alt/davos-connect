@@ -53,7 +53,7 @@ export const LiveScreen: React.FC = () => {
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-heading text-sm font-medium text-muted-foreground">
-                Live værradar – Davos
+                Live værradar
               </h2>
               <button 
                 onClick={handleOpenWindy}
@@ -67,7 +67,7 @@ export const LiveScreen: React.FC = () => {
             <WindyEmbed className="h-[350px]" overlay="radar" lat={position?.lat} lon={position?.lon} />
             
             <p className="text-xs text-muted-foreground mt-2 text-center">
-              Animert nedbørradar fra Windy.com
+              Animert nedbørradar · Oppdatert {new Date().toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" })}
             </p>
           </section>
 

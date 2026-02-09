@@ -29,11 +29,11 @@ function getExternalUrl(camId: string): string {
 }
 
 export const WEBCAMS: Webcam[] = [
-  // Panorama
+  // === Ski mountains first (shown in top 6) ===
   {
     id: "davos-dorf",
-    name: "Davos Dorf",
-    area: "Weissfluhjoch",
+    name: "Weissfluhjoch",
+    area: "Parsenn",
     snapshotUrl: "https://wtvpict.feratel.com/picture/44/4002.jpeg",
     camId: "4002",
     videoUrl: getVideoUrl("4002"),
@@ -42,7 +42,7 @@ export const WEBCAMS: Webcam[] = [
   },
   {
     id: "davos-platz-jakobshorn",
-    name: "Davos Platz",
+    name: "Jakobshorn",
     area: "Jakobshorn",
     snapshotUrl: "https://wtvpict.feratel.com/picture/44/4003.jpeg",
     camId: "4003",
@@ -51,9 +51,50 @@ export const WEBCAMS: Webcam[] = [
     elevation: 2590,
   },
   {
+    id: "schaffurggli",
+    name: "Schaffürggli",
+    area: "Madrisa",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4007.jpeg",
+    camId: "4007",
+    videoUrl: getVideoUrl("4007"),
+    externalUrl: getExternalUrl("4007"),
+    elevation: 2390,
+  },
+  {
+    id: "madrisaland",
+    name: "Madrisaland",
+    area: "Madrisa",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4011.jpeg",
+    camId: "4011",
+    videoUrl: getVideoUrl("4011"),
+    externalUrl: getExternalUrl("4011"),
+    elevation: 1892,
+  },
+  {
+    id: "jatzmeder",
+    name: "Jatzmeder",
+    area: "Rinerhorn",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4310.jpeg",
+    camId: "4310",
+    videoUrl: getVideoUrl("4310"),
+    externalUrl: getExternalUrl("4310"),
+    elevation: 2050,
+  },
+  {
+    id: "davos-wolfgang",
+    name: "Davosersee",
+    area: "Pischa",
+    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4006.jpeg",
+    camId: "4006",
+    videoUrl: getVideoUrl("4006"),
+    externalUrl: getExternalUrl("4006"),
+    elevation: 1600,
+  },
+  // === Other webcams ===
+  {
     id: "davos-platz-tsz",
     name: "Davos Platz",
-    area: "Tourismus- und Sportzentrum",
+    area: "Sportzentrum",
     snapshotUrl: "https://wtvpict.feratel.com/picture/44/4004.jpeg",
     camId: "4004",
     videoUrl: getVideoUrl("4004"),
@@ -69,27 +110,6 @@ export const WEBCAMS: Webcam[] = [
     videoUrl: getVideoUrl("4005"),
     externalUrl: getExternalUrl("4005"),
     elevation: 1182,
-  },
-  {
-    id: "davos-wolfgang",
-    name: "Davos Wolfgang",
-    area: "Davosersee",
-    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4006.jpeg",
-    camId: "4006",
-    videoUrl: getVideoUrl("4006"),
-    externalUrl: getExternalUrl("4006"),
-    elevation: 1600,
-  },
-  // Mountains
-  {
-    id: "schaffurggli",
-    name: "Klosters Dorf",
-    area: "Bergstation Schaffürggli",
-    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4007.jpeg",
-    camId: "4007",
-    videoUrl: getVideoUrl("4007"),
-    externalUrl: getExternalUrl("4007"),
-    elevation: 2390,
   },
   {
     id: "monbiel",
@@ -112,26 +132,6 @@ export const WEBCAMS: Webcam[] = [
     elevation: 1375,
   },
   {
-    id: "madrisaland",
-    name: "Klosters Dorf",
-    area: "Madrisaland",
-    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4011.jpeg",
-    camId: "4011",
-    videoUrl: getVideoUrl("4011"),
-    externalUrl: getExternalUrl("4011"),
-    elevation: 1892,
-  },
-  {
-    id: "jatzmeder",
-    name: "Davos Glaris",
-    area: "Jatzmeder",
-    snapshotUrl: "https://wtvpict.feratel.com/picture/44/4310.jpeg",
-    camId: "4310",
-    videoUrl: getVideoUrl("4310"),
-    externalUrl: getExternalUrl("4310"),
-    elevation: 2050,
-  },
-  {
     id: "bundelti",
     name: "Klosters",
     area: "Bündelti",
@@ -143,7 +143,7 @@ export const WEBCAMS: Webcam[] = [
   },
   {
     id: "langlaufzentrum",
-    name: "Davos",
+    name: "Langlauf",
     area: "Langlaufzentrum",
     snapshotUrl: "https://wtvpict.feratel.com/picture/44/4312.jpeg",
     camId: "4312",
@@ -153,7 +153,7 @@ export const WEBCAMS: Webcam[] = [
   },
   {
     id: "snowfarming",
-    name: "Davos",
+    name: "Snowfarming",
     area: "Snowfarming",
     snapshotUrl: "https://wtvpict.feratel.com/picture/44/4313.jpeg",
     camId: "4313",

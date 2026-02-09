@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useAuth } from "@/contexts/AuthContext";
 
-const UPDATE_INTERVAL = 30_000; // 30 seconds
+const UPDATE_INTERVAL = 15_000; // 15 seconds – more responsive tracking
 
 export function useLocationTracker() {
   const { user } = useAuth();

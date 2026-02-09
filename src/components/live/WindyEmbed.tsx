@@ -112,7 +112,7 @@ export const WindyEmbed: React.FC<WindyEmbedProps> = ({
       <iframe
         ref={iframeRef}
         src={embedUrl}
-        title="Windy værkart – Davos"
+        title="Windy værkart"
         className="w-full h-full border-0"
         style={{ minHeight: "280px" }}
         allow="fullscreen"
