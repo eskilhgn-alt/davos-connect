@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +10,7 @@ import { ChatLayout } from "@/layouts/ChatLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { prefetchWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
+import { toast } from "sonner";
 import ChatScreen from "./pages/ChatScreen";
 import HomeScreen from "./pages/HomeScreen";
 import MapScreen from "./pages/MapScreen";
@@ -119,18 +121,40 @@ const AppRoutes = () => (
   </Routes>
 );
 
+// Global unhandled rejection catcher — prevents silent async crashes
+const useGlobalErrorCatcher = () => {
+  React.useEffect(() => {
+    const handler = (event: PromiseRejectionEvent) => {
+      console.error("Unhandled promise rejection:", event.reason);
+      toast.error("En uventet feil oppstod");
+      event.preventDefault(); // Prevent default browser error logging
+    };
+    window.addEventListener("unhandledrejection", handler);
+    return () => window.removeEventListener("unhandledrejection", handler);
+  }, []);
+};
+
+const AppShell = () => {
+  useGlobalErrorCatcher();
+  return (
+    <>
+      <Toaster />
+      <Sonner />
+      <OfflineIndicator />
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </>
+  );
+};
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <OfflineIndicator />
-        <BrowserRouter>
-          <AuthProvider>
-            <AppRoutes />
-          </AuthProvider>
-        </BrowserRouter>
+        <AppShell />
       </TooltipProvider>
     </QueryClientProvider>
   </ErrorBoundary>

@@ -58,14 +58,17 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
   const [rateDate, setRateDate] = React.useState<string | null>(null);
   const [rateFetchedAt, setRateFetchedAt] = React.useState<Date | null>(null);
   React.useEffect(() => {
+    let cancelled = false;
     fetch("https://api.frankfurter.dev/v1/latest?base=CHF&symbols=NOK")
       .then((r) => r.json())
       .then((d) => {
+        if (cancelled) return;
         setRate({ rate: d?.rates?.NOK ?? null, loading: false });
         setRateDate(d?.date ?? null);
         setRateFetchedAt(new Date());
       })
-      .catch(() => setRate({ rate: null, loading: false }));
+      .catch(() => { if (!cancelled) setRate({ rate: null, loading: false }); });
+    return () => { cancelled = true; };
   }, [refreshKey]);
 
   // 2. Next agenda event

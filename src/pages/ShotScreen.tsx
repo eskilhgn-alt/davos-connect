@@ -64,6 +64,7 @@ export const ShotScreen: React.FC = () => {
   const [pressing, setPressing] = React.useState(false);
   const [profiles, setProfiles] = React.useState<Record<string, string>>({});
   const [frikortCount, setFrikortCount] = React.useState(0);
+  const countdownTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Activate ski tracker in background
   useSkiTracker();
@@ -167,7 +168,10 @@ export const ShotScreen: React.FC = () => {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+      if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current);
+    };
   }, [loadActiveEvent, loadLog, loadTokens]);
 
   // Start round
@@ -204,28 +208,31 @@ export const ShotScreen: React.FC = () => {
 
       // Wait for countdown then finalize
       const eventId = (data as { event_id: string }).event_id;
-      setTimeout(async () => {
-        const { data: finalData, error: finalError } = await supabase.rpc("rpc_finalize_countdown", { p_event_id: eventId });
-        if (!finalError && finalData) {
-          const result = finalData as { selected_user_id: string };
-          const winnerName = profiles[result.selected_user_id] || "Noen";
-          // Push winner
-          const sess = await supabase.auth.getSession();
-          const t = sess.data.session?.access_token;
-          if (t) {
-            fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
-              body: JSON.stringify({
-                type: "selected",
-                heading: "Vinner trukket! 🏆",
-                message: `${winnerName} må ta shot innen 15 minutter!`,
-                // Don't exclude anyone - all users should see the winner
-              }),
-            }).catch(() => {});
+      const countdownTimer = setTimeout(async () => {
+        try {
+          const { data: finalData, error: finalError } = await supabase.rpc("rpc_finalize_countdown", { p_event_id: eventId });
+          if (!finalError && finalData) {
+            const result = finalData as { selected_user_id: string };
+            const winnerName = profiles[result.selected_user_id] || "Noen";
+            // Push winner
+            const sess = await supabase.auth.getSession();
+            const t = sess.data.session?.access_token;
+            if (t) {
+              fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
+                body: JSON.stringify({
+                  type: "selected",
+                  heading: "Vinner trukket! 🏆",
+                  message: `${winnerName} må ta shot innen 15 minutter!`,
+                }),
+              }).catch(() => {});
+            }
           }
-        }
+        } catch { /* handled silently */ }
       }, 11000);
+      // Store timer ref for cleanup
+      countdownTimerRef.current = countdownTimer;
     } catch (e) {
       toast.error("Noe gikk galt");
     } finally {
