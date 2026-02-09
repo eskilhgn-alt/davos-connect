@@ -248,6 +248,7 @@ export const AuthScreen: React.FC = () => {
                   ref={fileRef}
                   type="file"
                   accept="image/*"
+                  capture="user"
                   onChange={handleAvatarSelect}
                   className="hidden"
                 />
