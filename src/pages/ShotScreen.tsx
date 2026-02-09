@@ -267,26 +267,55 @@ export const ShotScreen: React.FC = () => {
     const token = session.data.session?.access_token;
     if (token) {
       const selectedName = profiles[activeEvent?.selected_user_id || ""] || "Noen";
-      const pushMessages: Record<string, { heading: string; message: string } | null> = {
-        self: {
-          heading: "Shot bekreftet! ✅",
-          message: `${profiles[user?.id || ""] || "Noen"} har tatt shotten – venter på vitne.`,
-        },
-        witness: {
-          heading: "Vitne bekreftet! 👁",
-          message: `${profiles[user?.id || ""] || "Noen"} bekreftet som vitne.`,
-        },
-        witness_deny: {
-          heading: "Dispute! ⚠️",
-          message: `Vitne avviste ${selectedName}s shot. Admin må avgjøre.`,
-        },
-      };
-      const push = pushMessages[mode];
-      if (push) {
+      const callerName = profiles[user?.id || ""] || "Noen";
+
+      if (mode === "self") {
+        // Push to chosen witness specifically
+        const witnessId = activeEvent?.chosen_witness_id;
+        if (witnessId) {
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              type: "witness_request",
+              heading: "Du er vitne! 👁",
+              message: `${callerName} har tatt shotten – bekreft i appen innen 15 min.`,
+              include_user_ids: [witnessId],
+              url: "https://davos-joy-connect.lovable.app/shot",
+            }),
+          }).catch(() => {});
+        }
+        // Also notify everyone else
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ type: mode, ...push }),
+          body: JSON.stringify({
+            type: "self_confirm",
+            heading: "Shot bekreftet! ✅",
+            message: `${callerName} har tatt shotten – venter på vitne.`,
+            exclude_user_id: user?.id,
+          }),
+        }).catch(() => {});
+      } else if (mode === "witness") {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            type: "witness_confirm",
+            heading: "Vitne bekreftet! 👁",
+            message: `${callerName} bekreftet som vitne for ${selectedName}.`,
+            exclude_user_id: user?.id,
+          }),
+        }).catch(() => {});
+      } else if (mode === "witness_deny") {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            type: "witness_deny",
+            heading: "Dispute! ⚠️",
+            message: `Vitne avviste ${selectedName}s shot. Admin må avgjøre.`,
+          }),
         }).catch(() => {});
       }
     }

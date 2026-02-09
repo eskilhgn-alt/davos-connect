@@ -504,6 +504,25 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         uploaded_by: user.id,
       });
 
+      // Send push to all other users
+      const sess = await supabase.auth.getSession();
+      const pushToken = sess.data.session?.access_token;
+      if (pushToken) {
+        const { data: prof } = await supabase.from("profiles").select("nickname, full_name").eq("id", user.id).single();
+        const name = prof?.nickname || prof?.full_name || "Noen";
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${pushToken}` },
+          body: JSON.stringify({
+            type: "new_story",
+            heading: "📸 Ny story",
+            message: `${name} har lagt ut en ${capturedMedia.type === "video" ? "video" : "bilde"}-story`,
+            exclude_user_id: user.id,
+            url: "https://davos-joy-connect.lovable.app/stories",
+          }),
+        }).catch(() => {});
+      }
+
       toast.success("Story publisert! 🎉");
       URL.revokeObjectURL(capturedMedia.url);
       onPublished();
