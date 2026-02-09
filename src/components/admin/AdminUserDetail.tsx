@@ -1,6 +1,6 @@
 /**
  * AdminUserDetail – Expandable user detail panel for admin management
- * Edit profile, send password reset, manage roles, view activity
+ * Edit profile, send password reset, manage roles, notes, view activity
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import { DavosInput } from "@/components/ui/davos-input";
 import { DavosBadge } from "@/components/ui/davos-badge";
 import {
   UserX, UserCheck, Coins, Ticket, Loader2, Key, Save,
-  ChevronDown, ChevronUp, Bell, Edit3, Mail, Shield, ShieldOff,
+  ChevronDown, ChevronUp, Bell, Edit3, ShieldOff, StickyNote, Send,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,20 +35,45 @@ interface Props {
   currentUserId: string;
   onRefresh: () => void;
   onAdjustTokens: (userId: string) => void;
+  onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
 }
 
-export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRefresh, onAdjustTokens }) => {
+interface AdminNote {
+  id: string;
+  note: string;
+  created_at: string;
+}
+
+export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRefresh, onAdjustTokens, onLogAction }) => {
   const [expanded, setExpanded] = React.useState(false);
   const [loading, setLoading] = React.useState<string | null>(null);
   const [editMode, setEditMode] = React.useState(false);
   const [editName, setEditName] = React.useState(u.full_name || "");
   const [editNickname, setEditNickname] = React.useState(u.nickname || "");
+  const [notes, setNotes] = React.useState<AdminNote[]>([]);
+  const [newNote, setNewNote] = React.useState("");
+  const [showNotes, setShowNotes] = React.useState(false);
+
+  const fetchNotes = React.useCallback(async () => {
+    const { data } = await supabase.from("admin_notes")
+      .select("id, note, created_at")
+      .eq("target_user_id", u.id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    setNotes(data || []);
+  }, [u.id]);
+
+  React.useEffect(() => {
+    if (expanded && showNotes) fetchNotes();
+  }, [expanded, showNotes, fetchNotes]);
 
   const toggleActive = async () => {
     setLoading("toggle");
     try {
       await supabase.from("profiles").update({ is_active: !u.is_active }).eq("id", u.id);
+      const action = u.is_active ? "user_deactivated" : "user_activated";
       toast.success(u.is_active ? "Bruker deaktivert" : "Bruker aktivert");
+      onLogAction(currentUserId, action, u.id);
       onRefresh();
     } finally { setLoading(null); }
   };
@@ -61,6 +86,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
         nickname: editNickname.trim() || null,
       }).eq("id", u.id);
       toast.success("Profil oppdatert");
+      onLogAction(currentUserId, "profile_edited", u.id, { full_name: editName, nickname: editNickname });
       setEditMode(false);
       onRefresh();
     } finally { setLoading(null); }
@@ -74,6 +100,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
       });
       if (error) throw error;
       toast.success(`Passord-reset sendt til ${u.email}`);
+      onLogAction(currentUserId, "password_reset_sent", u.id);
     } catch (e: any) {
       toast.error(e.message || "Kunne ikke sende reset");
     } finally { setLoading(null); }
@@ -85,7 +112,6 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
       if (!token) throw new Error("Ikke autentisert");
-
       await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -97,6 +123,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
         }),
       });
       toast.success("Push-varsel sendt");
+      onLogAction(currentUserId, "push_sent", u.id);
     } catch {
       toast.error("Kunne ikke sende push");
     } finally { setLoading(null); }
@@ -111,36 +138,54 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
         p_reason: u.is_banned ? null : "Admin-utestengelse",
       } as any);
       if (error) throw error;
+      const action = u.is_banned ? "user_unbanned" : "user_banned";
       toast.success(u.is_banned ? "Ban opphevet" : "Bruker utestengt");
+      onLogAction(currentUserId, action, u.id);
       onRefresh();
     } catch (e: any) {
       toast.error(e.message || "Feil");
     } finally { setLoading(null); }
   };
 
+  const addNote = async () => {
+    if (!newNote.trim()) return;
+    setLoading("note");
+    try {
+      await supabase.from("admin_notes").insert({
+        admin_id: currentUserId,
+        target_user_id: u.id,
+        note: newNote.trim(),
+      });
+      toast.success("Notat lagt til");
+      onLogAction(currentUserId, "admin_note_added", u.id);
+      setNewNote("");
+      fetchNotes();
+    } catch {
+      toast.error("Kunne ikke lagre notat");
+    } finally { setLoading(null); }
+  };
+
   return (
     <DavosCard>
       <DavosCardContent className="p-4">
-        {/* Header row */}
         <button onClick={() => setExpanded(!expanded)} className="w-full flex items-start justify-between text-left">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
               <p className="font-medium text-foreground truncate">{u.full_name || u.email}</p>
               {u.role === "admin" && <DavosBadge variant="accent">Admin</DavosBadge>}
               {!u.is_active && <DavosBadge variant="critical">Inaktiv</DavosBadge>}
-              {u.is_banned && <DavosBadge variant="critical">🚫 Utestengt</DavosBadge>}
+              {u.is_banned && <DavosBadge variant="critical">🚫 Ban</DavosBadge>}
             </div>
             {u.nickname && <p className="text-xs text-muted-foreground">«{u.nickname}»</p>}
             <p className="text-sm text-muted-foreground truncate">{u.email}</p>
             <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><Coins size={12} /> {u.token_balance ?? 5} tokens</span>
-              {(u.frikort_count ?? 0) > 0 && <span className="flex items-center gap-1"><Ticket size={12} /> {u.frikort_count} frikort</span>}
+              <span className="flex items-center gap-1"><Coins size={12} /> {u.token_balance ?? 5}</span>
+              {(u.frikort_count ?? 0) > 0 && <span className="flex items-center gap-1"><Ticket size={12} /> {u.frikort_count}</span>}
             </div>
           </div>
           {expanded ? <ChevronUp size={18} className="text-muted-foreground mt-1" /> : <ChevronDown size={18} className="text-muted-foreground mt-1" />}
         </button>
 
-        {/* Expanded detail */}
         {expanded && (
           <div className="mt-4 space-y-3 border-t border-border pt-3">
             <p className="text-[10px] text-muted-foreground">
@@ -166,22 +211,19 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
               </DavosButton>
             )}
 
-            {/* Action buttons */}
+            {/* Actions */}
             <div className="grid grid-cols-2 gap-2">
               <DavosButton variant="outline" size="sm" onClick={sendPasswordReset} disabled={loading === "reset"}>
                 {loading === "reset" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Key size={14} className="mr-1" />}
-                Send passord-reset
+                Passord-reset
               </DavosButton>
-
               <DavosButton variant="outline" size="sm" onClick={sendPushNotification} disabled={loading === "push"}>
                 {loading === "push" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Bell size={14} className="mr-1" />}
-                Send push-varsel
+                Send push
               </DavosButton>
-
               <DavosButton variant="outline" size="sm" onClick={() => onAdjustTokens(u.id)}>
                 <Coins size={14} className="mr-1" /> Juster tokens
               </DavosButton>
-
               <DavosButton
                 variant={u.is_active ? "outline" : "primary"}
                 size="sm"
@@ -193,7 +235,6 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                 }
                 {u.is_active ? "Deaktiver" : "Aktiver"}
               </DavosButton>
-
               <DavosButton
                 variant={u.is_banned ? "primary" : "outline"}
                 size="sm"
@@ -205,7 +246,31 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                 }
                 {u.is_banned ? "Opphev ban" : "Utesteng"}
               </DavosButton>
+              <DavosButton variant="outline" size="sm" onClick={() => setShowNotes(!showNotes)}>
+                <StickyNote size={14} className="mr-1" /> Notater
+              </DavosButton>
             </div>
+
+            {/* Admin notes */}
+            {showNotes && (
+              <div className="space-y-2 border-t border-border pt-2">
+                <div className="flex gap-2">
+                  <DavosInput placeholder="Legg til notat..." value={newNote} onChange={e => setNewNote(e.target.value)} className="flex-1" />
+                  <DavosButton size="sm" onClick={addNote} disabled={!newNote.trim() || loading === "note"}>
+                    {loading === "note" ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  </DavosButton>
+                </div>
+                {notes.map(n => (
+                  <div key={n.id} className="bg-muted/50 rounded-lg p-2">
+                    <p className="text-xs text-foreground">{n.note}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {new Date(n.created_at).toLocaleString("nb-NO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                ))}
+                {notes.length === 0 && <p className="text-[10px] text-muted-foreground text-center">Ingen notater</p>}
+              </div>
+            )}
           </div>
         )}
       </DavosCardContent>

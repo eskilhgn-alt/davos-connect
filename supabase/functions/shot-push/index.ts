@@ -43,7 +43,7 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { type, heading, message, exclude_user_id, url } = await req.json();
+    const { type, heading, message, exclude_user_id, url, include_user_ids } = await req.json();
 
     if (!type || !heading || !message) {
       return new Response(JSON.stringify({ error: "Missing fields" }),
@@ -52,28 +52,34 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get all users with push tokens from push_tokens table (exclude sender if specified)
-    let query = supabase
-      .from("push_tokens")
-      .select("user_id, player_id")
-      .not("player_id", "is", null);
+    let externalUserIds: string[];
 
-    if (exclude_user_id) {
-      query = query.neq("user_id", exclude_user_id);
+    if (include_user_ids && Array.isArray(include_user_ids) && include_user_ids.length > 0) {
+      // Targeted push to specific users
+      externalUserIds = include_user_ids;
+    } else {
+      // Broadcast: get all users with push tokens
+      let query = supabase
+        .from("push_tokens")
+        .select("user_id, player_id")
+        .not("player_id", "is", null);
+
+      if (exclude_user_id) {
+        query = query.neq("user_id", exclude_user_id);
+      }
+
+      const { data: tokens, error: tokensError } = await query;
+      if (tokensError) throw tokensError;
+
+      const seen = new Set<string>();
+      externalUserIds = (tokens || [])
+        .filter((t) => {
+          if (seen.has(t.user_id)) return false;
+          seen.add(t.user_id);
+          return true;
+        })
+        .map((t) => t.user_id);
     }
-
-    const { data: tokens, error: tokensError } = await query;
-    if (tokensError) throw tokensError;
-
-    // Deduplicate by user_id
-    const seen = new Set<string>();
-    const externalUserIds = (tokens || [])
-      .filter((t) => {
-        if (seen.has(t.user_id)) return false;
-        seen.add(t.user_id);
-        return true;
-      })
-      .map((t) => t.user_id);
 
     if (externalUserIds.length === 0) {
       return new Response(

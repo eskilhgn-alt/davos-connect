@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       admin_corrections: {
         Row: {
           admin_id: string
@@ -47,6 +74,30 @@ export type Database = {
           witness_approved?: boolean | null
           witness_id?: string | null
           witness_responded_at?: string | null
+        }
+        Relationships: []
+      }
+      admin_notes: {
+        Row: {
+          admin_id: string
+          created_at: string
+          id: string
+          note: string
+          target_user_id: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          id?: string
+          note: string
+          target_user_id: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+          target_user_id?: string
         }
         Relationships: []
       }
