@@ -1,5 +1,5 @@
 /**
- * ReactionBar - Quick reaction picker that appears on long-press
+ * ReactionBar - Quick reaction picker that appears on tap
  * Shows common reactions + option to open full picker
  */
 
