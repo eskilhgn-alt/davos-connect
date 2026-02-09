@@ -88,7 +88,7 @@ export const SkiVerticalCard: React.FC = () => {
         </p>
         <p className="text-xs text-muted-foreground mt-1">Høydemeter i dag</p>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          Tracking aktiv over 1560m og 15+ km/t
+          Kun nedkjøring · over 1560m · 10+ km/t
         </p>
       </div>
 
