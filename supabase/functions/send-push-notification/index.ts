@@ -74,12 +74,13 @@ serve(async (req) => {
     // Use service role client for DB queries
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Get recipients: all thread members except sender who have push tokens
+    // First get members of the thread
     const { data: members, error: membersError } = await supabase
       .from("members")
-      .select("user_id, push_token")
+      .select("user_id")
       .eq("thread_id", thread_id)
-      .neq("user_id", sender_id)
-      .not("push_token", "is", null);
+      .neq("user_id", sender_id);
 
     if (membersError) {
       console.error("Error fetching members:", membersError);
@@ -88,14 +89,33 @@ serve(async (req) => {
 
     if (!members || members.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, sent: 0, message: "No recipients with push tokens" }),
+        JSON.stringify({ success: true, sent: 0, message: "No recipients" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const externalUserIds = members
-      .filter((m) => m.push_token)
-      .map((m) => m.user_id);
+    const memberUserIds = members.map((m) => m.user_id);
+
+    // Now check push_tokens for these users (primary source)
+    const { data: tokens } = await supabase
+      .from("push_tokens")
+      .select("user_id")
+      .in("user_id", memberUserIds)
+      .not("player_id", "is", null);
+
+    // Fallback: also check members table for legacy push_token entries
+    const { data: legacyMembers } = await supabase
+      .from("members")
+      .select("user_id")
+      .eq("thread_id", thread_id)
+      .neq("user_id", sender_id)
+      .not("push_token", "is", null);
+
+    // Merge both sources (deduplicated)
+    const allIds = new Set<string>();
+    (tokens || []).forEach((t) => allIds.add(t.user_id));
+    (legacyMembers || []).forEach((m) => allIds.add(m.user_id));
+    const externalUserIds = Array.from(allIds);
 
     if (externalUserIds.length === 0) {
       return new Response(
