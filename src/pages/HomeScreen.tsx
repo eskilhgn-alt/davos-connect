@@ -6,6 +6,7 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { HomeDashboard } from "@/components/home/HomeDashboard";
+import { PointsLeaderboardWidget } from "@/components/home/PointsLeaderboardWidget";
 import { StoryRing } from "@/components/stories/StoryRing";
 import { StoryViewer } from "@/components/stories/StoryViewer";
 import { StoryCapture } from "@/components/stories/StoryCapture";
@@ -97,6 +98,9 @@ export const HomeScreen: React.FC = () => {
 
           {/* Mini dashboard */}
           <HomeDashboard refreshKey={refreshKey} />
+
+          {/* Points leaderboard widget */}
+          <PointsLeaderboardWidget />
 
           {/* Tile grid */}
           <nav className="grid grid-cols-2 gap-3">

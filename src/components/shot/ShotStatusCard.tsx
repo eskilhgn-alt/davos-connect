@@ -12,7 +12,7 @@ interface ShotStatusCardProps {
   event: ShotEvent;
   currentUserId: string;
   getDisplayName: (id: string | null) => string;
-  onConfirm: (mode: "self" | "witness" | "refuse" | "witness_timeout", witnessId?: string) => void;
+  onConfirm: (mode: "self" | "witness" | "refuse" | "witness_timeout" | "witness_deny", witnessId?: string) => void;
   onUseFrikort?: () => void;
   hasFrikort?: boolean;
   profiles: Record<string, string>;
@@ -57,15 +57,13 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
     return () => clearInterval(interval);
   }, [event.status, event.deadline_at]);
 
-  // Witness timeout: 5 min after self_confirmed, if no witness response → auto-confirm
+  // Witness timeout: 5 min after self_confirmed, if no witness response → punishment
   React.useEffect(() => {
     if (!event.self_confirmed || event.witness_confirmed_by || event.status !== "selected") {
       setWitnessTimeLeft(null);
       return;
     }
 
-    // Estimate self_confirmed time from event timeline (use selected_at + reasonable offset)
-    // We'll use a 5-minute window from now as a simplified approach
     const WITNESS_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
     const confirmTime = event.selected_at ? new Date(event.selected_at).getTime() : Date.now();
     const witnessDeadline = confirmTime + WITNESS_TIMEOUT_MS;
@@ -74,7 +72,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
       const remaining = Math.max(0, witnessDeadline - Date.now());
       setWitnessTimeLeft(Math.ceil(remaining / 1000));
       if (remaining <= 0) {
-        // Auto-confirm via witness_timeout
+        // Witness didn't respond → punishment
         onConfirm("witness_timeout");
       }
     };
@@ -239,6 +237,14 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
             <Eye size={22} />
             Ja, jeg bekrefter!
           </button>
+          <button
+            type="button"
+            onClick={() => onConfirm("witness_deny" as any)}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-destructive text-destructive text-sm font-medium transition-all active:scale-[0.98]"
+          >
+            <AlertTriangle size={16} />
+            Nei, avslå (straffeshot)
+          </button>
         </div>
       )}
 
@@ -249,8 +255,8 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
             Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter...
           </p>
           {witnessTimeLeft !== null && witnessTimeLeft > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Auto-bekreftes om {Math.floor(witnessTimeLeft / 60)}m {witnessTimeLeft % 60}s
+            <p className="text-xs text-destructive">
+              Straffeshot om {Math.floor(witnessTimeLeft / 60)}m {witnessTimeLeft % 60}s hvis vitne ikke svarer
             </p>
           )}
         </div>
@@ -263,8 +269,8 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
             Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter...
           </p>
           {witnessTimeLeft !== null && witnessTimeLeft > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Auto-bekreftes om {Math.floor(witnessTimeLeft / 60)}m {witnessTimeLeft % 60}s
+            <p className="text-xs text-destructive">
+              Straffeshot om {Math.floor(witnessTimeLeft / 60)}m {witnessTimeLeft % 60}s hvis vitne ikke svarer
             </p>
           )}
         </div>
