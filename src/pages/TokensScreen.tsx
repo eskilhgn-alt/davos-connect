@@ -8,6 +8,7 @@ import { BackButton } from "@/components/layout/BackButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
 import { useStreak } from "@/hooks/useStreak";
+import { useGlobalStreaks } from "@/hooks/useGlobalStreaks";
 import { supabase } from "@/integrations/supabase/client";
 import { Coins, TrendingUp, TrendingDown, Trophy, Star, Flame, BookOpen, Target, Camera, MessageCircle, Eye, Mountain } from "lucide-react";
 import { format } from "date-fns";
@@ -52,7 +53,30 @@ const reasonIcons: Record<string, string> = {
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
+const GlobalStreakList: React.FC<{ userId?: string }> = ({ userId }) => {
+  const { streaks, loading } = useGlobalStreaks();
+  if (loading) return <p className="text-sm text-muted-foreground text-center py-4">Laster...</p>;
+  if (streaks.length === 0) return <p className="text-sm text-muted-foreground text-center py-4">Ingen streaks ennå</p>;
+  return (
+    <div className="space-y-0">
+      {streaks.map((entry, i) => {
+        const isMe = entry.user_id === userId;
+        return (
+          <div key={entry.user_id} className={cn("flex items-center gap-3 py-3 px-2 border-b border-border last:border-0", isMe && "bg-primary/5 rounded-lg")}>
+            <span className="w-7 text-center text-base">{i < 3 ? MEDALS[i] : `#${i + 1}`}</span>
+            <span className={cn("flex-1 text-sm truncate", isMe && "font-semibold")}>{entry.display_name}</span>
+            <span className="font-mono text-sm font-semibold flex items-center gap-1">
+              <Flame size={12} className="text-primary" /> {entry.current_streak}d
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 type Tab = "overview" | "leaderboard" | "rules";
+
 
 export const TokensScreen: React.FC = () => {
   const { user } = useAuth();
@@ -218,15 +242,16 @@ export const TokensScreen: React.FC = () => {
                 )}
               </section>
 
-              {/* Streak leaderboard (simple) */}
+              {/* Global streak leaderboard */}
               <section>
                 <h2 className="font-heading text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <Flame size={14} className="text-primary" /> Din streak
+                  <Flame size={14} className="text-primary" /> Streak-toppliste
                 </h2>
-                <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-muted/30">
+                {/* My streak */}
+                <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-muted/30 mb-3">
                   <div className="text-center">
                     <p className="font-heading text-2xl font-bold text-foreground">{currentStreak}</p>
-                    <p className="text-xs text-muted-foreground">nåværende</p>
+                    <p className="text-xs text-muted-foreground">din streak</p>
                   </div>
                   <div className="w-px h-8 bg-border" />
                   <div className="text-center">
@@ -234,6 +259,8 @@ export const TokensScreen: React.FC = () => {
                     <p className="text-xs text-muted-foreground">rekord</p>
                   </div>
                 </div>
+                {/* Global streaks */}
+                <GlobalStreakList userId={user?.id} />
               </section>
             </>
           )}

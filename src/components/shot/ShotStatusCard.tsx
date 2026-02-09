@@ -1,11 +1,13 @@
 /**
  * ShotStatusCard – Shows current round status with witness picker flow
  * Now includes dispute reason dropdown for witness deny
+ * Triggers punishment ban when straffeshot deadline expires
  */
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { ShotEvent } from "@/pages/ShotScreen";
+import { supabase } from "@/integrations/supabase/client";
 import { Check, Eye, AlertTriangle, Clock, ChevronDown, Ban, Ticket, Shield } from "lucide-react";
 
 interface ShotStatusCardProps {
@@ -72,7 +74,7 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
     return () => clearInterval(interval);
   }, [event.self_confirmed, event.witness_confirmed_by, event.status, event.selected_at, onConfirm]);
 
-  // Punishment deadline countdown
+  // Punishment deadline countdown + auto-ban when expired
   React.useEffect(() => {
     if (event.status !== "punished" || !event.punishment_deadline_at) {
       setPunishmentTimeLeft(null); return;
@@ -80,11 +82,15 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
     const tick = () => {
       const remaining = Math.max(0, new Date(event.punishment_deadline_at!).getTime() - Date.now());
       setPunishmentTimeLeft(Math.ceil(remaining / 1000));
+      // Trigger ban when countdown expires
+      if (remaining <= 0) {
+        supabase.rpc("rpc_apply_punishment_ban", { p_event_id: event.id }).then(() => {});
+      }
     };
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [event.status, event.punishment_deadline_at]);
+  }, [event.status, event.punishment_deadline_at, event.id]);
 
   const isSelected = event.status === "selected";
   const isConfirmed = event.status === "confirmed";
