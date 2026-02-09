@@ -130,7 +130,8 @@ serve(async (req) => {
 
     const notificationPayload = {
       app_id: ONESIGNAL_APP_ID,
-      include_external_user_ids: externalUserIds,
+      include_aliases: { external_id: externalUserIds },
+      target_channel: "push",
       headings: { en: sender_name },
       contents: { en: preview || "Ny melding" },
       url: "https://davos-joy-connect.lovable.app/chat",

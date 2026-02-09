@@ -90,7 +90,8 @@ serve(async (req) => {
 
     const notificationPayload = {
       app_id: ONESIGNAL_APP_ID,
-      include_external_user_ids: externalUserIds,
+      include_aliases: { external_id: externalUserIds },
+      target_channel: "push",
       headings: { en: heading },
       contents: { en: message },
       url: url || "https://davos-joy-connect.lovable.app/shot",
