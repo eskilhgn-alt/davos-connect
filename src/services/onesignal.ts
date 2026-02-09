@@ -168,8 +168,11 @@ export async function enablePush(userId: string, displayName: string): Promise<b
     const pushToken = oneSignalInstance.User.PushSubscription.id;
     
     if (pushToken) {
-      // Save to database
-      await savePushToken(userId, displayName, pushToken);
+      // Save to both tables for compatibility
+      await Promise.all([
+        savePushToken(userId, displayName, pushToken),
+        savePushTokenRecord(userId, pushToken),
+      ]);
       localStorage.setItem(PUSH_ENABLED_KEY, "true");
       console.log("Push notifications enabled");
       return true;
@@ -194,8 +197,11 @@ export async function disablePush(userId: string): Promise<void> {
     }
   }
   
-  // Remove from database
-  await removePushToken(userId);
+  // Remove from both tables
+  await Promise.all([
+    removePushToken(userId),
+    removePushTokenRecord(userId),
+  ]);
   localStorage.setItem(PUSH_ENABLED_KEY, "false");
   console.log("Push notifications disabled");
 }
@@ -232,6 +238,40 @@ async function removePushToken(userId: string): Promise<void> {
 
   if (error) {
     console.error("Error removing push token:", error);
+  }
+}
+
+/**
+ * Save push token to push_tokens table (used by shot-push, poll-push)
+ */
+async function savePushTokenRecord(userId: string, playerId: string): Promise<void> {
+  const { error } = await supabase
+    .from("push_tokens")
+    .upsert(
+      {
+        user_id: userId,
+        player_id: playerId,
+        device_type: "web",
+      },
+      { onConflict: "user_id,player_id" }
+    );
+
+  if (error) {
+    console.error("Error saving push_tokens record:", error);
+  }
+}
+
+/**
+ * Remove push token from push_tokens table
+ */
+async function removePushTokenRecord(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("push_tokens")
+    .delete()
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("Error removing push_tokens record:", error);
   }
 }
 
