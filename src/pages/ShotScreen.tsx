@@ -16,6 +16,9 @@ import { ShotLeaderboard } from "@/components/shot/ShotLeaderboard";
 import { ShotTokenOverview } from "@/components/shot/ShotTokenOverview";
 import { ShotTransparency } from "@/components/shot/ShotTransparency";
 import { ShotHistory } from "@/components/shot/ShotHistory";
+import { SkiVerticalCard } from "@/components/ski/SkiVerticalCard";
+import { SkiAwardClaimDialog } from "@/components/ski/SkiAwardClaimDialog";
+import { useSkiTracker } from "@/hooks/useSkiTracker";
 import { toast } from "sonner";
 
 const GROUP_ID = "global";
@@ -55,6 +58,10 @@ export const ShotScreen: React.FC = () => {
   const [loading, setLoading] = React.useState(true);
   const [pressing, setPressing] = React.useState(false);
   const [profiles, setProfiles] = React.useState<Record<string, string>>({});
+  const [frikortCount, setFrikortCount] = React.useState(0);
+
+  // Activate ski tracker in background
+  useSkiTracker();
 
   // Load profiles for display names
   const loadProfiles = React.useCallback(async () => {
@@ -112,15 +119,26 @@ export const ShotScreen: React.FC = () => {
     if (data) setLogEntries(data as unknown as ShotLogEntry[]);
   }, []);
 
+  // Load frikort count
+  const loadFrikort = React.useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("user_frikort")
+      .select("id")
+      .eq("user_id", user.id)
+      .is("used_at", null);
+    setFrikortCount(data?.length ?? 0);
+  }, [user]);
+
   // Initial load
   React.useEffect(() => {
     const load = async () => {
       setLoading(true);
-      await Promise.all([loadProfiles(), loadTokens(), loadActiveEvent(), loadLog()]);
+      await Promise.all([loadProfiles(), loadTokens(), loadActiveEvent(), loadLog(), loadFrikort()]);
       setLoading(false);
     };
     load();
-  }, [loadProfiles, loadTokens, loadActiveEvent, loadLog]);
+  }, [loadProfiles, loadTokens, loadActiveEvent, loadLog, loadFrikort]);
 
   // Realtime subscriptions
   React.useEffect(() => {
@@ -133,6 +151,7 @@ export const ShotScreen: React.FC = () => {
       }, () => {
         loadActiveEvent();
         loadTokens();
+        loadFrikort();
       })
       .on("postgres_changes", {
         event: "*",
@@ -264,6 +283,18 @@ export const ShotScreen: React.FC = () => {
     }
   }, [activeEvent, profiles, user]);
 
+  // Use frikort
+  const handleUseFrikort = React.useCallback(async () => {
+    if (!activeEvent) return;
+    const { error } = await supabase.rpc("rpc_use_frikort", { p_event_id: activeEvent.id });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Frikort brukt! Du slipper denne runden. 🎫");
+    loadFrikort();
+  }, [activeEvent, loadFrikort]);
+
   const canPress = !activeEvent && tokens && tokens.balance > 0 && !pressing;
 
   return (
@@ -274,7 +305,7 @@ export const ShotScreen: React.FC = () => {
       <AppHeader title="Shoot your shot" leftAction={<BackButton fallbackPath="/hjem" />} />
 
       <PullToRefreshWrapper
-        onRefresh={async () => { await Promise.all([loadTokens(), loadActiveEvent(), loadLog()]); }}
+        onRefresh={async () => { await Promise.all([loadTokens(), loadActiveEvent(), loadLog(), loadFrikort()]); }}
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{
           paddingBottom: "var(--bottom-nav-h-effective)",
@@ -282,7 +313,7 @@ export const ShotScreen: React.FC = () => {
         }}
       >
         <div className="px-6 py-8 space-y-8">
-          {/* Token display */}
+          {/* Token + frikort display */}
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Tokens</p>
             <div className="flex items-center justify-center gap-1 mt-1">
@@ -297,6 +328,7 @@ export const ShotScreen: React.FC = () => {
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {tokens ? `${tokens.balance} / ${tokens.max}` : "..."}
+              {frikortCount > 0 && ` · 🎫 ${frikortCount} frikort`}
             </p>
           </div>
 
@@ -315,12 +347,17 @@ export const ShotScreen: React.FC = () => {
               currentUserId={user?.id || ""}
               getDisplayName={getDisplayName}
               onConfirm={handleConfirm}
+              onUseFrikort={handleUseFrikort}
+              hasFrikort={frikortCount > 0}
               profiles={profiles}
             />
           )}
 
           {/* My shot history */}
           <ShotHistory getDisplayName={getDisplayName} />
+
+          {/* Ski vertical meters */}
+          <SkiVerticalCard />
 
           {/* Token overview */}
           <ShotTokenOverview />
@@ -335,6 +372,9 @@ export const ShotScreen: React.FC = () => {
           <ShotTransparency />
         </div>
       </PullToRefreshWrapper>
+
+      {/* Award claim dialog */}
+      <SkiAwardClaimDialog />
     </div>
   );
 };

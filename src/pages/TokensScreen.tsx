@@ -34,6 +34,7 @@ const reasonLabels: Record<string, string> = {
   activity_reward: "Mest aktiv i dag",
   witness_deny_penalty: "Vitne avvist shot",
   overdue_penalty: "Tidsfristen utløpt",
+  ski_daily_winner: "Mest høydemeter",
 };
 
 const reasonIcons: Record<string, string> = {
@@ -43,6 +44,7 @@ const reasonIcons: Record<string, string> = {
   activity_reward: "⚡",
   witness_deny_penalty: "👁",
   overdue_penalty: "⏰",
+  ski_daily_winner: "🏔️",
 };
 
 export const TokensScreen: React.FC = () => {
@@ -207,6 +209,10 @@ export const TokensScreen: React.FC = () => {
               <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border border-border">
                 <span className="text-foreground font-medium shrink-0">+1</span>
                 <span>Mest aktiv bruker i dag (meldinger, bilder, agenda)</span>
+              </div>
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border border-border">
+                <span className="text-foreground font-medium shrink-0">🎫</span>
+                <span>Mest høydemeter i dag → frikort eller +1 token (du velger!)</span>
               </div>
             </div>
           </section>

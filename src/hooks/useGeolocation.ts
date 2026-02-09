@@ -8,6 +8,9 @@ export interface GeoPosition {
   lat: number;
   lon: number;
   accuracy?: number;
+  altitude?: number | null;
+  altitudeAccuracy?: number | null;
+  speed?: number | null; // m/s
 }
 
 const CACHE_KEY = "geo-position";
@@ -20,7 +23,7 @@ function getCached(): GeoPosition | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (Date.now() - parsed._ts > CACHE_TTL) return null;
-    return { lat: parsed.lat, lon: parsed.lon, accuracy: parsed.accuracy };
+    return { lat: parsed.lat, lon: parsed.lon, accuracy: parsed.accuracy, altitude: parsed.altitude, altitudeAccuracy: parsed.altitudeAccuracy, speed: parsed.speed };
   } catch {
     return null;
   }
@@ -54,6 +57,9 @@ export function useGeolocation() {
           lat: geo.coords.latitude,
           lon: geo.coords.longitude,
           accuracy: geo.coords.accuracy,
+          altitude: geo.coords.altitude,
+          altitudeAccuracy: geo.coords.altitudeAccuracy,
+          speed: geo.coords.speed,
         };
         setPosition(pos);
         setCache(pos);
