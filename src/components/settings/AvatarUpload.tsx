@@ -88,6 +88,7 @@ export const AvatarUpload: React.FC = () => {
         ref={fileRef}
         type="file"
         accept="image/*"
+        capture="user"
         onChange={handleUpload}
         className="hidden"
       />
