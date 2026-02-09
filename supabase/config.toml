@@ -45,3 +45,6 @@ verify_jwt = false
 
 [functions.award-points]
 verify_jwt = false
+
+[functions.poll-push]
+verify_jwt = false
