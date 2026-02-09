@@ -35,9 +35,12 @@ import {
   Check,
   KeyRound,
   Vibrate,
+  Bug,
 } from "lucide-react";
 import { toast } from "sonner";
 import { isHapticsEnabled, setHapticsEnabled } from "@/utils/haptics";
+
+const APP_VERSION = "1.0.0-beta.1";
 
 export const SettingsScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -65,6 +68,10 @@ export const SettingsScreen: React.FC = () => {
   // Haptic feedback
   const [hapticsOn, setHapticsOn] = React.useState(isHapticsEnabled);
 
+  // Bug report
+  const [bugText, setBugText] = React.useState("");
+  const [bugSending, setBugSending] = React.useState(false);
+
   const toggleDarkMode = (checked: boolean) => {
     setIsDark(checked);
     if (checked) {
@@ -91,6 +98,24 @@ export const SettingsScreen: React.FC = () => {
       toast.error("Kunne ikke oppdatere profil");
     } else {
       toast.success("Profil oppdatert");
+    }
+  };
+
+  const handleBugReport = async () => {
+    if (!bugText.trim() || !user) return;
+    setBugSending(true);
+    const { error } = await supabase.from("bug_reports").insert({
+      user_id: user.id,
+      message: bugText.trim(),
+      page_url: window.location.href,
+      user_agent: navigator.userAgent,
+    });
+    setBugSending(false);
+    if (error) {
+      toast.error("Kunne ikke sende rapport");
+    } else {
+      toast.success("Takk for tilbakemeldingen!");
+      setBugText("");
     }
   };
 
@@ -349,6 +374,34 @@ export const SettingsScreen: React.FC = () => {
             </DavosCardContent>
           </DavosCard>
 
+          {/* Bug report */}
+          <DavosCard>
+            <DavosCardContent className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <Bug className="h-5 w-5 text-primary" />
+                <h2 className="font-heading font-semibold text-foreground">
+                  Rapporter feil
+                </h2>
+              </div>
+              <textarea
+                className="w-full rounded-lg border border-border bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                rows={3}
+                placeholder="Beskriv feilen du opplevde..."
+                value={bugText}
+                onChange={e => setBugText(e.target.value)}
+              />
+              <DavosButton
+                onClick={handleBugReport}
+                disabled={bugSending || !bugText.trim()}
+                size="sm"
+                className="w-full mt-2"
+              >
+                {bugSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bug className="h-4 w-4 mr-2" />}
+                Send rapport
+              </DavosButton>
+            </DavosCardContent>
+          </DavosCard>
+
           {/* Sign out */}
           <DavosButton
             variant="outline"
@@ -360,7 +413,7 @@ export const SettingsScreen: React.FC = () => {
           </DavosButton>
 
           <p className="text-center text-xs text-muted-foreground py-4">
-            GüttaHütte v1.0 · Bygget med ❤️ for Gütta
+            GüttaHütte {APP_VERSION} · Bygget med ❤️ for Gütta
           </p>
         </div>
       </div>

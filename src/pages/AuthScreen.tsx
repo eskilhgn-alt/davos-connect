@@ -12,6 +12,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Loader2, Camera } from "lucide-react";
 import { toast } from "sonner";
 
+const WELCOME_THREAD_ID = "00000000-0000-0000-0000-000000000001";
+
+/** Fire-and-forget welcome message in chat */
+function sendWelcomeMessage(displayName: string) {
+  supabase.from("messages").insert({
+    text: `${displayName} har blitt med i GüttaHütte! 🏔️ Velkommen!`,
+    thread_id: WELCOME_THREAD_ID,
+    sender_id: "system",
+    sender_name: "GüttaHütte",
+  }).then(({ error }) => {
+    if (error) console.warn("Welcome message failed:", error);
+  });
+}
+
 type AuthMode = "login" | "signup" | "forgot" | "onboarding";
 
 export const AuthScreen: React.FC = () => {
@@ -128,8 +142,14 @@ export const AuthScreen: React.FC = () => {
       nickname: nickname.trim() || fullName.split(" ")[0],
       avatar_url: avatarUrl,
     });
-    if (error) toast.error(error.message);
-    else { toast.success("Profil klar!"); navigate("/"); }
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Profil klar!");
+      // Send welcome message in chat
+      sendWelcomeMessage(nickname.trim() || fullName.split(" ")[0]);
+      navigate("/");
+    }
     setIsSubmitting(false);
   };
 

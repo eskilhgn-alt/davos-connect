@@ -19,6 +19,7 @@ import { AdminShotControl } from "@/components/admin/AdminShotControl";
 import { AdminTokenLedger } from "@/components/admin/AdminTokenLedger";
 import { AdminPushTools } from "@/components/admin/AdminPushTools";
 import { AdminAuditLog } from "@/components/admin/AdminAuditLog";
+import { AdminBugReports } from "@/components/admin/AdminBugReports";
 
 const ADMIN_EMAIL = "eskilhgn@gmail.com";
 
@@ -28,6 +29,7 @@ const TAB_OPTIONS: SegmentOption[] = [
   { value: "shot", label: "Shot" },
   { value: "tokens", label: "Tokens" },
   { value: "push", label: "Push" },
+  { value: "bugs", label: "Feil" },
   { value: "log", label: "Logg" },
 ];
 
@@ -130,6 +132,10 @@ export const AdminScreen: React.FC = () => {
             currentUserId={user!.id}
             onLogAction={logAction}
           />
+        )}
+
+        {tab === "bugs" && (
+          <AdminBugReports users={users} />
         )}
 
         {tab === "log" && (
