@@ -410,6 +410,96 @@ export type Database = {
         }
         Relationships: []
       }
+      ski_altitude_samples: {
+        Row: {
+          altitude: number
+          id: string
+          lat: number | null
+          lon: number | null
+          recorded_at: string
+          speed: number | null
+          user_id: string
+        }
+        Insert: {
+          altitude: number
+          id?: string
+          lat?: number | null
+          lon?: number | null
+          recorded_at?: string
+          speed?: number | null
+          user_id: string
+        }
+        Update: {
+          altitude?: number
+          id?: string
+          lat?: number | null
+          lon?: number | null
+          recorded_at?: string
+          speed?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ski_daily_awards: {
+        Row: {
+          claimed: boolean
+          claimed_at: string | null
+          created_at: string
+          day_date: string
+          id: string
+          reward_type: string | null
+          user_id: string
+          vertical_meters: number
+        }
+        Insert: {
+          claimed?: boolean
+          claimed_at?: string | null
+          created_at?: string
+          day_date: string
+          id?: string
+          reward_type?: string | null
+          user_id: string
+          vertical_meters: number
+        }
+        Update: {
+          claimed?: boolean
+          claimed_at?: string | null
+          created_at?: string
+          day_date?: string
+          id?: string
+          reward_type?: string | null
+          user_id?: string
+          vertical_meters?: number
+        }
+        Relationships: []
+      }
+      ski_daily_vertical: {
+        Row: {
+          day_date: string
+          id: string
+          sample_count: number
+          updated_at: string
+          user_id: string
+          vertical_meters: number
+        }
+        Insert: {
+          day_date?: string
+          id?: string
+          sample_count?: number
+          updated_at?: string
+          user_id: string
+          vertical_meters?: number
+        }
+        Update: {
+          day_date?: string
+          id?: string
+          sample_count?: number
+          updated_at?: string
+          user_id?: string
+          vertical_meters?: number
+        }
+        Relationships: []
+      }
       stories: {
         Row: {
           created_at: string
@@ -510,6 +600,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_frikort: {
+        Row: {
+          earned_at: string
+          id: string
+          reason: string
+          used_at: string | null
+          used_event_id: string | null
+          user_id: string
+        }
+        Insert: {
+          earned_at?: string
+          id?: string
+          reason?: string
+          used_at?: string | null
+          used_event_id?: string | null
+          user_id: string
+        }
+        Update: {
+          earned_at?: string
+          id?: string
+          reason?: string
+          used_at?: string | null
+          used_event_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_frikort_used_event_id_fkey"
+            columns: ["used_event_id"]
+            isOneToOne: false
+            referencedRelation: "shot_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_locations: {
         Row: {
@@ -908,11 +1033,16 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       rpc_apply_overdue: { Args: { p_event_id: string }; Returns: Json }
+      rpc_award_ski_daily_winner: { Args: never; Returns: Json }
       rpc_check_bonus_token: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: undefined
       }
       rpc_check_shot_ban: { Args: never; Returns: Json }
+      rpc_claim_ski_award: {
+        Args: { p_award_id: string; p_choice: string }
+        Returns: Json
+      }
       rpc_confirm_shot: {
         Args: { p_event_id: string; p_mode: string; p_witness_id?: string }
         Returns: Json
@@ -924,7 +1054,18 @@ export type Database = {
         Returns: Json
       }
       rpc_get_shot_tokens: { Args: never; Returns: Json }
+      rpc_get_ski_leaderboard: { Args: { p_days?: number }; Returns: Json }
+      rpc_record_ski_sample: {
+        Args: {
+          p_altitude: number
+          p_lat?: number
+          p_lon?: number
+          p_speed: number
+        }
+        Returns: Json
+      }
       rpc_start_shot_round: { Args: { p_group_id?: string }; Returns: Json }
+      rpc_use_frikort: { Args: { p_event_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "user" | "admin"

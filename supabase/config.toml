@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.send-invite]
 verify_jwt = false
+
+[functions.ski-daily-award]
+verify_jwt = false

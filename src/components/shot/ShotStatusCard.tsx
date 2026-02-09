@@ -6,13 +6,15 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { ShotEvent } from "@/pages/ShotScreen";
-import { Check, Eye, AlertTriangle, Clock, ChevronDown, Ban } from "lucide-react";
+import { Check, Eye, AlertTriangle, Clock, ChevronDown, Ban, Ticket } from "lucide-react";
 
 interface ShotStatusCardProps {
   event: ShotEvent;
   currentUserId: string;
   getDisplayName: (id: string | null) => string;
   onConfirm: (mode: "self" | "witness" | "refuse" | "witness_timeout", witnessId?: string) => void;
+  onUseFrikort?: () => void;
+  hasFrikort?: boolean;
   profiles: Record<string, string>;
 }
 
@@ -21,6 +23,8 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
   currentUserId,
   getDisplayName,
   onConfirm,
+  onUseFrikort,
+  hasFrikort,
   profiles,
 }) => {
   const [timeLeft, setTimeLeft] = React.useState("");
@@ -196,6 +200,18 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
             <Check size={18} />
             Shot tatt!
           </button>
+
+          {/* Frikort button */}
+          {hasFrikort && onUseFrikort && (
+            <button
+              type="button"
+              onClick={onUseFrikort}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-foreground/20 bg-muted/50 text-foreground text-sm font-medium transition-all active:scale-[0.98]"
+            >
+              <Ticket size={16} />
+              Bruk frikort (stå over)
+            </button>
+          )}
 
           {/* Refuse button */}
           <button
