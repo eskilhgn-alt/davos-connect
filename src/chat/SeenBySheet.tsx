@@ -104,6 +104,9 @@ export const SeenBySheet: React.FC<SeenBySheetProps> = ({ messageId, onClose }) 
           "w-full max-w-lg bg-background rounded-t-2xl",
           "animate-in slide-in-from-bottom duration-200"
         )}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
         style={{
           paddingBottom: "env(safe-area-inset-bottom)",
           maxHeight: "60vh",

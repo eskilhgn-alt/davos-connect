@@ -38,6 +38,9 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, onClose }) =
       <div
         ref={contentRef}
         onTouchMove={handleTouchMove}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
         className={cn(
           'w-full max-w-lg bg-background rounded-t-2xl',
           'flex flex-col max-h-[50vh]',

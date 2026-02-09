@@ -46,6 +46,9 @@ export const ReactionBar: React.FC<ReactionBarProps> = ({
           'animate-in zoom-in-95 duration-150',
           position === 'top' ? 'top-20' : 'bottom-32'
         )}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
         {QUICK_REACTIONS.map((emoji) => (
           <button
