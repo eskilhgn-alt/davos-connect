@@ -77,11 +77,14 @@ export const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
       onClick={handleBackdropClick}
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
     >
-      <div
-        className={cn(
-          'w-full max-w-lg bg-background rounded-t-2xl',
-          'animate-in slide-in-from-bottom duration-200'
-        )}
+        <div
+          className={cn(
+            'w-full max-w-lg bg-background rounded-t-2xl',
+            'animate-in slide-in-from-bottom duration-200'
+          )}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',
         }}
@@ -104,11 +107,12 @@ export const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
             <button
               key={idx}
               type="button"
-              onClick={() => {
-                // Just call the action - don't call onClose here
-                // Each action handler should handle cleanup
+              onClick={(e) => {
+                e.stopPropagation();
                 action.onClick();
               }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-3',
                 'text-left hover:bg-muted active:bg-muted/80 transition-colors',
