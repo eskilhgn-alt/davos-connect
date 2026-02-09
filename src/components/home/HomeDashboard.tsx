@@ -55,10 +55,14 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
   const wx = aiSummary?.weather;
 
   // 1. NOK/CHF (ECB)
+  const [rateDate, setRateDate] = React.useState<string | null>(null);
   React.useEffect(() => {
     fetch("https://api.frankfurter.dev/v1/latest?base=CHF&symbols=NOK")
       .then((r) => r.json())
-      .then((d) => setRate({ rate: d?.rates?.NOK ?? null, loading: false }))
+      .then((d) => {
+        setRate({ rate: d?.rates?.NOK ?? null, loading: false });
+        setRateDate(d?.date ?? null);
+      })
       .catch(() => setRate({ rate: null, loading: false }));
   }, [refreshKey]);
 
@@ -108,7 +112,7 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
                 {nextEvent.title}
               </span>
               <span className="text-[9px] text-muted-foreground">
-                {format(new Date(nextEvent.start_at), "EEE HH:mm", { locale: nb })}
+                {format(new Date(nextEvent.start_at), "EEE dd.MM 'kl' HH:mm", { locale: nb })}
               </span>
             </>
           ) : (
@@ -152,6 +156,7 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
       {rate.rate && (
         <CurrencyCalculator
           rate={rate.rate}
+          rateDate={rateDate}
           open={calcOpen}
           onClose={() => setCalcOpen(false)}
         />

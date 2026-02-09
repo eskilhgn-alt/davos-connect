@@ -7,11 +7,12 @@ import { cn } from "@/lib/utils";
 
 interface CurrencyCalculatorProps {
   rate: number;
+  rateDate?: string | null;
   open: boolean;
   onClose: () => void;
 }
 
-export const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({ rate, open, onClose }) => {
+export const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({ rate, rateDate, open, onClose }) => {
   const [amount, setAmount] = React.useState("1");
   const [direction, setDirection] = React.useState<"chf-to-nok" | "nok-to-chf">("chf-to-nok");
 
@@ -76,6 +77,12 @@ export const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({ rate, op
           {/* Rate info */}
           <p className="text-[10px] text-muted-foreground/50 text-center">
             1 CHF = {rate.toFixed(4)} NOK · Den europeiske sentralbanken
+            {rateDate && (
+              <>
+                <br />
+                Sist oppdatert: {new Date(rateDate + "T00:00:00").toLocaleDateString("nb-NO", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })}
+              </>
+            )}
           </p>
         </div>
       </div>

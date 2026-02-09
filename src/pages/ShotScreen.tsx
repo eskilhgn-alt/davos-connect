@@ -52,7 +52,7 @@ export interface ShotLogEntry {
 
 export const ShotScreen: React.FC = () => {
   const { user } = useAuth();
-  const [tokens, setTokens] = React.useState<{ balance: number; max: number } | null>(null);
+  const [tokens, setTokens] = React.useState<{ balance: number } | null>(null);
   const [activeEvent, setActiveEvent] = React.useState<ShotEvent | null>(null);
   const [logEntries, setLogEntries] = React.useState<ShotLogEntry[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -83,7 +83,7 @@ export const ShotScreen: React.FC = () => {
   // Load tokens
   const loadTokens = React.useCallback(async () => {
     const { data, error } = await supabase.rpc("rpc_get_shot_tokens");
-    if (!error && data) setTokens(data as { balance: number; max: number });
+    if (!error && data) setTokens(data as { balance: number });
   }, []);
 
   // Load active event
@@ -318,20 +318,14 @@ export const ShotScreen: React.FC = () => {
           {/* Token + frikort display */}
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Tokens</p>
-            <div className="flex items-center justify-center gap-1 mt-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-3 h-3 rounded-full ${
-                    tokens && i < tokens.balance ? "bg-foreground" : "bg-border"
-                  }`}
-                />
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {tokens ? `${tokens.balance} / ${tokens.max}` : "..."}
-              {frikortCount > 0 && ` · 🎫 ${frikortCount} frikort`}
+            <p className="font-heading text-2xl font-bold text-foreground mt-1">
+              {tokens ? tokens.balance : "..."}
             </p>
+            {frikortCount > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                🎫 {frikortCount} frikort
+              </p>
+            )}
           </div>
 
           {/* Big red button */}
