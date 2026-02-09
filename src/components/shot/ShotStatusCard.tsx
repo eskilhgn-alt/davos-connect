@@ -298,13 +298,112 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
         </div>
       )}
 
-      {/* Punishment deadline */}
+      {/* Punishment: confirm straffeshot taken + witness flow */}
       {isPunished && punishmentTimeLeft !== null && punishmentTimeLeft > 0 && (
-        <div className="text-center py-2 space-y-1">
-          <p className="text-sm text-destructive font-semibold">
-            ⏰ Straffeshot må tas innen {Math.floor(punishmentTimeLeft / 60)}m {punishmentTimeLeft % 60}s
-          </p>
-          <p className="text-[10px] text-muted-foreground">Ellers blir du midlertidig utestengt</p>
+        <div className="space-y-3">
+          <div className="text-center py-2 space-y-1">
+            <p className="text-sm text-destructive font-semibold">
+              ⏰ Straffeshot må tas innen {Math.floor(punishmentTimeLeft / 60)}m {punishmentTimeLeft % 60}s
+            </p>
+            <p className="text-[10px] text-muted-foreground">Ellers blir du midlertidig utestengt</p>
+          </div>
+
+          {/* Winner confirms punishment shot taken */}
+          {isWinner && !event.self_confirmed && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground text-center">Ta straffeshot og velg vitne:</p>
+              <div className="relative">
+                <button type="button" onClick={() => setShowWitnessPicker(!showWitnessPicker)}
+                  className="w-full flex items-center justify-between py-3 px-4 rounded-lg border border-border bg-muted/30 text-sm">
+                  <span className={selectedWitness ? "text-foreground" : "text-muted-foreground"}>
+                    {selectedWitness ? getDisplayName(selectedWitness) : "Velg vitne..."}
+                  </span>
+                  <ChevronDown size={16} className="text-muted-foreground" />
+                </button>
+                {showWitnessPicker && (
+                  <div className="absolute z-10 mt-1 w-full bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {witnessOptions.map(w => (
+                      <button key={w.id} type="button"
+                        onClick={() => { setSelectedWitness(w.id); setShowWitnessPicker(false); }}
+                        className={cn("w-full text-left px-4 py-2.5 text-sm transition-colors",
+                          selectedWitness === w.id ? "bg-foreground/5 font-medium" : "hover:bg-muted/50")}>
+                        {w.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button type="button" onClick={handleSelfConfirm} disabled={!selectedWitness}
+                className={cn("w-full flex items-center justify-center gap-2 py-3 rounded-lg font-heading font-semibold transition-all active:scale-[0.98]",
+                  selectedWitness ? "bg-destructive text-destructive-foreground" : "bg-muted text-muted-foreground cursor-not-allowed")}>
+                <Check size={18} /> Straffeshot tatt!
+              </button>
+            </div>
+          )}
+
+          {/* Winner waiting for witness on punishment */}
+          {isWinner && event.self_confirmed && !event.witness_confirmed_by && (
+            <div className="text-center py-2">
+              <p className="text-sm text-muted-foreground">Venter på at {getDisplayName(event.chosen_witness_id)} bekrefter straffeshot...</p>
+            </div>
+          )}
+
+          {/* Chosen witness confirms punishment shot */}
+          {isChosenWitness && event.self_confirmed && !event.witness_confirmed_by && (
+            <div className="space-y-3">
+              <p className="text-sm text-center text-muted-foreground">{winnerName} sier de har tatt straffeshotten. Bekreft!</p>
+              {!showDenyForm ? (
+                <>
+                  <button type="button" onClick={() => onConfirm("witness")}
+                    className="w-full flex items-center justify-center gap-2 py-5 rounded-xl border-2 border-foreground text-foreground font-heading text-lg font-bold transition-all active:scale-[0.98]">
+                    <Eye size={22} /> Ja, straffeshot tatt!
+                  </button>
+                  <button type="button" onClick={() => setShowDenyForm(true)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-destructive text-destructive text-sm font-medium transition-all active:scale-[0.98]">
+                    <AlertTriangle size={16} /> Nei, avslå
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/20">
+                  <p className="text-sm font-semibold text-foreground">Hvorfor avslår du?</p>
+                  <div className="relative">
+                    <button type="button" onClick={() => setShowDenyDropdown(!showDenyDropdown)}
+                      className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg border border-border bg-background text-sm">
+                      <span className={denyReason ? "text-foreground" : "text-muted-foreground"}>
+                        {denyReason ? DENY_REASONS.find(r => r.value === denyReason)?.label : "Velg årsak..."}
+                      </span>
+                      <ChevronDown size={14} className="text-muted-foreground" />
+                    </button>
+                    {showDenyDropdown && (
+                      <div className="absolute z-10 mt-1 w-full bg-background border border-border rounded-lg shadow-lg">
+                        {DENY_REASONS.map(r => (
+                          <button key={r.value} type="button"
+                            onClick={() => { setDenyReason(r.value); setShowDenyDropdown(false); }}
+                            className={cn("w-full text-left px-3 py-2 text-sm", denyReason === r.value ? "bg-foreground/5" : "hover:bg-muted/50")}>
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {denyReason === "annet" && (
+                    <input type="text" placeholder="Beskriv årsaken..." value={denyDetails}
+                      onChange={e => setDenyDetails(e.target.value)}
+                      className="w-full py-2 px-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground" />
+                  )}
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => { setShowDenyForm(false); setDenyReason(""); }}
+                      className="flex-1 py-2 rounded-lg border border-border text-sm">Avbryt</button>
+                    <button type="button" onClick={handleDenySubmit} disabled={!denyReason}
+                      className={cn("flex-1 py-2 rounded-lg text-sm font-semibold",
+                        denyReason ? "bg-destructive text-destructive-foreground" : "bg-muted text-muted-foreground cursor-not-allowed")}>
+                      Send dispute
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

@@ -60,9 +60,14 @@ serve(async (req) => {
     const { data: creator } = await supabase.from("profiles").select("nickname, full_name").eq("id", poll.created_by).single();
     const creatorName = creator?.nickname || creator?.full_name || "Noen";
 
-    // Get all active user IDs except caller
-    const { data: profiles } = await supabase.from("profiles").select("id").eq("is_active", true).neq("id", callerUserId);
-    const userIds = (profiles || []).map((p) => p.id);
+    // Get all users who have push tokens registered (except caller)
+    const { data: pushTokenUsers } = await supabase
+      .from("push_tokens")
+      .select("user_id")
+      .neq("user_id", callerUserId)
+      .not("player_id", "is", null);
+    
+    const userIds = (pushTokenUsers || []).map((p) => p.user_id);
 
     if (userIds.length === 0) {
       return new Response(JSON.stringify({ success: true, sent: 0 }), {
@@ -90,7 +95,8 @@ serve(async (req) => {
 
     const notificationPayload = {
       app_id: ONESIGNAL_APP_ID,
-      include_external_user_ids: userIds,
+      include_aliases: { external_id: userIds },
+      target_channel: "push",
       headings: { en: heading },
       contents: { en: content },
       url: "https://davos-joy-connect.lovable.app/poll",
