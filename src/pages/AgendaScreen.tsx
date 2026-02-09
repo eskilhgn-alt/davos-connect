@@ -33,8 +33,8 @@ export const AgendaScreen: React.FC = () => {
   const [selectedHour, setSelectedHour] = React.useState<number>(12);
   const [editEvent, setEditEvent] = React.useState<AgendaEvent | null>(null);
 
-  // Long-press
-  const longPressTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Double-tap to create event (replaces long-press for PWA compatibility)
+  const lastTapRef = React.useRef<{ day: string; hour: number; time: number } | null>(null);
 
   // Auto-scroll to 08:00 on mount / week change
   React.useEffect(() => {
@@ -48,21 +48,20 @@ export const AgendaScreen: React.FC = () => {
     [weekStart]
   );
 
-  const handleLongPressStart = (day: Date, hour: number, e: React.PointerEvent | React.TouchEvent) => {
-    // Prevent context menu on desktop
-    e.preventDefault();
-    longPressTimer.current = setTimeout(() => {
+  const handleCellTap = (day: Date, hour: number) => {
+    const now = Date.now();
+    const key = `${day.toISOString()}-${hour}`;
+    if (lastTapRef.current && lastTapRef.current.day === key && now - lastTapRef.current.time < 350) {
+      // Double tap → create event
       setSelectedDate(day);
       setSelectedHour(hour);
       setEditEvent(null);
       setDialogOpen(true);
-      // Haptic feedback on iOS if available
       if (navigator.vibrate) navigator.vibrate(10);
-    }, 400);
-  };
-
-  const handleLongPressEnd = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+      lastTapRef.current = null;
+    } else {
+      lastTapRef.current = { day: key, hour, time: now };
+    }
   };
 
   const handleEventTap = (ev: AgendaEvent) => {
@@ -171,13 +170,7 @@ export const AgendaScreen: React.FC = () => {
                       key={hour}
                       className="absolute left-0 right-0 cursor-pointer select-none"
                       style={{ top: hour * HOUR_HEIGHT, height: HOUR_HEIGHT }}
-                      onTouchStart={(e) => handleLongPressStart(day, hour, e)}
-                      onTouchEnd={handleLongPressEnd}
-                      onTouchCancel={handleLongPressEnd}
-                      onPointerDown={(e) => { if (e.pointerType !== 'touch') handleLongPressStart(day, hour, e); }}
-                      onPointerUp={(e) => { if (e.pointerType !== 'touch') handleLongPressEnd(); }}
-                      onPointerLeave={(e) => { if (e.pointerType !== 'touch') handleLongPressEnd(); }}
-                      onContextMenu={(e) => e.preventDefault()}
+                      onClick={() => handleCellTap(day, hour)}
                     >
                       {/* Events at this hour */}
                       {getEventsForDayHour(day, hour).map((ev) => {

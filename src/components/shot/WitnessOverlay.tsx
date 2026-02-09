@@ -135,8 +135,8 @@ export const WitnessOverlay: React.FC = () => {
   const selectedReasonLabel = DENY_REASONS.find(r => r.value === denyReason)?.label || "Velg årsak...";
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center px-8 text-center">
-      <div className="space-y-8 max-w-sm w-full">
+    <div className="fixed inset-0 z-[9999] bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center px-8 text-center" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+      <div className="space-y-8 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-center">
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
             <Eye size={40} className="text-foreground" />
