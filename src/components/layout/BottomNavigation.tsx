@@ -2,7 +2,7 @@ import * as React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Home, MessageCircle, CloudSun, Radio, MoreHorizontal, LucideIcon } from "lucide-react";
-import { useUnreadCount } from "@/hooks/useUnreadCount";
+import { useAppBadges } from "@/hooks/useAppBadges";
 
 interface NavItem {
   icon: LucideIcon;
@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
 
 export const BottomNavigation: React.FC = () => {
   const location = useLocation();
-  const unreadCount = useUnreadCount();
+  const badges = useAppBadges();
   const [isKeyboardOpen, setIsKeyboardOpen] = React.useState(false);
   const isHome = location.pathname === "/" || location.pathname === "/hjem";
 
@@ -59,7 +59,8 @@ export const BottomNavigation: React.FC = () => {
         <div className="flex items-center justify-around h-14">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
-            const showBadge = item.badge && unreadCount > 0;
+            const badgeCount = item.path === "/chat" ? badges.chat : 0;
+            const showBadge = item.badge && badgeCount > 0;
             return (
               <NavLink
                 key={item.path}
@@ -73,7 +74,7 @@ export const BottomNavigation: React.FC = () => {
                   <item.icon size={22} strokeWidth={isActive ? 2.2 : 1.8} />
                   {showBadge && (
                     <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-foreground text-background text-[9px] font-bold px-1 leading-none">
-                      {unreadCount > 99 ? "99+" : unreadCount}
+                      {badgeCount > 99 ? "99+" : badgeCount}
                     </span>
                   )}
                 </div>

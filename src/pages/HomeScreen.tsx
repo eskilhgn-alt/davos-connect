@@ -13,7 +13,7 @@ import { StreakWidget } from "@/components/home/StreakWidget";
 import { StoryViewer } from "@/components/stories/StoryViewer";
 import { StoryCapture } from "@/components/stories/StoryCapture";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUnreadCount } from "@/hooks/useUnreadCount";
+import { useAppBadges } from "@/hooks/useAppBadges";
 import { useStories } from "@/hooks/useStories";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
 import {
@@ -46,7 +46,7 @@ interface TileItem {
 
 export const HomeScreen: React.FC = () => {
   const { profile, isAdmin, signOut } = useAuth();
-  const unreadCount = useUnreadCount();
+  const badges = useAppBadges();
   const { groups, loading: storiesLoading, refetch, markViewed } = useStories();
 
   const [viewerOpen, setViewerOpen] = React.useState(false);
@@ -58,7 +58,7 @@ export const HomeScreen: React.FC = () => {
 
   const tiles: TileItem[] = React.useMemo(() => {
     const base: TileItem[] = [
-      { to: "/chat", label: "Chat", icon: MessageCircle, badge: unreadCount },
+      { to: "/chat", label: "Chat", icon: MessageCircle, badge: badges.chat },
       { to: "/vaer", label: "Vær", icon: CloudSun },
       { to: "/live", label: "Live", icon: Radio },
       { to: "/kart", label: "Løypekart", icon: Map },
@@ -68,9 +68,9 @@ export const HomeScreen: React.FC = () => {
       { to: "/agenda", label: "Agenda", icon: CalendarDays },
       { to: "/galleri", label: "Galleri", icon: Film },
       
-      { to: "/historier", label: "Stories", icon: Film },
+      { to: "/historier", label: "Stories", icon: Film, badge: badges.stories },
       { to: "/gruppe", label: "Gütta", icon: Users },
-      { to: "/poll", label: "Avstemming", icon: Vote },
+      { to: "/poll", label: "Avstemming", icon: Vote, badge: badges.polls },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/regler", label: "Regler", icon: BookOpen },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
@@ -79,7 +79,7 @@ export const HomeScreen: React.FC = () => {
       base.push({ to: "/admin", label: "Admin", icon: ShieldCheck });
     }
     return base;
-  }, [unreadCount, isAdmin]);
+  }, [badges, isAdmin]);
 
   const openStory = (idx: number) => {
     setViewerGroupIdx(idx);
