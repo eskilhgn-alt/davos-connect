@@ -106,16 +106,27 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       setCameraError(false);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: 1080 }, height: { ideal: 1920 } },
+        video: {
+          facingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          // Request widest possible field of view
+          ...(typeof MediaStreamTrack !== 'undefined' && {
+            resizeMode: 'none',
+          }),
+        },
         audio: true,
       });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
-      // Reset zoom to widest angle
+
+      // Force widest angle: set zoom to minimum
       const track = stream.getVideoTracks()[0];
       const caps = track?.getCapabilities?.() as any;
       if (caps?.zoom) {
-        track.applyConstraints({ advanced: [{ zoom: caps.zoom.min } as any] }).catch(() => {});
+        try {
+          await track.applyConstraints({ advanced: [{ zoom: caps.zoom.min } as any] });
+        } catch {}
       }
       setZoomLevel(1);
     } catch (err) {

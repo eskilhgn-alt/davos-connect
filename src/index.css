@@ -177,6 +177,31 @@
     touch-action: manipulation;
   }
 
+  /* ── PWA: Prevent browser behaviors leaking through ── */
+  /* Disable text selection on all non-input interactive elements */
+  button, [role="button"], a, .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Disable iOS callout (copy/paste/lookup) on images and links */
+  img, video, canvas, a {
+    -webkit-touch-callout: none;
+  }
+
+  /* Prevent context menu on the whole app (PWA) */
+  #root {
+    -webkit-touch-callout: none;
+  }
+
+  /* Ensure inputs/textareas CAN still be selected */
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+
   #root {
     overflow: hidden;
   }

@@ -121,21 +121,35 @@ const AppRoutes = () => (
   </Routes>
 );
 
-// Global unhandled rejection catcher — prevents silent async crashes
-const useGlobalErrorCatcher = () => {
+// Global PWA hardening — prevents silent async crashes + browser context menu
+const useGlobalPwaHardening = () => {
   React.useEffect(() => {
-    const handler = (event: PromiseRejectionEvent) => {
+    // Unhandled promise rejections
+    const rejectionHandler = (event: PromiseRejectionEvent) => {
       console.error("Unhandled promise rejection:", event.reason);
       toast.error("En uventet feil oppstod");
-      event.preventDefault(); // Prevent default browser error logging
+      event.preventDefault();
     };
-    window.addEventListener("unhandledrejection", handler);
-    return () => window.removeEventListener("unhandledrejection", handler);
+    window.addEventListener("unhandledrejection", rejectionHandler);
+
+    // Block browser context menu globally (long-press on mobile)
+    const contextHandler = (e: MouseEvent) => {
+      // Allow context menu on inputs/textareas for paste functionality
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      e.preventDefault();
+    };
+    document.addEventListener("contextmenu", contextHandler);
+
+    return () => {
+      window.removeEventListener("unhandledrejection", rejectionHandler);
+      document.removeEventListener("contextmenu", contextHandler);
+    };
   }, []);
 };
 
 const AppShell = () => {
-  useGlobalErrorCatcher();
+  useGlobalPwaHardening();
   return (
     <>
       <Toaster />
