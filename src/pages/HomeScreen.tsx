@@ -68,7 +68,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/galleri", label: "Galleri", icon: Film },
       { to: "/webcams", label: "Webcams", icon: Camera },
       { to: "/historier", label: "Stories", icon: Camera },
-      { to: "/gruppe", label: "Crewet", icon: Users },
+      { to: "/gruppe", label: "Gütta", icon: Users },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/regler", label: "Regler", icon: BookOpen },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },

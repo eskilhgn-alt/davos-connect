@@ -44,7 +44,7 @@ export const GeolocationToggle: React.FC = () => {
 
       {!enabled && !error && (
         <p className="text-xs text-muted-foreground px-4">
-          Brukes til værradar, kart og crewets posisjon. Data deles ikke utenfor appen.
+          Brukes til værradar, kart og posisjonen til Gütta. Data deles ikke utenfor appen.
         </p>
       )}
     </div>

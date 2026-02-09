@@ -93,7 +93,7 @@ const SECTIONS: RuleSection[] = [
     icon: Users,
     title: "Globalt vs. Privat",
     rules: [
-      { what: "Globalt: Chat, topplister, streaks, shots, stories, galleri, kart", why: "Fellesskapsopplevelse – alle ser det samme", how: "Alt du poster eller gjør er synlig for hele crewet." },
+      { what: "Globalt: Chat, topplister, streaks, shots, stories, galleri, kart", why: "Fellesskapsopplevelse – alle ser det samme", how: "Alt du poster eller gjør er synlig for hele Gütta." },
       { what: "Privat: Tokens, frikort, kontoinnstillinger", why: "Personlige ressurser og valg er ditt ansvar", how: "Kun du ser din saldo og dine innstillinger." },
       { what: "Admin: Admin-panel, audit-log, notater", why: "Administrasjon må være beskyttet for rettferdig styring", how: "Kun admin-brukere har tilgang til disse verktøyene." },
     ],

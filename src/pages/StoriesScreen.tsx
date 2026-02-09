@@ -69,7 +69,7 @@ export const StoriesScreen: React.FC = () => {
               <DavosEmptyState
                 icon={Film}
                 title="Ingen historier ennå"
-                description="Trykk + for å dele din første story med crewet!"
+                description="Trykk + for å dele din første story med Gütta!"
               />
             ) : (
               <div className="grid grid-cols-2 gap-2">
