@@ -75,7 +75,6 @@ export const GroupScreen: React.FC = () => {
       <div
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{
-          paddingBottom: "var(--bottom-nav-h-effective)",
           WebkitOverflowScrolling: "touch",
         }}
       >
@@ -131,10 +130,6 @@ export const GroupScreen: React.FC = () => {
                             </DavosBadge>
                           )}
                         </div>
-                        
-                        <p className="text-sm text-muted-foreground truncate">
-                          {profile.email}
-                        </p>
                         
                         <p className="text-xs text-muted-foreground/70 mt-0.5">
                           Ble med {formatDate(profile.created_at)}

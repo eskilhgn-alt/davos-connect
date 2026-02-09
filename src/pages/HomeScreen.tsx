@@ -29,7 +29,7 @@ import {
   Coins,
   Sparkles,
   Film,
-  Camera,
+  Video,
   Users,
   LogOut,
   BookOpen,
@@ -66,8 +66,8 @@ export const HomeScreen: React.FC = () => {
       { to: "/tokens", label: "Topplister", icon: Coins },
       { to: "/agenda", label: "Agenda", icon: CalendarDays },
       { to: "/galleri", label: "Galleri", icon: Film },
-      { to: "/webcams", label: "Webcams", icon: Camera },
-      { to: "/historier", label: "Stories", icon: Camera },
+      { to: "/webcams", label: "Webcams", icon: Video },
+      { to: "/historier", label: "Stories", icon: Film },
       { to: "/gruppe", label: "Gütta", icon: Users },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/regler", label: "Regler", icon: BookOpen },
@@ -116,8 +116,7 @@ export const HomeScreen: React.FC = () => {
             onOpenStory={openStory}
           />
 
-          {/* Streak widget */}
-          <StreakWidget />
+          {/* Streak shown in PointsLeaderboardWidget below */}
 
           {/* Mini dashboard */}
           <HomeDashboard refreshKey={refreshKey} />
