@@ -34,7 +34,7 @@ export const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({ rate, ra
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Sheet */}
-      <div className="relative w-full max-w-sm mx-4 mb-8 sm:mb-0 bg-background rounded-2xl shadow-xl border border-border overflow-hidden animate-in slide-in-from-bottom-4 duration-200">
+      <div className="relative w-full max-w-sm mx-4 mb-8 sm:mb-0 bg-background rounded-2xl shadow-xl border border-border overflow-hidden animate-in slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="font-heading text-lg font-semibold text-foreground">Valutakalkulator</h2>
