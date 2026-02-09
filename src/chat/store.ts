@@ -250,31 +250,36 @@ export async function deleteMessage(messageId: string): Promise<void> {
 export async function toggleReaction(messageId: string, emoji: string): Promise<void> {
   const userId = await getCurrentUserId();
 
-  const { data } = await supabase
-    .from('messages')
-    .select('reactions')
-    .eq('id', messageId)
-    .single();
+  // Use a retry loop to handle concurrent updates (optimistic locking)
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data } = await supabase
+      .from('messages')
+      .select('reactions')
+      .eq('id', messageId)
+      .single();
 
-  const reactions = (data?.reactions as Record<string, string[]>) || {};
-  const emojiReactions = reactions[emoji] || [];
+    const reactions = (data?.reactions as Record<string, string[]>) || {};
+    const emojiReactions = reactions[emoji] || [];
 
-  const userIdx = emojiReactions.indexOf(userId);
-  if (userIdx === -1) {
-    reactions[emoji] = [...emojiReactions, userId];
-  } else {
-    reactions[emoji] = emojiReactions.filter(id => id !== userId);
-    if (reactions[emoji].length === 0) {
-      delete reactions[emoji];
+    const userIdx = emojiReactions.indexOf(userId);
+    if (userIdx === -1) {
+      reactions[emoji] = [...emojiReactions, userId];
+    } else {
+      reactions[emoji] = emojiReactions.filter(id => id !== userId);
+      if (reactions[emoji].length === 0) {
+        delete reactions[emoji];
+      }
     }
+
+    const { error } = await supabase
+      .from('messages')
+      .update({ reactions: Object.keys(reactions).length > 0 ? reactions : {} })
+      .eq('id', messageId);
+
+    if (!error) return;
+    console.warn(`Reaction toggle attempt ${attempt + 1} failed:`, error);
   }
-
-  const { error } = await supabase
-    .from('messages')
-    .update({ reactions: Object.keys(reactions).length > 0 ? reactions : {} })
-    .eq('id', messageId);
-
-  if (error) console.error('Error toggling reaction:', error);
+  console.error('Failed to toggle reaction after 3 attempts');
 }
 
 // ============ Typing State (local only - ephemeral) ============

@@ -78,12 +78,13 @@ export function useVisualViewport(): ViewportState {
 
     // Fallback for non-visualViewport browsers
     window.addEventListener('resize', update);
-    window.addEventListener('orientationchange', () => {
+    const handleOrientation = () => {
       setTimeout(() => {
         baseline = window.innerHeight;
         update();
       }, 100);
-    });
+    };
+    window.addEventListener('orientationchange', handleOrientation);
 
     return () => {
       if (vv) {
@@ -91,6 +92,7 @@ export function useVisualViewport(): ViewportState {
         vv.removeEventListener('scroll', update);
       }
       window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', handleOrientation);
     };
   }, []);
 

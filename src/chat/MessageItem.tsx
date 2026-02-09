@@ -89,11 +89,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     setIsEditing(true);
   }, [message.text]);
 
-  // Expose startEditing
+  // Expose startEditing via window (scoped per message id, cleaned up on unmount)
   React.useEffect(() => {
-    (window as unknown as Record<string, unknown>)[`editMessage_${message.id}`] = startEditing;
+    const key = `editMessage_${message.id}`;
+    (window as unknown as Record<string, unknown>)[key] = startEditing;
     return () => {
-      delete (window as unknown as Record<string, unknown>)[`editMessage_${message.id}`];
+      delete (window as unknown as Record<string, unknown>)[key];
     };
   }, [message.id, startEditing]);
 
