@@ -4,9 +4,9 @@
 import * as React from "react";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosButton } from "@/components/ui/davos-button";
-import { DavosInput } from "@/components/ui/davos-input";
+
 import {
-  Users, Target, Bell, BellOff, Send, Mail, Loader2, Zap,
+  Users, Target, Bell, BellOff, Loader2, Zap,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -21,8 +21,6 @@ interface Props {
 
 export const AdminOverview: React.FC<Props> = ({ stats, currentUserId, onNavigate, onLogAction }) => {
   const [testPushLoading, setTestPushLoading] = React.useState(false);
-  const [inviteEmail, setInviteEmail] = React.useState("");
-  const [inviteSending, setInviteSending] = React.useState(false);
 
   const sendTestPush = async () => {
     setTestPushLoading(true);
@@ -47,24 +45,6 @@ export const AdminOverview: React.FC<Props> = ({ stats, currentUserId, onNavigat
       toast.error("Kunne ikke sende test-push");
     } finally {
       setTestPushLoading(false);
-    }
-  };
-
-  const sendInvite = async () => {
-    if (!inviteEmail.trim()) return;
-    setInviteSending(true);
-    try {
-      const res = await supabase.functions.invoke("send-invite", {
-        body: { email: inviteEmail.trim() },
-      });
-      if (res.error) throw res.error;
-      toast.success(`Invitasjon sendt til ${inviteEmail}`);
-      onLogAction(currentUserId, "invite_sent", undefined, { email: inviteEmail });
-      setInviteEmail("");
-    } catch {
-      toast.error("Kunne ikke sende invitasjon");
-    } finally {
-      setInviteSending(false);
     }
   };
 
@@ -95,21 +75,6 @@ export const AdminOverview: React.FC<Props> = ({ stats, currentUserId, onNavigat
         </DavosButton>
       </div>
 
-      {/* Invite */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Mail size={18} className="text-primary" />
-            <h3 className="font-heading font-semibold text-foreground text-sm">Send invitasjon</h3>
-          </div>
-          <div className="flex gap-2">
-            <DavosInput type="email" placeholder="E-post" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="flex-1" />
-            <DavosButton onClick={sendInvite} disabled={inviteSending || !inviteEmail.trim()} size="sm">
-              {inviteSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-            </DavosButton>
-          </div>
-        </DavosCardContent>
-      </DavosCard>
     </div>
   );
 };
