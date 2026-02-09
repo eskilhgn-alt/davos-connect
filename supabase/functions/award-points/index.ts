@@ -1,14 +1,13 @@
 /**
  * award-points — Edge function to calculate and award points based on activity
- * Called periodically via cron or manually
  * 
  * Point values:
  * - Chat message: 1 point
  * - Media share (image/video/gif): 3 points
- * - Shot round started: 2 points
- * - Shot confirmed (took the shot): 3 points
- * - Witness confirmation: 2 points
- * - Story published: 5 points
+ * - Shot round started: 3 points
+ * - Shot confirmed (took the shot): 4 points
+ * - Witness activity (confirmed/denied, not timeout): 1 point
+ * - Story published: 2 points
  * - Ski vertical 100m+: 2 points per 100m
  */
 
@@ -29,7 +28,6 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
-    // Get the last award run timestamp (use 24h ago as default)
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const awards: { user_id: string; points: number; reason: string; desc: string }[] = [];
 
@@ -42,9 +40,7 @@ Deno.serve(async (req) => {
     
     if (messages) {
       const counts = new Map<string, number>();
-      messages.forEach((m: any) => {
-        counts.set(m.sender_id, (counts.get(m.sender_id) || 0) + 1);
-      });
+      messages.forEach((m: any) => counts.set(m.sender_id, (counts.get(m.sender_id) || 0) + 1));
       counts.forEach((count, userId) => {
         awards.push({ user_id: userId, points: count, reason: "chat_message", desc: `${count} meldinger` });
       });
@@ -58,17 +54,13 @@ Deno.serve(async (req) => {
     
     if (attachments) {
       const counts = new Map<string, number>();
-      attachments.forEach((a: any) => {
-        counts.set(a.uploaded_by, (counts.get(a.uploaded_by) || 0) + 1);
-      });
+      attachments.forEach((a: any) => counts.set(a.uploaded_by, (counts.get(a.uploaded_by) || 0) + 1));
       counts.forEach((count, userId) => {
         awards.push({ user_id: userId, points: count * 3, reason: "media_share", desc: `${count} bilder/videoer` });
       });
     }
 
-    // 3. (Agenda removed from points)
-
-    // 4. Shot rounds started (2 points) + confirmed (3 points) + witnessed (2 points)
+    // 3. Shot rounds started (3 points) + confirmed (4 points) + witness activity (1 point)
     const { data: shotEvents } = await sb
       .from("shot_events")
       .select("started_by, selected_user_id, witness_confirmed_by, status")
@@ -84,23 +76,39 @@ Deno.serve(async (req) => {
         if (e.status === "confirmed" && e.selected_user_id) {
           confirmCounts.set(e.selected_user_id, (confirmCounts.get(e.selected_user_id) || 0) + 1);
         }
-        if (e.witness_confirmed_by) {
+        // Witness gets point for active participation (confirmed or denied/disputed, NOT timeout)
+        if (e.witness_confirmed_by && e.status !== "punished") {
           witnessCounts.set(e.witness_confirmed_by, (witnessCounts.get(e.witness_confirmed_by) || 0) + 1);
         }
       });
 
+      // Also check log for witness_disputed entries (active denial = point)
+      const { data: logEntries } = await sb
+        .from("shot_event_log")
+        .select("actor_id, type")
+        .in("type", ["witness_confirmed", "witness_disputed"])
+        .gte("created_at", since);
+      
+      if (logEntries) {
+        logEntries.forEach((l: any) => {
+          if (l.actor_id && !witnessCounts.has(l.actor_id)) {
+            witnessCounts.set(l.actor_id, (witnessCounts.get(l.actor_id) || 0) + 1);
+          }
+        });
+      }
+
       startCounts.forEach((count, userId) => {
-        awards.push({ user_id: userId, points: count * 2, reason: "shot_start", desc: `${count} runder startet` });
+        awards.push({ user_id: userId, points: count * 3, reason: "shot_start", desc: `${count} runder startet` });
       });
       confirmCounts.forEach((count, userId) => {
-        awards.push({ user_id: userId, points: count * 3, reason: "shot_confirm", desc: `${count} shots bekreftet` });
+        awards.push({ user_id: userId, points: count * 4, reason: "shot_confirm", desc: `${count} shots bekreftet` });
       });
       witnessCounts.forEach((count, userId) => {
-        awards.push({ user_id: userId, points: count * 2, reason: "witness", desc: `${count} vitnebekreftelser` });
+        awards.push({ user_id: userId, points: count, reason: "witness", desc: `${count} vitneaktiviteter` });
       });
     }
 
-    // 5. Stories published (5 points)
+    // 4. Stories published (2 points)
     const { data: stories } = await sb
       .from("stories")
       .select("user_id")
@@ -108,15 +116,13 @@ Deno.serve(async (req) => {
     
     if (stories) {
       const counts = new Map<string, number>();
-      stories.forEach((s: any) => {
-        counts.set(s.user_id, (counts.get(s.user_id) || 0) + 1);
-      });
+      stories.forEach((s: any) => counts.set(s.user_id, (counts.get(s.user_id) || 0) + 1));
       counts.forEach((count, userId) => {
-        awards.push({ user_id: userId, points: count * 5, reason: "story_publish", desc: `${count} stories` });
+        awards.push({ user_id: userId, points: count * 2, reason: "story_publish", desc: `${count} stories` });
       });
     }
 
-    // 6. Ski vertical (2 points per 100m)
+    // 5. Ski vertical (2 points per 100m)
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const dayStr = yesterday.toISOString().split("T")[0];

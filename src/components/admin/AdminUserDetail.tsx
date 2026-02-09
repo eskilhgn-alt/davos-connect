@@ -20,6 +20,9 @@ interface UserProfile {
   full_name: string | null;
   nickname: string | null;
   is_active: boolean;
+  is_banned: boolean;
+  banned_at: string | null;
+  ban_reason: string | null;
   avatar_url?: string | null;
   created_at: string;
   role: "user" | "admin";
@@ -99,6 +102,22 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
     } finally { setLoading(null); }
   };
 
+  const toggleBan = async () => {
+    setLoading("ban");
+    try {
+      const { error } = await supabase.rpc("rpc_admin_set_ban", {
+        p_user_id: u.id,
+        p_banned: !u.is_banned,
+        p_reason: u.is_banned ? null : "Admin-utestengelse",
+      } as any);
+      if (error) throw error;
+      toast.success(u.is_banned ? "Ban opphevet" : "Bruker utestengt");
+      onRefresh();
+    } catch (e: any) {
+      toast.error(e.message || "Feil");
+    } finally { setLoading(null); }
+  };
+
   return (
     <DavosCard>
       <DavosCardContent className="p-4">
@@ -109,6 +128,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
               <p className="font-medium text-foreground truncate">{u.full_name || u.email}</p>
               {u.role === "admin" && <DavosBadge variant="accent">Admin</DavosBadge>}
               {!u.is_active && <DavosBadge variant="critical">Inaktiv</DavosBadge>}
+              {u.is_banned && <DavosBadge variant="critical">🚫 Utestengt</DavosBadge>}
             </div>
             {u.nickname && <p className="text-xs text-muted-foreground">«{u.nickname}»</p>}
             <p className="text-sm text-muted-foreground truncate">{u.email}</p>
@@ -172,6 +192,18 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                   u.is_active ? <UserX size={14} className="mr-1 text-destructive" /> : <UserCheck size={14} className="mr-1" />
                 }
                 {u.is_active ? "Deaktiver" : "Aktiver"}
+              </DavosButton>
+
+              <DavosButton
+                variant={u.is_banned ? "primary" : "outline"}
+                size="sm"
+                onClick={toggleBan}
+                disabled={loading === "ban" || u.id === currentUserId}
+              >
+                {loading === "ban" ? <Loader2 size={14} className="animate-spin mr-1" /> :
+                  u.is_banned ? <UserCheck size={14} className="mr-1" /> : <ShieldOff size={14} className="mr-1 text-destructive" />
+                }
+                {u.is_banned ? "Opphev ban" : "Utesteng"}
               </DavosButton>
             </div>
           </div>

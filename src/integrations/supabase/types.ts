@@ -306,31 +306,40 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          ban_reason: string | null
+          banned_at: string | null
           created_at: string
           email: string
           full_name: string | null
           id: string
           is_active: boolean
+          is_banned: boolean
           nickname: string | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          ban_reason?: string | null
+          banned_at?: string | null
           created_at?: string
           email: string
           full_name?: string | null
           id: string
           is_active?: boolean
+          is_banned?: boolean
           nickname?: string | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          ban_reason?: string | null
+          banned_at?: string | null
           created_at?: string
           email?: string
           full_name?: string | null
           id?: string
           is_active?: boolean
+          is_banned?: boolean
           nickname?: string | null
           updated_at?: string
         }
@@ -405,9 +414,14 @@ export type Database = {
           countdown_ends_at: string | null
           created_at: string
           deadline_at: string | null
+          dispute_details: string | null
+          dispute_reason: string | null
+          dispute_resolved_at: string | null
+          dispute_resolved_by: string | null
           group_id: string
           id: string
           punishment_applied_at: string | null
+          punishment_deadline_at: string | null
           selected_at: string | null
           selected_user_id: string | null
           self_confirmed: boolean | null
@@ -422,9 +436,14 @@ export type Database = {
           countdown_ends_at?: string | null
           created_at?: string
           deadline_at?: string | null
+          dispute_details?: string | null
+          dispute_reason?: string | null
+          dispute_resolved_at?: string | null
+          dispute_resolved_by?: string | null
           group_id?: string
           id?: string
           punishment_applied_at?: string | null
+          punishment_deadline_at?: string | null
           selected_at?: string | null
           selected_user_id?: string | null
           self_confirmed?: boolean | null
@@ -439,9 +458,14 @@ export type Database = {
           countdown_ends_at?: string | null
           created_at?: string
           deadline_at?: string | null
+          dispute_details?: string | null
+          dispute_reason?: string | null
+          dispute_resolved_at?: string | null
+          dispute_resolved_by?: string | null
           group_id?: string
           id?: string
           punishment_applied_at?: string | null
+          punishment_deadline_at?: string | null
           selected_at?: string | null
           selected_user_id?: string | null
           self_confirmed?: boolean | null
@@ -1121,7 +1145,12 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: Json
       }
+      rpc_admin_set_ban: {
+        Args: { p_banned: boolean; p_reason?: string; p_user_id: string }
+        Returns: Json
+      }
       rpc_apply_overdue: { Args: { p_event_id: string }; Returns: Json }
+      rpc_apply_punishment_ban: { Args: { p_event_id: string }; Returns: Json }
       rpc_award_points: {
         Args: {
           p_description?: string
@@ -1141,10 +1170,21 @@ export type Database = {
         Args: { p_award_id: string; p_choice: string }
         Returns: Json
       }
-      rpc_confirm_shot: {
-        Args: { p_event_id: string; p_mode: string; p_witness_id?: string }
-        Returns: Json
-      }
+      rpc_confirm_shot:
+        | {
+            Args: { p_event_id: string; p_mode: string; p_witness_id?: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_dispute_details?: string
+              p_dispute_reason?: string
+              p_event_id: string
+              p_mode: string
+              p_witness_id?: string
+            }
+            Returns: Json
+          }
       rpc_finalize_countdown: { Args: { p_event_id: string }; Returns: Json }
       rpc_get_all_shot_tokens: { Args: never; Returns: Json }
       rpc_get_points_leaderboard: { Args: { p_days?: number }; Returns: Json }
