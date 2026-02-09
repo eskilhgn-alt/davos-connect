@@ -17,19 +17,17 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data, error } = await supabase.rpc("rpc_award_ski_daily_winner");
+    // Award vertical meters winner
+    const { data: verticalResult, error: verticalError } = await supabase.rpc("rpc_award_ski_daily_winner");
+    if (verticalError) console.error("Vertical award error:", verticalError);
+    else console.log("Vertical winner result:", verticalResult);
 
-    if (error) {
-      console.error("Error awarding ski daily winner:", error);
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Award speed winner
+    const { data: speedResult, error: speedError } = await supabase.rpc("rpc_award_ski_speed_winner");
+    if (speedError) console.error("Speed award error:", speedError);
+    else console.log("Speed winner result:", speedResult);
 
-    console.log("Ski daily winner result:", data);
-
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify({ vertical: verticalResult, speed: speedResult }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
