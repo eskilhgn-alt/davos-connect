@@ -10,7 +10,8 @@ import { usePoints } from "@/hooks/usePoints";
 import { useStreak } from "@/hooks/useStreak";
 import { useGlobalStreaks } from "@/hooks/useGlobalStreaks";
 import { supabase } from "@/integrations/supabase/client";
-import { Coins, TrendingUp, TrendingDown, Trophy, Star, Flame, BookOpen, Target, Camera, MessageCircle, Eye, Mountain } from "lucide-react";
+import { Coins, TrendingUp, TrendingDown, Trophy, Star, Flame, BookOpen, Target, Camera, MessageCircle, Eye, Mountain, BarChart3 } from "lucide-react";
+import { GamificationLeaderboard } from "@/components/leaderboard/GamificationLeaderboard";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -75,7 +76,7 @@ const GlobalStreakList: React.FC<{ userId?: string }> = ({ userId }) => {
   );
 };
 
-type Tab = "overview" | "leaderboard" | "rules";
+type Tab = "overview" | "leaderboard" | "stats" | "rules";
 
 
 export const TokensScreen: React.FC = () => {
@@ -110,7 +111,8 @@ export const TokensScreen: React.FC = () => {
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Oversikt" },
     { id: "leaderboard", label: "Topplister" },
-    { id: "rules", label: "Regelbok" },
+    { id: "stats", label: "All statistikk" },
+    { id: "rules", label: "Regler" },
   ];
 
   return (
@@ -263,6 +265,15 @@ export const TokensScreen: React.FC = () => {
                 <GlobalStreakList userId={user?.id} />
               </section>
             </>
+          )}
+
+          {tab === "stats" && (
+            <section>
+              <h2 className="font-heading text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                <BarChart3 size={14} className="text-primary" /> All statistikk – trykk for detaljer
+              </h2>
+              <GamificationLeaderboard />
+            </section>
           )}
 
           {tab === "rules" && (
