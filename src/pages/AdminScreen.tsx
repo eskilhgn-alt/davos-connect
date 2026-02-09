@@ -29,6 +29,9 @@ interface UserWithRole {
   full_name: string | null;
   nickname: string | null;
   is_active: boolean;
+  is_banned: boolean;
+  banned_at: string | null;
+  ban_reason: string | null;
   created_at: string;
   role: "user" | "admin";
   token_balance?: number;
@@ -100,7 +103,11 @@ export const AdminScreen: React.FC = () => {
 
       setUsers((profilesRes.data || []).map(p => ({
         id: p.id, email: p.email, full_name: p.full_name,
-        nickname: p.nickname, is_active: p.is_active, created_at: p.created_at,
+        nickname: p.nickname, is_active: p.is_active,
+        is_banned: (p as any).is_banned ?? false,
+        banned_at: (p as any).banned_at ?? null,
+        ban_reason: (p as any).ban_reason ?? null,
+        created_at: p.created_at,
         role: (rolesMap.get(p.id) as "user" | "admin") || "user",
         token_balance: tokensMap.get(p.id) ?? 5,
         frikort_count: frikortMap.get(p.id) ?? 0,

@@ -37,8 +37,13 @@ export interface ShotEvent {
   witness_confirmed_by: string | null;
   witness_confirmed_at: string | null;
   punishment_applied_at: string | null;
+  punishment_deadline_at: string | null;
   chosen_witness_id: string | null;
   group_id: string;
+  dispute_reason: string | null;
+  dispute_details: string | null;
+  dispute_resolved_by: string | null;
+  dispute_resolved_at: string | null;
 }
 
 export interface ShotLogEntry {
@@ -51,7 +56,7 @@ export interface ShotLogEntry {
 }
 
 export const ShotScreen: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [tokens, setTokens] = React.useState<{ balance: number } | null>(null);
   const [activeEvent, setActiveEvent] = React.useState<ShotEvent | null>(null);
   const [logEntries, setLogEntries] = React.useState<ShotLogEntry[]>([]);
@@ -92,7 +97,7 @@ export const ShotScreen: React.FC = () => {
       .from("shot_events")
       .select("*")
       .eq("group_id", GROUP_ID)
-      .in("status", ["countdown", "selected", "overdue"])
+      .in("status", ["countdown", "selected", "overdue", "disputed", "punished"])
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -229,12 +234,14 @@ export const ShotScreen: React.FC = () => {
   }, [user, pressing, profiles]);
 
   // Confirm shot
-  const handleConfirm = React.useCallback(async (mode: "self" | "witness" | "refuse" | "witness_timeout", witnessId?: string) => {
+  const handleConfirm = React.useCallback(async (mode: string, witnessId?: string, disputeReason?: string, disputeDetails?: string) => {
     if (!activeEvent) return;
     const { error } = await supabase.rpc("rpc_confirm_shot", {
       p_event_id: activeEvent.id,
       p_mode: mode,
       p_witness_id: mode === "self" && witnessId ? witnessId : undefined,
+      p_dispute_reason: disputeReason || undefined,
+      p_dispute_details: disputeDetails || undefined,
     } as any);
     if (error) {
       toast.error(error.message);
@@ -341,6 +348,7 @@ export const ShotScreen: React.FC = () => {
             <ShotStatusCard
               event={activeEvent}
               currentUserId={user?.id || ""}
+              isAdmin={isAdmin}
               getDisplayName={getDisplayName}
               onConfirm={handleConfirm}
               onUseFrikort={handleUseFrikort}

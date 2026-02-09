@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { HomeDashboard } from "@/components/home/HomeDashboard";
 import { PointsLeaderboardWidget } from "@/components/home/PointsLeaderboardWidget";
 import { StoryRing } from "@/components/stories/StoryRing";
+import { StreakWidget } from "@/components/home/StreakWidget";
 import { StoryViewer } from "@/components/stories/StoryViewer";
 import { StoryCapture } from "@/components/stories/StoryCapture";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,7 +59,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/kart", label: "Løypekart", icon: Map },
       { to: "/magnus", label: "Magnus?", icon: MapPin },
       { to: "/shot", label: "Shoot", icon: Target },
-      { to: "/tokens", label: "Tokens", icon: Coins },
+      { to: "/tokens", label: "Tokens & topplister", icon: Coins },
       { to: "/agenda", label: "Agenda", icon: CalendarDays },
       { to: "/galleri", label: "Galleri", icon: Film },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
@@ -95,6 +96,9 @@ export const HomeScreen: React.FC = () => {
             onAddStory={() => setCaptureOpen(true)}
             onOpenStory={openStory}
           />
+
+          {/* Streak widget */}
+          <StreakWidget />
 
           {/* Mini dashboard */}
           <HomeDashboard refreshKey={refreshKey} />

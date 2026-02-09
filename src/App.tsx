@@ -40,7 +40,7 @@ const queryClient = new QueryClient();
 
 // Protected route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isLoading, profile } = useAuth();
+  const { user, isLoading, profile, isAdmin } = useAuth();
 
   if (isLoading) {
     return (
@@ -57,6 +57,21 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   // Require profile completion
   if (user && (!profile?.full_name || !profile?.nickname)) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Check for ban (admin can still access)
+  if (profile?.is_banned && !isAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-8 text-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+          <span className="text-3xl">🚫</span>
+        </div>
+        <h1 className="font-heading text-xl font-bold text-foreground">Midlertidig utestengt</h1>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          {profile.ban_reason || "Du er midlertidig utestengt. Kontakt admin for å få tilgang igjen."}
+        </p>
+      </div>
+    );
   }
 
   return <>{children}</>;
