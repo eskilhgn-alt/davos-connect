@@ -245,7 +245,7 @@ export const ShotScreen: React.FC = () => {
       self: "Shot bekreftet! Venter på vitne.",
       witness: "Vitnebekreftelse registrert!",
       refuse: "Du nektet – 2 straffeshots registrert.",
-      witness_timeout: "Vitne svarte ikke – automatisk bekreftet.",
+      witness_timeout: "Vitne svarte ikke – straffeshot registrert!",
     };
     toast.success(messages[mode] || "Oppdatert!");
 

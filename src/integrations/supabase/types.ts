@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_corrections: {
+        Row: {
+          admin_id: string
+          correction_type: string
+          created_at: string
+          id: string
+          payload: Json
+          target_user_id: string | null
+          witness_approved: boolean | null
+          witness_id: string | null
+          witness_responded_at: string | null
+        }
+        Insert: {
+          admin_id: string
+          correction_type: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          target_user_id?: string | null
+          witness_approved?: boolean | null
+          witness_id?: string | null
+          witness_responded_at?: string | null
+        }
+        Update: {
+          admin_id?: string
+          correction_type?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          target_user_id?: string | null
+          witness_approved?: boolean | null
+          witness_id?: string | null
+          witness_responded_at?: string | null
+        }
+        Relationships: []
+      }
       agenda_events: {
         Row: {
           color: string | null
@@ -239,6 +275,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      points_ledger: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          points: number
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          points: number
+          reason: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          points?: number
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -657,6 +720,24 @@ export type Database = {
         }
         Relationships: []
       }
+      user_points: {
+        Row: {
+          total_points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          total_points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          total_points?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1032,7 +1113,24 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      rpc_admin_adjust_tokens: {
+        Args: { p_delta: number; p_reason: string; p_user_id: string }
+        Returns: Json
+      }
+      rpc_admin_reset_shot_event: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
       rpc_apply_overdue: { Args: { p_event_id: string }; Returns: Json }
+      rpc_award_points: {
+        Args: {
+          p_description?: string
+          p_points: number
+          p_reason: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       rpc_award_ski_daily_winner: { Args: never; Returns: Json }
       rpc_check_bonus_token: {
         Args: { p_group_id: string; p_user_id: string }
@@ -1049,6 +1147,7 @@ export type Database = {
       }
       rpc_finalize_countdown: { Args: { p_event_id: string }; Returns: Json }
       rpc_get_all_shot_tokens: { Args: never; Returns: Json }
+      rpc_get_points_leaderboard: { Args: { p_days?: number }; Returns: Json }
       rpc_get_shot_leaderboard: {
         Args: { p_days?: number; p_group_id?: string }
         Returns: Json
