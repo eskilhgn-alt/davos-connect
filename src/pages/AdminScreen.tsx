@@ -15,11 +15,11 @@ import { DavosInput } from "@/components/ui/davos-input";
 import { DavosBadge } from "@/components/ui/davos-badge";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosSegmented, type SegmentOption } from "@/components/ui/davos-segmented";
+import { AdminUserDetail } from "@/components/admin/AdminUserDetail";
 import {
-  Users, Search, Shield, ShieldOff, UserX, UserCheck,
-  RefreshCw, Loader2, Mail, Send, MessageCircle,
-  CalendarDays, Target, BarChart3, Coins, RotateCcw,
-  Plus, Minus, Key, LogOut, Eye, AlertTriangle, Check, X, Ticket,
+  Users, Search, RefreshCw, Loader2, Mail, Send, MessageCircle,
+  CalendarDays, Target, Coins, RotateCcw,
+  Plus, Minus, Eye, Check, X, Ticket,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -161,14 +161,8 @@ export const AdminScreen: React.FC = () => {
     return u?.nickname || u?.full_name || u?.email || "Ukjent";
   };
 
-  const toggleActive = async (userId: string, isActive: boolean) => {
-    setActionLoading(userId);
-    try {
-      await supabase.from("profiles").update({ is_active: !isActive }).eq("id", userId);
-      toast.success(isActive ? "Bruker deaktivert" : "Bruker aktivert");
-      await fetchUsers();
-    } finally { setActionLoading(null); }
-  };
+
+
 
   const resetShotEvent = async (eventId: string) => {
     setActionLoading(eventId);
@@ -427,32 +421,13 @@ export const AdminScreen: React.FC = () => {
               Array.from({ length: 5 }).map((_, i) => <DavosSkeleton key={i} className="h-24 w-full" />)
             ) : (
               filteredUsers.map((u) => (
-                <DavosCard key={u.id}>
-                  <DavosCardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium text-foreground truncate">{u.full_name || u.email}</p>
-                          {u.role === "admin" && <DavosBadge variant="accent">Admin</DavosBadge>}
-                          {!u.is_active && <DavosBadge variant="critical">Inaktiv</DavosBadge>}
-                        </div>
-                        <p className="text-sm text-muted-foreground truncate">{u.email}</p>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><Coins size={12} /> {u.token_balance} tokens</span>
-                          {(u.frikort_count ?? 0) > 0 && <span className="flex items-center gap-1"><Ticket size={12} /> {u.frikort_count} frikort</span>}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 ml-2">
-                        <DavosButton variant="ghost" size="sm" onClick={() => { setAdjustUserId(u.id); setTab("shot"); }} title="Juster tokens">
-                          <Coins className="h-4 w-4" />
-                        </DavosButton>
-                        <DavosButton variant="ghost" size="sm" onClick={() => toggleActive(u.id, u.is_active)} disabled={actionLoading === u.id}>
-                          {u.is_active ? <UserX className="h-4 w-4 text-destructive" /> : <UserCheck className="h-4 w-4" />}
-                        </DavosButton>
-                      </div>
-                    </div>
-                  </DavosCardContent>
-                </DavosCard>
+                <AdminUserDetail
+                  key={u.id}
+                  user={u}
+                  currentUserId={user?.id || ""}
+                  onRefresh={fetchUsers}
+                  onAdjustTokens={(userId) => { setAdjustUserId(userId); setTab("shot"); }}
+                />
               ))
             )}
           </div>

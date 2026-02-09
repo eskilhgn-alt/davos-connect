@@ -56,12 +56,14 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
 
   // 1. NOK/CHF (ECB)
   const [rateDate, setRateDate] = React.useState<string | null>(null);
+  const [rateFetchedAt, setRateFetchedAt] = React.useState<Date | null>(null);
   React.useEffect(() => {
     fetch("https://api.frankfurter.dev/v1/latest?base=CHF&symbols=NOK")
       .then((r) => r.json())
       .then((d) => {
         setRate({ rate: d?.rates?.NOK ?? null, loading: false });
         setRateDate(d?.date ?? null);
+        setRateFetchedAt(new Date());
       })
       .catch(() => setRate({ rate: null, loading: false }));
   }, [refreshKey]);
@@ -157,6 +159,7 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
         <CurrencyCalculator
           rate={rate.rate}
           rateDate={rateDate}
+          rateFetchedAt={rateFetchedAt}
           open={calcOpen}
           onClose={() => setCalcOpen(false)}
         />

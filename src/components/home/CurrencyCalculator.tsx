@@ -8,11 +8,12 @@ import { cn } from "@/lib/utils";
 interface CurrencyCalculatorProps {
   rate: number;
   rateDate?: string | null;
+  rateFetchedAt?: Date | null;
   open: boolean;
   onClose: () => void;
 }
 
-export const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({ rate, rateDate, open, onClose }) => {
+export const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({ rate, rateDate, rateFetchedAt, open, onClose }) => {
   const [amount, setAmount] = React.useState("1");
   const [direction, setDirection] = React.useState<"chf-to-nok" | "nok-to-chf">("chf-to-nok");
 
@@ -80,7 +81,13 @@ export const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({ rate, ra
             {rateDate && (
               <>
                 <br />
-                Sist oppdatert: {new Date(rateDate + "T00:00:00").toLocaleDateString("nb-NO", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })}
+                Kurs fra: {new Date(rateDate + "T00:00:00").toLocaleDateString("nb-NO", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })}
+              </>
+            )}
+            {rateFetchedAt && (
+              <>
+                <br />
+                Hentet: {rateFetchedAt.toLocaleString("nb-NO", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
               </>
             )}
           </p>
