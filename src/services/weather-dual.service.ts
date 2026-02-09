@@ -73,7 +73,7 @@ export interface FullWeatherData {
 // ============================================
 
 const CACHE_KEY = "weather-dual-cache";
-const CACHE_TTL = 5 * 60 * 1000; // 5 min
+const CACHE_TTL = 15 * 60 * 1000; // 15 min — reduces excessive re-fetching
 
 function getCached(): FullWeatherData | null {
   try {

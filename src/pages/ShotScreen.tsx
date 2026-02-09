@@ -295,7 +295,9 @@ export const ShotScreen: React.FC = () => {
     loadFrikort();
   }, [activeEvent, loadFrikort]);
 
-  const canPress = !activeEvent && tokens && tokens.balance > 0 && !pressing;
+  // Allow pressing when no countdown is running — selected/confirmed events don't block new rounds
+  const isCountdownActive = activeEvent?.status === "countdown";
+  const canPress = !isCountdownActive && tokens && tokens.balance > 0 && !pressing;
 
   return (
     <div

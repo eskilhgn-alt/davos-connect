@@ -25,46 +25,51 @@ export function usePullToRefresh({
   const [isPulling, setIsPulling] = React.useState(false);
   
   const startY = React.useRef(0);
-  const currentY = React.useRef(0);
-  const pullDistanceRef = React.useRef(0);
+  const pullRef = React.useRef(0);
+  const touchingRef = React.useRef(false);
+  const rafRef = React.useRef<number>(0);
+  const thresholdCrossedRef = React.useRef(false);
+
+  const onRefreshRef = React.useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
 
   React.useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    let isTouching = false;
-
     const handleTouchStart = (e: TouchEvent) => {
-      // Only enable pull-to-refresh when scrolled to top
       if (container.scrollTop > 0 || isRefreshing) return;
-      
       startY.current = e.touches[0].clientY;
-      isTouching = true;
+      touchingRef.current = true;
+      thresholdCrossedRef.current = false;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isTouching || isRefreshing) return;
+      if (!touchingRef.current || isRefreshing) return;
       
-      currentY.current = e.touches[0].clientY;
-      const diff = currentY.current - startY.current;
+      const diff = e.touches[0].clientY - startY.current;
       
-      // Only pull down, not up
       if (diff > 0 && container.scrollTop === 0) {
-        // Apply resistance
-        const resistance = 0.5;
+        // Rubber-band resistance curve for natural feel
+        const resistance = Math.max(0.2, 0.6 - (diff / 800));
         const pull = Math.min(diff * resistance, maxPull);
-        const wasBelow = pullDistanceRef.current < threshold;
-        const isAbove = pull >= threshold;
-        setPullDistance(pull);
-        pullDistanceRef.current = pull;
-        setIsPulling(true);
+        pullRef.current = pull;
         
-        // Haptic when crossing threshold
-        if (wasBelow && isAbove) {
+        // Use rAF for smooth 60fps updates
+        if (!rafRef.current) {
+          rafRef.current = requestAnimationFrame(() => {
+            setPullDistance(pullRef.current);
+            setIsPulling(true);
+            rafRef.current = 0;
+          });
+        }
+        
+        // Haptic when crossing threshold (once per gesture)
+        if (!thresholdCrossedRef.current && pull >= threshold) {
+          thresholdCrossedRef.current = true;
           hapticMedium();
         }
         
-        // Prevent default scroll when pulling
         if (pull > 10) {
           e.preventDefault();
         }
@@ -72,24 +77,31 @@ export function usePullToRefresh({
     };
 
     const handleTouchEnd = async () => {
-      if (!isTouching) return;
-      isTouching = false;
+      if (!touchingRef.current) return;
+      touchingRef.current = false;
       
-      if (pullDistance >= threshold && !isRefreshing) {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+      
+      if (pullRef.current >= threshold && !isRefreshing) {
         setIsRefreshing(true);
-        setPullDistance(threshold * 0.6); // Keep some visual feedback
+        setPullDistance(threshold * 0.5);
         
         try {
-          await onRefresh();
+          await onRefreshRef.current();
           hapticSuccess();
         } finally {
           setIsRefreshing(false);
           setPullDistance(0);
           setIsPulling(false);
+          pullRef.current = 0;
         }
       } else {
         setPullDistance(0);
         setIsPulling(false);
+        pullRef.current = 0;
       }
     };
 
@@ -101,8 +113,9 @@ export function usePullToRefresh({
       container.removeEventListener("touchstart", handleTouchStart);
       container.removeEventListener("touchmove", handleTouchMove);
       container.removeEventListener("touchend", handleTouchEnd);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [onRefresh, threshold, maxPull, pullDistance, isRefreshing]);
+  }, [threshold, maxPull, isRefreshing]);
 
   return {
     containerRef,
