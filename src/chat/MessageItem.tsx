@@ -1,13 +1,12 @@
 /**
  * MessageItem - Single message bubble with reactions, edit, actions
- * Integrated with long-press for actions and tap for seen-by
+ * Tap for actions, double-tap for seen-by (PWA-friendly, no long-press)
  */
 
 import * as React from 'react';
 import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Message } from './types';
-import { useLongPress } from './useLongPress';
 import { ReactionsRow } from './ReactionsRow';
 import { chatStore } from './store';
 
@@ -35,20 +34,24 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   const [isEditing, setIsEditing] = React.useState(false);
   const [editText, setEditText] = React.useState(message.text);
   const editRef = React.useRef<HTMLTextAreaElement>(null);
+  const lastTapRef = React.useRef(0);
 
-  // Long press handler for actions
-  const longPressHandlers = useLongPress({
-    onLongPress: () => {
-      if (!message.deletedAt && !isEditing) {
-        onShowActions(message);
-      }
-    },
-  });
-
-  // Handle tap on message bubble to show seen-by
-  const handleTap = () => {
-    if (!message.deletedAt && !isEditing) {
+  // Single tap → actions, double tap → seen-by
+  const handleBubbleTap = () => {
+    if (message.deletedAt || isEditing) return;
+    const now = Date.now();
+    if (now - lastTapRef.current < 350) {
+      // Double tap → seen-by
       onShowSeenBy(message);
+      lastTapRef.current = 0;
+    } else {
+      // Single tap → actions (delayed to detect double-tap)
+      lastTapRef.current = now;
+      setTimeout(() => {
+        if (lastTapRef.current === now) {
+          onShowActions(message);
+        }
+      }, 350);
     }
   };
 
@@ -125,7 +128,6 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         'flex flex-col gap-1 px-4 py-1',
         isOwn ? 'items-end' : 'items-start'
       )}
-      {...longPressHandlers}
     >
       {/* Sender name - show for all messages */}
       {showSender && (
@@ -219,7 +221,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           </div>
         ) : (
           <div
-            onClick={handleTap}
+            onClick={handleBubbleTap}
             className={cn(
               'max-w-[75%] rounded-2xl px-4 py-2 cursor-pointer',
               isOwn

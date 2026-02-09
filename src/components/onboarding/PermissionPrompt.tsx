@@ -2,7 +2,7 @@
  * PermissionPrompt — shown once after login to request push + location permissions
  */
 import * as React from "react";
-import { Bell, MapPin, X } from "lucide-react";
+import { Bell, MapPin, Camera, X } from "lucide-react";
 import { DavosButton } from "@/components/ui/davos-button";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { oneSignalService } from "@/services/onesignal";
@@ -14,7 +14,7 @@ export const PermissionPrompt: React.FC = () => {
   const { user, profile } = useAuth();
   const geo = useGeolocation();
   const [visible, setVisible] = React.useState(false);
-  const [step, setStep] = React.useState<"push" | "location" | "done">("push");
+  const [step, setStep] = React.useState<"push" | "location" | "camera" | "done">("push");
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -58,22 +58,34 @@ export const PermissionPrompt: React.FC = () => {
     }
 
     setLoading(false);
-    // Move to location step
     if (!geo.enabled) {
       setStep("location");
     } else {
-      dismiss();
+      setStep("camera");
     }
   };
 
   const handleLocation = () => {
     geo.request();
+    setStep("camera");
+  };
+
+  const handleCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      stream.getTracks().forEach(t => t.stop());
+    } catch {
+      // User denied – that's ok
+    }
     dismiss();
   };
 
   const skipStep = () => {
-    if (step === "push" && !geo.enabled) {
-      setStep("location");
+    if (step === "push") {
+      if (!geo.enabled) setStep("location");
+      else setStep("camera");
+    } else if (step === "location") {
+      setStep("camera");
     } else {
       dismiss();
     }
@@ -86,7 +98,7 @@ export const PermissionPrompt: React.FC = () => {
       <div className="w-full max-w-md bg-card border-t border-border rounded-t-2xl p-6 pb-safe animate-in slide-in-from-bottom duration-300">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-heading text-lg font-semibold text-foreground">
-            {step === "push" ? "Aktiver varsler" : "Del posisjon"}
+            {step === "push" ? "Aktiver varsler" : step === "location" ? "Del posisjon" : "Tillat kamera"}
           </h2>
           <button onClick={dismiss} className="p-1 text-muted-foreground">
             <X size={20} />
@@ -125,11 +137,32 @@ export const PermissionPrompt: React.FC = () => {
               </p>
             </div>
             <div className="flex gap-3">
-              <DavosButton variant="outline" className="flex-1" onClick={dismiss}>
+              <DavosButton variant="outline" className="flex-1" onClick={skipStep}>
                 Senere
               </DavosButton>
               <DavosButton className="flex-1" onClick={handleLocation}>
                 Del posisjon
+              </DavosButton>
+            </div>
+          </>
+        )}
+
+        {step === "camera" && (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Camera className="h-6 w-6 text-primary" />
+              </div>
+              <p className="text-sm text-muted-foreground flex-1">
+                Gi tilgang til kamera og mikrofon for å ta bilder, legge ut stories og filme.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <DavosButton variant="outline" className="flex-1" onClick={dismiss}>
+                Senere
+              </DavosButton>
+              <DavosButton className="flex-1" onClick={handleCamera}>
+                Tillat kamera
               </DavosButton>
             </div>
           </>

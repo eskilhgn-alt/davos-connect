@@ -234,20 +234,29 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     if (recordTimerRef.current) clearInterval(recordTimerRef.current);
   };
 
-  const handlePointerDown = () => {
-    if (mode !== "camera") return;
-    holdTimerRef.current = setTimeout(() => startRecording(), 300);
-  };
+  // ─── Double-tap to start/stop recording, single tap for photo ───
+  const lastCaptureTapRef = React.useRef(0);
+  const captureTapTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
 
-  const handlePointerUp = () => {
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = undefined;
-    }
-    if (isRecording) {
-      stopRecording();
-    } else if (mode === "camera") {
-      takePhoto();
+  const handleCaptureButtonTap = () => {
+    if (mode !== "camera") return;
+    const now = Date.now();
+    if (now - lastCaptureTapRef.current < 400) {
+      // Double tap
+      if (captureTapTimerRef.current) clearTimeout(captureTapTimerRef.current);
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+      lastCaptureTapRef.current = 0;
+    } else {
+      lastCaptureTapRef.current = now;
+      captureTapTimerRef.current = setTimeout(() => {
+        if (lastCaptureTapRef.current === now && !isRecording) {
+          takePhoto();
+        }
+      }, 400);
     }
   };
 
@@ -815,9 +824,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               )}
               <button
                 type="button"
-                onPointerDown={handlePointerDown}
-                onPointerUp={handlePointerUp}
-                onPointerLeave={handlePointerUp}
+                onClick={handleCaptureButtonTap}
                 className={cn(
                   "w-[72px] h-[72px] rounded-full border-[4px] border-white",
                   "flex items-center justify-center",
@@ -833,7 +840,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               </button>
             </div>
             <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-white/50 text-[10px]">
-              Trykk for foto · Hold for video
+              Trykk for foto · Dobbelttrykk for video
             </p>
           </>
         ) : (
