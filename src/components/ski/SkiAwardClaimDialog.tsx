@@ -61,7 +61,7 @@ export const SkiAwardClaimDialog: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-background border border-border rounded-2xl p-6 w-full max-w-sm space-y-5 animate-in slide-in-from-bottom-4">
+      <div className="bg-background border border-border rounded-2xl p-6 w-full max-w-sm space-y-5 animate-in slide-in-from-bottom-4" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
         <div className="text-center space-y-2">
           <Mountain size={32} className="mx-auto text-foreground" />
           <h2 className="font-heading text-lg font-bold text-foreground">
