@@ -36,6 +36,9 @@ export const ReactionsDialog: React.FC<ReactionsDialogProps> = ({
           'w-[90%] max-w-sm bg-background rounded-2xl shadow-xl',
           'animate-in zoom-in-95 duration-150'
         )}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
