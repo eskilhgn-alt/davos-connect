@@ -1415,6 +1415,7 @@ export type Database = {
         Returns: Json
       }
       rpc_award_ski_daily_winner: { Args: never; Returns: Json }
+      rpc_award_ski_speed_winner: { Args: never; Returns: Json }
       rpc_check_bonus_token: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: undefined
