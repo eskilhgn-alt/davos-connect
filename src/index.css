@@ -187,9 +187,7 @@
     }
   }
 
-  html.keyboard-open [data-bottom-nav="true"] {
-    display: none !important;
-  }
+  /* Legacy: kept for any remaining bottom-nav references */
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
