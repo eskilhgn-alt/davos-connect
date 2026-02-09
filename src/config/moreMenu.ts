@@ -9,7 +9,7 @@ export interface MenuItem {
 }
 
 export const moreMenuItems: MenuItem[] = [
-  { icon: Users, title: "Gruppen", subtitle: "Se alle deltakere", path: "/gruppe" },
+  { icon: Users, title: "Alle", subtitle: "Se alle deltakere", path: "/gruppe" },
   { icon: Settings, title: "Innstillinger", subtitle: "Varsler & info", path: "/innstillinger" },
   { icon: Shield, title: "Admin", subtitle: "Brukeradministrasjon", path: "/admin", requiresAdmin: true },
 ];

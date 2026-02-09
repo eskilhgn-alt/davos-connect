@@ -59,7 +59,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/shot", label: "Shoot", icon: Target },
       { to: "/tokens", label: "Tokens", icon: Coins },
       { to: "/agenda", label: "Agenda", icon: CalendarDays },
-      { to: "/galleri", label: "Snap & Galleri", icon: Film },
+      { to: "/galleri", label: "Galleri", icon: Film },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
     ];
@@ -79,7 +79,7 @@ export const HomeScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Glühwein" />
+      <AppHeader title="GüttaHütte" />
 
       <PullToRefreshWrapper
         onRefresh={async () => { await refetch(); setRefreshKey((k) => k + 1); }}

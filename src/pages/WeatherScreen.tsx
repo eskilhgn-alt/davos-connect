@@ -23,8 +23,10 @@ import {
 } from "@/services/weather-dual.service";
 import { useWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin, Navigation, Sparkles, Sun, CloudSun, Shield } from "lucide-react";
+import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin, Navigation, Sparkles, Sun, CloudSun, Shield, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MountainDetailSheet } from "@/components/weather/MountainDetailSheet";
+import { type LocationPoint } from "@/config/locations";
 
 type SourceTab = "yr" | "meteoswiss";
 
@@ -50,6 +52,7 @@ const WeatherScreen: React.FC = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [source, setSource] = React.useState<SourceTab>("yr");
+  const [selectedMountain, setSelectedMountain] = React.useState<LocationPoint | null>(null);
 
   const load = React.useCallback(async (force = false) => {
     setLoading(true);
@@ -84,7 +87,6 @@ const WeatherScreen: React.FC = () => {
     >
       <AppHeader
         title="Vær"
-        subtitle="Davos Klosters"
         leftAction={<BackButton fallbackPath="/hjem" />}
         rightAction={
           loading ? <RefreshCw className="h-5 w-5 animate-spin text-primary-foreground/70" /> : null
@@ -108,18 +110,6 @@ const WeatherScreen: React.FC = () => {
               onChange={(v) => setSource(v as SourceTab)}
             />
             <div className="flex gap-2">
-              <button
-                onClick={() => geo.disable()}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                  !geo.enabled
-                    ? "bg-primary/15 text-primary border border-primary/30"
-                    : "bg-muted text-muted-foreground border border-border"
-                )}
-              >
-                <MapPin size={13} />
-                Davos
-              </button>
               <button
                 onClick={() => geo.request()}
                 disabled={geo.loading}
@@ -146,7 +136,7 @@ const WeatherScreen: React.FC = () => {
           ) : (
             <>
               {/* Hero card */}
-              <HeroCard today={today} loading={loading} source={source} updatedAt={forecast?.updatedAt} locationName={data?.davos.location.name || "Davos"} />
+              <HeroCard today={today} loading={loading} source={source} updatedAt={forecast?.updatedAt} locationName={geo.position ? "Min posisjon" : "Standard"} />
 
               {/* AI Summary Card */}
               <AiSummaryCard summary={aiSummary} loading={aiLoading} />
@@ -191,7 +181,11 @@ const WeatherScreen: React.FC = () => {
                     const mtToday = mtForecast?.daily?.[0];
 
                     return (
-                      <DavosCard key={mt.id}>
+                      <DavosCard
+                        key={mt.id}
+                        className="cursor-pointer active:scale-[0.98] transition-transform"
+                        onClick={() => setSelectedMountain(mt)}
+                      >
                         <DavosCardContent className="p-3 flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <span className="text-2xl">
@@ -206,25 +200,24 @@ const WeatherScreen: React.FC = () => {
                               </p>
                             </div>
                           </div>
-                          {mtToday ? (
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              <span className="font-mono font-semibold text-foreground text-sm">
-                                {mtToday.tempMax}° / {mtToday.tempMin}°
-                              </span>
-                              {mtToday.snow > 0 && (
-                                <span className="flex items-center gap-0.5">
-                                  <Snowflake size={12} className="text-primary" />
-                                  {mtToday.snow}cm
+                          <div className="flex items-center gap-3">
+                            {mtToday ? (
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span className="font-mono font-semibold text-foreground text-sm">
+                                  {mtToday.tempMax}° / {mtToday.tempMin}°
                                 </span>
-                              )}
-                              <span className="flex items-center gap-0.5">
-                                <Wind size={12} />
-                                {mtToday.wind}m/s
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">–</span>
-                          )}
+                                {mtToday.snow > 0 && (
+                                  <span className="flex items-center gap-0.5">
+                                    <Snowflake size={12} className="text-primary" />
+                                    {mtToday.snow}cm
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">–</span>
+                            )}
+                            <ChevronRight size={14} className="text-muted-foreground" />
+                          </div>
                         </DavosCardContent>
                       </DavosCard>
                     );
@@ -246,6 +239,22 @@ const WeatherScreen: React.FC = () => {
           )}
         </div>
       </PullToRefreshWrapper>
+
+      {/* Mountain detail sheet */}
+      <MountainDetailSheet
+        open={!!selectedMountain}
+        onOpenChange={(open) => !open && setSelectedMountain(null)}
+        mountain={selectedMountain}
+        forecast={
+          selectedMountain
+            ? (() => {
+                const mtData = data?.mountains.find((m) => m.mountain.id === selectedMountain.id);
+                return source === "yr" ? mtData?.yr ?? null : mtData?.meteoswiss ?? null;
+              })()
+            : null
+        }
+        sourceName={source === "yr" ? "Yr" : "MeteoSwiss"}
+      />
     </div>
   );
 };
@@ -285,7 +294,7 @@ const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt, 
   }
 
   const sourceName = source === "yr" ? "Yr" : "MeteoSwiss";
-  const isCustomLocation = locationName !== "Davos";
+  const isCustomLocation = locationName === "Min posisjon";
 
   return (
     <DavosCard className="mx-4 mt-2">
