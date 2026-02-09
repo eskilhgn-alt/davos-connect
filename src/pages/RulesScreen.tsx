@@ -37,6 +37,7 @@ const SECTIONS: RuleSection[] = [
       { what: "Ta shot (utført): 4 poeng", why: "Å faktisk ta shotten er det modigste du gjør", how: "Bli trukket, ta shotten, og få den bekreftet av vitne." },
       { what: "Bekrefte som vitne: 1 poeng", why: "Vitner sikrer rettferdighet i spillet", how: "Bli valgt som vitne og bekreft at shotten ble tatt." },
       { what: "Skikjøring: 2p per 100m nedstigning", why: "Belønner aktivt skibruk", how: "Kjør med posisjonstjenester på. System registrerer automatisk over 1500 moh og >10 km/t." },
+      { what: "Raskest på ski: +1 poeng daglig", why: "Belønner fart og modig kjøring", how: "Den med høyest toppfart (>20 km/t) i løpet av dagen får 1 poeng ved midnatt." },
       { what: "Agenda-hendelser: 0 poeng", why: "Å opprette hendelser er en tjeneste, ikke en konkurranse", how: "Opprett hendelser fritt uten poengpåvirkning." },
     ],
   },
@@ -53,12 +54,12 @@ const SECTIONS: RuleSection[] = [
   },
   {
     icon: Shield,
-    title: "Nekting & Straff",
+    title: "Bekreftelse & Vitne",
     rules: [
-      { what: "Nekting = 2 straffeshots + FEIG-varsel", why: "Feiging skal ha konsekvenser – og hele gruppa skal vite det", how: "Trykk 'Nekter' → push sendes til alle med ditt navn, og 2 straffeshots registreres." },
-      { what: "Straffeshot-frist: 15 minutter", why: "Du får en sjanse til å gjøre opp for deg", how: "Ta straffeshottene innen fristen vises i appen." },
-      { what: "Overskridelse = automatisk ban", why: "Konsekvens for å ikke følge reglene", how: "Etter 15 min uten registrert straffeshot, blokkeres kontoen til admin opphever den." },
-      { what: "Dispute: vitne avslår → admin avgjør", why: "Forhindrer urettferdige straffer", how: "Vitne velger grunn for avslag, saken sendes til admin for avgjørelse." },
+      { what: "Vitne velges av den som tar shotten", why: "Sikrer uavhengig verifisering", how: "Etter du bekrefter at du har tatt shotten, velger du et vitne som bekrefter." },
+      { what: "Vitne har 15 min til å bekrefte", why: "Gir rimelig tid, men holder tempoet", how: "Vitnet mottar push-varsel og bekrefter eller avslår i appen." },
+      { what: "Avslag → dispute → admin avgjør", why: "Forhindrer urettferdige situasjoner", how: "Vitne velger grunn for avslag (ikke tatt, usikker, feil vitne). Admin tar endelig avgjørelse." },
+      { what: "Ikke tatt innen fristen → logget", why: "Alt registreres for transparens", how: "Hvis shotten ikke tas innen 15 min, logges det i statistikken." },
     ],
   },
   {
@@ -86,6 +87,7 @@ const SECTIONS: RuleSection[] = [
     rules: [
       { what: "Sporing over 1500 moh & >10 km/t", why: "Filtrerer ut gåing og heis – kun aktiv nedkjøring teller", how: "Ha posisjon aktivert. Appen registrerer automatisk." },
       { what: "Daglig vinner: mest høydemeter", why: "Konkurranse om å kjøre mest i løpet av dagen", how: "Den med mest nedstigning over 100m kvalifiserer. Minimum 100m for å kvalifisere." },
+      { what: "Daglig raskeste: +1 poeng", why: "Belønner fartsfantaster", how: "Den med høyest toppfart (>20 km/t) får automatisk 1 poeng ved midnatt." },
       { what: "Vinner velger: frikort eller +1 token", why: "Fleksibel belønning tilpasset spillerens strategi", how: "Pop-up i appen lar vinneren velge belønning." },
     ],
   },
