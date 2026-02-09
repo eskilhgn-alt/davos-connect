@@ -24,6 +24,7 @@ import TokensScreen from "./pages/TokensScreen";
 import FaktasjekkerScreen from "./pages/FaktasjekkerScreen";
 import StoriesScreen from "./pages/StoriesScreen";
 import RulesScreen from "./pages/RulesScreen";
+import PollScreen from "./pages/PollScreen";
 
 import SettingsScreen from "./pages/SettingsScreen";
 import WebcamsScreen from "./pages/WebcamsScreen";
@@ -111,6 +112,7 @@ const AppRoutes = () => (
       <Route path="/faktasjekker" element={<FaktasjekkerScreen />} />
       <Route path="/historier" element={<StoriesScreen />} />
       <Route path="/regler" element={<RulesScreen />} />
+      <Route path="/poll" element={<PollScreen />} />
     </Route>
     
     <Route path="*" element={<NotFound />} />

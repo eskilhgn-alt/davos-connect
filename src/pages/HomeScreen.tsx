@@ -33,6 +33,7 @@ import {
   Users,
   LogOut,
   BookOpen,
+  Vote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -69,6 +70,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/webcams", label: "Webcams", icon: Video },
       { to: "/historier", label: "Stories", icon: Film },
       { to: "/gruppe", label: "Gütta", icon: Users },
+      { to: "/poll", label: "Avstemming", icon: Vote },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/regler", label: "Regler", icon: BookOpen },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
