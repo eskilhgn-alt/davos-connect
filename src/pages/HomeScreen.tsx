@@ -1,5 +1,6 @@
 /**
  * HomeScreen – Tile-based navigation hub with story rings at top
+ * All app features accessible via tiles
  */
 
 import * as React from "react";
@@ -27,8 +28,10 @@ import {
   CalendarDays,
   Coins,
   Sparkles,
-  ImageIcon,
   Film,
+  Camera,
+  Users,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +43,7 @@ interface TileItem {
 }
 
 export const HomeScreen: React.FC = () => {
-  const { profile, isAdmin } = useAuth();
+  const { profile, isAdmin, signOut } = useAuth();
   const unreadCount = useUnreadCount();
   const { groups, loading: storiesLoading, refetch, markViewed } = useStories();
 
@@ -59,9 +62,12 @@ export const HomeScreen: React.FC = () => {
       { to: "/kart", label: "Løypekart", icon: Map },
       { to: "/magnus", label: "Magnus?", icon: MapPin },
       { to: "/shot", label: "Shoot", icon: Target },
-      { to: "/tokens", label: "Tokens & topplister", icon: Coins },
+      { to: "/tokens", label: "Topplister", icon: Coins },
       { to: "/agenda", label: "Agenda", icon: CalendarDays },
       { to: "/galleri", label: "Galleri", icon: Film },
+      { to: "/webcams", label: "Webcams", icon: Camera },
+      { to: "/historier", label: "Stories", icon: Camera },
+      { to: "/gruppe", label: "Crewet", icon: Users },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
     ];
@@ -81,7 +87,18 @@ export const HomeScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="GüttaHütte" />
+      <AppHeader
+        title="GüttaHütte"
+        rightAction={
+          <button
+            onClick={() => signOut()}
+            className="tap-target flex items-center justify-center text-muted-foreground"
+            aria-label="Logg ut"
+          >
+            <LogOut size={18} strokeWidth={1.8} />
+          </button>
+        }
+      />
 
       <PullToRefreshWrapper
         onRefresh={async () => { await refetch(); setRefreshKey((k) => k + 1); }}
@@ -89,7 +106,7 @@ export const HomeScreen: React.FC = () => {
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="px-4 pt-4 pb-10 space-y-5">
-          {/* Story rings – Instagram/Snapchat style */}
+          {/* Story rings */}
           <StoryRing
             groups={groups}
             loading={storiesLoading}
@@ -107,25 +124,25 @@ export const HomeScreen: React.FC = () => {
           <PointsLeaderboardWidget />
 
           {/* Tile grid */}
-          <nav className="grid grid-cols-2 gap-3">
+          <nav className="grid grid-cols-3 gap-2.5">
             {tiles.map((tile) => (
               <Link
                 key={tile.to}
                 to={tile.to}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-2.5",
+                  "relative flex flex-col items-center justify-center gap-2",
                   "aspect-square rounded-2xl",
                   "bg-muted/50 border border-border",
                   "active:scale-[0.97] transition-all duration-150",
                   "hover:bg-muted"
                 )}
               >
-                <tile.icon size={28} strokeWidth={1.6} className="text-foreground" />
-                <span className="font-heading text-sm font-semibold text-foreground">
+                <tile.icon size={24} strokeWidth={1.6} className="text-foreground" />
+                <span className="font-heading text-[11px] font-semibold text-foreground text-center leading-tight px-1">
                   {tile.label}
                 </span>
                 {tile.badge && tile.badge > 0 ? (
-                  <span className="absolute top-3 right-3 min-w-[20px] h-[20px] flex items-center justify-center rounded-full bg-foreground text-background text-[10px] font-bold px-1.5 leading-none">
+                  <span className="absolute top-2 right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-foreground text-background text-[9px] font-bold px-1 leading-none">
                     {tile.badge > 99 ? "99+" : tile.badge}
                   </span>
                 ) : null}
