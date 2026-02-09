@@ -151,9 +151,6 @@ export const AuthScreen: React.FC = () => {
           <h1 className="font-heading text-3xl font-bold text-foreground tracking-tight">
             GüttaHütte
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Privat gruppe-app
-          </p>
         </div>
       </header>
 
@@ -222,7 +219,7 @@ export const AuthScreen: React.FC = () => {
             <form onSubmit={handleOnboarding} className="space-y-4">
               <div className="mb-6">
                 <h2 className="font-heading text-xl font-semibold">Fullfør profilen</h2>
-                <p className="text-sm text-muted-foreground mt-1">Hvem er du i crewet?</p>
+                <p className="text-sm text-muted-foreground mt-1">Hvem er du av Gütta?</p>
               </div>
 
               {/* Avatar upload */}
