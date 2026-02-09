@@ -271,8 +271,8 @@ export const ShotScreen: React.FC = () => {
           message: `${profiles[user?.id || ""] || "Noen"} bekreftet som vitne.`,
         },
         refuse: {
-          heading: "🐔 FEIG! Nektet å ta shot!",
-          message: `${refuserName} er en feiging og nektet å ta shotten! 2 straffeshots registrert. Skyldig straff loggføres.`,
+          heading: `🐔 FEIG! ${refuserName} nektet!`,
+          message: `${refuserName} er en feiging og nektet å ta shotten! 2 straffeshots registrert. Dette loggføres permanent under "${refuserName}" sin profil.`,
         },
         witness_deny: {
           heading: "Dispute! ⚠️",

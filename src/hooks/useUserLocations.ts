@@ -10,6 +10,7 @@ export interface UserLocation {
   lon: number;
   updated_at: string;
   display_name?: string;
+  avatar_url?: string;
 }
 
 export function useUserLocations() {
@@ -28,17 +29,18 @@ export function useUserLocations() {
         const userIds = data.map((d) => d.user_id);
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, nickname, full_name")
+          .select("id, nickname, full_name, avatar_url")
           .in("id", userIds);
 
         const profileMap = new Map(
-          (profiles || []).map((p) => [p.id, p.nickname || p.full_name || "Ukjent"])
+          (profiles || []).map((p) => [p.id, { name: p.nickname || p.full_name || "Ukjent", avatar: p.avatar_url }])
         );
 
         setLocations(
           data.map((d) => ({
             ...d,
-            display_name: profileMap.get(d.user_id) || "Ukjent",
+            display_name: profileMap.get(d.user_id)?.name || "Ukjent",
+            avatar_url: profileMap.get(d.user_id)?.avatar || undefined,
           }))
         );
       }
