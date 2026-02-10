@@ -8,7 +8,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { WindyEmbed } from "@/components/live";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { WEBCAMS, getWebcamProxyUrl, type Webcam } from "@/config/webcams";
+import { WEBCAMS, type Webcam } from "@/config/webcams";
 import { Mountain, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { WebcamModal } from "@/components/webcams";
@@ -16,12 +16,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 
 export const LiveScreen: React.FC = () => {
   const { position } = useGeolocation();
-  const [webcamErrors, setWebcamErrors] = React.useState<Set<string>>(new Set());
   const [selectedWebcam, setSelectedWebcam] = React.useState<Webcam | null>(null);
-
-  const handleWebcamError = (webcamId: string) => {
-    setWebcamErrors(prev => new Set([...prev, webcamId]));
-  };
 
   const handleOpenWindy = () => {
     window.open("https://www.windy.com/nb/-V%C3%A6rradar-radar?radar,46.8,9.83,10", "_blank");
@@ -87,9 +82,6 @@ export const LiveScreen: React.FC = () => {
             
             <div className="grid grid-cols-2 gap-3">
               {displayedWebcams.map((webcam) => {
-                const hasError = webcamErrors.has(webcam.id);
-                const proxyUrl = `${getWebcamProxyUrl(webcam.snapshotUrl)}&t=${Date.now()}`;
-                
                 return (
                   <button
                     key={webcam.id}
@@ -98,24 +90,25 @@ export const LiveScreen: React.FC = () => {
                   >
                     <DavosCard className="overflow-hidden">
                       <div className="relative aspect-video bg-muted">
-                        {hasError ? (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Mountain className="h-8 w-8 text-muted-foreground/50" />
-                          </div>
-                        ) : (
+                        {webcam.videoUrl ? (
                           <>
-                            <img
-                              src={proxyUrl}
-                              alt={`${webcam.name} - ${webcam.area}`}
-                              className="w-full h-full object-cover"
+                            <iframe
+                              src={webcam.videoUrl}
+                              className="w-full h-full border-0 pointer-events-none"
+                              allow="autoplay"
+                              sandbox="allow-scripts allow-same-origin allow-presentation"
+                              title={`${webcam.name} live`}
                               loading="lazy"
-                              onError={() => handleWebcamError(webcam.id)}
                             />
-                            {/* Live badge */}
-                            <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-destructive text-destructive-foreground text-[10px] font-medium rounded">
+                            <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-destructive text-destructive-foreground text-[10px] font-medium rounded flex items-center gap-1">
+                              <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
                               LIVE
                             </div>
                           </>
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Mountain className="h-8 w-8 text-muted-foreground/50" />
+                          </div>
                         )}
                       </div>
                       <DavosCardContent className="p-2">
