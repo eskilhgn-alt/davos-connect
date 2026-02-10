@@ -20,6 +20,7 @@ export interface AdminUser {
   role: "user" | "admin";
   token_balance: number;
   frikort_count: number;
+  shot_banned_until: string | null;
 }
 
 export interface AdminStats {
@@ -46,11 +47,12 @@ export function useAdminData() {
   const fetchUsers = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [profilesRes, rolesRes, tokensRes, frikortRes] = await Promise.all([
+      const [profilesRes, rolesRes, tokensRes, frikortRes, shotTokensRes] = await Promise.all([
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
         supabase.from("user_roles").select("user_id, role"),
         supabase.rpc("rpc_get_all_shot_tokens"),
         supabase.from("user_frikort").select("user_id").is("used_at", null),
+        supabase.from("shot_tokens").select("user_id, shot_banned_until"),
       ]);
 
       const rolesMap = new Map((rolesRes.data || []).map(r => [r.user_id, r.role]));
@@ -59,6 +61,10 @@ export function useAdminData() {
       const frikortMap = new Map<string, number>();
       (frikortRes.data || []).forEach((f: any) => {
         frikortMap.set(f.user_id, (frikortMap.get(f.user_id) || 0) + 1);
+      });
+      const banMap = new Map<string, string | null>();
+      (shotTokensRes.data || []).forEach((t: any) => {
+        banMap.set(t.user_id, t.shot_banned_until);
       });
 
       setUsers((profilesRes.data || []).map(p => ({
@@ -75,6 +81,7 @@ export function useAdminData() {
         role: (rolesMap.get(p.id) as "user" | "admin") || "user",
         token_balance: tokensMap.get(p.id) ?? 5,
         frikort_count: frikortMap.get(p.id) ?? 0,
+        shot_banned_until: banMap.get(p.id) ?? null,
       })));
     } catch {
       toast.error("Kunne ikke hente brukere");
