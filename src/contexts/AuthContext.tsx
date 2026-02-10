@@ -104,21 +104,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Setup auth state listener
   React.useEffect(() => {
+    let isMounted = true;
     // Set up listener BEFORE getting session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        if (!isMounted) return;
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
 
         if (currentSession?.user) {
           // Prefetch weather on every auth event (login, token refresh, app wake)
           prefetchWeatherAiSummary();
-          // Defer profile fetch to avoid blocking
+          // Defer profile fetch but DON'T clear existing profile during token refresh
           setTimeout(async () => {
+            if (!isMounted) return;
             const profileData = await fetchProfile(currentSession.user.id);
-            setProfile(profileData);
+            if (!isMounted) return;
+            if (profileData) setProfile(profileData);
             const admin = await checkAdminRole(currentSession.user.id);
-            setIsAdmin(admin);
+            if (isMounted) setIsAdmin(admin);
           }, 0);
         } else {
           setProfile(null);
@@ -145,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [fetchProfile, checkAdminRole]);

@@ -59,13 +59,23 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/auth" replace />;
   }
 
+  // Wait for profile to load before checking completeness
+  // This prevents redirect during token refresh when profile is temporarily null
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   // Require profile completion (including avatar)
-  if (user && (!profile?.full_name || !profile?.nickname || !profile?.avatar_url)) {
+  if (!profile.full_name || !profile.nickname || !profile.avatar_url) {
     return <Navigate to="/auth" replace />;
   }
 
   // Check for ban (admin can still access)
-  if (profile?.is_banned && !isAdmin) {
+  if (profile.is_banned && !isAdmin) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background px-8 text-center gap-4">
         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
