@@ -190,6 +190,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         {story.type === "video" ? (
           <video
             ref={videoRef}
+            key={story.id}
             src={story.publicUrl}
             autoPlay
             playsInline
@@ -197,9 +198,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
             className="w-full h-full object-cover"
             onEnded={goNext}
             onLoadedData={(e) => {
-              // Unmute after autoplay starts (iOS requires muted autoplay)
               const v = e.currentTarget;
               v.play().then(() => { v.muted = false; }).catch(() => {});
+            }}
+            onError={(e) => {
+              console.error("[StoryViewer] Video error:", e);
             }}
           />
         ) : (
