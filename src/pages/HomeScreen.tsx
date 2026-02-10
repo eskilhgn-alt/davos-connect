@@ -1,20 +1,14 @@
 /**
- * HomeScreen – Tile-based navigation hub with story rings at top
- * All app features accessible via tiles
+ * HomeScreen – Tile-based navigation hub
+ * Base functions only – gamification removed
  */
 
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { HomeDashboard } from "@/components/home/HomeDashboard";
-import { PointsLeaderboardWidget } from "@/components/home/PointsLeaderboardWidget";
-import { StoryRing } from "@/components/stories/StoryRing";
-import { StreakWidget } from "@/components/home/StreakWidget";
-import { StoryViewer } from "@/components/stories/StoryViewer";
-import { StoryCapture } from "@/components/stories/StoryCapture";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppBadges } from "@/hooks/useAppBadges";
-import { useStories } from "@/hooks/useStories";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
 import {
   MessageCircle,
@@ -26,14 +20,9 @@ import {
   Settings,
   ShieldCheck,
   CalendarDays,
-  Coins,
-  Sparkles,
   Film,
-  Video,
-  Users,
+  Sparkles,
   LogOut,
-  BookOpen,
-  Vote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -47,14 +36,8 @@ interface TileItem {
 export const HomeScreen: React.FC = () => {
   const { profile, isAdmin, signOut } = useAuth();
   const badges = useAppBadges();
-  const { groups, loading: storiesLoading, refetch, markViewed } = useStories();
 
-  const [viewerOpen, setViewerOpen] = React.useState(false);
-  const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
-  const [captureOpen, setCaptureOpen] = React.useState(false);
   const [refreshKey, setRefreshKey] = React.useState(0);
-
-  const displayName = profile?.nickname || profile?.full_name?.split(" ")[0] || "";
 
   const tiles: TileItem[] = React.useMemo(() => {
     const base: TileItem[] = [
@@ -64,15 +47,9 @@ export const HomeScreen: React.FC = () => {
       { to: "/kart", label: "Løypekart", icon: Map },
       { to: "/magnus", label: "Magnus?", icon: MapPin },
       { to: "/shot", label: "Shoot", icon: Target },
-      { to: "/tokens", label: "Topplister", icon: Coins },
       { to: "/agenda", label: "Agenda", icon: CalendarDays },
       { to: "/galleri", label: "Galleri", icon: Film },
-      
-      { to: "/historier", label: "Stories", icon: Film, badge: badges.stories },
-      { to: "/gruppe", label: "Gütta", icon: Users },
-      { to: "/poll", label: "Avstemming", icon: Vote, badge: badges.polls },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
-      { to: "/regler", label: "Regler", icon: BookOpen },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
     ];
     if (isAdmin) {
@@ -80,11 +57,6 @@ export const HomeScreen: React.FC = () => {
     }
     return base;
   }, [badges, isAdmin]);
-
-  const openStory = (idx: number) => {
-    setViewerGroupIdx(idx);
-    setViewerOpen(true);
-  };
 
   return (
     <div
@@ -105,26 +77,13 @@ export const HomeScreen: React.FC = () => {
       />
 
       <PullToRefreshWrapper
-        onRefresh={async () => { await refetch(); setRefreshKey((k) => k + 1); }}
+        onRefresh={async () => { setRefreshKey((k) => k + 1); }}
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="px-4 pt-4 pb-10 space-y-5">
-          {/* Story rings */}
-          <StoryRing
-            groups={groups}
-            loading={storiesLoading}
-            onAddStory={() => setCaptureOpen(true)}
-            onOpenStory={openStory}
-          />
-
-          {/* Streak shown in PointsLeaderboardWidget below */}
-
           {/* Mini dashboard */}
           <HomeDashboard refreshKey={refreshKey} />
-
-          {/* Points leaderboard widget */}
-          <PointsLeaderboardWidget />
 
           {/* Tile grid */}
           <nav className="grid grid-cols-3 gap-2.5">
@@ -154,30 +113,6 @@ export const HomeScreen: React.FC = () => {
           </nav>
         </div>
       </PullToRefreshWrapper>
-
-      {/* Story Viewer */}
-      {viewerOpen && groups.length > 0 && (
-        <StoryViewer
-          groups={groups}
-          initialGroupIndex={viewerGroupIdx}
-          onClose={() => {
-            setViewerOpen(false);
-            refetch();
-          }}
-          onViewed={markViewed}
-        />
-      )}
-
-      {/* Story Capture */}
-      {captureOpen && (
-        <StoryCapture
-          onClose={() => setCaptureOpen(false)}
-          onPublished={() => {
-            setCaptureOpen(false);
-            refetch();
-          }}
-        />
-      )}
     </div>
   );
 };
