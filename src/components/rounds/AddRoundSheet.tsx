@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { DavosInput } from "@/components/ui/davos-input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Beer, Wine, Zap, Loader2, Minus, Plus } from "lucide-react";
+import { Beer, Wine, Zap, Loader2, Minus, Plus, Camera, ImageIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,7 +38,8 @@ interface Props {
     costPerPerson: number,
     participantIds: string[],
     note?: string,
-    drinkQuantities?: DrinkQuantities
+    drinkQuantities?: DrinkQuantities,
+    receiptImageUrl?: string
   ) => Promise<{ error: any }>;
 }
 
@@ -49,7 +50,10 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
   const [quantities, setQuantities] = React.useState<DrinkQuantities>({ beer: 0, drink: 0, shots: 0 });
   const [totalCost, setTotalCost] = React.useState("");
   const [note, setNote] = React.useState("");
+  const [receiptFile, setReceiptFile] = React.useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const receiptRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -60,7 +64,25 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
     setQuantities({ beer: 0, drink: 0, shots: 0 });
     setTotalCost("");
     setNote("");
+    setReceiptFile(null);
+    setReceiptPreview(null);
   }, [open]);
+
+  const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Kun bilder er tillatt"); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("Maks 10 MB"); return; }
+    setReceiptFile(file);
+    setReceiptPreview(URL.createObjectURL(file));
+  };
+
+  const clearReceipt = () => {
+    setReceiptFile(null);
+    if (receiptPreview) URL.revokeObjectURL(receiptPreview);
+    setReceiptPreview(null);
+    if (receiptRef.current) receiptRef.current.value = "";
+  };
 
   const toggleUser = (id: string) => {
     setSelectedUsers((prev) => {
@@ -96,6 +118,21 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
       return;
     }
     setSubmitting(true);
+
+    // Upload receipt if present
+    let receiptUrl: string | undefined;
+    if (receiptFile) {
+      const ext = receiptFile.name.split(".").pop() || "jpg";
+      const path = `receipts/${user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("round-receipts").upload(path, receiptFile);
+      if (upErr) {
+        console.warn("Receipt upload failed:", upErr);
+      } else {
+        const { data: urlData } = supabase.storage.from("round-receipts").getPublicUrl(path);
+        receiptUrl = urlData.publicUrl;
+      }
+    }
+
     const { error } = await onSubmit(
       user.id,
       activeDrinkType(),
@@ -103,7 +140,8 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
       perPerson,
       Array.from(selectedUsers),
       note || undefined,
-      quantities
+      quantities,
+      receiptUrl
     );
     setSubmitting(false);
     if (error) {
@@ -181,6 +219,61 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
 
           {/* Note */}
           <DavosInput label="Notat (valgfritt)" placeholder="f.eks. Après-ski" value={note} onChange={(e) => setNote(e.target.value)} />
+
+          {/* Receipt photo */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">Kvittering (valgfritt)</p>
+            {receiptPreview ? (
+              <div className="relative inline-block">
+                <img src={receiptPreview} alt="Kvittering" className="h-24 w-auto rounded-xl border border-border object-cover" />
+                <button
+                  onClick={clearReceipt}
+                  className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+                  style={{ WebkitTapHighlightColor: "transparent" }}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (receiptRef.current) {
+                      receiptRef.current.setAttribute("capture", "environment");
+                      receiptRef.current.click();
+                    }
+                  }}
+                  className="flex-1 h-11 rounded-xl border border-border bg-muted/20 flex items-center justify-center gap-2 text-sm font-medium text-foreground active:scale-[0.98]"
+                  style={{ WebkitTapHighlightColor: "transparent" }}
+                >
+                  <Camera size={16} className="text-muted-foreground" />
+                  Ta bilde
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (receiptRef.current) {
+                      receiptRef.current.removeAttribute("capture");
+                      receiptRef.current.click();
+                    }
+                  }}
+                  className="flex-1 h-11 rounded-xl border border-border bg-muted/20 flex items-center justify-center gap-2 text-sm font-medium text-foreground active:scale-[0.98]"
+                  style={{ WebkitTapHighlightColor: "transparent" }}
+                >
+                  <ImageIcon size={16} className="text-muted-foreground" />
+                  Last opp
+                </button>
+              </div>
+            )}
+            <input
+              ref={receiptRef}
+              type="file"
+              accept="image/*"
+              onChange={handleReceiptChange}
+              className="hidden"
+            />
+          </div>
 
           {/* User selection */}
           <div className="space-y-2">

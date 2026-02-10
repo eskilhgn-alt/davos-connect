@@ -604,6 +604,7 @@ export type Database = {
           drink_type: string
           id: string
           note: string | null
+          receipt_image_url: string | null
           total_cost: number
         }
         Insert: {
@@ -614,6 +615,7 @@ export type Database = {
           drink_type: string
           id?: string
           note?: string | null
+          receipt_image_url?: string | null
           total_cost?: number
         }
         Update: {
@@ -624,6 +626,7 @@ export type Database = {
           drink_type?: string
           id?: string
           note?: string | null
+          receipt_image_url?: string | null
           total_cost?: number
         }
         Relationships: []
