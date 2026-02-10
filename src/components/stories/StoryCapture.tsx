@@ -724,8 +724,12 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
             playsInline
             loop
             muted
-            controls
             className="w-full h-full object-cover"
+            onLoadedData={(e) => {
+              const v = e.currentTarget;
+              // iOS requires play() call + unmute after confirmed playing
+              v.play().then(() => { v.muted = false; }).catch(() => {});
+            }}
           />
         ) : (
           <img

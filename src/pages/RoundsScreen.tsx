@@ -21,7 +21,7 @@ const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
   drink: { icon: Wine, label: "Drinker" },
 };
 
-/** Build a short summary like "3 øl, 2 shots" */
+/** Build a short summary like "3 øl, 2 drink" */
 const drinkSummary = (q: DrinkQuantities): string => {
   const parts: string[] = [];
   if (q.beer) parts.push(`${q.beer} øl`);
