@@ -9,7 +9,7 @@ import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosEmptyState } from "@/components/ui/davos-empty-state";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Beer, Wine, Zap, Plus, Users, ChevronRight } from "lucide-react";
+import { Beer, Wine, Zap, Plus, Users, ChevronRight, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -169,6 +169,20 @@ const RoundDetailSheet: React.FC<{
             <div className="p-3 rounded-xl bg-muted/20 border border-border">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Notat</p>
               <p className="text-sm text-foreground">{round.note}</p>
+            </div>
+          )}
+
+          {/* Receipt */}
+          {round.receipt_image_url && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-1">Kvittering</p>
+              <a href={round.receipt_image_url} target="_blank" rel="noopener noreferrer">
+                <img
+                  src={round.receipt_image_url}
+                  alt="Kvittering"
+                  className="w-full max-h-64 object-contain rounded-xl border border-border bg-muted/10"
+                />
+              </a>
             </div>
           )}
 

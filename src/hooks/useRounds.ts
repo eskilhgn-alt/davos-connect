@@ -15,6 +15,7 @@ export interface Round {
   total_cost: number;
   cost_per_person: number;
   note: string | null;
+  receipt_image_url: string | null;
   created_at: string;
   participants: { user_id: string }[];
 }
@@ -97,7 +98,8 @@ export function useRounds() {
     costPerPerson: number,
     participantIds: string[],
     note?: string,
-    drinkQuantities?: DrinkQuantities
+    drinkQuantities?: DrinkQuantities,
+    receiptImageUrl?: string
   ) => {
     const { data: round, error } = await supabase
       .from("rounds")
@@ -108,6 +110,7 @@ export function useRounds() {
         cost_per_person: costPerPerson,
         note: note || null,
         drink_quantities: drinkQuantities || {},
+        receipt_image_url: receiptImageUrl || null,
       })
       .select()
       .single();
