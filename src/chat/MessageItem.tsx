@@ -214,8 +214,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 ? 'bg-primary text-primary-foreground rounded-br-md'
                 : 'bg-muted text-foreground rounded-bl-md'
             )}
+            style={{ WebkitTapHighlightColor: 'transparent', userSelect: 'none' }}
           >
-            <p className="text-[15px] leading-snug whitespace-pre-wrap break-words">
+            <p className="text-[15px] leading-snug whitespace-pre-wrap break-words select-text">
               {message.text}
             </p>
           </div>

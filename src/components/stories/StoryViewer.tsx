@@ -88,11 +88,12 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   }, [storyIdx, groupIdx, groups]);
 
   // Tap zones + hold-to-pause
+  const holdTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
   const holdRef = React.useRef(false);
 
   const handlePointerDown = () => {
     holdRef.current = false;
-    setTimeout(() => {
+    holdTimerRef.current = setTimeout(() => {
       holdRef.current = true;
       setPaused(true);
       if (videoRef.current) videoRef.current.pause();
@@ -100,6 +101,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    // Clear the hold timer if it hasn't fired yet
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = undefined;
+    }
     if (holdRef.current) {
       // Was a hold → unpause
       setPaused(false);
@@ -117,6 +123,13 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       goNext();
     }
   };
+
+  // Cleanup hold timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    };
+  }, []);
 
   if (!story) return null;
 

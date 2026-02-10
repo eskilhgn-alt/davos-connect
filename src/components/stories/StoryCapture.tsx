@@ -272,29 +272,19 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     if (recordTimerRef.current) clearInterval(recordTimerRef.current);
   };
 
-  // ─── Double-tap to start/stop recording, single tap for photo ───
-  const lastCaptureTapRef = React.useRef(0);
-  const captureTapTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
+  // ─── Capture: single tap for photo, toggle mode for video ───
+  const [captureMode, setCaptureMode] = React.useState<"photo" | "video">("photo");
 
   const handleCaptureButtonTap = () => {
     if (mode !== "camera") return;
-    const now = Date.now();
-    if (now - lastCaptureTapRef.current < 400) {
-      // Double tap
-      if (captureTapTimerRef.current) clearTimeout(captureTapTimerRef.current);
+    if (captureMode === "photo") {
+      takePhoto();
+    } else {
       if (isRecording) {
         stopRecording();
       } else {
         startRecording();
       }
-      lastCaptureTapRef.current = 0;
-    } else {
-      lastCaptureTapRef.current = now;
-      captureTapTimerRef.current = setTimeout(() => {
-        if (lastCaptureTapRef.current === now && !isRecording) {
-          takePhoto();
-        }
-      }, 400);
     }
   };
 
@@ -879,6 +869,30 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       >
         {mode === "camera" ? (
           <>
+            {/* Mode toggle: Photo / Video */}
+            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full p-1">
+              <button
+                type="button"
+                onClick={() => { if (!isRecording) setCaptureMode("photo"); }}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                  captureMode === "photo" ? "bg-white text-black" : "text-white/70"
+                )}
+              >
+                Foto
+              </button>
+              <button
+                type="button"
+                onClick={() => { if (!isRecording) setCaptureMode("video"); }}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                  captureMode === "video" ? "bg-white text-black" : "text-white/70"
+                )}
+              >
+                Video
+              </button>
+            </div>
+
             <div className="relative flex items-center justify-center">
               {isRecording && (
                 <svg width={ringSize} height={ringSize} className="absolute -rotate-90">
@@ -890,22 +904,25 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                 type="button"
                 onClick={handleCaptureButtonTap}
                 className={cn(
-                  "w-[72px] h-[72px] rounded-full border-[4px] border-white",
+                  "w-[72px] h-[72px] rounded-full border-[4px]",
                   "flex items-center justify-center",
                   "active:scale-90 transition-transform touch-none",
-                  isRecording && "bg-red-500 border-red-400 scale-110"
+                  captureMode === "video"
+                    ? isRecording
+                      ? "border-red-400 bg-red-500 scale-110"
+                      : "border-red-400"
+                    : "border-white"
                 )}
               >
-                {isRecording ? (
+                {captureMode === "video" && isRecording ? (
                   <div className="w-6 h-6 rounded-sm bg-white" />
+                ) : captureMode === "video" ? (
+                  <div className="w-[58px] h-[58px] rounded-full bg-red-500" />
                 ) : (
                   <div className="w-[58px] h-[58px] rounded-full bg-white/90" />
                 )}
               </button>
             </div>
-            <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-white/50 text-[10px]">
-              Trykk for foto · Dobbelttrykk for video
-            </p>
           </>
         ) : (
           <>
