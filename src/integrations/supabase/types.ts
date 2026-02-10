@@ -566,6 +566,65 @@ export type Database = {
         }
         Relationships: []
       }
+      round_participants: {
+        Row: {
+          created_at: string
+          id: string
+          round_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          round_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          round_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "round_participants_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rounds: {
+        Row: {
+          buyer_id: string
+          cost_per_person: number
+          created_at: string
+          drink_type: string
+          id: string
+          note: string | null
+          total_cost: number
+        }
+        Insert: {
+          buyer_id: string
+          cost_per_person?: number
+          created_at?: string
+          drink_type: string
+          id?: string
+          note?: string | null
+          total_cost?: number
+        }
+        Update: {
+          buyer_id?: string
+          cost_per_person?: number
+          created_at?: string
+          drink_type?: string
+          id?: string
+          note?: string | null
+          total_cost?: number
+        }
+        Relationships: []
+      }
       shot_event_log: {
         Row: {
           actor_id: string | null
