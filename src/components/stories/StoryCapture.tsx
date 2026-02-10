@@ -207,19 +207,46 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     );
   };
 
+  // Detect best supported MIME type for recording
+  const getRecordingMimeType = (): string => {
+    const candidates = [
+      "video/mp4",
+      "video/webm;codecs=vp9",
+      "video/webm;codecs=vp8",
+      "video/webm",
+    ];
+    for (const mime of candidates) {
+      if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(mime)) {
+        return mime;
+      }
+    }
+    return ""; // Let browser pick default
+  };
+
   const startRecording = () => {
     if (!streamRef.current) return;
     chunksRef.current = [];
-    const recorder = new MediaRecorder(streamRef.current, {
-      mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
-        : "video/webm",
-    });
+    const mimeType = getRecordingMimeType();
+    const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(streamRef.current, options);
+    } catch (err) {
+      console.warn("[StoryCapture] MediaRecorder failed with options, trying default:", err);
+      try {
+        recorder = new MediaRecorder(streamRef.current);
+      } catch (err2) {
+        console.error("[StoryCapture] MediaRecorder not supported:", err2);
+        toast.error("Video-opptak støttes ikke på denne enheten");
+        return;
+      }
+    }
+    const actualMime = recorder.mimeType || mimeType || "video/mp4";
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const blob = new Blob(chunksRef.current, { type: actualMime });
       setCapturedMedia({ blob, type: "video", url: URL.createObjectURL(blob) });
       setMode("preview");
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -480,13 +507,18 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
           ? await renderFinalImage()
           : capturedMedia.blob;
 
-      const ext = capturedMedia.type === "video" ? "webm" : "jpg";
+      // Determine extension and content type from the blob
+      const isVideo = capturedMedia.type === "video";
+      const blobMime = finalBlob.type || (isVideo ? "video/mp4" : "image/jpeg");
+      const ext = isVideo
+        ? (blobMime.includes("mp4") ? "mp4" : blobMime.includes("webm") ? "webm" : "mp4")
+        : "jpg";
       const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
 
       const { error: uploadErr } = await supabase.storage
         .from("stories")
         .upload(path, finalBlob, {
-          contentType: capturedMedia.type === "video" ? "video/webm" : "image/jpeg",
+          contentType: blobMime,
         });
       if (uploadErr) throw uploadErr;
 
@@ -701,6 +733,8 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
             autoPlay
             playsInline
             loop
+            muted
+            controls
             className="w-full h-full object-cover"
           />
         ) : (

@@ -170,18 +170,36 @@ export function usePolls() {
   const vote = async (pollId: string, optionId: string) => {
     if (!user) return;
 
-    // Upsert vote (unique on poll_id, user_id)
-    const { error } = await supabase
+    // Check if user already voted on this poll
+    const { data: existing } = await supabase
       .from("poll_votes")
-      .upsert(
-        { poll_id: pollId, option_id: optionId, user_id: user.id },
-        { onConflict: "poll_id,user_id" }
-      );
+      .select("id")
+      .eq("poll_id", pollId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    let error;
+    if (existing) {
+      // Update existing vote
+      ({ error } = await supabase
+        .from("poll_votes")
+        .update({ option_id: optionId })
+        .eq("id", existing.id));
+    } else {
+      // Insert new vote
+      ({ error } = await supabase
+        .from("poll_votes")
+        .insert({ poll_id: pollId, option_id: optionId, user_id: user.id }));
+    }
 
     if (error) {
+      console.error("Vote error:", error);
       toast.error("Kunne ikke stemme");
       return;
     }
+
+    // Optimistic refetch
+    await fetchPolls();
 
     // Check if all voted (require_all)
     await checkResolution(pollId);
