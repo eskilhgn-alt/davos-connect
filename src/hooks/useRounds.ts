@@ -5,16 +5,18 @@ import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
+export type DrinkQuantities = Record<string, number>;
+
 export interface Round {
   id: string;
   buyer_id: string;
   drink_type: string;
+  drink_quantities: DrinkQuantities;
   total_cost: number;
   cost_per_person: number;
   note: string | null;
   created_at: string;
   participants: { user_id: string }[];
-  buyer_profile?: { full_name: string | null; nickname: string | null; avatar_url: string | null };
 }
 
 export interface RoundSummary {
@@ -66,6 +68,7 @@ export function useRounds() {
           ...r,
           total_cost: Number(r.total_cost),
           cost_per_person: Number(r.cost_per_person),
+          drink_quantities: (r.drink_quantities as DrinkQuantities) || {},
           participants: partMap[r.id] || [],
         }))
       );
@@ -77,7 +80,6 @@ export function useRounds() {
     fetchProfiles().then(fetchRounds);
   }, [fetchProfiles, fetchRounds]);
 
-  // Realtime
   React.useEffect(() => {
     const channel = supabase
       .channel("rounds-realtime")
@@ -94,21 +96,27 @@ export function useRounds() {
     totalCost: number,
     costPerPerson: number,
     participantIds: string[],
-    note?: string
+    note?: string,
+    drinkQuantities?: DrinkQuantities
   ) => {
     const { data: round, error } = await supabase
       .from("rounds")
-      .insert({ buyer_id: buyerId, drink_type: drinkType, total_cost: totalCost, cost_per_person: costPerPerson, note: note || null })
+      .insert({
+        buyer_id: buyerId,
+        drink_type: drinkType,
+        total_cost: totalCost,
+        cost_per_person: costPerPerson,
+        note: note || null,
+        drink_quantities: drinkQuantities || {},
+      })
       .select()
       .single();
 
     if (error || !round) return { error };
 
-    // Insert participants
     const rows = participantIds.map((uid) => ({ round_id: round.id, user_id: uid }));
     await supabase.from("round_participants").insert(rows);
 
-    // Send push
     try {
       await supabase.functions.invoke("round-push", {
         body: { round_id: round.id, buyer_id: buyerId, drink_type: drinkType, participant_ids: participantIds },
@@ -121,25 +129,20 @@ export function useRounds() {
     return { error: null };
   };
 
-  // Summaries per user
   const summaries = React.useMemo((): RoundSummary[] => {
     const userMap: Record<string, { rounds_bought: number; total_spent: number; rounds_received: number }> = {};
-
     const ensureUser = (uid: string) => {
       if (!userMap[uid]) userMap[uid] = { rounds_bought: 0, total_spent: 0, rounds_received: 0 };
     };
-
     rounds.forEach((r) => {
       ensureUser(r.buyer_id);
       userMap[r.buyer_id].rounds_bought += 1;
       userMap[r.buyer_id].total_spent += r.total_cost;
-
       r.participants.forEach((p) => {
         ensureUser(p.user_id);
         userMap[p.user_id].rounds_received += 1;
       });
     });
-
     return Object.entries(userMap)
       .map(([uid, stats]) => ({
         user_id: uid,

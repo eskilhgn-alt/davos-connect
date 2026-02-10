@@ -1,13 +1,13 @@
 /**
  * AddRoundSheet – Bottom sheet to register a new round
- * Receives addRound as prop to avoid double hook instantiation
+ * Now with quantity selectors per drink type instead of single type toggle
  */
 import * as React from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { DavosInput } from "@/components/ui/davos-input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Beer, Wine, Zap, Loader2 } from "lucide-react";
+import { Beer, Wine, Zap, Loader2, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,11 +20,13 @@ interface Profile {
   avatar_url: string | null;
 }
 
-const DRINK_OPTIONS = [
-  { value: "beer", label: "Øl", icon: Beer },
-  { value: "drink", label: "Drinker", icon: Wine },
-  { value: "shots", label: "Shots", icon: Zap },
+const DRINK_TYPES = [
+  { key: "beer", label: "Øl", icon: Beer },
+  { key: "drink", label: "Drinker", icon: Wine },
+  { key: "shots", label: "Shots", icon: Zap },
 ] as const;
+
+export type DrinkQuantities = Record<string, number>;
 
 interface Props {
   open: boolean;
@@ -35,7 +37,8 @@ interface Props {
     totalCost: number,
     costPerPerson: number,
     participantIds: string[],
-    note?: string
+    note?: string,
+    drinkQuantities?: DrinkQuantities
   ) => Promise<{ error: any }>;
 }
 
@@ -43,7 +46,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
   const { user } = useAuth();
   const [allProfiles, setAllProfiles] = React.useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = React.useState<Set<string>>(new Set());
-  const [drinkType, setDrinkType] = React.useState("beer");
+  const [quantities, setQuantities] = React.useState<DrinkQuantities>({ beer: 0, drink: 0, shots: 0 });
   const [totalCost, setTotalCost] = React.useState("");
   const [note, setNote] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -54,7 +57,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
       if (data) setAllProfiles(data);
     });
     setSelectedUsers(new Set());
-    setDrinkType("beer");
+    setQuantities({ beer: 0, drink: 0, shots: 0 });
     setTotalCost("");
     setNote("");
   }, [open]);
@@ -71,16 +74,37 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
     setSelectedUsers(selectedUsers.size === allProfiles.length ? new Set() : new Set(allProfiles.map((p) => p.id)));
   };
 
+  const adjustQty = (key: string, delta: number) => {
+    setQuantities((prev) => ({ ...prev, [key]: Math.max(0, (prev[key] || 0) + delta) }));
+  };
+
+  const totalDrinks = Object.values(quantities).reduce((a, b) => a + b, 0);
   const total = parseFloat(totalCost) || 0;
   const perPerson = selectedUsers.size > 0 ? Math.ceil((total / selectedUsers.size) * 100) / 100 : 0;
 
+  // Build a summary label like "mixed" or the single type
+  const activeDrinkType = (): string => {
+    const active = Object.entries(quantities).filter(([, v]) => v > 0);
+    if (active.length === 0) return "beer";
+    if (active.length === 1) return active[0][0];
+    return "mixed";
+  };
+
   const handleSubmit = async () => {
-    if (!user || selectedUsers.size === 0 || total <= 0) {
-      toast.error("Velg deltakere og legg inn kostnad");
+    if (!user || selectedUsers.size === 0 || total <= 0 || totalDrinks === 0) {
+      toast.error("Velg deltakere, antall drikke og kostnad");
       return;
     }
     setSubmitting(true);
-    const { error } = await onSubmit(user.id, drinkType, total, perPerson, Array.from(selectedUsers), note || undefined);
+    const { error } = await onSubmit(
+      user.id,
+      activeDrinkType(),
+      total,
+      perPerson,
+      Array.from(selectedUsers),
+      note || undefined,
+      quantities
+    );
     setSubmitting(false);
     if (error) {
       toast.error("Kunne ikke registrere runde");
@@ -98,29 +122,49 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
         </SheetHeader>
 
         <div className="space-y-5 py-4">
-          {/* Drink type */}
+          {/* Drink quantities */}
           <div className="space-y-2">
-            <p className="text-sm font-medium text-foreground">Type</p>
-            <div className="flex gap-2">
-              {DRINK_OPTIONS.map((opt) => {
-                const active = drinkType === opt.value;
+            <p className="text-sm font-medium text-foreground">Hva ble bestilt?</p>
+            <div className="space-y-2">
+              {DRINK_TYPES.map((dt) => {
+                const qty = quantities[dt.key] || 0;
                 return (
-                  <button
-                    key={opt.value}
-                    onClick={() => setDrinkType(opt.value)}
-                    className={cn(
-                      "flex-1 flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all",
-                      "-webkit-tap-highlight-color: transparent",
-                      active ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted/30 text-muted-foreground"
-                    )}
-                    style={{ WebkitTapHighlightColor: "transparent" }}
-                  >
-                    <opt.icon size={20} />
-                    <span className="text-xs font-semibold">{opt.label}</span>
-                  </button>
+                  <div key={dt.key} className={cn(
+                    "flex items-center gap-3 p-2.5 rounded-xl border transition-all",
+                    qty > 0 ? "border-primary/30 bg-primary/5" : "border-border bg-muted/20"
+                  )}>
+                    <div className={cn(
+                      "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
+                      qty > 0 ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                    )}>
+                      <dt.icon size={16} />
+                    </div>
+                    <span className="text-sm font-medium text-foreground flex-1">{dt.label}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => adjustQty(dt.key, -1)}
+                        disabled={qty === 0}
+                        className="h-8 w-8 rounded-full border border-border flex items-center justify-center disabled:opacity-30 active:scale-95"
+                        style={{ WebkitTapHighlightColor: "transparent" }}
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className="font-heading text-sm font-bold w-6 text-center text-foreground">{qty}</span>
+                      <button
+                        onClick={() => adjustQty(dt.key, 1)}
+                        className="h-8 w-8 rounded-full border border-primary bg-primary/10 text-primary flex items-center justify-center active:scale-95"
+                        style={{ WebkitTapHighlightColor: "transparent" }}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
+            {totalDrinks > 0 && (
+              <p className="text-xs text-muted-foreground px-1">{totalDrinks} drikke totalt</p>
+            )}
           </div>
 
           {/* Cost */}
@@ -155,10 +199,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
                   <button
                     key={p.id}
                     onClick={() => toggleUser(p.id)}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-2 rounded-lg transition-colors",
-                      checked ? "bg-primary/10" : ""
-                    )}
+                    className={cn("w-full flex items-center gap-3 p-2 rounded-lg transition-colors", checked ? "bg-primary/10" : "")}
                     style={{ WebkitTapHighlightColor: "transparent" }}
                   >
                     <Checkbox checked={checked} className="pointer-events-none" />
@@ -177,7 +218,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
           {/* Submit */}
           <button
             onClick={handleSubmit}
-            disabled={submitting || selectedUsers.size === 0 || total <= 0}
+            disabled={submitting || selectedUsers.size === 0 || total <= 0 || totalDrinks === 0}
             className={cn(
               "w-full h-12 rounded-xl font-heading font-semibold text-sm transition-all",
               "bg-primary text-primary-foreground",

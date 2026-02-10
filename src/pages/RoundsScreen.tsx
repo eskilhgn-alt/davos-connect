@@ -14,10 +14,22 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import { AddRoundSheet } from "@/components/rounds/AddRoundSheet";
-import type { Round } from "@/hooks/useRounds";
+import type { Round, DrinkQuantities } from "@/hooks/useRounds";
 
-const DRINK_ICONS: Record<string, React.ElementType> = { beer: Beer, drink: Wine, shots: Zap };
-const DRINK_LABELS: Record<string, string> = { beer: "Øl", drink: "Drinker", shots: "Shots" };
+const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
+  beer: { icon: Beer, label: "Øl" },
+  drink: { icon: Wine, label: "Drinker" },
+  shots: { icon: Zap, label: "Shots" },
+};
+
+/** Build a short summary like "3 øl, 2 shots" */
+const drinkSummary = (q: DrinkQuantities): string => {
+  const parts: string[] = [];
+  if (q.beer) parts.push(`${q.beer} øl`);
+  if (q.drink) parts.push(`${q.drink} drink`);
+  if (q.shots) parts.push(`${q.shots} shots`);
+  return parts.length > 0 ? parts.join(", ") : "–";
+};
 
 export const RoundsScreen: React.FC = () => {
   const { rounds, profiles, loading, addRound } = useRounds();
@@ -42,8 +54,7 @@ export const RoundsScreen: React.FC = () => {
             {rounds.map((r) => {
               const buyer = profiles[r.buyer_id];
               const buyerName = buyer?.nickname || buyer?.full_name || "Ukjent";
-              const DrinkIcon = DRINK_ICONS[r.drink_type] || Beer;
-              const drinkLabel = DRINK_LABELS[r.drink_type] || r.drink_type;
+              const summary = drinkSummary(r.drink_quantities || {});
 
               return (
                 <button
@@ -53,20 +64,13 @@ export const RoundsScreen: React.FC = () => {
                   style={{ WebkitTapHighlightColor: "transparent" }}
                 >
                   <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <DrinkIcon size={17} className="text-primary" />
+                    <Beer size={17} className="text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-heading text-sm font-semibold text-foreground truncate">
-                      {buyerName} – {drinkLabel.toLowerCase()}
+                    <p className="font-heading text-sm font-semibold text-foreground truncate">{buyerName}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {summary} · {r.participants.length} pers · {format(new Date(r.created_at), "d. MMM, HH:mm", { locale: nb })}
                     </p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Users size={10} className="text-muted-foreground shrink-0" />
-                      <span className="text-[11px] text-muted-foreground">{r.participants.length} pers</span>
-                      <span className="text-[11px] text-muted-foreground">·</span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {format(new Date(r.created_at), "d. MMM, HH:mm", { locale: nb })}
-                      </span>
-                    </div>
                   </div>
                   <p className="font-heading text-sm font-bold text-foreground shrink-0">{r.total_cost} kr</p>
                   <ChevronRight size={14} className="text-muted-foreground shrink-0" />
@@ -77,9 +81,7 @@ export const RoundsScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Detail sheet */}
       <RoundDetailSheet round={detailRound} profiles={profiles} onClose={() => setDetailRound(null)} />
-
       <AddRoundSheet open={sheetOpen} onOpenChange={setSheetOpen} onSubmit={addRound} />
     </div>
   );
@@ -95,21 +97,18 @@ const RoundDetailSheet: React.FC<{
 
   const buyer = profiles[round.buyer_id];
   const buyerName = buyer?.nickname || buyer?.full_name || "Ukjent";
-  const DrinkIcon = DRINK_ICONS[round.drink_type] || Beer;
-  const drinkLabel = DRINK_LABELS[round.drink_type] || round.drink_type;
+  const qty = round.drink_quantities || {};
+  const hasQuantities = Object.values(qty).some((v) => v > 0);
 
   return (
     <Sheet open={!!round} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+      <SheetContent side="bottom" className="max-h-[75vh] rounded-t-2xl overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
         <SheetHeader>
-          <SheetTitle className="font-heading flex items-center gap-2">
-            <DrinkIcon size={18} className="text-primary" />
-            {drinkLabel}
-          </SheetTitle>
+          <SheetTitle className="font-heading">Rundedetaljer</SheetTitle>
         </SheetHeader>
 
         <div className="space-y-4 py-4">
-          {/* Summary */}
+          {/* Buyer + time */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 rounded-xl bg-muted/30 border border-border">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Spandert av</p>
@@ -126,11 +125,32 @@ const RoundDetailSheet: React.FC<{
               <p className="font-heading text-sm font-semibold text-foreground mt-1.5">
                 {format(new Date(round.created_at), "d. MMM yyyy", { locale: nb })}
               </p>
-              <p className="text-[11px] text-muted-foreground">
-                {format(new Date(round.created_at), "HH:mm", { locale: nb })}
-              </p>
+              <p className="text-[11px] text-muted-foreground">kl. {format(new Date(round.created_at), "HH:mm", { locale: nb })}</p>
             </div>
           </div>
+
+          {/* Drink quantities */}
+          {hasQuantities && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-1">Bestilling</p>
+              <div className="flex gap-2">
+                {Object.entries(qty).filter(([, v]) => v > 0).map(([key, val]) => {
+                  const meta = DRINK_META[key];
+                  if (!meta) return null;
+                  const Icon = meta.icon;
+                  return (
+                    <div key={key} className="flex items-center gap-2 p-2.5 rounded-xl border border-border bg-muted/20 flex-1">
+                      <Icon size={16} className="text-primary shrink-0" />
+                      <div>
+                        <p className="font-heading text-lg font-bold text-foreground leading-none">{val}</p>
+                        <p className="text-[10px] text-muted-foreground">{meta.label}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Cost breakdown */}
           <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
@@ -152,7 +172,7 @@ const RoundDetailSheet: React.FC<{
             </div>
           )}
 
-          {/* Participants list */}
+          {/* Participants */}
           <div>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 px-1">Deltakere</p>
             <div className="space-y-1">
