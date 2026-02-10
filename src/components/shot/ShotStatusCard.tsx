@@ -272,11 +272,19 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
         </div>
       )}
 
+      {/* Punished - ban applied */}
+      {event.status === "punished" && (
+        <div className="text-center py-2 space-y-1">
+          <p className="text-sm text-destructive font-medium">💀 Straff utdelt – 12 timers utestengelse</p>
+          <p className="text-xs text-muted-foreground">Kun admin kan fjerne utestengelsen</p>
+        </div>
+      )}
+
       {/* Overdue - shot not taken in time */}
       {isOverdue && (
         <div className="text-center py-2 space-y-1">
           <p className="text-sm text-destructive font-medium">Shotten ble ikke tatt innen fristen</p>
-          <p className="text-xs text-muted-foreground">Logget i statistikken</p>
+          <p className="text-xs text-muted-foreground">12 timers utestengelse ilagt</p>
         </div>
       )}
 

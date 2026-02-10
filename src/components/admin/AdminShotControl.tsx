@@ -9,7 +9,7 @@ import { DavosInput } from "@/components/ui/davos-input";
 import { DavosBadge } from "@/components/ui/davos-badge";
 import {
   Target, Coins, RefreshCw, RotateCcw, Loader2, Plus, Minus, Ticket,
-  AlertTriangle,
+  AlertTriangle, ShieldOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { AdminUser } from "./useAdminData";
@@ -128,8 +128,51 @@ export const AdminShotControl: React.FC<Props> = ({
     }
   };
 
+  const unbanShot = async (userId: string) => {
+    setActionLoading(`unban-${userId}`);
+    try {
+      const { error } = await supabase.rpc("rpc_admin_unban_shot", { p_user_id: userId });
+      if (error) throw error;
+      toast.success("Utestengelse fjernet");
+      onLogAction(currentUserId, "shot_unban", userId);
+      onRefreshUsers();
+    } catch (e: any) {
+      toast.error(e.message || "Feil");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Find banned users
+  const bannedUsers = users.filter(u => u.is_active && (u as any).shot_banned_until && new Date((u as any).shot_banned_until) > new Date());
+
   return (
     <div className="px-4 space-y-4 pb-6">
+      {/* Banned users */}
+      {bannedUsers.length > 0 && (
+        <DavosCard>
+          <DavosCardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <ShieldOff size={18} className="text-destructive" />
+              <h3 className="font-heading font-semibold text-foreground text-sm">Utestengte (Shot)</h3>
+            </div>
+            {bannedUsers.map(u => (
+              <div key={u.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{u.nickname || u.full_name || u.email}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Utestengt til {new Date((u as any).shot_banned_until).toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+                <DavosButton variant="outline" size="sm" onClick={() => unbanShot(u.id)}
+                  disabled={actionLoading === `unban-${u.id}`}>
+                  {actionLoading === `unban-${u.id}` ? <Loader2 size={14} className="animate-spin" /> : "Fjern ban"}
+                </DavosButton>
+              </div>
+            ))}
+          </DavosCardContent>
+        </DavosCard>
+      )}
       {/* Token adjustment */}
       <DavosCard>
         <DavosCardContent className="p-4 space-y-3">

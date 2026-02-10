@@ -56,7 +56,7 @@ export interface ShotLogEntry {
 
 export const ShotScreen: React.FC = () => {
   const { user, isAdmin } = useAuth();
-  const [tokens, setTokens] = React.useState<{ balance: number } | null>(null);
+  const [tokens, setTokens] = React.useState<{ balance: number; shot_banned_until?: string | null } | null>(null);
   const [activeEvent, setActiveEvent] = React.useState<ShotEvent | null>(null);
   const [logEntries, setLogEntries] = React.useState<ShotLogEntry[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -88,7 +88,7 @@ export const ShotScreen: React.FC = () => {
   // Load tokens
   const loadTokens = React.useCallback(async () => {
     const { data, error } = await supabase.rpc("rpc_get_shot_tokens");
-    if (!error && data) setTokens(data as { balance: number });
+    if (!error && data) setTokens(data as { balance: number; shot_banned_until?: string | null });
   }, []);
 
   // Load active event
@@ -331,9 +331,13 @@ export const ShotScreen: React.FC = () => {
     loadFrikort();
   }, [activeEvent, loadFrikort]);
 
-  // Allow pressing when no countdown is running — selected/confirmed events don't block new rounds
+  // Check ban status
+  const isBanned = tokens?.shot_banned_until && new Date(tokens.shot_banned_until) > new Date();
+  const banEndsAt = tokens?.shot_banned_until ? new Date(tokens.shot_banned_until) : null;
+
+  // Allow pressing when no countdown is running and not banned
   const isCountdownActive = activeEvent?.status === "countdown";
-  const canPress = !isCountdownActive && tokens && tokens.balance > 0 && !pressing;
+  const canPress = !isCountdownActive && !isBanned && tokens && tokens.balance > 0 && !pressing;
 
   return (
     <div
@@ -361,6 +365,13 @@ export const ShotScreen: React.FC = () => {
               <p className="text-xs text-muted-foreground mt-0.5">
                 🎫 {frikortCount} frikort
               </p>
+            )}
+            {isBanned && banEndsAt && (
+              <div className="mt-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
+                <p className="text-xs text-destructive font-medium">
+                  🚫 Utestengt til {banEndsAt.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
             )}
           </div>
 

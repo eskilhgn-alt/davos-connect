@@ -742,18 +742,21 @@ export type Database = {
         Row: {
           balance: number
           last_refill_at: string
+          shot_banned_until: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           balance?: number
           last_refill_at?: string
+          shot_banned_until?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           balance?: number
           last_refill_at?: string
+          shot_banned_until?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1471,6 +1474,7 @@ export type Database = {
         Args: { p_banned: boolean; p_reason?: string; p_user_id: string }
         Returns: Json
       }
+      rpc_admin_unban_shot: { Args: { p_user_id: string }; Returns: Json }
       rpc_apply_overdue: { Args: { p_event_id: string }; Returns: Json }
       rpc_apply_punishment_ban: { Args: { p_event_id: string }; Returns: Json }
       rpc_award_points: {
