@@ -600,6 +600,7 @@ export type Database = {
           buyer_id: string
           cost_per_person: number
           created_at: string
+          drink_quantities: Json
           drink_type: string
           id: string
           note: string | null
@@ -609,6 +610,7 @@ export type Database = {
           buyer_id: string
           cost_per_person?: number
           created_at?: string
+          drink_quantities?: Json
           drink_type: string
           id?: string
           note?: string | null
@@ -618,6 +620,7 @@ export type Database = {
           buyer_id?: string
           cost_per_person?: number
           created_at?: string
+          drink_quantities?: Json
           drink_type?: string
           id?: string
           note?: string | null
