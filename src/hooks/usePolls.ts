@@ -1,5 +1,6 @@
 /**
  * usePolls – Hook for polls CRUD, voting, and realtime updates
+ * Sends system messages to chat when polls are created/resolved
  */
 
 import * as React from "react";
@@ -7,6 +8,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
+
+const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
+const SYSTEM_SENDER_ID = "00000000-0000-0000-0000-000000000000";
+
+/** Posts a system message in the group chat */
+async function postSystemChatMessage(text: string) {
+  await supabase.from("messages").insert({
+    thread_id: DEFAULT_THREAD_ID,
+    sender_id: SYSTEM_SENDER_ID,
+    sender_name: "📊 Avstemming",
+    text,
+  });
+}
 
 export interface PollOption {
   id: string;
@@ -163,6 +177,14 @@ export function usePolls() {
     }
 
     toast.success("Avstemming opprettet!");
+
+    // Post system message in chat
+    const { data: prof } = await supabase.from("profiles").select("nickname, full_name").eq("id", user.id).single();
+    const creatorName = prof?.nickname || prof?.full_name || "Noen";
+    postSystemChatMessage(
+      `${creatorName} har startet en avstemming: "${question.trim()}"\n👉 Gå til Avstemminger for å stemme`
+    ).catch(console.warn);
+
     await fetchPolls();
     return poll.id;
   };
@@ -251,8 +273,18 @@ export function usePolls() {
       .update({ status: "resolved", resolved_at: new Date().toISOString(), winning_option_id: winnerId })
       .eq("id", pollId);
 
-    // Send resolved push
+    // Find winning option label
     const poll = polls.find((p) => p.id === pollId);
+    const winningOption = poll?.options.find(o => o.id === winnerId);
+
+    // Post result in chat
+    if (poll && winningOption) {
+      postSystemChatMessage(
+        `Avstemming avgjort: "${poll.question}"\n🏆 Resultat: ${winningOption.label}`
+      ).catch(console.warn);
+    }
+
+    // Send resolved push
     if (poll?.send_push_on_resolved) {
       supabase.functions.invoke("poll-push", {
         body: { poll_id: pollId, type: "resolved" },

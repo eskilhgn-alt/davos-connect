@@ -17,7 +17,6 @@ interface MessageItemProps {
   currentUserId: string;
   onShowActions: (message: Message) => void;
   onShowReactions: (reactions: Record<string, string[]>) => void;
-  onShowSeenBy: (message: Message) => void;
   onMediaTap?: (src: string, type: 'image' | 'video' | 'gif') => void;
 }
 
@@ -28,7 +27,6 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   currentUserId,
   onShowActions,
   onShowReactions,
-  onShowSeenBy,
   onMediaTap,
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
@@ -36,23 +34,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   const editRef = React.useRef<HTMLTextAreaElement>(null);
   const lastTapRef = React.useRef(0);
 
-  // Single tap → actions, double tap → seen-by
+  // Single tap → open combined actions sheet
   const handleBubbleTap = () => {
     if (message.deletedAt || isEditing) return;
-    const now = Date.now();
-    if (now - lastTapRef.current < 350) {
-      // Double tap → seen-by
-      onShowSeenBy(message);
-      lastTapRef.current = 0;
-    } else {
-      // Single tap → actions (delayed to detect double-tap)
-      lastTapRef.current = now;
-      setTimeout(() => {
-        if (lastTapRef.current === now) {
-          onShowActions(message);
-        }
-      }, 350);
-    }
+    onShowActions(message);
   };
 
   // Format time
