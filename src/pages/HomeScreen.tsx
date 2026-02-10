@@ -7,6 +7,10 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { HomeDashboard } from "@/components/home/HomeDashboard";
+import { StoryRing } from "@/components/stories/StoryRing";
+import { StoryViewer } from "@/components/stories/StoryViewer";
+import { StoryCapture } from "@/components/stories/StoryCapture";
+import { useStories } from "@/hooks/useStories";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppBadges } from "@/hooks/useAppBadges";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
@@ -36,8 +40,17 @@ interface TileItem {
 export const HomeScreen: React.FC = () => {
   const { profile, isAdmin, signOut } = useAuth();
   const badges = useAppBadges();
+  const { groups, loading: storiesLoading, refetch: refetchStories, markViewed } = useStories();
 
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const [viewerOpen, setViewerOpen] = React.useState(false);
+  const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
+  const [captureOpen, setCaptureOpen] = React.useState(false);
+
+  const openStory = (groupIndex: number) => {
+    setViewerGroupIdx(groupIndex);
+    setViewerOpen(true);
+  };
 
   const tiles: TileItem[] = React.useMemo(() => {
     const base: TileItem[] = [
@@ -82,6 +95,14 @@ export const HomeScreen: React.FC = () => {
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="px-4 pt-4 pb-10 space-y-5">
+          {/* Stories widget */}
+          <StoryRing
+            groups={groups}
+            loading={storiesLoading}
+            onAddStory={() => setCaptureOpen(true)}
+            onOpenStory={openStory}
+          />
+
           {/* Mini dashboard */}
           <HomeDashboard refreshKey={refreshKey} />
 
@@ -113,6 +134,29 @@ export const HomeScreen: React.FC = () => {
           </nav>
         </div>
       </PullToRefreshWrapper>
+      {/* Story Viewer */}
+      {viewerOpen && groups.length > 0 && (
+        <StoryViewer
+          groups={groups}
+          initialGroupIndex={viewerGroupIdx}
+          onClose={() => {
+            setViewerOpen(false);
+            refetchStories();
+          }}
+          onViewed={markViewed}
+        />
+      )}
+
+      {/* Story Capture */}
+      {captureOpen && (
+        <StoryCapture
+          onClose={() => setCaptureOpen(false)}
+          onPublished={() => {
+            setCaptureOpen(false);
+            refetchStories();
+          }}
+        />
+      )}
     </div>
   );
 };

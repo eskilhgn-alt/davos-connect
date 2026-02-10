@@ -234,12 +234,6 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
             />
           ))}
         </div>
-        {showingPreloadedVideo && (
-          <button onClick={() => setShowSnapshot(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 backdrop-blur-sm text-white text-xs rounded-full hover:bg-white/30 transition-colors">
-            <Image size={14} /> Stillbilde
-          </button>
-        )}
         <p className="text-[10px] text-white/30 sm:hidden">Sveip for å bytte kamera</p>
       </div>
     </div>
