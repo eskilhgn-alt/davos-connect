@@ -9,7 +9,7 @@ import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosEmptyState } from "@/components/ui/davos-empty-state";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Beer, Wine, Zap, Plus, Users, ChevronRight, Receipt } from "lucide-react";
+import { Beer, Wine, Plus, Users, ChevronRight, Receipt, Gift } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -19,7 +19,6 @@ import type { Round, DrinkQuantities } from "@/hooks/useRounds";
 const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
   beer: { icon: Beer, label: "Øl" },
   drink: { icon: Wine, label: "Drinker" },
-  shots: { icon: Zap, label: "Shots" },
 };
 
 /** Build a short summary like "3 øl, 2 shots" */
@@ -27,7 +26,6 @@ const drinkSummary = (q: DrinkQuantities): string => {
   const parts: string[] = [];
   if (q.beer) parts.push(`${q.beer} øl`);
   if (q.drink) parts.push(`${q.drink} drink`);
-  if (q.shots) parts.push(`${q.shots} shots`);
   return parts.length > 0 ? parts.join(", ") : "–";
 };
 
@@ -69,7 +67,7 @@ export const RoundsScreen: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <p className="font-heading text-sm font-semibold text-foreground truncate">{buyerName}</p>
                     <p className="text-[11px] text-muted-foreground truncate">
-                      {summary} · {r.participants.length} pers · {format(new Date(r.created_at), "d. MMM, HH:mm", { locale: nb })}
+                      {summary} · {r.participants.length} pers · {r.is_treated ? "🎁 Spandert" : "Lagt ut"} · {format(new Date(r.created_at), "d. MMM, HH:mm", { locale: nb })}
                     </p>
                   </div>
                   <p className="font-heading text-sm font-bold text-foreground shrink-0">{r.total_cost} kr</p>
@@ -111,7 +109,9 @@ const RoundDetailSheet: React.FC<{
           {/* Buyer + time */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 rounded-xl bg-muted/30 border border-border">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Spandert av</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                {round.is_treated ? "Spandert av" : "Lagt ut av"}
+              </p>
               <div className="flex items-center gap-2 mt-1.5">
                 <Avatar className="h-6 w-6">
                   {buyer?.avatar_url ? <AvatarImage src={buyer.avatar_url} /> : null}
@@ -152,16 +152,29 @@ const RoundDetailSheet: React.FC<{
             </div>
           )}
 
+          {/* Spandert/Lagt ut badge */}
+          <div className={cn(
+            "flex items-center gap-2.5 p-3 rounded-xl border",
+            round.is_treated ? "bg-primary/5 border-primary/20" : "bg-muted/20 border-border"
+          )}>
+            <Gift size={16} className={round.is_treated ? "text-primary" : "text-muted-foreground"} />
+            <p className="text-sm font-medium text-foreground">
+              {round.is_treated ? "🎁 Spandert – ingen spleis" : "Lagt ut – deles på alle"}
+            </p>
+          </div>
+
           {/* Cost breakdown */}
           <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
             <div className="flex justify-between items-center">
               <p className="text-sm text-foreground">Totalt</p>
               <p className="font-heading text-lg font-bold text-foreground">{round.total_cost} kr</p>
             </div>
-            <div className="flex justify-between items-center mt-1">
-              <p className="text-sm text-muted-foreground">Per person ({round.participants.length} stk)</p>
-              <p className="font-heading text-sm font-semibold text-foreground">{round.cost_per_person} kr</p>
-            </div>
+            {!round.is_treated && (
+              <div className="flex justify-between items-center mt-1">
+                <p className="text-sm text-muted-foreground">Per person ({round.participants.length} stk)</p>
+                <p className="font-heading text-sm font-semibold text-foreground">{round.cost_per_person} kr</p>
+              </div>
+            )}
           </div>
 
           {/* Note */}
