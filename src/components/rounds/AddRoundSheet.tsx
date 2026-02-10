@@ -7,7 +7,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { DavosInput } from "@/components/ui/davos-input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Beer, Wine, Zap, Loader2, Minus, Plus, Camera, ImageIcon, X } from "lucide-react";
+import { Beer, Wine, Loader2, Minus, Plus, Camera, ImageIcon, X, Gift } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,7 +24,6 @@ interface Profile {
 const DRINK_TYPES = [
   { key: "beer", label: "Øl", icon: Beer },
   { key: "drink", label: "Drinker", icon: Wine },
-  { key: "shots", label: "Shots", icon: Zap },
 ] as const;
 
 export type DrinkQuantities = Record<string, number>;
@@ -39,7 +39,8 @@ interface Props {
     participantIds: string[],
     note?: string,
     drinkQuantities?: DrinkQuantities,
-    receiptImageUrl?: string
+    receiptImageUrl?: string,
+    isTreated?: boolean
   ) => Promise<{ error: any }>;
 }
 
@@ -47,7 +48,8 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
   const { user } = useAuth();
   const [allProfiles, setAllProfiles] = React.useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = React.useState<Set<string>>(new Set());
-  const [quantities, setQuantities] = React.useState<DrinkQuantities>({ beer: 0, drink: 0, shots: 0 });
+  const [quantities, setQuantities] = React.useState<DrinkQuantities>({ beer: 0, drink: 0 });
+  const [isTreated, setIsTreated] = React.useState(false);
   const [totalCost, setTotalCost] = React.useState("");
   const [note, setNote] = React.useState("");
   const [receiptFile, setReceiptFile] = React.useState<File | null>(null);
@@ -61,7 +63,8 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
       if (data) setAllProfiles(data);
     });
     setSelectedUsers(new Set());
-    setQuantities({ beer: 0, drink: 0, shots: 0 });
+    setQuantities({ beer: 0, drink: 0 });
+    setIsTreated(false);
     setTotalCost("");
     setNote("");
     setReceiptFile(null);
@@ -141,7 +144,8 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
       Array.from(selectedUsers),
       note || undefined,
       quantities,
-      receiptUrl
+      receiptUrl,
+      isTreated
     );
     setSubmitting(false);
     if (error) {
@@ -203,6 +207,20 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
             {totalDrinks > 0 && (
               <p className="text-xs text-muted-foreground px-1">{totalDrinks} drikke totalt</p>
             )}
+          </div>
+
+          {/* Spandert toggle */}
+          <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-full bg-primary/15 text-primary flex items-center justify-center">
+                <Gift size={16} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Spandert</p>
+                <p className="text-[11px] text-muted-foreground">{isTreated ? "Runden er spandert 🎁" : "Lagt ut – deles på alle"}</p>
+              </div>
+            </div>
+            <Switch checked={isTreated} onCheckedChange={setIsTreated} />
           </div>
 
           {/* Cost */}

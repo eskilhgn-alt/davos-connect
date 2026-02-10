@@ -603,6 +603,7 @@ export type Database = {
           drink_quantities: Json
           drink_type: string
           id: string
+          is_treated: boolean
           note: string | null
           receipt_image_url: string | null
           total_cost: number
@@ -614,6 +615,7 @@ export type Database = {
           drink_quantities?: Json
           drink_type: string
           id?: string
+          is_treated?: boolean
           note?: string | null
           receipt_image_url?: string | null
           total_cost?: number
@@ -625,6 +627,7 @@ export type Database = {
           drink_quantities?: Json
           drink_type?: string
           id?: string
+          is_treated?: boolean
           note?: string | null
           receipt_image_url?: string | null
           total_cost?: number
