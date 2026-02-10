@@ -33,9 +33,6 @@ export const AgendaScreen: React.FC = () => {
   const [selectedHour, setSelectedHour] = React.useState<number>(12);
   const [editEvent, setEditEvent] = React.useState<AgendaEvent | null>(null);
 
-  // Double-tap to create event (replaces long-press for PWA compatibility)
-  const lastTapRef = React.useRef<{ day: string; hour: number; time: number } | null>(null);
-
   // Auto-scroll to 08:00 on mount / week change
   React.useEffect(() => {
     if (scrollRef.current) {
@@ -48,20 +45,20 @@ export const AgendaScreen: React.FC = () => {
     [weekStart]
   );
 
+  // Single-tap on empty cell to create event (no double-tap delay)
   const handleCellTap = (day: Date, hour: number) => {
-    const now = Date.now();
-    const key = `${day.toISOString()}-${hour}`;
-    if (lastTapRef.current && lastTapRef.current.day === key && now - lastTapRef.current.time < 350) {
-      // Double tap → create event
-      setSelectedDate(day);
-      setSelectedHour(hour);
-      setEditEvent(null);
-      setDialogOpen(true);
-      if (navigator.vibrate) navigator.vibrate(10);
-      lastTapRef.current = null;
-    } else {
-      lastTapRef.current = { day: key, hour, time: now };
-    }
+    // Check if there are already events at this hour – if so, don't open create
+    const existingEvents = events.filter((ev) => {
+      const s = new Date(ev.start_at);
+      return isSameDay(s, day) && s.getHours() === hour;
+    });
+    if (existingEvents.length > 0) return; // Let the event chip handle the tap
+    
+    setSelectedDate(day);
+    setSelectedHour(hour);
+    setEditEvent(null);
+    setDialogOpen(true);
+    if (navigator.vibrate) navigator.vibrate(10);
   };
 
   const handleEventTap = (ev: AgendaEvent) => {

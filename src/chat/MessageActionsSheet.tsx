@@ -117,6 +117,8 @@ export const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',
           maxHeight: '70vh',
+          touchAction: 'none',
+          WebkitTapHighlightColor: 'transparent',
         }}
       >
         {/* Quick reactions */}
