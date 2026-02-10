@@ -13,11 +13,9 @@ import { ShotButton } from "@/components/shot/ShotButton";
 import { ShotStatusCard } from "@/components/shot/ShotStatusCard";
 import { ShotEventFeed } from "@/components/shot/ShotEventFeed";
 import { ShotLeaderboard } from "@/components/shot/ShotLeaderboard";
-import { ShotTokenOverview } from "@/components/shot/ShotTokenOverview";
 import { ShotTransparency } from "@/components/shot/ShotTransparency";
 import { ShotHistory } from "@/components/shot/ShotHistory";
 import { SkiVerticalCard } from "@/components/ski/SkiVerticalCard";
-import { SkiSpeedLeaderboard } from "@/components/ski/SkiSpeedLeaderboard";
 import { SkiAwardClaimDialog } from "@/components/ski/SkiAwardClaimDialog";
 import { useSkiTracker } from "@/hooks/useSkiTracker";
 import { toast } from "sonner";
@@ -393,12 +391,6 @@ export const ShotScreen: React.FC = () => {
 
           {/* Ski vertical meters */}
           <SkiVerticalCard />
-
-          {/* Speed leaderboard */}
-          <SkiSpeedLeaderboard />
-
-          {/* Token overview */}
-          <ShotTokenOverview />
 
           {/* Leaderboard */}
           <ShotLeaderboard groupId={GROUP_ID} />
