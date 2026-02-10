@@ -37,7 +37,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { buyer_id, drink_type, participant_ids } = await req.json();
+    const { buyer_id, drink_type, participant_ids, drink_quantities } = await req.json();
 
     if (!buyer_id || !participant_ids?.length) {
       return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -49,8 +49,16 @@ serve(async (req) => {
     const { data: buyerProfile } = await supabase.from("profiles").select("nickname, full_name").eq("id", buyer_id).single();
     const buyerName = buyerProfile?.nickname || buyerProfile?.full_name || "Noen";
 
+    // Build drink summary from quantities
     const drinkLabels: Record<string, string> = { beer: "øl", drink: "drinker", shots: "shots" };
-    const drinkLabel = drinkLabels[drink_type] || drink_type;
+    let drinkSummary = drinkLabels[drink_type] || drink_type;
+    if (drink_quantities && typeof drink_quantities === "object") {
+      const parts: string[] = [];
+      if (drink_quantities.beer) parts.push(`${drink_quantities.beer} øl`);
+      if (drink_quantities.drink) parts.push(`${drink_quantities.drink} drinker`);
+      if (drink_quantities.shots) parts.push(`${drink_quantities.shots} shots`);
+      if (parts.length > 0) drinkSummary = parts.join(", ");
+    }
 
     // Only notify participants (not the buyer)
     const recipientIds = participant_ids.filter((id: string) => id !== buyer_id);
@@ -71,7 +79,7 @@ serve(async (req) => {
       include_aliases: { external_id: externalUserIds },
       target_channel: "push",
       headings: { en: "🍻 Ny runde!" },
-      contents: { en: `${buyerName} spanderer ${drinkLabel}!` },
+      contents: { en: `${buyerName} spanderer ${drinkSummary}!` },
       url: "https://davos-joy-connect.lovable.app/runder",
       ios_badgeType: "Increase",
       ios_badgeCount: 1,
