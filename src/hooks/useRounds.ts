@@ -122,7 +122,7 @@ export function useRounds() {
 
     try {
       await supabase.functions.invoke("round-push", {
-        body: { round_id: round.id, buyer_id: buyerId, drink_type: drinkType, participant_ids: participantIds },
+        body: { round_id: round.id, buyer_id: buyerId, drink_type: drinkType, participant_ids: participantIds, drink_quantities: drinkQuantities || {} },
       });
     } catch (e) {
       console.warn("Push failed:", e);
