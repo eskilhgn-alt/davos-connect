@@ -80,28 +80,21 @@ export const ShotLeaderboard: React.FC<ShotLeaderboardProps> = ({ groupId }) => 
         </p>
       ) : (
         <div className="space-y-0">
-          {/* Header */}
-          <div className="grid grid-cols-7 gap-1 text-[10px] text-muted-foreground font-medium px-2 pb-1">
-            <span className="col-span-2">Navn</span>
-            <span className="text-center" title="Trukket">🎯</span>
-            <span className="text-center" title="Bekreftet">✅</span>
-            <span className="text-center" title="Straffet">💀</span>
-            <span className="text-center" title="Startet runder">🔴</span>
-            <span className="text-center" title="Vitnebekreftelser">👁</span>
-          </div>
           {data.map((entry, i) => (
             <div
               key={entry.user_id}
-              className="grid grid-cols-7 gap-1 items-center py-2 px-2 border-b border-border last:border-0"
+              className="py-3 px-2 border-b border-border last:border-0"
             >
-              <span className="col-span-2 text-sm font-medium text-foreground truncate">
+              <p className="text-sm font-medium text-foreground mb-1.5">
                 {i + 1}. {entry.display_name}
-              </span>
-              <span className="text-center text-sm tabular-nums">{entry.times_selected}</span>
-              <span className="text-center text-sm tabular-nums">{entry.times_confirmed}</span>
-              <span className="text-center text-sm tabular-nums">{entry.times_punished}</span>
-              <span className="text-center text-sm tabular-nums">{entry.times_started}</span>
-              <span className="text-center text-sm tabular-nums">{entry.times_witnessed}</span>
+              </p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                <span>🎯 Trukket ut: <strong className="text-foreground">{entry.times_selected}</strong></span>
+                <span>✅ Bekreftet: <strong className="text-foreground">{entry.times_confirmed}</strong></span>
+                <span>💀 Straffet: <strong className="text-foreground">{entry.times_punished}</strong></span>
+                <span>🔴 Startet runder: <strong className="text-foreground">{entry.times_started}</strong></span>
+                <span>👁 Vært vitne: <strong className="text-foreground">{entry.times_witnessed}</strong></span>
+              </div>
             </div>
           ))}
         </div>
