@@ -11,11 +11,9 @@ import { cn } from '@/lib/utils';
 import type { Message } from './types';
 import { MessageItem } from './MessageItem';
 import { TypingBubble } from './TypingBubble';
-import { ReactionBar } from './ReactionBar';
 import { ReactionsDialog } from './ReactionsDialog';
 import { MessageActionsSheet } from './MessageActionsSheet';
 import { EmojiPicker } from './EmojiPicker';
-import { SeenBySheet } from './SeenBySheet';
 import { MediaViewer } from '@/components/ui/MediaViewer';
 import { chatStore } from './store';
 import { useMarkAsRead } from './useMarkAsRead';
@@ -70,13 +68,10 @@ export const MessageList: React.FC<MessageListProps> = ({
   // UI state
   const [activeMessage, setActiveMessage] = React.useState<Message | null>(null);
   const [showActionsSheet, setShowActionsSheet] = React.useState(false);
-  const [showReactionBar, setShowReactionBar] = React.useState(false);
   const [showReactionsDialog, setShowReactionsDialog] = React.useState(false);
   const [reactionsToShow, setReactionsToShow] = React.useState<Record<string, string[]>>({});
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const [emojiPickerMode, setEmojiPickerMode] = React.useState<'reaction' | 'compose'>('reaction');
-  const [showSeenBySheet, setShowSeenBySheet] = React.useState(false);
-  const [seenByMessageId, setSeenByMessageId] = React.useState<string | null>(null);
   const [viewerMedia, setViewerMedia] = React.useState<{ src: string; type: 'image' | 'video' | 'gif' } | null>(null);
 
   // Check if near bottom
@@ -90,7 +85,7 @@ export const MessageList: React.FC<MessageListProps> = ({
     return nearBottom;
   }, []);
 
-  // Scroll to bottom using scrollTop for reliability
+  // Scroll to bottom
   const scrollToBottom = React.useCallback((smooth = true) => {
     const el = scrollRef.current;
     if (!el) return;
@@ -101,18 +96,14 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, []);
 
-  // Track if initial scroll has happened
   const hasInitialScrolled = React.useRef(false);
 
-  // Initial scroll - wait for messages to be available
   React.useEffect(() => {
     if (messages.length > 0 && !hasInitialScrolled.current) {
       hasInitialScrolled.current = true;
-      // Use double rAF to ensure DOM is fully rendered, then a small timeout fallback
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           scrollToBottom(false);
-          // Safety fallback after images may have loaded
           setTimeout(() => scrollToBottom(false), 100);
           setTimeout(() => scrollToBottom(false), 500);
         });
@@ -120,14 +111,12 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages.length, scrollToBottom]);
 
-  // Always scroll to bottom on mount (even re-mount / navigation back)
   React.useEffect(() => {
     hasInitialScrolled.current = false;
     requestAnimationFrame(() => scrollToBottom(false));
     setTimeout(() => scrollToBottom(false), 200);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-scroll on new messages if near bottom
   React.useEffect(() => {
     if (!hasInitialScrolled.current) return;
     if (isNearBottomRef.current) {
@@ -135,30 +124,22 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages.length, scrollToBottom]);
 
-  // Handle showing actions
+  // Handle showing combined actions sheet (single tap)
   const handleShowActions = React.useCallback((message: Message) => {
     setActiveMessage(message);
     setShowActionsSheet(true);
   }, []);
 
-  // Handle showing reactions dialog
+  // Handle showing reactions dialog (tap on reaction pills)
   const handleShowReactions = React.useCallback((reactions: Record<string, string[]>) => {
     setReactionsToShow(reactions);
     setShowReactionsDialog(true);
   }, []);
 
-  // Handle showing seen-by sheet
-  const handleShowSeenBy = React.useCallback((message: Message) => {
-    setSeenByMessageId(message.id);
-    setShowSeenBySheet(true);
-  }, []);
-
-  // Mark messages as read when they become visible (effect on each render)
+  // Mark messages as read
   React.useEffect(() => {
     if (!user) return;
-    
-    // Mark recent messages from others as read
-    const recentMessages = messages.slice(-20); // Last 20 messages
+    const recentMessages = messages.slice(-20);
     recentMessages.forEach((msg) => {
       if (msg.senderId !== user.id && !msg.deletedAt) {
         markAsRead(msg.id, msg.senderId);
@@ -166,23 +147,16 @@ export const MessageList: React.FC<MessageListProps> = ({
     });
   }, [messages, user, markAsRead]);
 
-  // Handle reaction from bar
+  // Handle reaction from combined sheet
   const handleReact = React.useCallback((emoji: string) => {
     if (activeMessage) {
       chatStore.toggleReaction(activeMessage.id, emoji);
     }
-    setShowReactionBar(false);
+    setShowActionsSheet(false);
     setActiveMessage(null);
   }, [activeMessage]);
 
-  // Handle opening emoji picker for reaction
-  const handleOpenReactionPicker = React.useCallback(() => {
-    setEmojiPickerMode('reaction');
-    setShowReactionBar(false);
-    setShowEmojiPicker(true);
-  }, []);
-
-  // Handle emoji selection
+  // Handle emoji selection from full picker
   const handleEmojiSelect = React.useCallback((emoji: string) => {
     if (emojiPickerMode === 'reaction' && activeMessage) {
       chatStore.toggleReaction(activeMessage.id, emoji);
@@ -191,14 +165,12 @@ export const MessageList: React.FC<MessageListProps> = ({
     setActiveMessage(null);
   }, [activeMessage, emojiPickerMode]);
 
-  // Handle actions from sheet
+  // Handle actions
   const handleEdit = React.useCallback(() => {
     const msgId = activeMessage?.id;
     setShowActionsSheet(false);
     setActiveMessage(null);
-    
     if (msgId) {
-      // Trigger edit mode via window function (after state cleanup)
       requestAnimationFrame(() => {
         const editFn = (window as unknown as Record<string, () => void>)[`editMessage_${msgId}`];
         if (editFn) editFn();
@@ -210,22 +182,17 @@ export const MessageList: React.FC<MessageListProps> = ({
     const msgId = activeMessage?.id;
     setShowActionsSheet(false);
     setActiveMessage(null);
-    
-    if (msgId) {
-      chatStore.deleteMessage(msgId);
-    }
+    if (msgId) chatStore.deleteMessage(msgId);
   }, [activeMessage]);
 
   const handleCopy = React.useCallback(async () => {
     const text = activeMessage?.text;
     setShowActionsSheet(false);
     setActiveMessage(null);
-    
     if (text) {
       try {
         await navigator.clipboard.writeText(text);
       } catch {
-        // Fallback for older browsers
         const textarea = document.createElement('textarea');
         textarea.value = text;
         document.body.appendChild(textarea);
@@ -236,18 +203,11 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [activeMessage]);
 
-  const handleShowReactionBar = React.useCallback(() => {
-    // Keep activeMessage intact for reaction bar
-    setShowActionsSheet(false);
-    setShowReactionBar(true);
-  }, []);
-
   // Get user name for reactions dialog
-  const getUserName = React.useCallback((userId: string) => {
+  const getUserName = React.useCallback((uid: string) => {
     const currentUser = chatStore.getUser();
-    if (userId === currentUser.id) return 'Du';
-    // Find in messages
-    const msg = messages.find(m => m.senderId === userId);
+    if (uid === currentUser.id) return 'Du';
+    const msg = messages.find(m => m.senderId === uid);
     return msg?.senderName || 'Ukjent';
   }, [messages]);
 
@@ -260,10 +220,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         ref={scrollRef}
         onScroll={checkNearBottom}
         className="h-full overflow-y-auto overscroll-contain"
-        style={{
-          paddingBottom,
-          WebkitOverflowScrolling: 'touch',
-        }}
+        style={{ paddingBottom, WebkitOverflowScrolling: 'touch' }}
       >
         <div className="py-4">
           {groups.length === 0 && (
@@ -275,47 +232,38 @@ export const MessageList: React.FC<MessageListProps> = ({
 
           {groups.map((group) => (
             <div key={group.date}>
-              {/* Date separator */}
               <div className="flex justify-center py-3">
                 <span className="px-3 py-1 text-xs font-medium text-muted-foreground bg-muted rounded-full">
                   {formatDateSeparator(group.messages[0].createdAt)}
                 </span>
               </div>
 
-              {/* Messages */}
               {group.messages.map((msg, idx) => {
                 const isOwn = msg.senderId === currentUserId;
                 const prevMsg = idx > 0 ? group.messages[idx - 1] : null;
                 const showSender = !prevMsg || prevMsg.senderId !== msg.senderId;
 
-                  return (
-                    <MessageItem
-                      key={msg.id}
-                      message={msg}
-                      isOwn={isOwn}
-                      showSender={showSender}
-                      currentUserId={currentUserId}
-                      onShowActions={handleShowActions}
-                      onShowReactions={handleShowReactions}
-                      onShowSeenBy={handleShowSeenBy}
-                    />
-                  );
-                })}
-
+                return (
+                  <MessageItem
+                    key={msg.id}
+                    message={msg}
+                    isOwn={isOwn}
+                    showSender={showSender}
+                    currentUserId={currentUserId}
+                    onShowActions={handleShowActions}
+                    onShowReactions={handleShowReactions}
+                  />
+                );
+              })}
             </div>
           ))}
 
-          {/* Typing indicator - only show when near bottom */}
-          {isTyping && isNearBottomRef.current && (
-            <TypingBubble />
-          )}
+          {isTyping && isNearBottomRef.current && <TypingBubble />}
         </div>
-
-        {/* Scroll anchor */}
         <div ref={bottomRef} />
       </div>
 
-      {/* Jump to bottom button */}
+      {/* Jump to bottom */}
       {showJump && (
         <button
           type="button"
@@ -332,14 +280,15 @@ export const MessageList: React.FC<MessageListProps> = ({
         </button>
       )}
 
-      {/* Actions Sheet */}
+      {/* Combined Actions Sheet (reactions + seen-by + actions) */}
       {showActionsSheet && activeMessage && (
         <MessageActionsSheet
+          messageId={activeMessage.id}
           isOwn={activeMessage.senderId === currentUserId}
           onEdit={activeMessage.senderId === currentUserId ? handleEdit : undefined}
           onDelete={activeMessage.senderId === currentUserId ? handleDelete : undefined}
           onCopy={handleCopy}
-          onReact={handleShowReactionBar}
+          onReact={handleReact}
           onClose={() => {
             setShowActionsSheet(false);
             setActiveMessage(null);
@@ -347,20 +296,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         />
       )}
 
-      {/* Reaction Bar */}
-      {showReactionBar && activeMessage && (
-        <ReactionBar
-          onReact={handleReact}
-          onOpenPicker={handleOpenReactionPicker}
-          onClose={() => {
-            setShowReactionBar(false);
-            setActiveMessage(null);
-          }}
-          position="bottom"
-        />
-      )}
-
-      {/* Reactions Dialog */}
+      {/* Reactions Dialog (tap on reaction pills under message) */}
       {showReactionsDialog && (
         <ReactionsDialog
           reactions={reactionsToShow}
@@ -376,17 +312,6 @@ export const MessageList: React.FC<MessageListProps> = ({
           onClose={() => {
             setShowEmojiPicker(false);
             setActiveMessage(null);
-          }}
-        />
-      )}
-
-      {/* Seen By Sheet */}
-      {showSeenBySheet && seenByMessageId && (
-        <SeenBySheet
-          messageId={seenByMessageId}
-          onClose={() => {
-            setShowSeenBySheet(false);
-            setSeenByMessageId(null);
           }}
         />
       )}
