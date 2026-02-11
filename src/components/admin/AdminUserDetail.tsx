@@ -335,6 +335,31 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                 <StickyNote size={14} className="mr-1" /> Notater
               </DavosButton>
 
+              {/* Manual email verification */}
+              {!u.email_verified && (
+                <DavosButton
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    setLoading("verify");
+                    try {
+                      const { error } = await supabase.from("profiles").update({ email_verified: true }).eq("id", u.id);
+                      if (error) throw error;
+                      toast.success("E-post manuelt verifisert");
+                      onLogAction(currentUserId, "email_manually_verified", u.id);
+                      onRefresh();
+                    } catch (e: any) {
+                      errorToast("Kunne ikke verifisere", { description: e.message });
+                    } finally { setLoading(null); }
+                  }}
+                  disabled={loading === "verify"}
+                  className="border-green-500/30 text-green-600 hover:bg-green-500/10"
+                >
+                  {loading === "verify" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Mail size={14} className="mr-1" />}
+                  Verifiser e-post
+                </DavosButton>
+              )}
+
               {/* Delete user – full removal */}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
