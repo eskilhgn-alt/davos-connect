@@ -34,7 +34,7 @@ type AuthMode = "login" | "signup" | "forgot" | "onboarding" | "verify-email" | 
 export const AuthScreen: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, profile, signIn, signUp, signOut, updateProfile, isLoading } = useAuth();
+  const { user, profile, signIn, signUp, signOut, updateProfile, isLoading, isProfileLoading, refreshProfile } = useAuth();
   
   const [mode, setMode] = React.useState<AuthMode>(() => {
     if (searchParams.get("mode") === "signup") return "signup";
@@ -55,14 +55,26 @@ export const AuthScreen: React.FC = () => {
   const { isLocked, remainingLockSeconds, recordAttempt, attempts } = useAuthRateLimit();
 
   React.useEffect(() => {
-    if (user && profile?.email_verified === false) {
+    // Don't act while profile is still loading
+    if (!user || isProfileLoading) return;
+
+    if (profile === null) {
+      // User is logged in but no profile exists (trigger may have failed or account was cleaned up).
+      // Try refreshing once; if still null after a short delay, show onboarding so they can create one.
+      const timer = setTimeout(async () => {
+        await refreshProfile();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+
+    if (profile.email_verified === false) {
       setMode("awaiting-admin");
-    } else if (user && profile?.full_name && profile?.nickname && profile?.avatar_url && profile?.email_verified !== false) {
+    } else if (profile.full_name && profile.nickname && profile.avatar_url) {
       navigate("/");
-    } else if (user && profile && profile.email_verified !== false && (!profile?.full_name || !profile?.nickname || !profile?.avatar_url)) {
+    } else {
       setMode("onboarding");
     }
-  }, [user, profile, navigate]);
+  }, [user, profile, isProfileLoading, navigate, refreshProfile]);
 
   // Clean up preview URL
   React.useEffect(() => {
@@ -179,7 +191,7 @@ export const AuthScreen: React.FC = () => {
     setIsSubmitting(false);
   };
 
-  if (isLoading) {
+  if (isLoading || (user && isProfileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
