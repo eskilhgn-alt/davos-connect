@@ -16,13 +16,13 @@ import { MAPS } from "@/config/liveInfo";
 type MapSubTab = "interaktiv" | "nord" | "syd";
 
 const MAP_TABS = [
-  { value: "interaktiv", label: "Interaktiv" },
   { value: "nord", label: "Nord" },
   { value: "syd", label: "Sør" },
+  { value: "interaktiv", label: "Interaktiv" },
 ];
 
 export const MapScreen: React.FC = () => {
-  const [mapSubTab, setMapSubTab] = React.useState<MapSubTab>("interaktiv");
+  const [mapSubTab, setMapSubTab] = React.useState<MapSubTab>("nord");
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   const currentMap = MAPS[mapSubTab];

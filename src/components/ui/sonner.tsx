@@ -10,8 +10,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
-      position="top-center"
+      position="bottom-center"
       closeButton
+      // @ts-ignore - swipe down to dismiss
+      swipeDirections={["down"]}
       toastOptions={{
         classNames: {
           toast:
