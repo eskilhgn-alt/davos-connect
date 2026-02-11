@@ -57,3 +57,6 @@ verify_jwt = false
 
 [functions.admin-delete-user]
 verify_jwt = false
+
+[functions.broadcast-reinstall]
+verify_jwt = false
