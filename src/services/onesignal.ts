@@ -72,7 +72,16 @@ function loadOneSignalSDK(): Promise<void> {
  * Initialize OneSignal
  */
 export async function initOneSignal(userId: string): Promise<void> {
-  if (isInitialized) return;
+  if (isInitialized) {
+    console.log("[OneSignal] Already initialized, skipping");
+    return;
+  }
+  if (window.OneSignal && (window.OneSignal as any).__initialized) {
+    console.log("[OneSignal] SDK already initialized externally, reusing");
+    oneSignalInstance = window.OneSignal;
+    isInitialized = true;
+    return;
+  }
   if (!ONESIGNAL_APP_ID) {
     console.error("OneSignal App ID not configured. VITE_ONESIGNAL_APP_ID is:", ONESIGNAL_APP_ID);
     throw new Error("OneSignal App ID mangler. Sjekk at VITE_ONESIGNAL_APP_ID er konfigurert.");
