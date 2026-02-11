@@ -9,7 +9,7 @@ import { AppLayout } from "@/components/layout";
 import { ChatLayout } from "@/layouts/ChatLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
-import { prefetchWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
+
 import { errorToast } from "@/utils/errorToast";
 
 import ChatScreen from "./pages/ChatScreen";
@@ -41,8 +41,7 @@ import VerifyEmailScreen from "./pages/VerifyEmailScreen";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
-// Start fetching weather AI data immediately on app load
-prefetchWeatherAiSummary();
+// Weather prefetch is triggered in AuthContext when user is authenticated
 
 const queryClient = new QueryClient();
 
