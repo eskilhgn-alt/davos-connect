@@ -15,7 +15,7 @@ export interface GeoPosition {
 
 const CACHE_KEY = "geo-position";
 const CACHE_TTL = 5 * 60 * 1000;
-const POLL_INTERVAL = 10_000; // 10s – more frequent for real-time tracking
+const POLL_INTERVAL = 30_000; // 30s – balances accuracy vs battery
 
 function getCached(): GeoPosition | null {
   try {
