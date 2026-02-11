@@ -9,7 +9,8 @@ import { DavosButton } from "@/components/ui/davos-button";
 import { DavosInput } from "@/components/ui/davos-input";
 import { DavosAvatar } from "@/components/ui/davos-avatar";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Loader2, Camera } from "lucide-react";
+import { ArrowLeft, Loader2, Camera, Check } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
 
@@ -42,6 +43,7 @@ export const AuthScreen: React.FC = () => {
   const [fullName, setFullName] = React.useState("");
   const [nickname, setNickname] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [disclaimerAccepted, setDisclaimerAccepted] = React.useState(false);
 
   // Avatar upload state for onboarding
   const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
@@ -208,7 +210,19 @@ export const AuthScreen: React.FC = () => {
               </div>
               <DavosInput type="email" placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
               <DavosInput type="password" placeholder="Passord (minst 6 tegn)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" />
-              <DavosButton type="submit" className="w-full" disabled={isSubmitting}>
+              
+              <label className="flex items-start gap-3 cursor-pointer py-2">
+                <Checkbox
+                  checked={disclaimerAccepted}
+                  onCheckedChange={(v) => setDisclaimerAccepted(v === true)}
+                  className="mt-0.5"
+                />
+                <span className="text-xs text-muted-foreground leading-relaxed">
+                  Jeg forstår at denne appen brukes på eget ansvar. Utvikler tar ikke ansvar for innhold, handlinger eller konsekvenser som følge av bruk. Ved å opprette konto aksepterer du dette.
+                </span>
+              </label>
+
+              <DavosButton type="submit" className="w-full" disabled={isSubmitting || !disclaimerAccepted}>
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Opprett konto"}
               </DavosButton>
               <p className="text-center text-sm text-muted-foreground">
