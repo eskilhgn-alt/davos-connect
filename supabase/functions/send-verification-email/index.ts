@@ -34,23 +34,31 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Use getUser to validate the JWT (getClaims doesn't exist in supabase-js v2)
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: userData, error: userError } = await supabaseUser.auth.getUser();
+    if (userError || !userData?.user) {
+      console.error("Auth error:", userError?.message);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userId = claimsData.claims.sub;
-    const userEmail = claimsData.claims.email;
+    const userId = userData.user.id;
+    const userEmail = userData.user.email;
+
+    if (!userEmail) {
+      return new Response(JSON.stringify({ error: "No email on account" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Check if already verified
     const { data: profile } = await supabaseAdmin
@@ -79,13 +87,15 @@ Deno.serve(async (req) => {
       .eq("id", userId);
 
     // Determine app URL
-    const { data: bodyData } = await req.json().then(d => ({ data: d })).catch(() => ({ data: {} }));
+    let bodyData: any = {};
+    try { bodyData = await req.json(); } catch { /* empty body is ok */ }
     const appUrl = bodyData?.app_url || "https://guttahutte.lovable.app";
     const verifyUrl = `${appUrl}/verify-email?token=${verificationToken}`;
 
     // Send email via Resend
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (!resendKey) {
+      console.error("RESEND_API_KEY not configured");
       return new Response(JSON.stringify({ error: "Resend not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -120,7 +130,7 @@ Deno.serve(async (req) => {
     if (!emailRes.ok) {
       const errBody = await emailRes.text();
       console.error("Resend error:", errBody);
-      return new Response(JSON.stringify({ error: "Failed to send email" }), {
+      return new Response(JSON.stringify({ error: "Failed to send email", details: errBody }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -131,7 +141,7 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("send-verification-email error:", err);
-    return new Response(JSON.stringify({ error: "Internal error" }), {
+    return new Response(JSON.stringify({ error: "Internal error", message: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
