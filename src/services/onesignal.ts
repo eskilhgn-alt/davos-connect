@@ -99,18 +99,32 @@ export async function initOneSignal(userId: string): Promise<void> {
         try {
           oneSignalInstance = OneSignal;
           
-          await OneSignal.init({
-            appId: ONESIGNAL_APP_ID,
-            allowLocalhostAsSecureOrigin: true,
-            serviceWorkerPath: '/push/onesignal/OneSignalSDKWorker.js',
-            serviceWorkerParam: { scope: '/push/onesignal/' },
-            notifyButton: { enable: false },
-          });
-          console.log("[OneSignal] SDK initialized");
+          try {
+            await OneSignal.init({
+              appId: ONESIGNAL_APP_ID,
+              allowLocalhostAsSecureOrigin: true,
+              serviceWorkerPath: '/push/onesignal/OneSignalSDKWorker.js',
+              serviceWorkerParam: { scope: '/push/onesignal/' },
+              notifyButton: { enable: false },
+            });
+            console.log("[OneSignal] SDK initialized");
+          } catch (initErr: any) {
+            // "SDK already initialized" is not a real error - just reuse the instance
+            if (initErr?.message?.includes?.('already initialized') || 
+                String(initErr).includes('already initialized')) {
+              console.log("[OneSignal] SDK was already initialized, reusing");
+            } else {
+              throw initErr;
+            }
+          }
 
           // Login with user's external ID
-          await OneSignal.login(userId);
-          console.log("[OneSignal] Logged in as", userId.substring(0, 8) + "...");
+          try {
+            await OneSignal.login(userId);
+            console.log("[OneSignal] Logged in as", userId.substring(0, 8) + "...");
+          } catch (loginErr: any) {
+            console.warn("[OneSignal] Login warning:", loginErr?.message || loginErr);
+          }
           
           isInitialized = true;
           resolve();
