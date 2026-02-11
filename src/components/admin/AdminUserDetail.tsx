@@ -5,12 +5,14 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
+import { DavosAvatar } from "@/components/ui/davos-avatar";
 import { DavosButton } from "@/components/ui/davos-button";
 import { DavosInput } from "@/components/ui/davos-input";
 import { DavosBadge } from "@/components/ui/davos-badge";
 import {
   UserX, UserCheck, Coins, Ticket, Loader2, Key, Save,
   ChevronDown, ChevronUp, Bell, Edit3, ShieldOff, StickyNote, Send,
+  Mail, CheckCircle, XCircle, Calendar, Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
@@ -25,7 +27,9 @@ interface UserProfile {
   banned_at: string | null;
   ban_reason: string | null;
   avatar_url?: string | null;
+  email_verified?: boolean;
   created_at: string;
+  updated_at?: string;
   role: "user" | "admin";
   token_balance?: number;
   frikort_count?: number;
@@ -169,29 +173,88 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
   return (
     <DavosCard>
       <DavosCardContent className="p-4">
-        <button onClick={() => setExpanded(!expanded)} className="w-full flex items-start justify-between text-left">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <p className="font-medium text-foreground truncate">{u.full_name || u.email}</p>
-              {u.role === "admin" && <DavosBadge variant="accent">Admin</DavosBadge>}
-              {!u.is_active && <DavosBadge variant="critical">Inaktiv</DavosBadge>}
-              {u.is_banned && <DavosBadge variant="critical">🚫 Ban</DavosBadge>}
-            </div>
-            {u.nickname && <p className="text-xs text-muted-foreground">«{u.nickname}»</p>}
-            <p className="text-sm text-muted-foreground truncate">{u.email}</p>
-            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><Coins size={12} /> {u.token_balance ?? 5}</span>
-              {(u.frikort_count ?? 0) > 0 && <span className="flex items-center gap-1"><Ticket size={12} /> {u.frikort_count}</span>}
+        <button onClick={() => setExpanded(!expanded)} className="w-full flex items-start justify-between text-left gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <DavosAvatar
+              src={u.avatar_url || undefined}
+              fallback={u.nickname || u.full_name || u.email}
+              size="md"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="font-medium text-foreground truncate">{u.full_name || u.email}</p>
+                {u.role === "admin" && <DavosBadge variant="accent">Admin</DavosBadge>}
+                {!u.is_active && <DavosBadge variant="critical">Inaktiv</DavosBadge>}
+                {u.is_banned && <DavosBadge variant="critical">🚫 Ban</DavosBadge>}
+              </div>
+              {u.nickname && <p className="text-xs text-muted-foreground">«{u.nickname}»</p>}
+              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
             </div>
           </div>
-          {expanded ? <ChevronUp size={18} className="text-muted-foreground mt-1" /> : <ChevronDown size={18} className="text-muted-foreground mt-1" />}
+          {expanded ? <ChevronUp size={18} className="text-muted-foreground mt-1 shrink-0" /> : <ChevronDown size={18} className="text-muted-foreground mt-1 shrink-0" />}
         </button>
 
         {expanded && (
-          <div className="mt-4 space-y-3 border-t border-border pt-3">
-            <p className="text-[10px] text-muted-foreground">
-              Registrert: {new Date(u.created_at).toLocaleDateString("nb-NO")}
-            </p>
+          <div className="mt-4 space-y-4 border-t border-border pt-4">
+            {/* Profile info grid */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+              <div>
+                <p className="text-muted-foreground">Fullt navn</p>
+                <p className="font-medium text-foreground">{u.full_name || "—"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Kallenavn</p>
+                <p className="font-medium text-foreground">{u.nickname || "—"}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-muted-foreground">E-post</p>
+                <p className="font-medium text-foreground">{u.email}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">E-post verifisert</p>
+                <p className="font-medium flex items-center gap-1">
+                  {u.email_verified ? (
+                    <><CheckCircle size={12} className="text-green-500" /> Ja</>
+                  ) : (
+                    <><XCircle size={12} className="text-destructive" /> Nei</>
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Rolle</p>
+                <p className="font-medium flex items-center gap-1">
+                  <Shield size={12} /> {u.role === "admin" ? "Admin" : "Bruker"}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Registrert</p>
+                <p className="font-medium flex items-center gap-1">
+                  <Calendar size={12} /> {new Date(u.created_at).toLocaleDateString("nb-NO")}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Status</p>
+                <p className="font-medium">
+                  {u.is_banned ? "🚫 Utestengt" : u.is_active ? "✅ Aktiv" : "⏸️ Inaktiv"}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Tokens</p>
+                <p className="font-medium flex items-center gap-1"><Coins size={12} /> {u.token_balance ?? 5}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Frikort</p>
+                <p className="font-medium flex items-center gap-1"><Ticket size={12} /> {u.frikort_count ?? 0}</p>
+              </div>
+            </div>
+
+            {u.is_banned && u.ban_reason && (
+              <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-2">
+                <p className="text-[10px] text-muted-foreground">Ban-grunn</p>
+                <p className="text-xs text-foreground">{u.ban_reason}</p>
+                {u.banned_at && <p className="text-[10px] text-muted-foreground mt-1">Utestengt: {new Date(u.banned_at).toLocaleString("nb-NO")}</p>}
+              </div>
+            )}
 
             {/* Edit profile */}
             {editMode ? (

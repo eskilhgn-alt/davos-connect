@@ -17,7 +17,9 @@ export interface AdminUser {
   banned_at: string | null;
   ban_reason: string | null;
   avatar_url: string | null;
+  email_verified: boolean;
   created_at: string;
+  updated_at: string;
   role: "user" | "admin";
   token_balance: number;
   frikort_count: number;
@@ -78,7 +80,9 @@ export function useAdminData() {
         banned_at: p.banned_at ?? null,
         ban_reason: p.ban_reason ?? null,
         avatar_url: p.avatar_url ?? null,
+        email_verified: (p as any).email_verified ?? true,
         created_at: p.created_at,
+        updated_at: p.updated_at,
         role: (rolesMap.get(p.id) as "user" | "admin") || "user",
         token_balance: tokensMap.get(p.id) ?? 5,
         frikort_count: frikortMap.get(p.id) ?? 0,
