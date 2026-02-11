@@ -86,10 +86,23 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
   };
 
   const bannedUsers = React.useMemo(() => users.filter(u => u.is_banned), [users]);
-  const shotBannedUsers = React.useMemo(() => {
-    // Users with active shot bans (from shot_tokens)
-    return []; // We'd need shot_tokens data; for now just show profile bans
-  }, []);
+  const unverifiedUsers = React.useMemo(() => users.filter(u => !u.email_verified), [users]);
+  const [verifyLoading, setVerifyLoading] = React.useState<string | null>(null);
+
+  const handleVerify = async (userId: string) => {
+    setVerifyLoading(userId);
+    try {
+      const { error } = await supabase.from("profiles").update({ email_verified: true }).eq("id", userId);
+      if (error) throw error;
+      toast.success("E-post verifisert");
+      onLogAction(currentUserId, "email_manually_verified", userId);
+      onRefresh();
+    } catch (e: any) {
+      errorToast("Kunne ikke verifisere", { description: e.message });
+    } finally {
+      setVerifyLoading(null);
+    }
+  };
 
   const filtered = React.useMemo(() => {
     if (!search.trim()) return users;
@@ -144,6 +157,35 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
               >
                 {unbanLoading === u.id ? <Loader2 size={14} className="animate-spin mr-1" /> : <UserCheck size={14} className="mr-1" />}
                 Opphev
+              </DavosButton>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Unverified users section */}
+      {unverifiedUsers.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="font-heading font-semibold text-sm flex items-center gap-2 text-amber-600">
+            <UserX size={14} /> Uverifiserte brukere ({unverifiedUsers.length})
+          </h3>
+          {unverifiedUsers.map(u => (
+            <div key={u.id} className="flex items-center justify-between bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground truncate">{u.nickname || u.full_name || u.email}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Registrert {new Date(u.created_at).toLocaleDateString("nb-NO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+              <DavosButton
+                variant="outline"
+                size="sm"
+                onClick={() => handleVerify(u.id)}
+                disabled={verifyLoading === u.id}
+                className="border-green-500/30 text-green-600 hover:bg-green-500/10"
+              >
+                {verifyLoading === u.id ? <Loader2 size={14} className="animate-spin mr-1" /> : <UserCheck size={14} className="mr-1" />}
+                Verifiser
               </DavosButton>
             </div>
           ))}
