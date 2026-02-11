@@ -9,6 +9,7 @@ import { DavosButton } from "@/components/ui/davos-button";
 import { DavosInput } from "@/components/ui/davos-input";
 import { Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 
 export const ResetPasswordScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -21,12 +22,12 @@ export const ResetPasswordScreen: React.FC = () => {
     e.preventDefault();
 
     if (password.length < 6) {
-      toast.error("Passordet må være minst 6 tegn");
+      errorToast("Passordet må være minst 6 tegn");
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error("Passordene stemmer ikke overens");
+      errorToast("Passordene stemmer ikke overens");
       return;
     }
 
@@ -34,7 +35,7 @@ export const ResetPasswordScreen: React.FC = () => {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      toast.error(error.message);
+      errorToast("Kunne ikke oppdatere passord", { description: error.message });
     } else {
       setSuccess(true);
       toast.success("Passordet er oppdatert!");

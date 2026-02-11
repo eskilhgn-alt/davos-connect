@@ -13,6 +13,7 @@ import {
   ChevronDown, ChevronUp, Bell, Edit3, ShieldOff, StickyNote, Send,
 } from "lucide-react";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 
 interface UserProfile {
   id: string;
@@ -102,7 +103,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
       toast.success(`Passord-reset sendt til ${u.email}`);
       onLogAction(currentUserId, "password_reset_sent", u.id);
     } catch (e: any) {
-      toast.error(e.message || "Kunne ikke sende reset");
+      errorToast("Kunne ikke sende reset", { description: e.message });
     } finally { setLoading(null); }
   };
 
@@ -125,7 +126,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
       toast.success("Push-varsel sendt");
       onLogAction(currentUserId, "push_sent", u.id);
     } catch {
-      toast.error("Kunne ikke sende push");
+      errorToast("Kunne ikke sende push");
     } finally { setLoading(null); }
   };
 
@@ -143,7 +144,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
       onLogAction(currentUserId, action, u.id);
       onRefresh();
     } catch (e: any) {
-      toast.error(e.message || "Feil");
+      errorToast("Feil", { description: e.message });
     } finally { setLoading(null); }
   };
 
@@ -161,7 +162,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
       setNewNote("");
       fetchNotes();
     } catch {
-      toast.error("Kunne ikke lagre notat");
+      errorToast("Kunne ikke lagre notat");
     } finally { setLoading(null); }
   };
 

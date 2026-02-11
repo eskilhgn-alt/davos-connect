@@ -9,6 +9,7 @@ import { DavosInput } from "@/components/ui/davos-input";
 import { DavosBadge } from "@/components/ui/davos-badge";
 import { Bell, Send, Loader2, Megaphone, User } from "lucide-react";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 import type { AdminUser } from "./useAdminData";
 
 interface PushToken {
@@ -87,7 +88,7 @@ export const AdminPushTools: React.FC<Props> = ({ users, currentUserId, onLogAct
       if (type === "broadcast") { setBroadcastMsg(""); setBroadcastHeading(""); }
       else { setDirectMsg(""); setTargetUserId(""); }
     } catch (e: any) {
-      toast.error(e.message || "Feil ved push");
+      errorToast("Feil ved push", { description: e.message });
     } finally {
       setLoading(null);
     }

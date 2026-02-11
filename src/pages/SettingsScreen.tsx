@@ -37,6 +37,7 @@ import {
   Bug,
 } from "lucide-react";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 
 const APP_VERSION = "1.0.0-beta.1";
 
@@ -80,7 +81,7 @@ export const SettingsScreen: React.FC = () => {
 
   const handleSaveProfile = async () => {
     if (!fullName.trim() || !nickname.trim()) {
-      toast.error("Navn og kallenavn er påkrevd");
+      errorToast("Navn og kallenavn er påkrevd");
       return;
     }
     setProfileSaving(true);
@@ -90,7 +91,7 @@ export const SettingsScreen: React.FC = () => {
     });
     setProfileSaving(false);
     if (error) {
-      toast.error("Kunne ikke oppdatere profil");
+      errorToast("Kunne ikke oppdatere profil");
     } else {
       toast.success("Profil oppdatert");
     }
@@ -107,7 +108,7 @@ export const SettingsScreen: React.FC = () => {
     });
     setBugSending(false);
     if (error) {
-      toast.error("Kunne ikke sende rapport");
+      errorToast("Kunne ikke sende rapport");
     } else {
       toast.success("Takk for tilbakemeldingen!");
       setBugText("");
@@ -333,7 +334,7 @@ export const SettingsScreen: React.FC = () => {
                   const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
                     redirectTo: `${window.location.origin}/reset-password`,
                   });
-                  if (error) toast.error(error.message);
+                  if (error) errorToast("Tilbakestilling feilet", { description: error.message });
                   else toast.success("Sjekk e-posten din for lenke!");
                 }}
               >

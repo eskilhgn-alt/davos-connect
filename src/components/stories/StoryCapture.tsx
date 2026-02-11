@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 
 interface StoryCaptureProps {
   onClose: () => void;
@@ -237,7 +238,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         recorder = new MediaRecorder(streamRef.current);
       } catch (err2) {
         console.error("[StoryCapture] MediaRecorder not supported:", err2);
-        toast.error("Video-opptak støttes ikke på denne enheten");
+        errorToast("Video-opptak støttes ikke på denne enheten");
         return;
       }
     }
@@ -550,7 +551,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       onPublished();
     } catch (err: any) {
       console.error("Publish error:", err);
-      toast.error("Kunne ikke publisere story");
+      errorToast("Kunne ikke publisere story");
     } finally {
       setUploading(false);
     }

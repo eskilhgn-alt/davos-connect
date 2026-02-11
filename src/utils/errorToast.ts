@@ -1,5 +1,6 @@
 /**
- * errorToast – Global error handler with "Send to admin" capability
+ * errorToast – Global error handler with "Rapporter" + close button
+ * Mobile-first: compact, dismissable, positioned for iPhone PWA
  * Usage: import { errorToast } from "@/utils/errorToast"; errorToast("Noe gikk galt");
  */
 
@@ -20,12 +21,14 @@ export async function sendErrorToAdmin(message: string) {
 export function errorToast(message: string, options?: { description?: string }) {
   toast.error(message, {
     description: options?.description,
-    duration: 8000,
+    duration: 6000,
+    dismissible: true,
+    closeButton: true,
     action: {
-      label: "Rapporter",
+      label: "📩 Rapporter",
       onClick: async () => {
         await sendErrorToAdmin(`${message}${options?.description ? ` – ${options.description}` : ""}`);
-        toast.success("Feilrapport sendt til admin");
+        toast.success("Feilrapport sendt til admin 👍", { duration: 3000 });
       },
     },
   });

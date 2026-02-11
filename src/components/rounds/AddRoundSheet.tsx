@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 
 interface Profile {
   id: string;
@@ -74,8 +75,8 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
   const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) { toast.error("Kun bilder er tillatt"); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error("Maks 10 MB"); return; }
+    if (!file.type.startsWith("image/")) { errorToast("Kun bilder er tillatt"); return; }
+    if (file.size > 10 * 1024 * 1024) { errorToast("Maks 10 MB"); return; }
     setReceiptFile(file);
     setReceiptPreview(URL.createObjectURL(file));
   };
@@ -117,7 +118,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
 
   const handleSubmit = async () => {
     if (!user || selectedUsers.size === 0 || total <= 0 || totalDrinks === 0) {
-      toast.error("Velg deltakere, antall drikke og kostnad");
+      errorToast("Velg deltakere, antall drikke og kostnad");
       return;
     }
     setSubmitting(true);
@@ -149,7 +150,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
     );
     setSubmitting(false);
     if (error) {
-      toast.error("Kunne ikke registrere runde");
+      errorToast("Kunne ikke registrere runde");
     } else {
       toast.success("Runde registrert! 🍻");
       onOpenChange(false);

@@ -5,6 +5,7 @@ import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 import { Mountain, Ticket, Coins } from "lucide-react";
 
 interface Award {
@@ -45,7 +46,7 @@ export const SkiAwardClaimDialog: React.FC = () => {
       p_choice: choice,
     });
     if (error) {
-      toast.error(error.message);
+      errorToast("Kunne ikke hente premie", { description: error.message });
     } else {
       toast.success(
         choice === "frikort"

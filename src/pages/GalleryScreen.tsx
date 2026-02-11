@@ -10,6 +10,7 @@ import { DavosSkeleton } from '@/components/ui/davos-skeleton';
 import { Download, Play, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { errorToast } from '@/utils/errorToast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -113,7 +114,7 @@ export const GalleryScreen: React.FC = () => {
       .delete()
       .eq('id', deleteTarget.id);
     if (error) {
-      toast.error('Kunne ikke slette');
+      errorToast('Kunne ikke slette');
     } else {
       setItems((prev) => prev.filter((i) => i.id !== deleteTarget.id));
       toast.success('Slettet fra galleri');
