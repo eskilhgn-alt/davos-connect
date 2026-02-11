@@ -302,13 +302,28 @@ export const SettingsScreen: React.FC = () => {
               <div className="flex items-center gap-3 mb-3">
                 <FileText className="h-5 w-5 text-accent" />
                 <h2 className="font-heading font-semibold text-foreground">
-                  Brukervilkår
+                  Om appen & vilkår
                 </h2>
               </div>
               <div className="text-sm text-muted-foreground space-y-3">
-                <p><strong>Privat app:</strong> Tilgang kun ved invitasjon.</p>
-                <p><strong>Personvern:</strong> Data lagres i Europa (EU/Sveits). Du kan be om sletting når som helst.</p>
-                <p><strong>Ingen garanti:</strong> Appen leveres "som den er".</p>
+                <p className="font-medium text-foreground">Ansvarsfraskrivelse</p>
+                <p>
+                  GüttaHütte er et <strong>privat hobbyprosjekt</strong> laget for moro skyld.
+                  Appen leveres «som den er» uten noen form for garanti.
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-xs">
+                  <li>Utvikler har <strong>intet ansvar</strong> for innhold postet av brukere</li>
+                  <li>Utvikler har <strong>intet ansvar</strong> for handlinger eller konsekvenser som følge av bruk</li>
+                  <li>All bruk skjer <strong>på eget ansvar</strong> og frivillig</li>
+                  <li>Data kan gå tapt uten forvarsel – det gis ingen garanti for oppetid eller lagring</li>
+                  <li>Admin kan slette kontoer og innhold etter eget skjønn</li>
+                  <li>Ved å bruke appen aksepterer du disse vilkårene</li>
+                </ul>
+                <div className="border-t border-border pt-3 mt-3 space-y-1">
+                  <p><strong>Tilgang:</strong> Kun ved invitasjon.</p>
+                  <p><strong>Personvern:</strong> Data lagres i Europa (EU/Sveits). Du kan be om sletting når som helst.</p>
+                  <p><strong>Kontakt:</strong> Bruk «Rapporter feil»-funksjonen nedenfor, eller kontakt admin direkte.</p>
+                </div>
               </div>
             </DavosCardContent>
           </DavosCard>
