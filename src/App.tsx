@@ -22,10 +22,10 @@ import MoreScreen from "./pages/MoreScreen";
 import WeatherScreen from "./pages/WeatherScreen";
 import ShotScreen from "./pages/ShotScreen";
 import AgendaScreen from "./pages/AgendaScreen";
-import TokensScreen from "./pages/TokensScreen";
+
 import FaktasjekkerScreen from "./pages/FaktasjekkerScreen";
 import StoriesScreen from "./pages/StoriesScreen";
-import RulesScreen from "./pages/RulesScreen";
+
 import PollScreen from "./pages/PollScreen";
 import RoundsScreen from "./pages/RoundsScreen";
 
@@ -33,7 +33,7 @@ import SettingsScreen from "./pages/SettingsScreen";
 import WebcamsScreen from "./pages/WebcamsScreen";
 import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
-import GroupScreen from "./pages/GroupScreen";
+
 import ResetPasswordScreen from "./pages/ResetPasswordScreen";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
@@ -112,19 +112,13 @@ const AppRoutes = () => (
       <Route path="/kart" element={<MapScreen />} />
       <Route path="/magnus" element={<CrewMapScreen />} />
       <Route path="/webcams" element={<WebcamsScreen />} />
-      <Route path="/feed" element={<FeedScreen />} />
-      <Route path="/mer" element={<MoreScreen />} />
-      {/* Gallery */}
       <Route path="/galleri" element={<GalleryScreen />} />
       <Route path="/innstillinger" element={<SettingsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
-      <Route path="/gruppe" element={<GroupScreen />} />
       <Route path="/shot" element={<ShotScreen />} />
-      <Route path="/tokens" element={<TokensScreen />} />
       <Route path="/agenda" element={<AgendaScreen />} />
       <Route path="/faktasjekker" element={<FaktasjekkerScreen />} />
       <Route path="/historier" element={<StoriesScreen />} />
-      <Route path="/regler" element={<RulesScreen />} />
       <Route path="/poll" element={<PollScreen />} />
       <Route path="/runder" element={<RoundsScreen />} />
     </Route>

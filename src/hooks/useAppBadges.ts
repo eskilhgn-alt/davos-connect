@@ -1,5 +1,5 @@
 /**
- * useAppBadges – Unified badge counts for chat, stories, polls + PWA app badge
+ * useAppBadges – Unified badge counts for chat, stories, polls, shot, agenda, runder + PWA app badge
  */
 
 import * as React from "react";
@@ -12,28 +12,34 @@ export interface AppBadges {
   chat: number;
   stories: number;
   polls: number;
+  shot: number;
+  agenda: number;
+  runder: number;
   total: number;
 }
 
 export function useAppBadges(): AppBadges {
   const { user } = useAuth();
-  const [badges, setBadges] = React.useState<AppBadges>({ chat: 0, stories: 0, polls: 0, total: 0 });
+  const [badges, setBadges] = React.useState<AppBadges>({ chat: 0, stories: 0, polls: 0, shot: 0, agenda: 0, runder: 0, total: 0 });
 
   const refresh = React.useCallback(async () => {
     if (!user) {
-      setBadges({ chat: 0, stories: 0, polls: 0, total: 0 });
+      setBadges({ chat: 0, stories: 0, polls: 0, shot: 0, agenda: 0, runder: 0, total: 0 });
       updatePwaBadge(0);
       return;
     }
 
-    const [chatCount, storiesCount, pollsCount] = await Promise.all([
+    const [chatCount, storiesCount, pollsCount, shotCount, agendaCount, runderCount] = await Promise.all([
       getUnreadChat(user.id),
       getUnseenStories(user.id),
       getUnvotedPolls(user.id),
+      getActiveShotEvents(user.id),
+      getUpcomingAgendaEvents(),
+      getRecentRounds(),
     ]);
 
-    const total = chatCount + storiesCount + pollsCount;
-    setBadges({ chat: chatCount, stories: storiesCount, polls: pollsCount, total });
+    const total = chatCount + storiesCount + pollsCount + shotCount + agendaCount + runderCount;
+    setBadges({ chat: chatCount, stories: storiesCount, polls: pollsCount, shot: shotCount, agenda: agendaCount, runder: runderCount, total });
     updatePwaBadge(total);
   }, [user]);
 
@@ -48,6 +54,9 @@ export function useAppBadges(): AppBadges {
       .on("postgres_changes", { event: "*", schema: "public", table: "story_views" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "polls" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "poll_votes" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "shot_events" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "agenda_events" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "rounds" }, () => refresh())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -79,7 +88,6 @@ async function getUnreadChat(userId: string): Promise<number> {
 async function getUnseenStories(userId: string): Promise<number> {
   const now = new Date().toISOString();
 
-  // Get active stories not by me
   const { data: stories } = await supabase
     .from("stories")
     .select("id")
@@ -88,7 +96,6 @@ async function getUnseenStories(userId: string): Promise<number> {
 
   if (!stories || stories.length === 0) return 0;
 
-  // Get my views
   const { data: views } = await supabase
     .from("story_views")
     .select("story_id")
@@ -99,15 +106,13 @@ async function getUnseenStories(userId: string): Promise<number> {
 }
 
 async function getUnvotedPolls(userId: string): Promise<number> {
-  // Active polls
   const { data: polls } = await supabase
     .from("polls")
     .select("id")
-    .eq("status", "open");
+    .eq("status", "active");
 
   if (!polls || polls.length === 0) return 0;
 
-  // My votes
   const { data: votes } = await supabase
     .from("poll_votes")
     .select("poll_id")
@@ -115,6 +120,49 @@ async function getUnvotedPolls(userId: string): Promise<number> {
 
   const votedPollIds = new Set((votes || []).map((v) => v.poll_id));
   return polls.filter((p) => !votedPollIds.has(p.id)).length;
+}
+
+async function getActiveShotEvents(userId: string): Promise<number> {
+  // Badge when there's an active shot event that needs user attention
+  const { data: events } = await supabase
+    .from("shot_events")
+    .select("id, status, selected_user_id, chosen_witness_id")
+    .in("status", ["countdown", "pending_confirm", "witness_pending"]);
+
+  if (!events || events.length === 0) return 0;
+
+  // Count events where user is involved (selected or witness)
+  return events.filter((e) =>
+    e.selected_user_id === userId || e.chosen_witness_id === userId
+  ).length || (events.length > 0 ? 1 : 0); // Show at least 1 if any active event
+}
+
+async function getUpcomingAgendaEvents(): Promise<number> {
+  const now = new Date().toISOString();
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(23, 59, 59, 999);
+
+  const { data } = await supabase
+    .from("agenda_events")
+    .select("id")
+    .gte("start_at", now)
+    .lte("start_at", tomorrow.toISOString());
+
+  return data?.length ?? 0;
+}
+
+async function getRecentRounds(): Promise<number> {
+  // Show badge for rounds created in last 2 hours
+  const twoHoursAgo = new Date();
+  twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
+
+  const { data } = await supabase
+    .from("rounds")
+    .select("id")
+    .gte("created_at", twoHoursAgo.toISOString());
+
+  return data?.length ?? 0;
 }
 
 function updatePwaBadge(count: number) {

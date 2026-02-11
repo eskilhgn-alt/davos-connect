@@ -1,19 +1,20 @@
 /**
- * AgendaScreen – Shared weekly calendar (Outlook-inspired, KISS)
+ * AgendaScreen – Shared weekly calendar with week numbers & jump-to-next
  */
 import * as React from "react";
-import { format, addDays, isSameDay } from "date-fns";
+import { format, addDays, isSameDay, getISOWeek, differenceInWeeks, startOfWeek as dfStartOfWeek } from "date-fns";
 import { nb } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, SkipForward } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { useAgenda, type AgendaEvent } from "@/hooks/useAgenda";
 import { AgendaEventDialog } from "@/components/agenda/AgendaEventDialog";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const HOUR_HEIGHT = 56; // px per hour row
-const FOCUS_HOUR = 8; // auto-scroll to 08:00
+const HOUR_HEIGHT = 56;
+const FOCUS_HOUR = 8;
 const DAYS_IN_WEEK = 7;
 
 const colorMap: Record<string, string> = {
@@ -27,13 +28,12 @@ export const AgendaScreen: React.FC = () => {
   const { events, weekStart, weekOffset, setWeekOffset, createEvent, updateEvent, deleteEvent } = useAgenda();
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
-  // Dialog state
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [selectedDate, setSelectedDate] = React.useState<Date | null>(null);
   const [selectedHour, setSelectedHour] = React.useState<number>(12);
   const [editEvent, setEditEvent] = React.useState<AgendaEvent | null>(null);
 
-  // Auto-scroll to 08:00 on mount / week change
+  // Auto-scroll to 08:00
   React.useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = FOCUS_HOUR * HOUR_HEIGHT;
@@ -45,15 +45,41 @@ export const AgendaScreen: React.FC = () => {
     [weekStart]
   );
 
-  // Single-tap on empty cell to create event (no double-tap delay)
+  const weekNumber = getISOWeek(weekStart);
+
+  // Jump to next event
+  const jumpToNextEvent = React.useCallback(async () => {
+    const now = new Date().toISOString();
+    const { data } = await supabase
+      .from("agenda_events")
+      .select("start_at")
+      .gte("start_at", now)
+      .order("start_at", { ascending: true })
+      .limit(1);
+
+    if (data && data.length > 0) {
+      const eventDate = new Date(data[0].start_at);
+      const eventWeekStart = dfStartOfWeek(eventDate, { weekStartsOn: 1 });
+      const currentWeekStart = dfStartOfWeek(new Date(), { weekStartsOn: 1 });
+      const diff = differenceInWeeks(eventWeekStart, currentWeekStart);
+      setWeekOffset(diff);
+
+      // Scroll to event hour
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = eventDate.getHours() * HOUR_HEIGHT;
+        }
+      }, 100);
+    }
+  }, [setWeekOffset]);
+
   const handleCellTap = (day: Date, hour: number) => {
-    // Check if there are already events at this hour – if so, don't open create
     const existingEvents = events.filter((ev) => {
       const s = new Date(ev.start_at);
       return isSameDay(s, day) && s.getHours() === hour;
     });
-    if (existingEvents.length > 0) return; // Let the event chip handle the tap
-    
+    if (existingEvents.length > 0) return;
+
     setSelectedDate(day);
     setSelectedHour(hour);
     setEditEvent(null);
@@ -77,15 +103,27 @@ export const AgendaScreen: React.FC = () => {
   const getEventSpan = (ev: AgendaEvent) => {
     const s = new Date(ev.start_at);
     const e = new Date(ev.end_at);
-    const hours = Math.max(1, (e.getTime() - s.getTime()) / 3600000);
-    return hours;
+    return Math.max(1, (e.getTime() - s.getTime()) / 3600000);
   };
 
   const isToday = (day: Date) => isSameDay(day, new Date());
 
   return (
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
-      <AppHeader title="Agenda" leftAction={<BackButton fallbackPath="/hjem" />} />
+      <AppHeader
+        title="Agenda"
+        leftAction={<BackButton fallbackPath="/hjem" />}
+        rightAction={
+          <button
+            onClick={jumpToNextEvent}
+            className="tap-target flex items-center justify-center text-muted-foreground"
+            aria-label="Hopp til neste hendelse"
+            title="Neste hendelse"
+          >
+            <SkipForward size={18} strokeWidth={1.8} />
+          </button>
+        }
+      />
 
       {/* Week navigation */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border">
@@ -94,7 +132,7 @@ export const AgendaScreen: React.FC = () => {
         </button>
         <div className="text-center">
           <span className="font-heading text-sm font-semibold">
-            {format(weekStart, "d. MMM", { locale: nb })} – {format(addDays(weekStart, 6), "d. MMM yyyy", { locale: nb })}
+            Uke {weekNumber} · {format(weekStart, "d. MMM", { locale: nb })} – {format(addDays(weekStart, 6), "d. MMM", { locale: nb })}
           </span>
           {weekOffset !== 0 && (
             <button onClick={() => setWeekOffset(0)} className="ml-2 text-xs text-primary underline">
@@ -112,56 +150,33 @@ export const AgendaScreen: React.FC = () => {
         {days.map((day) => (
           <div
             key={day.toISOString()}
-            className={cn(
-              "flex-1 text-center py-1.5",
-              isToday(day) && "bg-primary/5"
-            )}
+            className={cn("flex-1 text-center py-1.5", isToday(day) && "bg-primary/5")}
           >
             <span className="text-[10px] uppercase text-muted-foreground font-medium">
               {format(day, "EEE", { locale: nb })}
             </span>
-            <div className={cn(
-              "text-sm font-semibold leading-tight",
-              isToday(day) && "text-primary"
-            )}>
+            <div className={cn("text-sm font-semibold leading-tight", isToday(day) && "text-primary")}>
               {format(day, "d")}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Time grid – scrollable */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto overscroll-contain"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
+      {/* Time grid */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
         <div className="relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
-          {/* Hour labels + grid lines */}
           {HOURS.map((hour) => (
-            <div
-              key={hour}
-              className="absolute left-0 right-0 border-b border-border/40"
-              style={{ top: hour * HOUR_HEIGHT, height: HOUR_HEIGHT }}
-            >
+            <div key={hour} className="absolute left-0 right-0 border-b border-border/40" style={{ top: hour * HOUR_HEIGHT, height: HOUR_HEIGHT }}>
               <span className="absolute left-1 top-0 text-[10px] text-muted-foreground font-mono w-10 text-right pr-1 leading-none" style={{ transform: "translateY(-5px)" }}>
                 {String(hour).padStart(2, "0")}:00
               </span>
             </div>
           ))}
 
-          {/* Day columns */}
           <div className="absolute inset-0" style={{ left: 48 }}>
             <div className="flex h-full">
-              {days.map((day, dayIdx) => (
-                <div
-                  key={day.toISOString()}
-                  className={cn(
-                    "flex-1 relative border-r border-border/20",
-                    isToday(day) && "bg-primary/[0.02]"
-                  )}
-                >
-                  {/* Touchable hour cells */}
+              {days.map((day) => (
+                <div key={day.toISOString()} className={cn("flex-1 relative border-r border-border/20", isToday(day) && "bg-primary/[0.02]")}>
                   {HOURS.map((hour) => (
                     <div
                       key={hour}
@@ -169,7 +184,6 @@ export const AgendaScreen: React.FC = () => {
                       style={{ top: hour * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                       onClick={() => handleCellTap(day, hour)}
                     >
-                      {/* Events at this hour */}
                       {getEventsForDayHour(day, hour).map((ev) => {
                         const span = getEventSpan(ev);
                         return (
@@ -221,7 +235,7 @@ export const AgendaScreen: React.FC = () => {
         editEvent={editEvent}
       />
 
-      {/* FAB – quick create event (iOS-friendly) */}
+      {/* FAB */}
       <button
         onClick={() => {
           setSelectedDate(new Date());
@@ -236,7 +250,6 @@ export const AgendaScreen: React.FC = () => {
         <Plus size={24} />
       </button>
 
-      {/* Bottom nav padding */}
       <div style={{ paddingBottom: "var(--bottom-nav-h-effective)" }} />
     </div>
   );
