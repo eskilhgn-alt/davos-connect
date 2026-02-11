@@ -30,7 +30,7 @@ export const FloatingHomeButton: React.FC = () => {
       onClick={() => navigate("/hjem")}
       className={cn(
         "fixed z-50 flex items-center justify-center",
-        "w-10 h-10 rounded-full",
+        "w-11 h-11 rounded-full",
         "bg-background/90 backdrop-blur-sm border border-border",
         "shadow-sm active:scale-95 transition-all duration-150",
         "safe-area-bottom"
@@ -41,7 +41,7 @@ export const FloatingHomeButton: React.FC = () => {
       }}
       aria-label="Hjem"
     >
-      <Home size={18} strokeWidth={1.8} className="text-foreground" />
+      <Home size={16} strokeWidth={2} className="text-foreground" />
     </button>
   );
 };

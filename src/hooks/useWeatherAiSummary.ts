@@ -35,7 +35,7 @@ interface UseWeatherAiSummaryOptions {
 }
 
 const CACHE_PREFIX = "weather-ai-summary-cache";
-const CACHE_TTL = 15 * 60 * 1000; // 15 min
+const CACHE_TTL = 30 * 60 * 1000; // 30 min - longer cache for faster perceived loading
 
 function cacheKey(lat?: number, lon?: number) {
   return lat != null && lon != null ? `${CACHE_PREFIX}-${lat}-${lon}` : `${CACHE_PREFIX}-davos`;
