@@ -19,17 +19,14 @@ export async function sendErrorToAdmin(message: string) {
 }
 
 export function errorToast(message: string, options?: { description?: string }) {
+  // Auto-log every error to bug_reports
+  const fullMsg = `${message}${options?.description ? ` – ${options.description}` : ""}`;
+  sendErrorToAdmin(fullMsg).catch(() => {});
+
   toast.error(message, {
     description: options?.description,
     duration: 6000,
     dismissible: true,
     closeButton: true,
-    action: {
-      label: "📩 Rapporter",
-      onClick: async () => {
-        await sendErrorToAdmin(`${message}${options?.description ? ` – ${options.description}` : ""}`);
-        toast.success("Feilrapport sendt til admin 👍", { duration: 3000 });
-      },
-    },
   });
 }
