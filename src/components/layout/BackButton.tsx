@@ -23,13 +23,8 @@ export const BackButton: React.FC<BackButtonProps> = ({
   const location = useLocation();
 
   const handleBack = () => {
-    // Check if we have history to go back to
-    if (window.history.length > 2) {
-      navigate(-1);
-    } else {
-      // No history, go to fallback
-      navigate(fallbackPath, { replace: true });
-    }
+    // Always navigate to home/fallback, not browser back
+    navigate(fallbackPath, { replace: true });
   };
 
   // Don't show on home route only

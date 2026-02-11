@@ -91,7 +91,7 @@ serve(async (req) => {
       target_channel: "push",
       headings: { en: heading },
       contents: { en: message },
-      url: "https://davos-joy-connect.lovable.app/runder",
+      url: "https://guttahutte.lovable.app/runder",
       ios_badgeType: "Increase",
       ios_badgeCount: 1,
     };

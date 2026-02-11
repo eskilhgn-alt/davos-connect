@@ -540,7 +540,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
             heading: "📸 Ny story",
             message: `${name} har lagt ut en ${capturedMedia.type === "video" ? "video" : "bilde"}-story`,
             exclude_user_id: user.id,
-            url: "https://davos-joy-connect.lovable.app/stories",
+            url: "https://guttahutte.lovable.app/stories",
           }),
         }).catch(() => {});
       }

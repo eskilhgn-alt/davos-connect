@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useVisualViewport } from './useVisualViewport';
@@ -93,7 +93,14 @@ export const ChatScreen: React.FC = () => {
         >
           <ArrowLeft size={22} strokeWidth={1.8} />
         </button>
-        <h1 className="font-heading text-base font-semibold text-foreground tracking-tight">Chat</h1>
+        <h1 className="font-heading text-base font-semibold text-foreground tracking-tight flex-1">Chat</h1>
+        <button
+          type="button"
+          onClick={() => navigate('/hjem')}
+          className="tap-target flex items-center justify-center -mr-2 w-9 h-9 rounded-full bg-[#103A5D] border border-[#F4CD3C]/40"
+        >
+          <Home size={16} strokeWidth={2} className="text-[#F4CD3C]" />
+        </button>
       </header>
 
       <MessageList

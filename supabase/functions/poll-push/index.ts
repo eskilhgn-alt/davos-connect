@@ -98,7 +98,7 @@ serve(async (req) => {
       target_channel: "push",
       headings: { en: heading },
       contents: { en: content },
-      url: "https://davos-joy-connect.lovable.app/poll",
+      url: "https://guttahutte.lovable.app/poll",
       collapse_id: `poll_${poll_id}`,
     };
 

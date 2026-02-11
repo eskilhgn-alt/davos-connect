@@ -19,7 +19,7 @@ interface Props {
   onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
 }
 
-const APP_URL = "https://davos-joy-connect.lovable.app";
+const APP_URL = "https://guttahutte.lovable.app";
 
 const SHARE_LINKS = [
   { label: "Registrering", path: "/auth" },
