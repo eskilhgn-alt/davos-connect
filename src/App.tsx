@@ -33,6 +33,7 @@ import SettingsScreen from "./pages/SettingsScreen";
 import WebcamsScreen from "./pages/WebcamsScreen";
 import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
+import GroupScreen from "./pages/GroupScreen";
 
 import ResetPasswordScreen from "./pages/ResetPasswordScreen";
 import NotFound from "./pages/NotFound";
@@ -121,6 +122,7 @@ const AppRoutes = () => (
       <Route path="/historier" element={<StoriesScreen />} />
       <Route path="/poll" element={<PollScreen />} />
       <Route path="/runder" element={<RoundsScreen />} />
+      <Route path="/alle" element={<GroupScreen />} />
     </Route>
     
     <Route path="*" element={<NotFound />} />
