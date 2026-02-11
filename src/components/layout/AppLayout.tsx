@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Outlet } from "react-router-dom";
 import { FloatingHomeButton } from "./FloatingHomeButton";
-import { SystemBanner } from "./SystemBanner";
+
 import { PopupAnnouncementOverlay } from "./PopupAnnouncement";
 import { WebcamPreloadProvider } from "@/components/webcams";
 import { WitnessOverlay } from "@/components/shot/WitnessOverlay";
@@ -17,7 +17,7 @@ export const AppLayout: React.FC = () => {
   return (
     <WebcamPreloadProvider>
       <div className="h-full overflow-hidden bg-background flex flex-col">
-        <SystemBanner />
+        
         <main className="flex-1 min-h-0 overflow-hidden">
           <Outlet />
         </main>
