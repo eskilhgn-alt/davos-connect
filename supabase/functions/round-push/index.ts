@@ -37,7 +37,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { buyer_id, drink_type, participant_ids, drink_quantities } = await req.json();
+    const { buyer_id, drink_type, participant_ids, drink_quantities, is_treated } = await req.json();
 
     if (!buyer_id || !participant_ids?.length) {
       return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -50,18 +50,22 @@ serve(async (req) => {
     const buyerName = buyerProfile?.nickname || buyerProfile?.full_name || "Noen";
 
     // Build drink summary from quantities
-    const drinkLabels: Record<string, string> = { beer: "øl", drink: "drinker", shots: "shots" };
+    const drinkLabels: Record<string, string> = { beer: "øl", drink: "drinker" };
     let drinkSummary = drinkLabels[drink_type] || drink_type;
     if (drink_quantities && typeof drink_quantities === "object") {
       const parts: string[] = [];
       if (drink_quantities.beer) parts.push(`${drink_quantities.beer} øl`);
       if (drink_quantities.drink) parts.push(`${drink_quantities.drink} drinker`);
-      if (drink_quantities.shots) parts.push(`${drink_quantities.shots} shots`);
       if (parts.length > 0) drinkSummary = parts.join(", ");
     }
 
-    // Only notify participants (not the buyer)
-    const recipientIds = participant_ids.filter((id: string) => id !== buyer_id);
+    // ALL participants get push (including buyer)
+    const recipientIds = [...participant_ids];
+    // Also include buyer if not already in the list
+    if (!recipientIds.includes(buyer_id)) {
+      recipientIds.push(buyer_id);
+    }
+
     if (recipientIds.length === 0) {
       return new Response(JSON.stringify({ success: true, sent: 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -74,12 +78,19 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, sent: 0, message: "No push tokens" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Differentiate spandert vs lagt ut
+    const isTreated = is_treated === true;
+    const heading = isTreated ? "🎁 Spandert runde!" : "🍻 Lagt ut for runde!";
+    const message = isTreated
+      ? `${buyerName} spanderer ${drinkSummary}!`
+      : `${buyerName} har lagt ut for ${drinkSummary}`;
+
     const notification = {
       app_id: ONESIGNAL_APP_ID,
       include_aliases: { external_id: externalUserIds },
       target_channel: "push",
-      headings: { en: "🍻 Ny runde!" },
-      contents: { en: `${buyerName} spanderer ${drinkSummary}!` },
+      headings: { en: heading },
+      contents: { en: message },
       url: "https://davos-joy-connect.lovable.app/runder",
       ios_badgeType: "Increase",
       ios_badgeCount: 1,

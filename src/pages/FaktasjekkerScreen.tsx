@@ -93,10 +93,10 @@ export const FaktasjekkerScreen: React.FC = () => {
             </div>
 
             <h2 className="font-heading text-xl font-bold text-foreground mb-2">
-              Hva lurer du på?
+              Hva påstår Andreas?
             </h2>
             <p className="text-sm text-muted-foreground text-center mb-8 max-w-xs">
-              Spør om fakta, statistikk, eller hva som helst. AI-en svarer basert på oppdatert kunnskap.
+              Eller hva krangler Dawgen med noen om? Spør AI-en, så faktasjekker vi det.
             </p>
 
             {/* Search bar */}
