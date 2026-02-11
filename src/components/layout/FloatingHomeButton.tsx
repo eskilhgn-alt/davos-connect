@@ -31,8 +31,8 @@ export const FloatingHomeButton: React.FC = () => {
       className={cn(
         "fixed z-50 flex items-center justify-center",
         "w-11 h-11 rounded-full",
-        "bg-background/90 backdrop-blur-sm border border-border",
-        "shadow-sm active:scale-95 transition-all duration-150",
+        "bg-[#103A5D] border border-[#F4CD3C]/40",
+        "shadow-md shadow-[#103A5D]/30 active:scale-95 transition-all duration-150",
         "safe-area-bottom"
       )}
       style={{
@@ -41,7 +41,7 @@ export const FloatingHomeButton: React.FC = () => {
       }}
       aria-label="Hjem"
     >
-      <Home size={16} strokeWidth={2} className="text-foreground" />
+      <Home size={16} strokeWidth={2} className="text-[#F4CD3C]" />
     </button>
   );
 };

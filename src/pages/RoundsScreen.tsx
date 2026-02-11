@@ -1,5 +1,5 @@
 /**
- * RoundsScreen – Pure history feed with tap-to-expand details
+ * RoundsScreen – Pure history feed with tap-to-expand details + edit
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -9,11 +9,14 @@ import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosEmptyState } from "@/components/ui/davos-empty-state";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Beer, Wine, Plus, Users, ChevronRight, Receipt, Gift } from "lucide-react";
+import { DavosInput } from "@/components/ui/davos-input";
+import { Beer, Wine, Plus, ChevronRight, Gift, Pencil, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import { AddRoundSheet } from "@/components/rounds/AddRoundSheet";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import type { Round, DrinkQuantities } from "@/hooks/useRounds";
 
 const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
@@ -21,7 +24,6 @@ const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
   drink: { icon: Wine, label: "Drinker" },
 };
 
-/** Build a short summary like "3 øl, 2 drink" */
 const drinkSummary = (q: DrinkQuantities): string => {
   const parts: string[] = [];
   if (q.beer) parts.push(`${q.beer} øl`);
@@ -30,7 +32,7 @@ const drinkSummary = (q: DrinkQuantities): string => {
 };
 
 export const RoundsScreen: React.FC = () => {
-  const { rounds, profiles, loading, addRound } = useRounds();
+  const { rounds, profiles, loading, addRound, updateRound } = useRounds();
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [detailRound, setDetailRound] = React.useState<Round | null>(null);
 
@@ -62,7 +64,7 @@ export const RoundsScreen: React.FC = () => {
                   style={{ WebkitTapHighlightColor: "transparent" }}
                 >
                   <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Beer size={17} className="text-primary" />
+                    {r.is_treated ? <Gift size={17} className="text-primary" /> : <Beer size={17} className="text-primary" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-heading text-sm font-semibold text-foreground truncate">{buyerName}</p>
@@ -79,7 +81,7 @@ export const RoundsScreen: React.FC = () => {
         )}
       </div>
 
-      <RoundDetailSheet round={detailRound} profiles={profiles} onClose={() => setDetailRound(null)} />
+      <RoundDetailSheet round={detailRound} profiles={profiles} onClose={() => setDetailRound(null)} onUpdate={updateRound} />
       <AddRoundSheet open={sheetOpen} onOpenChange={setSheetOpen} onSubmit={addRound} />
     </div>
   );
@@ -90,19 +92,56 @@ const RoundDetailSheet: React.FC<{
   round: Round | null;
   profiles: Record<string, { full_name: string | null; nickname: string | null; avatar_url: string | null }>;
   onClose: () => void;
-}> = ({ round, profiles, onClose }) => {
+  onUpdate: (id: string, updates: any) => Promise<{ error: any }>;
+}> = ({ round, profiles, onClose, onUpdate }) => {
+  const { user } = useAuth();
+  const [editing, setEditing] = React.useState(false);
+  const [editNote, setEditNote] = React.useState("");
+  const [editCost, setEditCost] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (round) {
+      setEditNote(round.note || "");
+      setEditCost(String(round.total_cost));
+      setEditing(false);
+    }
+  }, [round]);
+
   if (!round) return null;
 
   const buyer = profiles[round.buyer_id];
   const buyerName = buyer?.nickname || buyer?.full_name || "Ukjent";
   const qty = round.drink_quantities || {};
   const hasQuantities = Object.values(qty).some((v) => v > 0);
+  const canEdit = user?.id === round.buyer_id;
+
+  const handleSave = async () => {
+    setSaving(true);
+    const newCost = parseFloat(editCost) || round.total_cost;
+    const perPerson = round.participants.length > 0 ? Math.ceil((newCost / round.participants.length) * 100) / 100 : 0;
+    const { error } = await onUpdate(round.id, {
+      total_cost: newCost,
+      cost_per_person: perPerson,
+      note: editNote || null,
+    });
+    setSaving(false);
+    if (error) toast.error("Kunne ikke oppdatere");
+    else { toast.success("Runde oppdatert"); setEditing(false); }
+  };
 
   return (
     <Sheet open={!!round} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="max-h-[75vh] rounded-t-2xl overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
         <SheetHeader>
-          <SheetTitle className="font-heading">Rundedetaljer</SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="font-heading">Rundedetaljer</SheetTitle>
+            {canEdit && !editing && (
+              <button onClick={() => setEditing(true)} className="p-2 text-primary">
+                <Pencil size={16} />
+              </button>
+            )}
+          </div>
         </SheetHeader>
 
         <div className="space-y-4 py-4">
@@ -165,23 +204,45 @@ const RoundDetailSheet: React.FC<{
 
           {/* Cost breakdown */}
           <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-foreground">Totalt</p>
-              <p className="font-heading text-lg font-bold text-foreground">{round.total_cost} kr</p>
-            </div>
-            {!round.is_treated && (
-              <div className="flex justify-between items-center mt-1">
-                <p className="text-sm text-muted-foreground">Per person ({round.participants.length} stk)</p>
-                <p className="font-heading text-sm font-semibold text-foreground">{round.cost_per_person} kr</p>
+            {editing ? (
+              <div className="space-y-2">
+                <DavosInput label="Totalkostnad (kr)" type="number" inputMode="decimal" value={editCost} onChange={e => setEditCost(e.target.value)} />
               </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-foreground">Totalt</p>
+                  <p className="font-heading text-lg font-bold text-foreground">{round.total_cost} kr</p>
+                </div>
+                {!round.is_treated && (
+                  <div className="flex justify-between items-center mt-1">
+                    <p className="text-sm text-muted-foreground">Per person ({round.participants.length} stk)</p>
+                    <p className="font-heading text-sm font-semibold text-foreground">{round.cost_per_person} kr</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           {/* Note */}
-          {round.note && (
-            <div className="p-3 rounded-xl bg-muted/20 border border-border">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Notat</p>
-              <p className="text-sm text-foreground">{round.note}</p>
+          <div className="p-3 rounded-xl bg-muted/20 border border-border">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Notat</p>
+            {editing ? (
+              <DavosInput value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="Legg til notat..." />
+            ) : (
+              <p className="text-sm text-foreground">{round.note || "–"}</p>
+            )}
+          </div>
+
+          {/* Edit actions */}
+          {editing && (
+            <div className="flex gap-2">
+              <button onClick={() => setEditing(false)} className="flex-1 h-10 rounded-xl border border-border flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground">
+                <X size={14} /> Avbryt
+              </button>
+              <button onClick={handleSave} disabled={saving} className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center gap-1.5 text-sm font-semibold disabled:opacity-50">
+                <Check size={14} /> Lagre
+              </button>
             </div>
           )}
 
@@ -190,11 +251,7 @@ const RoundDetailSheet: React.FC<{
             <div className="space-y-1.5">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-1">Kvittering</p>
               <a href={round.receipt_image_url} target="_blank" rel="noopener noreferrer">
-                <img
-                  src={round.receipt_image_url}
-                  alt="Kvittering"
-                  className="w-full max-h-64 object-contain rounded-xl border border-border bg-muted/10"
-                />
+                <img src={round.receipt_image_url} alt="Kvittering" className="w-full max-h-64 object-contain rounded-xl border border-border bg-muted/10" />
               </a>
             </div>
           )}
@@ -216,7 +273,9 @@ const RoundDetailSheet: React.FC<{
                     </Avatar>
                     <span className="text-sm font-medium text-foreground flex-1 truncate">{name}</span>
                     {isBuyer && (
-                      <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Spanderte</span>
+                      <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                        {round.is_treated ? "Spanderte" : "La ut"}
+                      </span>
                     )}
                   </div>
                 );

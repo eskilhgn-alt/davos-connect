@@ -34,11 +34,9 @@ import {
   Loader2,
   Check,
   KeyRound,
-  Vibrate,
   Bug,
 } from "lucide-react";
 import { toast } from "sonner";
-import { isHapticsEnabled, setHapticsEnabled } from "@/utils/haptics";
 
 const APP_VERSION = "1.0.0-beta.1";
 
@@ -64,9 +62,6 @@ export const SettingsScreen: React.FC = () => {
     if (typeof window === "undefined") return false;
     return document.documentElement.classList.contains("dark");
   });
-
-  // Haptic feedback
-  const [hapticsOn, setHapticsOn] = React.useState(isHapticsEnabled);
 
   // Bug report
   const [bugText, setBugText] = React.useState("");
@@ -214,33 +209,6 @@ export const SettingsScreen: React.FC = () => {
                   </div>
                 </div>
                 <Switch checked={isDark} onCheckedChange={toggleDarkMode} />
-              </div>
-            </DavosCardContent>
-          </DavosCard>
-
-          {/* Haptic feedback */}
-          <DavosCard>
-            <DavosCardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Vibrate className="h-5 w-5 text-primary" />
-                  <div>
-                    <h2 className="font-heading font-semibold text-foreground">
-                      Haptisk feedback
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      Vibrasjon ved handlinger
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={hapticsOn}
-                  onCheckedChange={(v) => {
-                    setHapticsOn(v);
-                    setHapticsEnabled(v);
-                    if (v && navigator.vibrate) navigator.vibrate(10);
-                  }}
-                />
               </div>
             </DavosCardContent>
           </DavosCard>

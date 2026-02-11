@@ -125,7 +125,7 @@ export function useRounds() {
 
     try {
       await supabase.functions.invoke("round-push", {
-        body: { round_id: round.id, buyer_id: buyerId, drink_type: drinkType, participant_ids: participantIds, drink_quantities: drinkQuantities || {} },
+        body: { round_id: round.id, buyer_id: buyerId, drink_type: drinkType, participant_ids: participantIds, drink_quantities: drinkQuantities || {}, is_treated: isTreated || false },
       });
     } catch (e) {
       console.warn("Push failed:", e);
@@ -133,6 +133,24 @@ export function useRounds() {
 
     await fetchRounds();
     return { error: null };
+  };
+
+  const updateRound = async (
+    roundId: string,
+    updates: {
+      drink_quantities?: DrinkQuantities;
+      total_cost?: number;
+      cost_per_person?: number;
+      note?: string | null;
+      is_treated?: boolean;
+    }
+  ) => {
+    const { error } = await supabase
+      .from("rounds")
+      .update(updates)
+      .eq("id", roundId);
+    if (!error) await fetchRounds();
+    return { error };
   };
 
   const summaries = React.useMemo((): RoundSummary[] => {
@@ -160,5 +178,5 @@ export function useRounds() {
       .sort((a, b) => b.rounds_bought - a.rounds_bought);
   }, [rounds, profiles]);
 
-  return { rounds, summaries, profiles, loading, addRound, refetch: fetchRounds };
+  return { rounds, summaries, profiles, loading, addRound, updateRound, refetch: fetchRounds };
 }

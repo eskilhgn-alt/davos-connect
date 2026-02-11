@@ -16,7 +16,10 @@ import { ShotLeaderboard } from "@/components/shot/ShotLeaderboard";
 import { ShotTransparency } from "@/components/shot/ShotTransparency";
 import { ShotHistory } from "@/components/shot/ShotHistory";
 import { SkiAwardClaimDialog } from "@/components/ski/SkiAwardClaimDialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { BookOpen, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const GROUP_ID = "global";
 
@@ -61,6 +64,7 @@ export const ShotScreen: React.FC = () => {
   const [pressing, setPressing] = React.useState(false);
   const [profiles, setProfiles] = React.useState<Record<string, string>>({});
   const [frikortCount, setFrikortCount] = React.useState(0);
+  const [rulesOpen, setRulesOpen] = React.useState(false);
   const frikortCountRef = React.useRef(0);
   const countdownTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -340,7 +344,11 @@ export const ShotScreen: React.FC = () => {
       className="flex flex-col overflow-hidden bg-background"
       style={{ height: "var(--app-height)" }}
     >
-      <AppHeader title="Shoot your shot" leftAction={<BackButton fallbackPath="/hjem" />} />
+      <AppHeader title="Shoot your shot" leftAction={<BackButton fallbackPath="/hjem" />} rightAction={
+        <button onClick={() => setRulesOpen(true)} className="tap-target flex items-center justify-center text-primary" aria-label="Regler">
+          <BookOpen size={20} strokeWidth={2} />
+        </button>
+      } />
 
       <PullToRefreshWrapper
         onRefresh={async () => { await Promise.all([loadTokens(), loadActiveEvent(), loadLog(), loadFrikort()]); }}
@@ -407,10 +415,45 @@ export const ShotScreen: React.FC = () => {
         </div>
       </PullToRefreshWrapper>
 
+      {/* Rules sheet */}
+      <ShotRulesSheet open={rulesOpen} onOpenChange={setRulesOpen} />
+
       {/* Award claim dialog */}
       <SkiAwardClaimDialog />
     </div>
   );
 };
+
+/* ---------- Rules Sheet ---------- */
+const SHOT_RULES = [
+  { title: "Alle er med", desc: "Alle aktive brukere er automatisk med i trekningen." },
+  { title: "1 token per runde", desc: "Koster 1 token å starte. Hoarding er lov – ingen øvre grense." },
+  { title: "5 tokens per dag", desc: "Du får 5 nye tokens ved midnatt hver dag." },
+  { title: "10 sek nedtelling", desc: "Etter du trykker starter en 10 sekunders nedtelling med push til alle." },
+  { title: "Vektet trekning", desc: "De som trekkes ofte har lavere sjanse neste gang. Formelen: 1/(1 + 0.3 × nylige trekninger)." },
+  { title: "15 min frist", desc: "Den trukne har 15 minutter til å ta shotten og velge et vitne." },
+  { title: "Vitne bekrefter", desc: "Vitnet får push og har 15 min til å bekrefte eller avslå." },
+  { title: "12-timers ban", desc: "Nekting, timeout eller avslag fra vitne gir 12 timers utestengelse." },
+  { title: "Frikort", desc: "Tjenes gjennom ski-kåringer. Lar deg slippe unna en trekning uten straff." },
+  { title: "Bonustoken", desc: "Leder du med 2+ trekninger mer enn nestemann, får du automatisk +1 token." },
+];
+
+const ShotRulesSheet: React.FC<{ open: boolean; onOpenChange: (o: boolean) => void }> = ({ open, onOpenChange }) => (
+  <Sheet open={open} onOpenChange={onOpenChange}>
+    <SheetContent side="bottom" className="max-h-[75vh] rounded-t-2xl overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+      <SheetHeader>
+        <SheetTitle className="font-heading">Regler – Shoot your shot</SheetTitle>
+      </SheetHeader>
+      <div className="space-y-2 py-4">
+        {SHOT_RULES.map((r, i) => (
+          <div key={i} className="p-3 rounded-xl border border-border bg-muted/20">
+            <p className="text-sm font-semibold text-foreground">{r.title}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{r.desc}</p>
+          </div>
+        ))}
+      </div>
+    </SheetContent>
+  </Sheet>
+);
 
 export default ShotScreen;
