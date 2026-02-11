@@ -59,27 +59,22 @@ serve(async (req) => {
     const { data: creator } = await supabase.from("profiles").select("nickname, full_name").eq("id", poll.created_by).single();
     const creatorName = creator?.nickname || creator?.full_name || "Noen";
 
-    // Get all users who have push tokens registered (except caller)
-    const { data: pushTokenUsers } = await supabase
-      .from("push_tokens")
-      .select("user_id")
-      .neq("user_id", callerUserId)
-      .not("player_id", "is", null);
-    
-    const userIds = (pushTokenUsers || []).map((p) => p.user_id);
-
-    if (userIds.length === 0) {
-      return new Response(JSON.stringify({ success: true, sent: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     let heading = "";
     let content = "";
+    let targetUserIds: string[] = [];
 
     if (type === "created") {
       heading = "📊 Ny avstemming";
       content = `${creatorName}: ${poll.question}`;
+      
+      // All users except creator
+      const { data: pushTokenUsers } = await supabase
+        .from("push_tokens")
+        .select("user_id")
+        .neq("user_id", callerUserId)
+        .not("player_id", "is", null);
+      targetUserIds = (pushTokenUsers || []).map((p) => p.user_id);
+
     } else if (type === "resolved") {
       // Get winning option label
       const { data: winOpt } = await supabase
@@ -90,15 +85,58 @@ serve(async (req) => {
 
       heading = "✅ Avstemming avgjort";
       content = `${poll.question} → ${winOpt?.label || "Ukjent"}`;
+
+      // All users
+      const { data: pushTokenUsers } = await supabase
+        .from("push_tokens")
+        .select("user_id")
+        .not("player_id", "is", null);
+      targetUserIds = (pushTokenUsers || []).map((p) => p.user_id);
+
+    } else if (type === "cancelled") {
+      heading = "❌ Avstemming kansellert";
+      content = `${creatorName} kansellerte: ${poll.question}`;
+
+      const { data: pushTokenUsers } = await supabase
+        .from("push_tokens")
+        .select("user_id")
+        .neq("user_id", callerUserId)
+        .not("player_id", "is", null);
+      targetUserIds = (pushTokenUsers || []).map((p) => p.user_id);
+
+    } else if (type === "reminder") {
+      heading = "⏰ Påminnelse: Stem nå!";
+      content = poll.question;
+
+      // Only users who haven't voted
+      const { data: votes } = await supabase
+        .from("poll_votes")
+        .select("user_id")
+        .eq("poll_id", poll_id);
+      const voterIds = new Set((votes || []).map((v) => v.user_id));
+
+      const { data: pushTokenUsers } = await supabase
+        .from("push_tokens")
+        .select("user_id")
+        .not("player_id", "is", null);
+      targetUserIds = (pushTokenUsers || [])
+        .map((p) => p.user_id)
+        .filter((uid) => !voterIds.has(uid));
+    }
+
+    if (targetUserIds.length === 0) {
+      return new Response(JSON.stringify({ success: true, sent: 0 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const notificationPayload = {
       app_id: ONESIGNAL_APP_ID,
-      include_aliases: { external_id: userIds },
+      include_aliases: { external_id: targetUserIds },
       target_channel: "push",
       headings: { en: heading },
       contents: { en: content },
-      url: "https://guttahutte.lovable.app/poll",
+      url: `https://guttahutte.lovable.app/poll`,
       collapse_id: `poll_${poll_id}`,
     };
 
@@ -112,10 +150,10 @@ serve(async (req) => {
     });
 
     const result = await response.json();
-    console.log(`Poll push (${type}) sent to ${userIds.length} users:`, result);
+    console.log(`Poll push (${type}) sent to ${targetUserIds.length} users:`, result);
 
     return new Response(
-      JSON.stringify({ success: true, sent: userIds.length }),
+      JSON.stringify({ success: true, sent: targetUserIds.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

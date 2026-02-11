@@ -1,5 +1,5 @@
 /**
- * PollScreen – Avstemminger for gruppen
+ * PollScreen – Full poll management with filters, pinned polls, and actions
  */
 
 import * as React from "react";
@@ -9,18 +9,49 @@ import { usePolls } from "@/hooks/usePolls";
 import { useAuth } from "@/contexts/AuthContext";
 import { PollCard } from "@/components/poll/PollCard";
 import { CreatePollSheet } from "@/components/poll/CreatePollSheet";
-import { DavosButton } from "@/components/ui/davos-button";
 import { DavosEmptyState } from "@/components/ui/davos-empty-state";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { Plus, Vote } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type Filter = "active" | "resolved" | "mine";
 
 export const PollScreen: React.FC = () => {
-  const { polls, loading, createPoll, vote, closePoll } = usePolls();
-  const { user } = useAuth();
+  const {
+    polls,
+    loading,
+    createPoll,
+    vote,
+    forceClose,
+    cancelPoll,
+    resolveTie,
+    togglePin,
+    sendReminder,
+  } = usePolls();
+  const { user, isAdmin } = useAuth();
   const [createOpen, setCreateOpen] = React.useState(false);
+  const [filter, setFilter] = React.useState<Filter>("active");
 
-  const activePolls = polls.filter((p) => p.status === "active");
-  const resolvedPolls = polls.filter((p) => p.status === "resolved");
+  const pinnedPolls = polls.filter((p) => p.is_pinned && p.status === "active");
+  
+  const filteredPolls = React.useMemo(() => {
+    switch (filter) {
+      case "active":
+        return polls.filter((p) => p.status === "active" && !p.is_pinned);
+      case "resolved":
+        return polls.filter((p) => p.status === "resolved" || p.status === "cancelled");
+      case "mine":
+        return polls.filter((p) => p.created_by === user?.id);
+      default:
+        return polls;
+    }
+  }, [polls, filter, user]);
+
+  const filters: { key: Filter; label: string; count: number }[] = [
+    { key: "active", label: "Aktive", count: polls.filter((p) => p.status === "active").length },
+    { key: "resolved", label: "Avgjort", count: polls.filter((p) => p.status !== "active").length },
+    { key: "mine", label: "Mine", count: polls.filter((p) => p.created_by === user?.id).length },
+  ];
 
   return (
     <div
@@ -41,6 +72,24 @@ export const PollScreen: React.FC = () => {
         }
       />
 
+      {/* Filter tabs */}
+      <div className="px-4 pt-2 pb-1 flex gap-1.5">
+        {filters.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+              filter === f.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            {f.label} {f.count > 0 && `(${f.count})`}
+          </button>
+        ))}
+      </div>
+
       <div
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
@@ -52,47 +101,59 @@ export const PollScreen: React.FC = () => {
                 <DavosSkeleton key={i} className="h-40 rounded-2xl" />
               ))}
             </div>
-          ) : polls.length === 0 ? (
+          ) : filteredPolls.length === 0 && pinnedPolls.length === 0 ? (
             <DavosEmptyState
               icon={Vote}
-              title="Ingen avstemminger ennå"
+              title={filter === "active" ? "Ingen aktive avstemminger" : filter === "mine" ? "Du har ingen avstemminger" : "Ingen avgjorte avstemminger"}
               description="Opprett den første og la Gütta bestemme!"
             />
           ) : (
             <>
-              {activePolls.length > 0 && (
+              {/* Pinned polls (only in active filter) */}
+              {filter === "active" && pinnedPolls.length > 0 && (
                 <div className="space-y-3">
-                  <h2 className="font-heading text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    Aktive
+                  <h2 className="font-heading text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                    📌 Festet
                   </h2>
-                  {activePolls.map((poll) => (
+                  {pinnedPolls.map((poll) => (
                     <PollCard
                       key={poll.id}
                       poll={poll}
                       onVote={vote}
-                      onClose={closePoll}
+                      onForceClose={forceClose}
+                      onCancel={cancelPoll}
+                      onResolveTie={resolveTie}
+                      onTogglePin={togglePin}
+                      onSendReminder={sendReminder}
                       isCreator={poll.created_by === user?.id}
+                      isAdmin={!!isAdmin}
                     />
                   ))}
                 </div>
               )}
 
-              {resolvedPolls.length > 0 && (
-                <div className="space-y-3">
+              {/* Regular polls */}
+              <div className="space-y-3">
+                {filter === "active" && filteredPolls.length > 0 && pinnedPolls.length > 0 && (
                   <h2 className="font-heading text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    Avgjort
+                    Alle aktive
                   </h2>
-                  {resolvedPolls.map((poll) => (
-                    <PollCard
-                      key={poll.id}
-                      poll={poll}
-                      onVote={vote}
-                      onClose={closePoll}
-                      isCreator={poll.created_by === user?.id}
-                    />
-                  ))}
-                </div>
-              )}
+                )}
+                {filteredPolls.map((poll) => (
+                  <PollCard
+                    key={poll.id}
+                    poll={poll}
+                    onVote={vote}
+                    onForceClose={forceClose}
+                    onCancel={cancelPoll}
+                    onResolveTie={resolveTie}
+                    onTogglePin={togglePin}
+                    onSendReminder={sendReminder}
+                    isCreator={poll.created_by === user?.id}
+                    isAdmin={!!isAdmin}
+                  />
+                ))}
+              </div>
             </>
           )}
         </div>

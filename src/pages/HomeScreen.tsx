@@ -28,6 +28,7 @@ import {
   Sparkles,
   LogOut,
   Beer,
+  Vote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +65,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/agenda", label: "Agenda", icon: CalendarDays },
       { to: "/galleri", label: "Galleri", icon: Film },
       { to: "/runder", label: "Runder", icon: Beer },
+      { to: "/poll", label: "Avstemming", icon: Vote },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
     ];

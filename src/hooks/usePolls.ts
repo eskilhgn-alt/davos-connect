@@ -1,6 +1,6 @@
 /**
- * usePolls – Hook for polls CRUD, voting, and realtime updates
- * Sends system messages to chat when polls are created/resolved
+ * usePolls – Full poll state machine with tie handling, cancel, force close,
+ * quorum, rate limiting, reminders, and chat integration
  */
 
 import * as React from "react";
@@ -8,18 +8,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
-import type { Json } from "@/integrations/supabase/types";
 
 const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 const SYSTEM_SENDER_ID = "00000000-0000-0000-0000-000000000000";
 
-/** Posts a system message in the group chat */
-async function postSystemChatMessage(text: string) {
+/** Posts a system message in the group chat with poll metadata */
+async function postPollChatMessage(text: string, pollId: string, type: "created" | "ended" | "cancelled" | "reminder") {
   await supabase.from("messages").insert({
     thread_id: DEFAULT_THREAD_ID,
     sender_id: SYSTEM_SENDER_ID,
     sender_name: "📊 Avstemming",
     text,
+    // Store poll reference in attachments for rendering poll cards
+    attachments: JSON.stringify([{ kind: "poll", poll_id: pollId, poll_event: type }]),
   });
 }
 
@@ -29,7 +30,7 @@ export interface PollOption {
   label: string;
   sort_order: number;
   vote_count: number;
-  voters: string[]; // user_ids
+  voters: { user_id: string; display_name: string }[];
 }
 
 export interface Poll {
@@ -38,18 +39,27 @@ export interface Poll {
   creator_name: string;
   question: string;
   require_all: boolean;
+  min_votes: number | null;
+  is_pinned: boolean;
   send_push_on_create: boolean;
   send_push_on_resolved: boolean;
   deadline_at: string | null;
   resolved_at: string | null;
   winning_option_id: string | null;
-  status: string;
+  status: "active" | "resolved" | "cancelled";
   created_at: string;
   options: PollOption[];
-  my_vote: string | null; // option_id I voted for
+  my_vote: string | null;
   total_votes: number;
   total_users: number;
+  missing_voters: { user_id: string; display_name: string }[];
+  is_tie: boolean;
+  tied_option_ids: string[];
 }
+
+// Rate limit: max 2 polls per 10 minutes per user
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX = 2;
 
 export function usePolls() {
   const { user } = useAuth();
@@ -73,12 +83,18 @@ export function usePolls() {
     const profileMap = new Map(
       (profilesRes.data || []).map((p) => [p.id, p.nickname || p.full_name || "Ukjent"])
     );
-    const totalUsers = profilesRes.data?.length || 0;
+    const allActiveUserIds = (profilesRes.data || []).map((p) => p.id);
+    const totalUsers = allActiveUserIds.length;
 
     const enriched: Poll[] = (pollsRes.data || []).map((p) => {
       const opts = (optionsRes.data || []).filter((o) => o.poll_id === p.id);
       const votes = (votesRes.data || []).filter((v) => v.poll_id === p.id);
       const myVote = user ? votes.find((v) => v.user_id === user.id)?.option_id || null : null;
+
+      const voterIds = new Set(votes.map((v) => v.user_id));
+      const missing = allActiveUserIds
+        .filter((uid) => !voterIds.has(uid))
+        .map((uid) => ({ user_id: uid, display_name: profileMap.get(uid) || "Ukjent" }));
 
       const options: PollOption[] = opts.map((o) => {
         const optVotes = votes.filter((v) => v.option_id === o.id);
@@ -88,9 +104,17 @@ export function usePolls() {
           label: o.label,
           sort_order: o.sort_order,
           vote_count: optVotes.length,
-          voters: optVotes.map((v) => v.user_id),
+          voters: optVotes.map((v) => ({
+            user_id: v.user_id,
+            display_name: profileMap.get(v.user_id) || "Ukjent",
+          })),
         };
       });
+
+      // Check for tie
+      const maxVotes = Math.max(...options.map((o) => o.vote_count), 0);
+      const tiedOptions = maxVotes > 0 ? options.filter((o) => o.vote_count === maxVotes) : [];
+      const isTie = tiedOptions.length > 1;
 
       return {
         id: p.id,
@@ -98,17 +122,22 @@ export function usePolls() {
         creator_name: profileMap.get(p.created_by) || "Ukjent",
         question: p.question,
         require_all: p.require_all,
+        min_votes: (p as any).min_votes ?? null,
+        is_pinned: (p as any).is_pinned ?? false,
         send_push_on_create: p.send_push_on_create,
         send_push_on_resolved: p.send_push_on_resolved,
         deadline_at: p.deadline_at,
         resolved_at: p.resolved_at,
         winning_option_id: p.winning_option_id,
-        status: p.status,
+        status: p.status as Poll["status"],
         created_at: p.created_at,
         options,
         my_vote: myVote,
         total_votes: votes.length,
         total_users: totalUsers,
+        missing_voters: missing,
+        is_tie: isTie,
+        tied_option_ids: tiedOptions.map((o) => o.id),
       };
     });
 
@@ -129,12 +158,40 @@ export function usePolls() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchPolls]);
 
+  // Auto-resolve: check deadlines every 30s
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      polls.forEach((poll) => {
+        if (poll.status === "active" && poll.deadline_at && new Date(poll.deadline_at) < new Date()) {
+          resolvePoll(poll.id);
+        }
+      });
+    }, 30_000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [polls]);
+
   const createPoll = async (
     question: string,
     options: string[],
-    settings: { requireAll: boolean; sendPushOnCreate: boolean; sendPushOnResolved: boolean; deadlineMinutes: number | null }
+    settings: {
+      requireAll: boolean;
+      sendPushOnCreate: boolean;
+      sendPushOnResolved: boolean;
+      deadlineMinutes: number | null;
+      minVotes: number | null;
+    }
   ) => {
     if (!user) return;
+
+    // Rate limit check
+    const recentPolls = polls.filter(
+      (p) => p.created_by === user.id && new Date(p.created_at).getTime() > Date.now() - RATE_LIMIT_WINDOW_MS
+    );
+    if (recentPolls.length >= RATE_LIMIT_MAX) {
+      errorToast("Du kan maks opprette 2 avstemminger per 10 minutter");
+      return null;
+    }
 
     const deadlineAt = settings.deadlineMinutes
       ? new Date(Date.now() + settings.deadlineMinutes * 60_000).toISOString()
@@ -149,7 +206,8 @@ export function usePolls() {
         send_push_on_create: settings.sendPushOnCreate,
         send_push_on_resolved: settings.sendPushOnResolved,
         deadline_at: deadlineAt,
-      })
+        min_votes: settings.minVotes,
+      } as any)
       .select()
       .single();
 
@@ -170,7 +228,7 @@ export function usePolls() {
       return null;
     }
 
-    // Send push notification
+    // Push
     if (settings.sendPushOnCreate) {
       supabase.functions.invoke("poll-push", {
         body: { poll_id: poll.id, type: "created" },
@@ -179,11 +237,13 @@ export function usePolls() {
 
     toast.success("Avstemming opprettet!");
 
-    // Post system message in chat
+    // Chat system message
     const { data: prof } = await supabase.from("profiles").select("nickname, full_name").eq("id", user.id).single();
     const creatorName = prof?.nickname || prof?.full_name || "Noen";
-    postSystemChatMessage(
-      `${creatorName} har startet en avstemming: "${question.trim()}"\n👉 Gå til Avstemminger for å stemme`
+    postPollChatMessage(
+      `${creatorName} har startet en avstemming: "${question.trim()}"`,
+      poll.id,
+      "created"
     ).catch(console.warn);
 
     await fetchPolls();
@@ -193,7 +253,18 @@ export function usePolls() {
   const vote = async (pollId: string, optionId: string) => {
     if (!user) return;
 
-    // Check if user already voted on this poll
+    const poll = polls.find((p) => p.id === pollId);
+    if (!poll || poll.status !== "active") {
+      errorToast("Avstemmingen er lukket");
+      return;
+    }
+
+    // Check deadline
+    if (poll.deadline_at && new Date(poll.deadline_at) < new Date()) {
+      errorToast("Tidsfristen er utløpt");
+      return;
+    }
+
     const { data: existing } = await supabase
       .from("poll_votes")
       .select("id")
@@ -203,13 +274,11 @@ export function usePolls() {
 
     let error;
     if (existing) {
-      // Update existing vote
       ({ error } = await supabase
         .from("poll_votes")
         .update({ option_id: optionId })
         .eq("id", existing.id));
     } else {
-      // Insert new vote
       ({ error } = await supabase
         .from("poll_votes")
         .insert({ poll_id: pollId, option_id: optionId, user_id: user.id }));
@@ -221,82 +290,200 @@ export function usePolls() {
       return;
     }
 
-    // Optimistic refetch
     await fetchPolls();
-
-    // Check if all voted (require_all)
     await checkResolution(pollId);
   };
 
   const checkResolution = async (pollId: string) => {
-    const poll = polls.find((p) => p.id === pollId);
-    if (!poll || poll.status !== "active") return;
+    const { data: pollData } = await supabase.from("polls").select("*").eq("id", pollId).single();
+    if (!pollData || pollData.status !== "active") return;
 
-    // Refetch votes
-    const { data: votes } = await supabase
-      .from("poll_votes")
-      .select("*")
-      .eq("poll_id", pollId);
-
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("is_active", true);
+    const { data: votes } = await supabase.from("poll_votes").select("*").eq("poll_id", pollId);
+    const { data: profiles } = await supabase.from("profiles").select("id").eq("is_active", true);
 
     const totalUsers = profiles?.length || 0;
     const totalVotes = votes?.length || 0;
 
-    if (poll.require_all && totalVotes >= totalUsers) {
+    // Check quorum
+    const minVotes = (pollData as any).min_votes;
+    if (minVotes && totalVotes < minVotes) return;
+
+    // Check require_all
+    if (pollData.require_all && totalVotes >= totalUsers) {
       await resolvePoll(pollId);
     }
   };
 
   const resolvePoll = async (pollId: string) => {
-    // Find winning option
-    const { data: votes } = await supabase
-      .from("poll_votes")
-      .select("option_id")
-      .eq("poll_id", pollId);
-
-    if (!votes || votes.length === 0) return;
+    const { data: votes } = await supabase.from("poll_votes").select("option_id").eq("poll_id", pollId);
+    if (!votes || votes.length === 0) {
+      // No votes → just close
+      await supabase.from("polls").update({
+        status: "resolved",
+        resolved_at: new Date().toISOString(),
+      }).eq("id", pollId);
+      await fetchPolls();
+      return;
+    }
 
     const counts = new Map<string, number>();
     votes.forEach((v) => counts.set(v.option_id, (counts.get(v.option_id) || 0) + 1));
 
     let winnerId = "";
     let maxCount = 0;
+    const tiedIds: string[] = [];
+
     counts.forEach((count, id) => {
-      if (count > maxCount) { maxCount = count; winnerId = id; }
+      if (count > maxCount) {
+        maxCount = count;
+        winnerId = id;
+        tiedIds.length = 0;
+        tiedIds.push(id);
+      } else if (count === maxCount) {
+        tiedIds.push(id);
+      }
     });
 
-    await supabase
-      .from("polls")
-      .update({ status: "resolved", resolved_at: new Date().toISOString(), winning_option_id: winnerId })
-      .eq("id", pollId);
+    // If tie → don't auto-resolve, let creator choose
+    if (tiedIds.length > 1) {
+      await fetchPolls();
+      return;
+    }
 
-    // Find winning option label
-    const poll = polls.find((p) => p.id === pollId);
-    const winningOption = poll?.options.find(o => o.id === winnerId);
+    await supabase.from("polls").update({
+      status: "resolved",
+      resolved_at: new Date().toISOString(),
+      winning_option_id: winnerId,
+    }).eq("id", pollId);
 
-    // Post result in chat
-    if (poll && winningOption) {
-      postSystemChatMessage(
-        `Avstemming avgjort: "${poll.question}"\n🏆 Resultat: ${winningOption.label}`
+    // Find label
+    const { data: winOpt } = await supabase.from("poll_options").select("label").eq("id", winnerId).single();
+    const { data: pollRow } = await supabase.from("polls").select("question, send_push_on_resolved").eq("id", pollId).single();
+
+    if (pollRow && winOpt) {
+      postPollChatMessage(
+        `Avstemming avgjort: "${pollRow.question}"\n🏆 Resultat: ${winOpt.label}`,
+        pollId,
+        "ended"
       ).catch(console.warn);
     }
 
-    // Send resolved push
-    if (poll?.send_push_on_resolved) {
+    if (pollRow?.send_push_on_resolved) {
       supabase.functions.invoke("poll-push", {
         body: { poll_id: pollId, type: "resolved" },
       }).catch(console.warn);
     }
-  };
 
-  const closePoll = async (pollId: string) => {
-    await resolvePoll(pollId);
     await fetchPolls();
   };
 
-  return { polls, loading, createPoll, vote, closePoll, refetch: fetchPolls };
+  /** Creator resolves a tie by choosing the winning option */
+  const resolveTie = async (pollId: string, winningOptionId: string) => {
+    if (!user) return;
+    const poll = polls.find((p) => p.id === pollId);
+    if (!poll || poll.created_by !== user.id) {
+      errorToast("Bare oppretteren kan avgjøre uavgjort");
+      return;
+    }
+
+    await supabase.from("polls").update({
+      status: "resolved",
+      resolved_at: new Date().toISOString(),
+      winning_option_id: winningOptionId,
+    }).eq("id", pollId);
+
+    const winOpt = poll.options.find((o) => o.id === winningOptionId);
+    postPollChatMessage(
+      `Avstemming avgjort: "${poll.question}"\n🏆 Resultat: ${winOpt?.label || "Ukjent"} (oppretter avgjorde uavgjort)`,
+      pollId,
+      "ended"
+    ).catch(console.warn);
+
+    if (poll.send_push_on_resolved) {
+      supabase.functions.invoke("poll-push", {
+        body: { poll_id: pollId, type: "resolved" },
+      }).catch(console.warn);
+    }
+
+    toast.success("Uavgjort avgjort!");
+    await fetchPolls();
+  };
+
+  /** Force close by creator with warning about missing voters */
+  const forceClose = async (pollId: string) => {
+    if (!user) return;
+    const poll = polls.find((p) => p.id === pollId);
+    if (!poll) return;
+    if (poll.created_by !== user.id) {
+      errorToast("Bare oppretteren kan avslutte");
+      return;
+    }
+
+    await resolvePoll(pollId);
+  };
+
+  /** Cancel poll (only creator) */
+  const cancelPoll = async (pollId: string) => {
+    if (!user) return;
+    const poll = polls.find((p) => p.id === pollId);
+    if (!poll || poll.created_by !== user.id) {
+      errorToast("Bare oppretteren kan kansellere");
+      return;
+    }
+
+    await supabase.from("polls").update({
+      status: "cancelled",
+      resolved_at: new Date().toISOString(),
+    }).eq("id", pollId);
+
+    postPollChatMessage(
+      `Avstemming kansellert: "${poll.question}"`,
+      pollId,
+      "cancelled"
+    ).catch(console.warn);
+
+    supabase.functions.invoke("poll-push", {
+      body: { poll_id: pollId, type: "cancelled" },
+    }).catch(console.warn);
+
+    toast.success("Avstemming kansellert");
+    await fetchPolls();
+  };
+
+  /** Toggle pin (creator or admin) */
+  const togglePin = async (pollId: string) => {
+    const poll = polls.find((p) => p.id === pollId);
+    if (!poll) return;
+    await supabase.from("polls").update({ is_pinned: !poll.is_pinned } as any).eq("id", pollId);
+    await fetchPolls();
+  };
+
+  /** Send reminder push to non-voters */
+  const sendReminder = async (pollId: string) => {
+    if (!user) return;
+    const poll = polls.find((p) => p.id === pollId);
+    if (!poll || poll.status !== "active") return;
+
+    try {
+      await supabase.functions.invoke("poll-push", {
+        body: { poll_id: pollId, type: "reminder" },
+      });
+      toast.success("Påminnelse sendt!");
+    } catch {
+      errorToast("Kunne ikke sende påminnelse");
+    }
+  };
+
+  return {
+    polls,
+    loading,
+    createPoll,
+    vote,
+    forceClose,
+    cancelPoll,
+    resolveTie,
+    togglePin,
+    sendReminder,
+    refetch: fetchPolls,
+  };
 }

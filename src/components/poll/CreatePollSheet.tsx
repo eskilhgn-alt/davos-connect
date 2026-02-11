@@ -1,5 +1,5 @@
 /**
- * CreatePollSheet – Bottom sheet for creating a new poll
+ * CreatePollSheet – Bottom sheet for creating a new poll with quorum support
  */
 
 import * as React from "react";
@@ -20,6 +20,7 @@ interface CreatePollSheetProps {
       sendPushOnCreate: boolean;
       sendPushOnResolved: boolean;
       deadlineMinutes: number | null;
+      minVotes: number | null;
     }
   ) => Promise<void>;
 }
@@ -33,6 +34,13 @@ const DEADLINE_OPTIONS = [
   { label: "I kveld", value: 480 },
 ] as const;
 
+const QUORUM_OPTIONS = [
+  { label: "Ingen", value: null },
+  { label: "3", value: 3 },
+  { label: "5", value: 5 },
+  { label: "50%", value: -50 }, // Negative = percentage (resolved at runtime)
+] as const;
+
 export const CreatePollSheet: React.FC<CreatePollSheetProps> = ({
   open,
   onOpenChange,
@@ -44,6 +52,7 @@ export const CreatePollSheet: React.FC<CreatePollSheetProps> = ({
   const [sendPushCreate, setSendPushCreate] = React.useState(true);
   const [sendPushResolved, setSendPushResolved] = React.useState(true);
   const [deadlineMinutes, setDeadlineMinutes] = React.useState<number | null>(null);
+  const [minVotes, setMinVotes] = React.useState<number | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
   const canSubmit = question.trim().length > 0 && options.filter((o) => o.trim()).length >= 2;
@@ -70,13 +79,14 @@ export const CreatePollSheet: React.FC<CreatePollSheetProps> = ({
       sendPushOnCreate: sendPushCreate,
       sendPushOnResolved: sendPushResolved,
       deadlineMinutes,
+      minVotes: minVotes && minVotes > 0 ? minVotes : null,
     });
     setSubmitting(false);
-    // Reset
     setQuestion("");
     setOptions(["", ""]);
     setRequireAll(false);
     setDeadlineMinutes(null);
+    setMinVotes(null);
   };
 
   return (
@@ -146,6 +156,26 @@ export const CreatePollSheet: React.FC<CreatePollSheetProps> = ({
                   }`}
                 >
                   {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Quorum */}
+          <div>
+            <label className="text-xs text-muted-foreground mb-2 block">Minimum antall svar</label>
+            <div className="flex flex-wrap gap-1.5">
+              {QUORUM_OPTIONS.map((q) => (
+                <button
+                  key={q.label}
+                  onClick={() => setMinVotes(q.value)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    minVotes === q.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {q.label}
                 </button>
               ))}
             </div>
