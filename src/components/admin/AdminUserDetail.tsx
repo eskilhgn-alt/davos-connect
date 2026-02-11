@@ -12,8 +12,13 @@ import { DavosBadge } from "@/components/ui/davos-badge";
 import {
   UserX, UserCheck, Coins, Ticket, Loader2, Key, Save,
   ChevronDown, ChevronUp, Bell, Edit3, ShieldOff, StickyNote, Send,
-  Mail, CheckCircle, XCircle, Calendar, Shield,
+  Mail, CheckCircle, XCircle, Calendar, Shield, Trash2,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
 
@@ -149,6 +154,22 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
       onRefresh();
     } catch (e: any) {
       errorToast("Feil", { description: e.message });
+    } finally { setLoading(null); }
+  };
+
+  const deleteUser = async () => {
+    setLoading("delete");
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-delete-user", {
+        body: { target_user_id: u.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`${u.nickname || u.full_name || u.email} er slettet`);
+      onLogAction(currentUserId, "user_deleted", u.id);
+      onRefresh();
+    } catch (e: any) {
+      errorToast("Kunne ikke slette bruker", { description: e.message });
     } finally { setLoading(null); }
   };
 
@@ -313,6 +334,40 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
               <DavosButton variant="outline" size="sm" onClick={() => setShowNotes(!showNotes)}>
                 <StickyNote size={14} className="mr-1" /> Notater
               </DavosButton>
+
+              {/* Delete user – full removal */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DavosButton
+                    variant="outline"
+                    size="sm"
+                    disabled={u.id === currentUserId || loading === "delete"}
+                    className="border-destructive/30 text-destructive hover:bg-destructive/10"
+                  >
+                    {loading === "delete" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Trash2 size={14} className="mr-1" />}
+                    Slett bruker
+                  </DavosButton>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Slett bruker permanent?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      <strong>{u.nickname || u.full_name || u.email}</strong> vil bli fullstendig fjernet.
+                      De må registrere seg på nytt og akseptere vilkårene for å bruke appen igjen.
+                      Denne handlingen kan ikke angres.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={deleteUser}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Ja, slett bruker
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
 
             {/* Admin notes */}
