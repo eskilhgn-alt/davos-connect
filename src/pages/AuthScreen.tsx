@@ -53,19 +53,31 @@ export const AuthScreen: React.FC = () => {
   const [avatarUploading, setAvatarUploading] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const { isLocked, remainingLockSeconds, recordAttempt, attempts } = useAuthRateLimit();
+  const profileRetryRef = React.useRef(0);
 
   React.useEffect(() => {
     // Don't act while profile is still loading
     if (!user || isProfileLoading) return;
 
     if (profile === null) {
-      // User is logged in but no profile exists (trigger may have failed or account was cleaned up).
-      // Try refreshing once; if still null after a short delay, show onboarding so they can create one.
-      const timer = setTimeout(async () => {
-        await refreshProfile();
-      }, 1500);
-      return () => clearTimeout(timer);
+      // User is logged in but no profile exists (trigger may have failed).
+      // Retry up to 3 times, then show error state so user isn't stuck.
+      if (profileRetryRef.current < 3) {
+        profileRetryRef.current += 1;
+        const timer = setTimeout(async () => {
+          await refreshProfile();
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+      // After 3 retries, sign out and show error
+      signOut();
+      errorToast("Profilen din kunne ikke lastes. Prøv å logge inn igjen, eller kontakt admin.");
+      setMode("login");
+      return;
     }
+
+    // Reset retry counter when profile loads successfully
+    profileRetryRef.current = 0;
 
     if (profile.email_verified === false) {
       setMode("awaiting-admin");
@@ -74,7 +86,7 @@ export const AuthScreen: React.FC = () => {
     } else {
       setMode("onboarding");
     }
-  }, [user, profile, isProfileLoading, navigate, refreshProfile]);
+  }, [user, profile, isProfileLoading, navigate, refreshProfile, signOut]);
 
   // Clean up preview URL
   React.useEffect(() => {
