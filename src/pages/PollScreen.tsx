@@ -13,10 +13,12 @@ import { DavosEmptyState } from "@/components/ui/davos-empty-state";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { Plus, Vote } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { markPageSeen } from "@/hooks/useAppBadges";
 
 type Filter = "active" | "resolved" | "mine";
 
 export const PollScreen: React.FC = () => {
+  React.useEffect(() => { markPageSeen("polls"); }, []);
   const {
     polls,
     loading,
