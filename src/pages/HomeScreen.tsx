@@ -29,6 +29,7 @@ import {
   LogOut,
   Beer,
   Vote,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +57,7 @@ export const HomeScreen: React.FC = () => {
 
   const tiles: TileItem[] = React.useMemo(() => {
     const base: TileItem[] = [
+      { to: "/alle", label: "Gütta", icon: Users },
       { to: "/chat", label: "Chat", icon: MessageCircle, badge: badges.chat },
       { to: "/vaer", label: "Vær", icon: CloudSun },
       { to: "/live", label: "Live", icon: Radio },
