@@ -396,7 +396,7 @@ export const AuthScreen: React.FC = () => {
           <span className="text-[10px] tracking-wide uppercase font-medium">Sikret forbindelse</span>
         </div>
         <p className="text-[10px] text-muted-foreground/60 text-center max-w-xs leading-relaxed">
-          E2E-kryptert auth · RLS-beskyttet data · Auto-utlogging ved inaktivitet · Rate-limiting på innlogging
+          E2E-kryptert auth · RLS-beskyttet data · Rate-limiting på innlogging
         </p>
       </footer>
     </div>
