@@ -18,6 +18,7 @@ import { ShotHistory } from "@/components/shot/ShotHistory";
 import { SkiAwardClaimDialog } from "@/components/ski/SkiAwardClaimDialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { markPageSeen } from "@/hooks/useAppBadges";
 import { errorToast } from "@/utils/errorToast";
 import { BookOpen, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,7 @@ export interface ShotLogEntry {
 }
 
 export const ShotScreen: React.FC = () => {
+  React.useEffect(() => { markPageSeen("shot"); }, []);
   const { user, isAdmin } = useAuth();
   const [tokens, setTokens] = React.useState<{ balance: number; shot_banned_until?: string | null } | null>(null);
   const [activeEvent, setActiveEvent] = React.useState<ShotEvent | null>(null);

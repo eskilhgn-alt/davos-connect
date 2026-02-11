@@ -11,6 +11,7 @@ import { useAgenda, type AgendaEvent } from "@/hooks/useAgenda";
 import { AgendaEventDialog } from "@/components/agenda/AgendaEventDialog";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { markPageSeen } from "@/hooks/useAppBadges";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_HEIGHT = 56;
@@ -25,6 +26,7 @@ const colorMap: Record<string, string> = {
 };
 
 export const AgendaScreen: React.FC = () => {
+  React.useEffect(() => { markPageSeen("agenda"); }, []);
   const { events, weekStart, weekOffset, setWeekOffset, createEvent, updateEvent, deleteEvent } = useAgenda();
   const scrollRef = React.useRef<HTMLDivElement>(null);
 

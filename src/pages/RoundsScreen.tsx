@@ -7,6 +7,7 @@ import { BackButton } from "@/components/layout/BackButton";
 import { useRounds } from "@/hooks/useRounds";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosEmptyState } from "@/components/ui/davos-empty-state";
+import { markPageSeen } from "@/hooks/useAppBadges";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DavosInput } from "@/components/ui/davos-input";
@@ -33,6 +34,7 @@ const drinkSummary = (q: DrinkQuantities): string => {
 };
 
 export const RoundsScreen: React.FC = () => {
+  React.useEffect(() => { markPageSeen("runder"); }, []);
   const { rounds, profiles, loading, addRound, updateRound } = useRounds();
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [detailRound, setDetailRound] = React.useState<Round | null>(null);

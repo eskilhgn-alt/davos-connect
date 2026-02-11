@@ -1,5 +1,8 @@
 /**
  * useAppBadges – Unified badge counts for chat, stories, polls, shot, agenda, runder + PWA app badge
+ * 
+ * Philosophy: A badge clears when the user has SEEN the content (visited the page).
+ * Deep interaction (voting, replying) is NOT required to clear a badge.
  */
 
 import * as React from "react";
@@ -7,6 +10,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
+
+// LocalStorage keys for "last visited" timestamps
+const LS_KEYS = {
+  polls: "badge_last_seen_polls",
+  shot: "badge_last_seen_shot",
+  runder: "badge_last_seen_runder",
+  agenda: "badge_last_seen_agenda",
+} as const;
 
 export interface AppBadges {
   chat: number;
@@ -32,10 +43,10 @@ export function useAppBadges(): AppBadges {
     const [chatCount, storiesCount, pollsCount, shotCount, agendaCount, runderCount] = await Promise.all([
       getUnreadChat(user.id),
       getUnseenStories(user.id),
-      getUnvotedPolls(user.id),
-      getActiveShotEvents(user.id),
-      getUpcomingAgendaEvents(),
-      getRecentRounds(),
+      getNewPollsSinceLastSeen(),
+      getActiveShotForUser(user.id),
+      getNewAgendaSinceLastSeen(),
+      getNewRoundsSinceLastSeen(),
     ]);
 
     const total = chatCount + storiesCount + pollsCount + shotCount + agendaCount + runderCount;
@@ -59,31 +70,51 @@ export function useAppBadges(): AppBadges {
       .on("postgres_changes", { event: "*", schema: "public", table: "rounds" }, () => refresh())
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Listen for "page visited" events to clear badges instantly
+    const handleBadgeClear = () => refresh();
+    window.addEventListener("badge:clear", handleBadgeClear);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("badge:clear", handleBadgeClear);
+    };
   }, [refresh]);
 
   return badges;
 }
 
+// ============ Mark page as seen (call from page components) ============
+
+export function markPageSeen(page: keyof typeof LS_KEYS) {
+  localStorage.setItem(LS_KEYS[page], new Date().toISOString());
+  window.dispatchEvent(new CustomEvent("badge:clear"));
+}
+
+// ============ Chat: unread messages since last visit ============
+
 async function getUnreadChat(userId: string): Promise<number> {
+  // Get the latest chat_reads entry for this user to find "last seen" time
   const { data: reads } = await supabase
     .from("chat_reads")
-    .select("message_id")
-    .eq("user_id", userId);
+    .select("read_at")
+    .eq("user_id", userId)
+    .order("read_at", { ascending: false })
+    .limit(1);
 
-  const readIds = new Set((reads || []).map((r) => r.message_id));
+  const lastReadAt = reads?.[0]?.read_at || "1970-01-01T00:00:00Z";
 
-  const { data: messages } = await supabase
+  const { count } = await supabase
     .from("messages")
-    .select("id")
+    .select("id", { count: "exact", head: true })
     .eq("thread_id", DEFAULT_THREAD_ID)
     .is("deleted_at", null)
     .neq("sender_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(100);
+    .gt("created_at", lastReadAt);
 
-  return (messages || []).filter((m) => !readIds.has(m.id)).length;
+  return count ?? 0;
 }
+
+// ============ Stories: unseen stories ============
 
 async function getUnseenStories(userId: string): Promise<number> {
   const now = new Date().toISOString();
@@ -105,65 +136,65 @@ async function getUnseenStories(userId: string): Promise<number> {
   return stories.filter((s) => !viewedIds.has(s.id)).length;
 }
 
-async function getUnvotedPolls(userId: string): Promise<number> {
-  const { data: polls } = await supabase
+// ============ Polls: new polls since last visit to polls page ============
+
+async function getNewPollsSinceLastSeen(): Promise<number> {
+  const lastSeen = localStorage.getItem(LS_KEYS.polls) || "1970-01-01T00:00:00Z";
+
+  const { count } = await supabase
     .from("polls")
-    .select("id")
-    .eq("status", "active");
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active")
+    .gt("created_at", lastSeen);
 
-  if (!polls || polls.length === 0) return 0;
-
-  const { data: votes } = await supabase
-    .from("poll_votes")
-    .select("poll_id")
-    .eq("user_id", userId);
-
-  const votedPollIds = new Set((votes || []).map((v) => v.poll_id));
-  return polls.filter((p) => !votedPollIds.has(p.id)).length;
+  return count ?? 0;
 }
 
-async function getActiveShotEvents(userId: string): Promise<number> {
-  // Badge when there's an active shot event that needs user attention
+// ============ Shot: only badge when YOU are directly involved ============
+
+async function getActiveShotForUser(userId: string): Promise<number> {
   const { data: events } = await supabase
     .from("shot_events")
-    .select("id, status, selected_user_id, chosen_witness_id")
-    .in("status", ["countdown", "pending_confirm", "witness_pending"]);
+    .select("id, selected_user_id, chosen_witness_id")
+    .in("status", ["countdown", "selected"]);
 
   if (!events || events.length === 0) return 0;
 
-  // Count events where user is involved (selected or witness)
-  return events.filter((e) =>
+  // Only show badge if user is the selected person or the chosen witness
+  const involved = events.filter((e) =>
     e.selected_user_id === userId || e.chosen_witness_id === userId
-  ).length || (events.length > 0 ? 1 : 0); // Show at least 1 if any active event
+  );
+
+  return involved.length;
 }
 
-async function getUpcomingAgendaEvents(): Promise<number> {
-  const now = new Date().toISOString();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(23, 59, 59, 999);
+// ============ Agenda: new events since last visit ============
 
-  const { data } = await supabase
+async function getNewAgendaSinceLastSeen(): Promise<number> {
+  const lastSeen = localStorage.getItem(LS_KEYS.agenda) || "1970-01-01T00:00:00Z";
+
+  const { count } = await supabase
     .from("agenda_events")
-    .select("id")
-    .gte("start_at", now)
-    .lte("start_at", tomorrow.toISOString());
+    .select("id", { count: "exact", head: true })
+    .gt("created_at", lastSeen);
 
-  return data?.length ?? 0;
+  return count ?? 0;
 }
 
-async function getRecentRounds(): Promise<number> {
-  // Show badge for rounds created in last 2 hours
-  const twoHoursAgo = new Date();
-  twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
+// ============ Runder: new rounds since last visit ============
 
-  const { data } = await supabase
+async function getNewRoundsSinceLastSeen(): Promise<number> {
+  const lastSeen = localStorage.getItem(LS_KEYS.runder) || "1970-01-01T00:00:00Z";
+
+  const { count } = await supabase
     .from("rounds")
-    .select("id")
-    .gte("created_at", twoHoursAgo.toISOString());
+    .select("id", { count: "exact", head: true })
+    .gt("created_at", lastSeen);
 
-  return data?.length ?? 0;
+  return count ?? 0;
 }
+
+// ============ PWA badge ============
 
 function updatePwaBadge(count: number) {
   try {
