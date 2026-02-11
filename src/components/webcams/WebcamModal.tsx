@@ -216,25 +216,25 @@ export const WebcamModal: React.FC<WebcamModalProps> = ({
         <ChevronRight size={24} />
       </button>
 
-      {/* Bottom controls */}
+      {/* Bottom controls — positioned above feratel's own bottom bar (~90px) */}
       <div 
-        className="absolute bottom-0 left-0 right-0 z-[5] flex flex-col items-center gap-3 p-4 bg-gradient-to-t from-black/60 via-black/20 to-transparent"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
+        className="absolute left-0 right-0 z-[5] flex flex-col items-center gap-3 p-4 pointer-events-none"
+        style={{ bottom: 'calc(max(env(safe-area-inset-bottom), 16px) + 80px)' }}
       >
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 pointer-events-auto bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5">
           {WEBCAMS.map((w, i) => (
             <button
               key={w.id}
               onClick={() => { setCurrentIndex(i); setShowSnapshot(false); }}
               className={cn(
                 "rounded-full transition-all",
-                i === currentIndex ? "w-2 h-2 bg-white" : "w-1.5 h-1.5 bg-white/40 hover:bg-white/60"
+                i === currentIndex ? "w-2.5 h-2.5 bg-white" : "w-1.5 h-1.5 bg-white/40 hover:bg-white/60"
               )}
               aria-label={w.area}
             />
           ))}
         </div>
-        <p className="text-[10px] text-white/30 sm:hidden">Sveip for å bytte kamera</p>
+        <p className="text-[10px] text-white/50 sm:hidden pointer-events-auto bg-black/40 backdrop-blur-sm rounded-full px-2 py-0.5">Sveip for å bytte kamera</p>
       </div>
     </div>
   );
