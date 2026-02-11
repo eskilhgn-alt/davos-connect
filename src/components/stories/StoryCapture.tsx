@@ -521,11 +521,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       });
       if (insertErr) throw insertErr;
 
-      await supabase.from("gallery_items").insert({
-        storage_path: path,
-        type: capturedMedia.type,
-        uploaded_by: user.id,
-      });
+      // Gallery sync handled by database trigger (sync_story_to_gallery)
 
       // Send push to all other users
       const sess = await supabase.auth.getSession();
