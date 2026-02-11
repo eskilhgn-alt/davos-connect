@@ -22,8 +22,6 @@ import { AdminAuditLog } from "@/components/admin/AdminAuditLog";
 import { AdminBugReports } from "@/components/admin/AdminBugReports";
 import { AdminAnnouncements } from "@/components/admin/AdminAnnouncements";
 
-const ADMIN_EMAIL = "eskilhgn@gmail.com";
-
 const TAB_OPTIONS: SegmentOption[] = [
   { value: "overview", label: "Oversikt" },
   { value: "users", label: "Brukere" },
@@ -41,7 +39,7 @@ export const AdminScreen: React.FC = () => {
   const [tab, setTab] = React.useState("overview");
   const [preselectedUserId, setPreselectedUserId] = React.useState<string | null>(null);
 
-  const isAuthorized = isAdmin && user?.email === ADMIN_EMAIL;
+  const isAuthorized = isAdmin;
 
   const {
     users, stats, activeShots, shotHistory, corrections, auditLog,
