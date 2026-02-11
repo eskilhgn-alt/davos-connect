@@ -510,6 +510,9 @@ export type Database = {
           banned_at: string | null
           created_at: string
           email: string
+          email_verification_expires_at: string | null
+          email_verification_token: string | null
+          email_verified: boolean
           full_name: string | null
           id: string
           is_active: boolean
@@ -523,6 +526,9 @@ export type Database = {
           banned_at?: string | null
           created_at?: string
           email: string
+          email_verification_expires_at?: string | null
+          email_verification_token?: string | null
+          email_verified?: boolean
           full_name?: string | null
           id: string
           is_active?: boolean
@@ -536,6 +542,9 @@ export type Database = {
           banned_at?: string | null
           created_at?: string
           email?: string
+          email_verification_expires_at?: string | null
+          email_verification_token?: string | null
+          email_verified?: boolean
           full_name?: string | null
           id?: string
           is_active?: boolean
