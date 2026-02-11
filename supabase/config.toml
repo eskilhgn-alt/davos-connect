@@ -60,3 +60,9 @@ verify_jwt = false
 
 [functions.broadcast-reinstall]
 verify_jwt = false
+
+[functions.notify-admin-new-user]
+verify_jwt = false
+
+[functions.round-push]
+verify_jwt = false

@@ -125,6 +125,12 @@ export const AuthScreen: React.FC = () => {
         } catch (err) {
           console.warn("Could not send verification email:", err);
         }
+        // Notify admins about new signup
+        try {
+          await supabase.functions.invoke("notify-admin-new-user");
+        } catch (err) {
+          console.warn("Could not notify admin:", err);
+        }
       }, 1500);
       setMode("verify-email");
     }
