@@ -20,6 +20,7 @@ import { AdminTokenLedger } from "@/components/admin/AdminTokenLedger";
 import { AdminPushTools } from "@/components/admin/AdminPushTools";
 import { AdminAuditLog } from "@/components/admin/AdminAuditLog";
 import { AdminBugReports } from "@/components/admin/AdminBugReports";
+import { AdminAnnouncements } from "@/components/admin/AdminAnnouncements";
 
 const ADMIN_EMAIL = "eskilhgn@gmail.com";
 
@@ -29,6 +30,7 @@ const TAB_OPTIONS: SegmentOption[] = [
   { value: "shot", label: "Shot" },
   { value: "tokens", label: "Tokens" },
   { value: "push", label: "Push" },
+  { value: "announce", label: "Varsler" },
   { value: "bugs", label: "Feil" },
   { value: "log", label: "Logg" },
 ];
@@ -136,6 +138,12 @@ export const AdminScreen: React.FC = () => {
 
         {tab === "bugs" && (
           <AdminBugReports users={users} />
+        )}
+
+        {tab === "announce" && (
+          <div className="px-4 py-2">
+            <AdminAnnouncements />
+          </div>
         )}
 
         {tab === "log" && (

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Outlet } from "react-router-dom";
 import { FloatingHomeButton } from "./FloatingHomeButton";
+import { SystemBanner } from "./SystemBanner";
 import { WebcamPreloadProvider } from "@/components/webcams";
 import { WitnessOverlay } from "@/components/shot/WitnessOverlay";
 import { PermissionPrompt } from "@/components/onboarding/PermissionPrompt";
@@ -14,8 +15,9 @@ export const AppLayout: React.FC = () => {
 
   return (
     <WebcamPreloadProvider>
-      <div className="h-full overflow-hidden bg-background">
-        <main className="h-full min-h-0 overflow-hidden">
+      <div className="h-full overflow-hidden bg-background flex flex-col">
+        <SystemBanner />
+        <main className="flex-1 min-h-0 overflow-hidden">
           <Outlet />
         </main>
         <FloatingHomeButton />

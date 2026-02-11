@@ -259,7 +259,14 @@ export const AuthScreen: React.FC = () => {
                   className="mt-0.5"
                 />
                 <span className="text-xs text-muted-foreground leading-relaxed">
-                  Jeg forstår at denne appen brukes på eget ansvar. Utvikler tar ikke ansvar for innhold, handlinger eller konsekvenser som følge av bruk. Ved å opprette konto aksepterer du dette.
+                  Jeg bekrefter at:
+                  <ul className="list-disc pl-4 mt-1 space-y-0.5">
+                    <li>Denne appen er et hobbyprosjekt og leveres «som den er»</li>
+                    <li>Utvikler har <strong>intet ansvar</strong> for innhold, data, handlinger eller konsekvenser</li>
+                    <li>All bruk skjer <strong>på eget ansvar</strong> og frivillig</li>
+                    <li>Data kan gå tapt uten forvarsel</li>
+                    <li>Admin kan slette kontoen min når som helst</li>
+                  </ul>
                 </span>
               </label>
 
