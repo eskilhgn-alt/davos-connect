@@ -53,6 +53,7 @@ const WeatherScreen: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [source, setSource] = React.useState<SourceTab>("yr");
   const [selectedMountain, setSelectedMountain] = React.useState<LocationPoint | null>(null);
+  const [selectedDayIndex, setSelectedDayIndex] = React.useState<number | null>(null);
 
   const load = React.useCallback(async (force = false) => {
     setLoading(true);
@@ -70,7 +71,7 @@ const WeatherScreen: React.FC = () => {
     }
   }, [geo.position]);
 
-  // Only load once on mount, not on every geo position change
+  // Load once on mount
   const hasLoaded = React.useRef(false);
   React.useEffect(() => {
     if (!hasLoaded.current) {
@@ -78,6 +79,19 @@ const WeatherScreen: React.FC = () => {
       load();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reload when geo position becomes available (user tapped "Min posisjon")
+  const prevGeoRef = React.useRef<{ lat: number; lon: number } | null>(null);
+  React.useEffect(() => {
+    if (!geo.position) return;
+    const prev = prevGeoRef.current;
+    if (!prev || Math.abs(prev.lat - geo.position.lat) > 0.001 || Math.abs(prev.lon - geo.position.lon) > 0.001) {
+      prevGeoRef.current = { lat: geo.position.lat, lon: geo.position.lon };
+      if (hasLoaded.current) {
+        load(true);
+      }
+    }
+  }, [geo.position, load]);
 
   const getForecast = (d: FullWeatherData | null): SourceForecast | null => {
     if (!d) return null;
@@ -118,7 +132,14 @@ const WeatherScreen: React.FC = () => {
             />
             <div className="flex gap-2">
               <button
-                onClick={() => geo.request()}
+                onClick={() => {
+                  if (!geo.enabled) {
+                    geo.request();
+                  } else {
+                    // Already enabled, just reload with current position
+                    load(true);
+                  }
+                }}
                 disabled={geo.loading}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
@@ -128,7 +149,7 @@ const WeatherScreen: React.FC = () => {
                 )}
               >
                 <Navigation size={13} className={cn(geo.loading && "animate-spin")} />
-                {geo.loading ? "Henter..." : "Min posisjon"}
+                {geo.loading ? "Henter..." : geo.enabled ? "📍 Min posisjon" : "Aktiver posisjon"}
               </button>
             </div>
           </div>
@@ -163,7 +184,7 @@ const WeatherScreen: React.FC = () => {
                   <ScrollArea className="w-full">
                     <div className="flex gap-2 px-4 py-1">
                       {(forecast?.daily || []).map((day, i) => (
-                        <DayPill key={day.date} day={day} index={i} />
+                        <DayPill key={day.date} day={day} index={i} onTap={() => setSelectedDayIndex(i)} />
                       ))}
                     </div>
                     <ScrollBar orientation="horizontal" />
@@ -261,6 +282,15 @@ const WeatherScreen: React.FC = () => {
             : null
         }
         sourceName={source === "yr" ? "Yr" : "MeteoSwiss"}
+      />
+
+      {/* Day detail sheet */}
+      <DayDetailSheet
+        day={selectedDayIndex !== null ? (forecast?.daily?.[selectedDayIndex] ?? null) : null}
+        index={selectedDayIndex}
+        open={selectedDayIndex !== null}
+        onClose={() => setSelectedDayIndex(null)}
+        source={source}
       />
     </div>
   );
@@ -364,12 +394,16 @@ const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt, 
 interface DayPillProps {
   day: WeatherDaily;
   index: number;
+  onTap: () => void;
 }
 
-const DayPill: React.FC<DayPillProps> = ({ day, index }) => (
-  <div
+const DayPill: React.FC<DayPillProps> = ({ day, index, onTap }) => (
+  <button
+    type="button"
+    onClick={onTap}
     className={cn(
       "flex flex-col items-center gap-1 min-w-[68px] rounded-xl px-2 py-2.5",
+      "active:scale-95 transition-transform cursor-pointer",
       index === 0 ? "bg-primary/10 border border-primary/20" : "bg-card border border-border"
     )}
   >
@@ -383,8 +417,93 @@ const DayPill: React.FC<DayPillProps> = ({ day, index }) => (
     {day.snow > 0 && (
       <span className="text-[10px] text-primary font-medium">{day.snow}cm ❄️</span>
     )}
-  </div>
+  </button>
 );
+
+// ============================================
+// DAY DETAIL SHEET
+// ============================================
+
+interface DayDetailSheetProps {
+  day: WeatherDaily | null;
+  index: number | null;
+  open: boolean;
+  onClose: () => void;
+  source: SourceTab;
+}
+
+const DayDetailSheet: React.FC<DayDetailSheetProps> = ({ day, index, open, onClose, source }) => {
+  if (!open || !day || index === null) return null;
+
+  const dateLabel2 = index === 0 ? "I dag" : index === 1 ? "I morgen" : new Date(day.date).toLocaleDateString("no-NO", { weekday: "long", day: "numeric", month: "long" });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+    >
+      <div
+        className={cn(
+          "w-full max-w-lg bg-background rounded-t-2xl",
+          "animate-in slide-in-from-bottom duration-200"
+        )}
+        onClick={(e) => e.stopPropagation()}
+        style={{ paddingBottom: "env(safe-area-inset-bottom)", maxHeight: "75vh" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div>
+            <h3 className="font-heading text-lg font-semibold capitalize">{dateLabel2}</h3>
+            <p className="text-sm text-muted-foreground">{getWeatherDescription(day.weatherCode)} · {source === "yr" ? "Yr" : "MeteoSwiss"}</p>
+          </div>
+          <span className="text-4xl">{getWeatherIcon(day.weatherCode)}</span>
+        </div>
+
+        {/* Temperature */}
+        <div className="px-5 pb-3">
+          <div className="flex items-baseline gap-3">
+            <span className="font-heading text-4xl font-bold text-foreground">{day.tempMax}°</span>
+            <span className="font-mono text-lg text-muted-foreground">/ {day.tempMin}°</span>
+          </div>
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-4 gap-2 px-5 pb-4">
+          <div className="bg-muted/50 rounded-xl p-3 text-center">
+            <Snowflake className="h-5 w-5 mx-auto text-primary mb-1" />
+            <p className="font-mono text-lg font-bold">{day.snow}</p>
+            <p className="text-[10px] text-muted-foreground">cm snø</p>
+          </div>
+          <div className="bg-muted/50 rounded-xl p-3 text-center">
+            <Droplets className="h-5 w-5 mx-auto text-primary mb-1" />
+            <p className="font-mono text-lg font-bold">{day.precip}</p>
+            <p className="text-[10px] text-muted-foreground">mm nedbør</p>
+          </div>
+          <div className="bg-muted/50 rounded-xl p-3 text-center">
+            <Wind className="h-5 w-5 mx-auto text-primary mb-1" />
+            <p className="font-mono text-lg font-bold">{day.wind}</p>
+            <p className="text-[10px] text-muted-foreground">m/s vind</p>
+          </div>
+          {day.windGust && (
+            <div className="bg-muted/50 rounded-xl p-3 text-center">
+              <Wind className="h-5 w-5 mx-auto text-destructive mb-1" />
+              <p className="font-mono text-lg font-bold">{day.windGust}</p>
+              <p className="text-[10px] text-muted-foreground">m/s kast</p>
+            </div>
+          )}
+        </div>
+
+        {/* Close */}
+        <div className="flex justify-center pb-4">
+          <button type="button" onClick={onClose} className="px-6 py-1.5 rounded-full bg-muted text-sm text-muted-foreground">
+            Lukk
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ============================================
 // AI SUMMARY CARD
