@@ -102,17 +102,23 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
     } finally { setLoading(null); }
   };
 
+  const [newPassword, setNewPassword] = React.useState("");
   const sendPasswordReset = async () => {
+    if (newPassword.length < 6) {
+      errorToast("Passord må være minst 6 tegn");
+      return;
+    }
     setLoading("reset");
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(u.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { error } = await supabase.functions.invoke("admin-reset-password", {
+        body: { user_id: u.id, new_password: newPassword },
       });
       if (error) throw error;
-      toast.success(`Passord-reset sendt til ${u.email}`);
-      onLogAction(currentUserId, "password_reset_sent", u.id);
+      toast.success(`Passord endret for ${u.nickname || u.email}`);
+      onLogAction(currentUserId, "password_reset", u.id);
+      setNewPassword("");
     } catch (e: any) {
-      errorToast("Kunne ikke sende reset", { description: e.message });
+      errorToast("Kunne ikke endre passord", { description: e.message });
     } finally { setLoading(null); }
   };
 
@@ -298,10 +304,18 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
 
             {/* Actions */}
             <div className="grid grid-cols-2 gap-2">
-              <DavosButton variant="outline" size="sm" onClick={sendPasswordReset} disabled={loading === "reset"}>
-                {loading === "reset" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Key size={14} className="mr-1" />}
-                Passord-reset
-              </DavosButton>
+              <div className="col-span-2 flex gap-2">
+                <DavosInput
+                  type="password"
+                  placeholder="Nytt passord"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="flex-1 h-8 text-xs"
+                />
+                <DavosButton variant="outline" size="sm" onClick={sendPasswordReset} disabled={loading === "reset" || newPassword.length < 6}>
+                  {loading === "reset" ? <Loader2 size={14} className="animate-spin" /> : <Key size={14} />}
+                </DavosButton>
+              </div>
               <DavosButton variant="outline" size="sm" onClick={sendPushNotification} disabled={loading === "push"}>
                 {loading === "push" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Bell size={14} className="mr-1" />}
                 Send push
