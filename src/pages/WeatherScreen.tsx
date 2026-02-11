@@ -23,9 +23,10 @@ import {
 } from "@/services/weather-dual.service";
 import { useWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin, Navigation, Sparkles, Sun, CloudSun, Shield, ChevronRight } from "lucide-react";
+import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin, Navigation, Sparkles, Sun, CloudSun, Shield, ChevronRight, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MountainDetailSheet } from "@/components/weather/MountainDetailSheet";
+import { DavosInput } from "@/components/ui/davos-input";
 import { type LocationPoint } from "@/config/locations";
 
 type SourceTab = "yr" | "meteoswiss";
@@ -45,9 +46,21 @@ function dayLabel(dateStr: string, index: number): string {
 
 const WeatherScreen: React.FC = () => {
   const geo = useGeolocation();
-  const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary(
-    geo.position ? { lat: geo.position.lat, lon: geo.position.lon } : undefined
-  );
+  const [customLocation, setCustomLocation] = React.useState<{ lat: number; lon: number; name: string } | null>(null);
+  const [locationName, setLocationName] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchResults, setSearchResults] = React.useState<any[]>([]);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searching, setSearching] = React.useState(false);
+
+  // The effective position: custom search > GPS
+  const effectivePos = customLocation
+    ? { lat: customLocation.lat, lon: customLocation.lon }
+    : geo.position
+      ? { lat: geo.position.lat, lon: geo.position.lon }
+      : undefined;
+
+  const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary(effectivePos);
   const [data, setData] = React.useState<FullWeatherData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -55,13 +68,60 @@ const WeatherScreen: React.FC = () => {
   const [selectedMountain, setSelectedMountain] = React.useState<LocationPoint | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = React.useState<number | null>(null);
 
+  // Reverse geocode GPS position to get place name
+  React.useEffect(() => {
+    if (customLocation) {
+      setLocationName(customLocation.name);
+      return;
+    }
+    if (!geo.position) { setLocationName(null); return; }
+    const { lat, lon } = geo.position;
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10&accept-language=no`)
+      .then(r => r.json())
+      .then(d => {
+        const name = d.address?.city || d.address?.town || d.address?.village || d.address?.municipality || d.display_name?.split(",")[0] || "Ukjent sted";
+        setLocationName(name);
+      })
+      .catch(() => setLocationName("Min posisjon"));
+  }, [geo.position, customLocation]);
+
+  // Search locations via Nominatim
+  const handleSearch = React.useCallback(async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=5&accept-language=no`);
+      const data = await res.json();
+      setSearchResults(data);
+    } catch {
+      setSearchResults([]);
+    }
+    setSearching(false);
+  }, [searchQuery]);
+
+  const selectSearchResult = (result: any) => {
+    setCustomLocation({
+      lat: parseFloat(result.lat),
+      lon: parseFloat(result.lon),
+      name: result.display_name.split(",")[0],
+    });
+    setSearchOpen(false);
+    setSearchQuery("");
+    setSearchResults([]);
+  };
+
+  const clearCustomLocation = () => {
+    setCustomLocation(null);
+    // Reload with GPS
+    if (geo.position) load(true);
+  };
+
   const load = React.useCallback(async (force = false) => {
     setLoading(true);
     setError(null);
     try {
       if (force) clearDualWeatherCache();
-      const customLoc = geo.position ? { lat: geo.position.lat, lon: geo.position.lon } : undefined;
-      const result = await getDualWeather(force, customLoc);
+      const result = await getDualWeather(force, effectivePos);
       setData(result);
     } catch (err) {
       console.error("Weather load failed:", err);
@@ -69,7 +129,7 @@ const WeatherScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [geo.position]);
+  }, [effectivePos]);
 
   // Load once on mount
   const hasLoaded = React.useRef(false);
@@ -80,18 +140,18 @@ const WeatherScreen: React.FC = () => {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reload when geo position becomes available (user tapped "Min posisjon")
-  const prevGeoRef = React.useRef<{ lat: number; lon: number } | null>(null);
+  // Reload when effective position changes
+  const prevPosRef = React.useRef<{ lat: number; lon: number } | null>(null);
   React.useEffect(() => {
-    if (!geo.position) return;
-    const prev = prevGeoRef.current;
-    if (!prev || Math.abs(prev.lat - geo.position.lat) > 0.001 || Math.abs(prev.lon - geo.position.lon) > 0.001) {
-      prevGeoRef.current = { lat: geo.position.lat, lon: geo.position.lon };
+    if (!effectivePos) return;
+    const prev = prevPosRef.current;
+    if (!prev || Math.abs(prev.lat - effectivePos.lat) > 0.001 || Math.abs(prev.lon - effectivePos.lon) > 0.001) {
+      prevPosRef.current = { lat: effectivePos.lat, lon: effectivePos.lon };
       if (hasLoaded.current) {
         load(true);
       }
     }
-  }, [geo.position, load]);
+  }, [effectivePos, load]);
 
   const getForecast = (d: FullWeatherData | null): SourceForecast | null => {
     if (!d) return null;
@@ -123,35 +183,101 @@ const WeatherScreen: React.FC = () => {
         }}
       >
         <div className="pb-6">
-          {/* Source toggle */}
+          {/* Source toggle + location controls */}
           <div className="px-4 pt-4 pb-2 space-y-2">
             <DavosSegmented
               options={SOURCE_OPTIONS}
               value={source}
               onChange={(v) => setSource(v as SourceTab)}
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <button
                 onClick={() => {
+                  if (customLocation) {
+                    clearCustomLocation();
+                    return;
+                  }
                   if (!geo.enabled) {
                     geo.request();
                   } else {
-                    // Already enabled, just reload with current position
                     load(true);
                   }
                 }}
                 disabled={geo.loading}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                  geo.enabled
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0",
+                  geo.enabled && !customLocation
                     ? "bg-primary/15 text-primary border border-primary/30"
                     : "bg-muted text-muted-foreground border border-border"
                 )}
               >
                 <Navigation size={13} className={cn(geo.loading && "animate-spin")} />
-                {geo.loading ? "Henter..." : geo.enabled ? "📍 Min posisjon" : "Aktiver posisjon"}
+                {geo.loading ? "Henter..." : "📍 Min posisjon"}
+              </button>
+              <button
+                onClick={() => setSearchOpen(!searchOpen)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0",
+                  searchOpen || customLocation
+                    ? "bg-primary/15 text-primary border border-primary/30"
+                    : "bg-muted text-muted-foreground border border-border"
+                )}
+              >
+                <Search size={13} />
+                Søk sted
               </button>
             </div>
+
+            {/* Current location indicator */}
+            {locationName && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin size={12} className="text-primary shrink-0" />
+                <span className="truncate">{locationName}</span>
+                {customLocation && (
+                  <button onClick={clearCustomLocation} className="shrink-0 ml-1 text-muted-foreground hover:text-foreground">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Search bar */}
+            {searchOpen && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <DavosInput
+                    type="search"
+                    placeholder="Søk etter sted..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    className="flex-1"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSearch}
+                    disabled={searching || !searchQuery.trim()}
+                    className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50"
+                  >
+                    {searching ? "..." : "Søk"}
+                  </button>
+                </div>
+                {searchResults.length > 0 && (
+                  <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+                    {searchResults.map((r: any, i: number) => (
+                      <button
+                        key={i}
+                        onClick={() => selectSearchResult(r)}
+                        className="w-full text-left px-3 py-2.5 text-xs hover:bg-muted/50 active:bg-muted transition-colors"
+                      >
+                        <p className="font-medium text-foreground">{r.display_name.split(",")[0]}</p>
+                        <p className="text-muted-foreground truncate">{r.display_name}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {error ? (
@@ -164,7 +290,7 @@ const WeatherScreen: React.FC = () => {
           ) : (
             <>
               {/* Hero card */}
-              <HeroCard today={today} loading={loading} source={source} updatedAt={forecast?.updatedAt} locationName={geo.position ? "Min posisjon" : "Standard"} />
+              <HeroCard today={today} loading={loading} source={source} updatedAt={forecast?.updatedAt} locationName={locationName || (effectivePos ? "Laster sted..." : "Standard")} />
 
               {/* AI Summary Card */}
               <AiSummaryCard summary={aiSummary} loading={aiLoading} />
@@ -331,7 +457,6 @@ const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt, 
   }
 
   const sourceName = source === "yr" ? "Yr" : "MeteoSwiss";
-  const isCustomLocation = locationName === "Min posisjon";
 
   return (
     <DavosCard className="mx-4 mt-2">
@@ -339,11 +464,7 @@ const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt, 
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              {isCustomLocation ? (
-                <Navigation size={14} className="text-primary" />
-              ) : (
-                <MapPin size={14} className="text-muted-foreground" />
-              )}
+              <MapPin size={14} className="text-primary" />
               <span className="text-xs text-muted-foreground">
                 {locationName} · {sourceName}
               </span>
