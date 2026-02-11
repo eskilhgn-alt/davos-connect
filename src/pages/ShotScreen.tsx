@@ -15,9 +15,7 @@ import { ShotEventFeed } from "@/components/shot/ShotEventFeed";
 import { ShotLeaderboard } from "@/components/shot/ShotLeaderboard";
 import { ShotTransparency } from "@/components/shot/ShotTransparency";
 import { ShotHistory } from "@/components/shot/ShotHistory";
-import { SkiVerticalCard } from "@/components/ski/SkiVerticalCard";
 import { SkiAwardClaimDialog } from "@/components/ski/SkiAwardClaimDialog";
-import { useSkiTracker } from "@/hooks/useSkiTracker";
 import { toast } from "sonner";
 
 const GROUP_ID = "global";
@@ -63,10 +61,8 @@ export const ShotScreen: React.FC = () => {
   const [pressing, setPressing] = React.useState(false);
   const [profiles, setProfiles] = React.useState<Record<string, string>>({});
   const [frikortCount, setFrikortCount] = React.useState(0);
+  const frikortCountRef = React.useRef(0);
   const countdownTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Activate ski tracker in background
-  useSkiTracker();
 
   // Load profiles for display names
   const loadProfiles = React.useCallback(async () => {
@@ -399,9 +395,6 @@ export const ShotScreen: React.FC = () => {
 
           {/* My shot history */}
           <ShotHistory getDisplayName={getDisplayName} />
-
-          {/* Ski vertical meters */}
-          <SkiVerticalCard />
 
           {/* Leaderboard */}
           <ShotLeaderboard groupId={GROUP_ID} />
