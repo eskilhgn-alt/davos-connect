@@ -28,12 +28,12 @@ function sendWelcomeMessage(displayName: string) {
   });
 }
 
-type AuthMode = "login" | "signup" | "forgot" | "onboarding";
+type AuthMode = "login" | "signup" | "forgot" | "onboarding" | "verify-email";
 
 export const AuthScreen: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, profile, signIn, signUp, resetPassword, updateProfile, isLoading } = useAuth();
+  const { user, profile, signIn, signUp, signOut, resetPassword, updateProfile, isLoading } = useAuth();
   
   const [mode, setMode] = React.useState<AuthMode>(
     searchParams.get("mode") === "signup" ? "signup" : "login"
@@ -44,7 +44,7 @@ export const AuthScreen: React.FC = () => {
   const [nickname, setNickname] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = React.useState(false);
-
+  const [resendCooldown, setResendCooldown] = React.useState(0);
   // Avatar upload state for onboarding
   const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = React.useState<string | null>(null);
@@ -52,9 +52,11 @@ export const AuthScreen: React.FC = () => {
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
-    if (user && profile?.full_name && profile?.nickname && profile?.avatar_url) {
+    if (user && profile?.email_verified === false) {
+      setMode("verify-email");
+    } else if (user && profile?.full_name && profile?.nickname && profile?.avatar_url && profile?.email_verified !== false) {
       navigate("/");
-    } else if (user && (!profile?.full_name || !profile?.nickname || !profile?.avatar_url)) {
+    } else if (user && profile && profile.email_verified !== false && (!profile?.full_name || !profile?.nickname || !profile?.avatar_url)) {
       setMode("onboarding");
     }
   }, [user, profile, navigate]);
@@ -86,8 +88,12 @@ export const AuthScreen: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     const { error } = await signIn(email, password);
-    if (error) errorToast("Innlogging feilet", { description: error.message });
-    else toast.success("Logget inn!");
+    if (error) {
+      errorToast("Innlogging feilet", { description: error.message });
+    } else {
+      toast.success("Logget inn!");
+      // The useEffect will handle redirect to verify-email if not verified
+    }
     setIsSubmitting(false);
   };
 
@@ -95,9 +101,43 @@ export const AuthScreen: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     const { error } = await signUp(email, password);
-    if (error) errorToast("Registrering feilet", { description: error.message });
-    else { toast.success("Konto opprettet!"); }
+    if (error) {
+      errorToast("Registrering feilet", { description: error.message });
+    } else {
+      toast.success("Konto opprettet!");
+      // Send verification email after a short delay to allow profile creation
+      setTimeout(async () => {
+        try {
+          await supabase.functions.invoke("send-verification-email", {
+            body: { app_url: window.location.origin },
+          });
+        } catch (err) {
+          console.warn("Could not send verification email:", err);
+        }
+      }, 1500);
+      setMode("verify-email");
+    }
     setIsSubmitting(false);
+  };
+
+  const handleResendVerification = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      const { error } = await supabase.functions.invoke("send-verification-email", {
+        body: { app_url: window.location.origin },
+      });
+      if (error) throw error;
+      toast.success("Ny bekreftelseslenke sendt!");
+      setResendCooldown(60);
+      const interval = setInterval(() => {
+        setResendCooldown((c) => {
+          if (c <= 1) { clearInterval(interval); return 0; }
+          return c - 1;
+        });
+      }, 1000);
+    } catch {
+      errorToast("Kunne ikke sende e-post");
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -294,6 +334,39 @@ export const AuthScreen: React.FC = () => {
                 {isSubmitting || avatarUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Kom i gang"}
               </DavosButton>
             </form>
+          )}
+
+          {mode === "verify-email" && (
+            <div className="space-y-6 text-center">
+              <div className="mb-6">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">📧</span>
+                </div>
+                <h2 className="font-heading text-xl font-semibold">Sjekk e-posten din</h2>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Vi har sendt en bekreftelseslenke til<br />
+                  <span className="font-medium text-foreground">{user?.email || email}</span>
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Klikk på lenken i e-posten for å bekrefte kontoen din. Sjekk også søppelpost/spam.
+              </p>
+              <DavosButton
+                variant="outline"
+                className="w-full"
+                onClick={handleResendVerification}
+                disabled={resendCooldown > 0}
+              >
+                {resendCooldown > 0 ? `Send på nytt (${resendCooldown}s)` : "Send bekreftelse på nytt"}
+              </DavosButton>
+              <button
+                type="button"
+                onClick={async () => { await signOut(); setMode("login"); }}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Logg ut og bruk en annen e-post
+              </button>
+            </div>
           )}
         </div>
       </main>

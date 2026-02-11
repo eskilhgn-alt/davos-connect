@@ -36,6 +36,7 @@ import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
 
 import ResetPasswordScreen from "./pages/ResetPasswordScreen";
+import VerifyEmailScreen from "./pages/VerifyEmailScreen";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -70,8 +71,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     );
   }
 
-  // Require profile completion (including avatar)
-  if (!profile.full_name || !profile.nickname || !profile.avatar_url) {
+  // Require profile completion (including avatar) and email verification
+  if (!profile.full_name || !profile.nickname || !profile.avatar_url || !profile.email_verified) {
     return <Navigate to="/auth" replace />;
   }
 
@@ -98,6 +99,7 @@ const AppRoutes = () => (
     {/* Auth routes (public) */}
     <Route path="/auth" element={<AuthScreen />} />
     <Route path="/reset-password" element={<ResetPasswordScreen />} />
+    <Route path="/verify-email" element={<VerifyEmailScreen />} />
     
     {/* Protected routes - Chat with its own layout */}
     <Route element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>

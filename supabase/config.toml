@@ -48,3 +48,9 @@ verify_jwt = false
 
 [functions.poll-push]
 verify_jwt = false
+
+[functions.send-verification-email]
+verify_jwt = false
+
+[functions.verify-email]
+verify_jwt = false

@@ -18,6 +18,7 @@ interface Profile {
   is_banned: boolean;
   banned_at: string | null;
   ban_reason: string | null;
+  email_verified: boolean;
   created_at: string;
   updated_at: string;
 }
