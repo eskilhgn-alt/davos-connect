@@ -55,6 +55,15 @@ serve(async (req) => {
     const { data: poll } = await supabase.from("polls").select("*").eq("id", poll_id).single();
     if (!poll) throw new Error("Poll not found");
 
+    // Authorization: only poll creator (or admin) can trigger push
+    const isCreator = callerUserId === poll.created_by;
+    const { data: isAdminUser } = await supabase.rpc("is_admin", { _user_id: callerUserId });
+    if (!isCreator && !isAdminUser) {
+      return new Response(JSON.stringify({ error: "Forbidden: only poll creator or admin can send push" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Get creator profile
     const { data: creator } = await supabase.from("profiles").select("nickname, full_name").eq("id", poll.created_by).single();
     const creatorName = creator?.nickname || creator?.full_name || "Noen";
