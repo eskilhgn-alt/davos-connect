@@ -7,6 +7,7 @@ import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 import type { Json } from "@/integrations/supabase/types";
 
 const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
@@ -153,7 +154,7 @@ export function usePolls() {
       .single();
 
     if (error || !poll) {
-      toast.error("Kunne ikke opprette avstemming");
+      errorToast("Kunne ikke opprette avstemming");
       return null;
     }
 
@@ -165,7 +166,7 @@ export function usePolls() {
 
     const { error: optError } = await supabase.from("poll_options").insert(optionRows);
     if (optError) {
-      toast.error("Kunne ikke legge til alternativer");
+      errorToast("Kunne ikke legge til alternativer");
       return null;
     }
 
@@ -216,7 +217,7 @@ export function usePolls() {
 
     if (error) {
       console.error("Vote error:", error);
-      toast.error("Kunne ikke stemme");
+      errorToast("Kunne ikke stemme");
       return;
     }
 

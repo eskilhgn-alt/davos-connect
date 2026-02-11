@@ -11,6 +11,7 @@ import { DavosAvatar } from "@/components/ui/davos-avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Loader2, Camera } from "lucide-react";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 
 const WELCOME_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -67,11 +68,11 @@ export const AuthScreen: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Kun bilder er tillatt");
+      errorToast("Kun bilder er tillatt");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("Maks 5 MB");
+      errorToast("Maks 5 MB");
       return;
     }
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
@@ -83,7 +84,7 @@ export const AuthScreen: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     const { error } = await signIn(email, password);
-    if (error) toast.error(error.message);
+    if (error) errorToast("Innlogging feilet", { description: error.message });
     else toast.success("Logget inn!");
     setIsSubmitting(false);
   };
@@ -92,7 +93,7 @@ export const AuthScreen: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     const { error } = await signUp(email, password);
-    if (error) toast.error(error.message);
+    if (error) errorToast("Registrering feilet", { description: error.message });
     else { toast.success("Konto opprettet!"); }
     setIsSubmitting(false);
   };
@@ -101,7 +102,7 @@ export const AuthScreen: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     const { error } = await resetPassword(email);
-    if (error) toast.error(error.message);
+    if (error) errorToast("Tilbakestilling feilet", { description: error.message });
     else { toast.success("Sjekk e-posten din!"); setMode("login"); }
     setIsSubmitting(false);
   };
@@ -109,7 +110,7 @@ export const AuthScreen: React.FC = () => {
   const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!avatarFile && !profile?.avatar_url) {
-      toast.error("Du må legge til et profilbilde");
+      errorToast("Du må legge til et profilbilde");
       return;
     }
     setIsSubmitting(true);
@@ -129,7 +130,7 @@ export const AuthScreen: React.FC = () => {
         const { data } = supabase.storage.from("avatars").getPublicUrl(path);
         avatarUrl = `${data.publicUrl}?t=${Date.now()}`;
       } catch (err: any) {
-        toast.error("Kunne ikke laste opp bilde");
+        errorToast("Kunne ikke laste opp bilde");
         setIsSubmitting(false);
         setAvatarUploading(false);
         return;
@@ -143,7 +144,7 @@ export const AuthScreen: React.FC = () => {
       avatar_url: avatarUrl,
     });
     if (error) {
-      toast.error(error.message);
+      errorToast("Profiloppdatering feilet", { description: error.message });
     } else {
       toast.success("Profil klar!");
       // Send welcome message in chat

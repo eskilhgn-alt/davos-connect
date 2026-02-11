@@ -10,7 +10,7 @@ import { ChatLayout } from "@/layouts/ChatLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { prefetchWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
-import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 import ChatScreen from "./pages/ChatScreen";
 import HomeScreen from "./pages/HomeScreen";
 import MapScreen from "./pages/MapScreen";
@@ -139,7 +139,7 @@ const useGlobalPwaHardening = () => {
     // Unhandled promise rejections
     const rejectionHandler = (event: PromiseRejectionEvent) => {
       console.error("Unhandled promise rejection:", event.reason);
-      toast.error("En uventet feil oppstod");
+      errorToast("En uventet feil oppstod");
       event.preventDefault();
     };
     window.addEventListener("unhandledrejection", rejectionHandler);

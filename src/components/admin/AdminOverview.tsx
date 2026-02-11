@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 import type { AdminStats, AdminUser } from "./useAdminData";
 
 interface Props {
@@ -52,7 +53,7 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
       toast.success("Test-push sendt!");
       onLogAction(currentUserId, "test_push_sent");
     } catch {
-      toast.error("Kunne ikke sende test-push");
+      errorToast("Kunne ikke sende test-push");
     } finally {
       setTestPushLoading(false);
     }
@@ -65,7 +66,7 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
       toast.success("Lenke kopiert!");
       setTimeout(() => setCopiedIdx(null), 2000);
     } catch {
-      toast.error("Kunne ikke kopiere");
+      errorToast("Kunne ikke kopiere");
     }
   };
 

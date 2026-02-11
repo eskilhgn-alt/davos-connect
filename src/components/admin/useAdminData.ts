@@ -5,6 +5,7 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 
 export interface AdminUser {
   id: string;
@@ -84,7 +85,7 @@ export function useAdminData() {
         shot_banned_until: banMap.get(p.id) ?? null,
       })));
     } catch {
-      toast.error("Kunne ikke hente brukere");
+      errorToast("Kunne ikke hente brukere");
     } finally {
       setLoading(false);
     }

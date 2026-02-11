@@ -17,6 +17,7 @@ import { nb } from "date-fns/locale";
 import { AddRoundSheet } from "@/components/rounds/AddRoundSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 import type { Round, DrinkQuantities } from "@/hooks/useRounds";
 
 const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
@@ -126,7 +127,7 @@ const RoundDetailSheet: React.FC<{
       note: editNote || null,
     });
     setSaving(false);
-    if (error) toast.error("Kunne ikke oppdatere");
+    if (error) errorToast("Kunne ikke oppdatere");
     else { toast.success("Runde oppdatert"); setEditing(false); }
   };
 

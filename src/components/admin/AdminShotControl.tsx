@@ -12,6 +12,7 @@ import {
   AlertTriangle, ShieldOff,
 } from "lucide-react";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 import type { AdminUser } from "./useAdminData";
 
 interface Props {
@@ -61,7 +62,7 @@ export const AdminShotControl: React.FC<Props> = ({
       onLogAction(currentUserId, "shot_reset", undefined, { event_id: eventId });
       onRefreshShots();
     } catch (e: any) {
-      toast.error(e.message || "Feil ved reset");
+      errorToast("Feil ved reset", { description: e.message });
     } finally {
       setActionLoading(null);
     }
@@ -81,7 +82,7 @@ export const AdminShotControl: React.FC<Props> = ({
       onLogAction(currentUserId, "penalty_removed", undefined, { event_id: eventId });
       onRefreshShots();
     } catch (e: any) {
-      toast.error(e.message || "Feil");
+      errorToast("Feil", { description: e.message });
     } finally {
       setActionLoading(null);
     }
@@ -104,7 +105,7 @@ export const AdminShotControl: React.FC<Props> = ({
       setAdjustReason("");
       onRefreshUsers();
     } catch (e: any) {
-      toast.error(e.message || "Feil ved justering");
+      errorToast("Feil ved justering", { description: e.message });
     } finally {
       setActionLoading(null);
     }
@@ -122,7 +123,7 @@ export const AdminShotControl: React.FC<Props> = ({
       onLogAction(currentUserId, "frikort_granted", userId);
       onRefreshUsers();
     } catch (e: any) {
-      toast.error(e.message || "Feil");
+      errorToast("Feil", { description: e.message });
     } finally {
       setActionLoading(null);
     }
@@ -137,7 +138,7 @@ export const AdminShotControl: React.FC<Props> = ({
       onLogAction(currentUserId, "shot_unban", userId);
       onRefreshUsers();
     } catch (e: any) {
-      toast.error(e.message || "Feil");
+      errorToast("Feil", { description: e.message });
     } finally {
       setActionLoading(null);
     }

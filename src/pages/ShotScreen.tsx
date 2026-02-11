@@ -18,6 +18,7 @@ import { ShotHistory } from "@/components/shot/ShotHistory";
 import { SkiAwardClaimDialog } from "@/components/ski/SkiAwardClaimDialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 import { BookOpen, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -195,7 +196,7 @@ export const ShotScreen: React.FC = () => {
     try {
       const { data, error } = await supabase.rpc("rpc_start_shot_round", { p_group_id: GROUP_ID });
       if (error) {
-        toast.error(error.message);
+        errorToast("Kunne ikke starte runde", { description: error.message });
         return;
       }
       toast.success("Runde startet!");
@@ -248,7 +249,7 @@ export const ShotScreen: React.FC = () => {
       // Store timer ref for cleanup
       countdownTimerRef.current = countdownTimer;
     } catch (e) {
-      toast.error("Noe gikk galt");
+      errorToast("Noe gikk galt");
     } finally {
       setPressing(false);
     }
@@ -265,7 +266,7 @@ export const ShotScreen: React.FC = () => {
       p_dispute_details: disputeDetails || undefined,
     } as any);
     if (error) {
-      toast.error(error.message);
+      errorToast("Bekreftelse feilet", { description: error.message });
       return;
     }
 
@@ -351,7 +352,7 @@ export const ShotScreen: React.FC = () => {
     if (!activeEvent) return;
     const { error } = await supabase.rpc("rpc_use_frikort", { p_event_id: activeEvent.id });
     if (error) {
-      toast.error(error.message);
+      errorToast("Frikort-feil", { description: error.message });
       return;
     }
     toast.success("Frikort brukt! Du slipper denne runden. 🎫");

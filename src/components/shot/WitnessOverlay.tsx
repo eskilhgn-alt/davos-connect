@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, X, Check, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { errorToast } from "@/utils/errorToast";
 import { cn } from "@/lib/utils";
 
 interface WitnessEvent {
@@ -80,7 +81,7 @@ export const WitnessOverlay: React.FC = () => {
         p_event_id: event.id,
         p_mode: "witness",
       } as any);
-      if (error) { toast.error(error.message); }
+      if (error) { errorToast("Bekreftelse feilet", { description: error.message }); }
       else {
         toast.success("Bekreftet!");
         setEvent(null);
@@ -95,7 +96,7 @@ export const WitnessOverlay: React.FC = () => {
           }).catch(() => {});
         }
       }
-    } catch { toast.error("Noe gikk galt"); }
+    } catch { errorToast("Noe gikk galt"); }
     finally { setSubmitting(false); }
   };
 
@@ -110,7 +111,7 @@ export const WitnessOverlay: React.FC = () => {
         p_dispute_reason: reason,
         p_dispute_details: denyDetails || null,
       } as any);
-      if (error) { toast.error(error.message); }
+      if (error) { errorToast("Dispute feilet", { description: error.message }); }
       else {
         toast.success("Dispute sendt til admin for vurdering");
         setEvent(null);
@@ -126,7 +127,7 @@ export const WitnessOverlay: React.FC = () => {
           }).catch(() => {});
         }
       }
-    } catch { toast.error("Noe gikk galt"); }
+    } catch { errorToast("Noe gikk galt"); }
     finally { setSubmitting(false); }
   };
 
