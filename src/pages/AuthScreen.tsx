@@ -34,7 +34,7 @@ type AuthMode = "login" | "signup" | "forgot" | "onboarding" | "verify-email" | 
 export const AuthScreen: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, profile, signIn, signUp, signOut, resetPassword, updateProfile, isLoading } = useAuth();
+  const { user, profile, signIn, signUp, signOut, updateProfile, isLoading } = useAuth();
   
   const [mode, setMode] = React.useState<AuthMode>(() => {
     if (searchParams.get("mode") === "signup") return "signup";
@@ -130,18 +130,7 @@ export const AuthScreen: React.FC = () => {
     setIsSubmitting(false);
   };
 
-  const handleResendVerification = async () => {
-    // No longer needed - kept as no-op
-  };
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    const { error } = await resetPassword(email);
-    if (error) errorToast("Tilbakestilling feilet", { description: error.message });
-    else { toast.success("Sjekk e-posten din!"); setMode("login"); }
-    setIsSubmitting(false);
-  };
+  // handleResendVerification and handleForgotPassword removed – no email sending
 
   const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,9 +213,6 @@ export const AuthScreen: React.FC = () => {
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Logg inn"}
               </DavosButton>
               <div className="flex flex-col gap-2 text-center text-sm pt-2">
-                <button type="button" onClick={() => setMode("forgot")} className="text-muted-foreground hover:text-foreground transition-colors">
-                  Glemt passord?
-                </button>
                 <p className="text-muted-foreground">
                   Ny bruker?{" "}
                   <button type="button" onClick={() => setMode("signup")} className="text-foreground font-medium hover:underline">
@@ -275,21 +261,7 @@ export const AuthScreen: React.FC = () => {
             </form>
           )}
 
-          {mode === "forgot" && (
-            <form onSubmit={handleForgotPassword} className="space-y-4">
-              <button type="button" onClick={() => setMode("login")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                <ArrowLeft size={16} /> Tilbake
-              </button>
-              <div className="mb-8">
-                <h2 className="font-heading text-xl font-semibold">Glemt passord?</h2>
-                <p className="text-sm text-muted-foreground mt-1">Vi sender deg en tilbakestillingslenke</p>
-              </div>
-              <DavosInput type="email" placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-              <DavosButton type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send lenke"}
-              </DavosButton>
-            </form>
-          )}
+          {/* Forgot password removed – password change is done in Settings or by admin */}
 
           {mode === "onboarding" && (
             <form onSubmit={handleOnboarding} className="space-y-4">

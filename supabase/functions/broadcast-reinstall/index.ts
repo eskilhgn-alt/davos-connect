@@ -15,7 +15,7 @@ serve(async (req) => {
   try {
     const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
     const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    // Resend removed – email not used
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
@@ -69,7 +69,7 @@ serve(async (req) => {
 
     const allUsers = profiles || [];
     let pushSent = 0;
-    let emailsSent = 0;
+    
 
     // 3. Send push via OneSignal
     if (ONESIGNAL_APP_ID && ONESIGNAL_REST_API_KEY) {
@@ -102,49 +102,17 @@ serve(async (req) => {
       }
     }
 
-    // 4. Send email via Resend
-    if (RESEND_API_KEY && allUsers.length > 0) {
-      const emails = allUsers.map((u: any) => u.email).filter(Boolean);
-      
-      // Send individually to avoid BCC limits
-      for (const email of emails) {
-        try {
-          await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${RESEND_API_KEY}`,
-            },
-            body: JSON.stringify({
-              from: "GüttaHütte <onboarding@resend.dev>",
-              to: [email],
-              subject: heading,
-              html: `
-                <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-                  <h2 style="margin-bottom: 16px;">🏔️ ${heading}</h2>
-                  <p style="font-size: 16px; line-height: 1.6; color: #333;">${message}</p>
-                  <hr style="margin: 24px 0; border: none; border-top: 1px solid #eee;" />
-                  <p style="font-size: 13px; color: #999;">GüttaHütte – guttahutte.lovable.app</p>
-                </div>
-              `,
-            }),
-          });
-          emailsSent++;
-        } catch (e) {
-          console.error(`Email to ${email} failed:`, e);
-        }
-      }
-    }
+    // Email sending removed – all notifications via push only
 
     // 5. Log action
     await supabase.from("admin_audit_log").insert({
       admin_id: authUser.id,
       action: "broadcast_reinstall",
-      details: { heading, message, push_sent: pushSent, emails_sent: emailsSent },
+      details: { heading, message, push_sent: pushSent },
     });
 
     return new Response(
-      JSON.stringify({ success: true, push_sent: pushSent, emails_sent: emailsSent, popup_created: true }),
+      JSON.stringify({ success: true, push_sent: pushSent, popup_created: true }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

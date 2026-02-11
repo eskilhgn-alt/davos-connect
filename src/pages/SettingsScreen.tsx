@@ -41,6 +41,66 @@ import { errorToast } from "@/utils/errorToast";
 
 const APP_VERSION = "1.0.0-beta.1";
 
+/** Inline password change – no email needed */
+const ChangePasswordCard: React.FC = () => {
+  const [currentPw, setCurrentPw] = React.useState("");
+  const [newPw, setNewPw] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
+
+  const handleChange = async () => {
+    if (newPw.length < 6) {
+      errorToast("Passord må være minst 6 tegn");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    if (error) {
+      errorToast("Kunne ikke endre passord", { description: error.message });
+    } else {
+      toast.success("Passord endret!");
+      setCurrentPw("");
+      setNewPw("");
+      setOpen(false);
+    }
+    setSaving(false);
+  };
+
+  return (
+    <DavosCard>
+      <DavosCardContent className="p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <KeyRound className="h-5 w-5 text-primary" />
+          <h2 className="font-heading font-semibold text-foreground">Passord</h2>
+        </div>
+        {!open ? (
+          <DavosButton variant="outline" size="sm" className="w-full" onClick={() => setOpen(true)}>
+            Endre passord
+          </DavosButton>
+        ) : (
+          <div className="space-y-3">
+            <DavosInput
+              type="password"
+              placeholder="Nytt passord (minst 6 tegn)"
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              autoComplete="new-password"
+            />
+            <div className="flex gap-2">
+              <DavosButton variant="outline" size="sm" className="flex-1" onClick={() => { setOpen(false); setNewPw(""); }}>
+                Avbryt
+              </DavosButton>
+              <DavosButton size="sm" className="flex-1" onClick={handleChange} disabled={saving || newPw.length < 6}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Lagre"}
+              </DavosButton>
+            </div>
+          </div>
+        )}
+      </DavosCardContent>
+    </DavosCard>
+  );
+};
+
 export const SettingsScreen: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, updateProfile } = useAuth();
@@ -329,34 +389,7 @@ export const SettingsScreen: React.FC = () => {
           </DavosCard>
 
           {/* Change password */}
-          <DavosCard>
-            <DavosCardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <KeyRound className="h-5 w-5 text-primary" />
-                <h2 className="font-heading font-semibold text-foreground">
-                  Passord
-                </h2>
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                Send en tilbakestillingslenke til e-posten din for å endre passord.
-              </p>
-              <DavosButton
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={async () => {
-                  if (!user?.email) return;
-                  const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-                    redirectTo: `${window.location.origin}/reset-password`,
-                  });
-                  if (error) errorToast("Tilbakestilling feilet", { description: error.message });
-                  else toast.success("Sjekk e-posten din for lenke!");
-                }}
-              >
-                Send tilbakestillingslenke
-              </DavosButton>
-            </DavosCardContent>
-          </DavosCard>
+          <ChangePasswordCard />
 
           {/* Bug report */}
           <DavosCard>

@@ -64,5 +64,6 @@ verify_jwt = false
 [functions.notify-admin-new-user]
 verify_jwt = false
 
-[functions.round-push]
+[functions.admin-reset-password]
+verify_jwt = false
 verify_jwt = false
