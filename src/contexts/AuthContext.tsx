@@ -29,11 +29,14 @@ interface AuthContextType {
   profile: Profile | null;
   isAdmin: boolean;
   isLoading: boolean;
+  isProfileLoading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
-  updateProfile: (data: Partial<Pick<Profile, "full_name" | "nickname" | "avatar_url">>) => Promise<{ error: Error | null }>;
+  updateProfile: (
+    data: Partial<Pick<Profile, "full_name" | "nickname" | "avatar_url">>
+  ) => Promise<{ error: Error | null }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -53,14 +56,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = React.useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isProfileLoading, setIsProfileLoading] = React.useState(false);
 
   const fetchProfile = React.useCallback(async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
 
       if (error) {
         console.error("Error fetching profile:", error);
@@ -95,59 +95,88 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const refreshProfile = React.useCallback(async () => {
-    if (user) {
+    if (!user) return;
+    setIsProfileLoading(true);
+    try {
       const profileData = await fetchProfile(user.id);
       setProfile(profileData);
       const admin = await checkAdminRole(user.id);
       setIsAdmin(admin);
+    } finally {
+      setIsProfileLoading(false);
     }
   }, [user, fetchProfile, checkAdminRole]);
 
   // Setup auth state listener
   React.useEffect(() => {
     let isMounted = true;
-    // Set up listener BEFORE getting session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        if (!isMounted) return;
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
 
-        if (currentSession?.user) {
-          // Prefetch weather on every auth event (login, token refresh, app wake)
-          prefetchWeatherAiSummary();
-          // Defer profile fetch but DON'T clear existing profile during token refresh
-          setTimeout(async () => {
-            if (!isMounted) return;
-            const profileData = await fetchProfile(currentSession.user.id);
-            if (!isMounted) return;
-            if (profileData) setProfile(profileData);
-            const admin = await checkAdminRole(currentSession.user.id);
-            if (isMounted) setIsAdmin(admin);
-          }, 0);
-        } else {
-          setProfile(null);
-          setIsAdmin(false);
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      if (!isMounted) return;
 
-        setIsLoading(false);
-      }
-    );
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-
-      if (initialSession?.user) {
-        // Kick off weather prefetch as early as possible
+      if (currentSession?.user) {
+        // Prefetch weather on every auth event (login, token refresh, app wake)
         prefetchWeatherAiSummary();
-        fetchProfile(initialSession.user.id).then(setProfile);
-        checkAdminRole(initialSession.user.id).then(setIsAdmin);
+
+        const shouldBlockForProfile = event === "SIGNED_IN" || event === "USER_UPDATED" || event === "PASSWORD_RECOVERY";
+        if (shouldBlockForProfile) setIsProfileLoading(true);
+
+        // Defer profile fetch but DON'T clear existing profile during token refresh
+        setTimeout(async () => {
+          if (!isMounted) return;
+
+          const profileData = await fetchProfile(currentSession.user.id);
+          if (!isMounted) return;
+
+          if (event === "TOKEN_REFRESHED") {
+            // Avoid clearing the profile during refresh if it momentarily fails
+            if (profileData) setProfile(profileData);
+          } else {
+            setProfile(profileData);
+          }
+
+          const admin = await checkAdminRole(currentSession.user.id);
+          if (isMounted) setIsAdmin(admin);
+
+          if (shouldBlockForProfile && isMounted) setIsProfileLoading(false);
+        }, 0);
+      } else {
+        setProfile(null);
+        setIsAdmin(false);
+        setIsProfileLoading(false);
       }
 
       setIsLoading(false);
     });
+
+    // Get initial session
+    (async () => {
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
+      if (!isMounted) return;
+
+      setSession(initialSession);
+      setUser(initialSession?.user ?? null);
+
+      if (initialSession?.user) {
+        setIsProfileLoading(true);
+        // Kick off weather prefetch as early as possible
+        prefetchWeatherAiSummary();
+
+        const profileData = await fetchProfile(initialSession.user.id);
+        if (!isMounted) return;
+        setProfile(profileData);
+
+        const admin = await checkAdminRole(initialSession.user.id);
+        if (isMounted) setIsAdmin(admin);
+
+        if (isMounted) setIsProfileLoading(false);
+      }
+
+      setIsLoading(false);
+    })();
 
     return () => {
       isMounted = false;
@@ -182,6 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
     setProfile(null);
     setIsAdmin(false);
+    setIsProfileLoading(false);
   };
 
   const resetPassword = async (email: string) => {
@@ -197,10 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error: new Error("Not authenticated") };
     }
 
-    const { error } = await supabase
-      .from("profiles")
-      .update(data)
-      .eq("id", user.id);
+    const { error } = await supabase.from("profiles").update(data).eq("id", user.id);
 
     if (!error) {
       await refreshProfile();
@@ -215,6 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     isAdmin,
     isLoading,
+    isProfileLoading,
     signUp,
     signIn,
     signOut,

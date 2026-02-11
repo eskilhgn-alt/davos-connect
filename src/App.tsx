@@ -47,9 +47,9 @@ const queryClient = new QueryClient();
 
 // Protected route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isLoading, profile, isAdmin } = useAuth();
+  const { user, isLoading, isProfileLoading, profile, isAdmin } = useAuth();
 
-  if (isLoading) {
+  if (isLoading || isProfileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -61,14 +61,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/auth" replace />;
   }
 
-  // Wait for profile to load before checking completeness
-  // This prevents redirect during token refresh when profile is temporarily null
+  // If we couldn't load a profile at all, don't hang on a spinner
   if (!profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <Navigate to="/auth" replace />;
   }
 
   // Require profile completion (including avatar) and email verification
