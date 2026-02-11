@@ -2,6 +2,7 @@ import * as React from "react";
 import { Outlet } from "react-router-dom";
 import { FloatingHomeButton } from "./FloatingHomeButton";
 import { SystemBanner } from "./SystemBanner";
+import { PopupAnnouncementOverlay } from "./PopupAnnouncement";
 import { WebcamPreloadProvider } from "@/components/webcams";
 import { WitnessOverlay } from "@/components/shot/WitnessOverlay";
 import { PermissionPrompt } from "@/components/onboarding/PermissionPrompt";
@@ -23,6 +24,7 @@ export const AppLayout: React.FC = () => {
         <FloatingHomeButton />
         <WitnessOverlay />
         <PermissionPrompt />
+        <PopupAnnouncementOverlay />
       </div>
     </WebcamPreloadProvider>
   );
