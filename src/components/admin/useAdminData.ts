@@ -103,8 +103,12 @@ export function useAdminData() {
         supabase.from("messages").select("sender_id", { count: "exact", head: false }).gte("created_at", now24h),
       ]);
 
-      // Count unique active users from messages in last 24h
-      const uniqueSenders = new Set((msgRes.data || []).map((m: any) => m.sender_id));
+      // Count unique active users from messages in last 24h (exclude system senders)
+      const uniqueSenders = new Set(
+        (msgRes.data || [])
+          .map((m: any) => m.sender_id)
+          .filter((id: string) => id !== 'system' && id !== '00000000-0000-0000-0000-000000000000')
+      );
 
       setStats({
         activeUsers24h: uniqueSenders.size,
