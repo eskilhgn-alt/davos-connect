@@ -101,10 +101,11 @@ export const WindyEmbed: React.FC<WindyEmbedProps> = ({
           onError={handleError}
         />
 
-        {/* Fullscreen button – bottom-left to avoid Windy's top-right controls */}
+        {/* Fullscreen button – mid-left to avoid Windy's play button and controls */}
         <button
           onClick={() => setFullscreen(true)}
-          className="absolute bottom-3 left-3 p-2 bg-background/90 backdrop-blur-sm rounded-lg hover:bg-background transition-colors z-20 active:scale-95"
+          className="absolute left-3 p-2 bg-background/90 backdrop-blur-sm rounded-lg hover:bg-background transition-colors z-20 active:scale-95"
+          style={{ bottom: "calc(50% + 10px)" }}
           aria-label="Fullskjerm"
         >
           <Maximize2 size={16} className="text-foreground" />
