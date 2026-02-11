@@ -57,17 +57,17 @@ export const HomeScreen: React.FC = () => {
 
   const tiles: TileItem[] = React.useMemo(() => {
     const base: TileItem[] = [
-      { to: "/alle", label: "Gütta", icon: Users },
       { to: "/chat", label: "Chat", icon: MessageCircle, badge: badges.chat },
       { to: "/vaer", label: "Vær", icon: CloudSun },
       { to: "/live", label: "Live", icon: Radio },
       { to: "/kart", label: "Løypekart", icon: Map },
+      { to: "/agenda", label: "Agenda", icon: CalendarDays, badge: badges.agenda },
       { to: "/magnus", label: "Magnus?", icon: MapPin },
       { to: "/shot", label: "Shoot", icon: Target, badge: badges.shot },
-      { to: "/agenda", label: "Agenda", icon: CalendarDays, badge: badges.agenda },
-      { to: "/galleri", label: "Galleri", icon: Film },
-      { to: "/runder", label: "Runder", icon: Beer, badge: badges.runder },
       { to: "/poll", label: "Avstemming", icon: Vote, badge: badges.polls },
+      { to: "/runder", label: "Runder", icon: Beer, badge: badges.runder },
+      { to: "/galleri", label: "Galleri", icon: Film },
+      { to: "/alle", label: "Gütta", icon: Users },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
     ];
