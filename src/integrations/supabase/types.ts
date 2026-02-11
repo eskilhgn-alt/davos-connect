@@ -458,6 +458,8 @@ export type Database = {
           created_by: string
           deadline_at: string | null
           id: string
+          is_pinned: boolean
+          min_votes: number | null
           question: string
           require_all: boolean
           resolved_at: string | null
@@ -472,6 +474,8 @@ export type Database = {
           created_by: string
           deadline_at?: string | null
           id?: string
+          is_pinned?: boolean
+          min_votes?: number | null
           question: string
           require_all?: boolean
           resolved_at?: string | null
@@ -486,6 +490,8 @@ export type Database = {
           created_by?: string
           deadline_at?: string | null
           id?: string
+          is_pinned?: boolean
+          min_votes?: number | null
           question?: string
           require_all?: boolean
           resolved_at?: string | null

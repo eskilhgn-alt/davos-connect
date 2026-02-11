@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import type { Message } from './types';
 import { ReactionsRow } from './ReactionsRow';
 import { chatStore } from './store';
+import { ChatPollCard } from '@/components/poll/ChatPollCard';
 
 interface MessageItemProps {
   message: Message;
@@ -166,8 +167,22 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       )}
 
       {/* Text bubble or edit mode */}
-      {message.text && (
-        isEditing ? (
+      {message.text && (() => {
+        // Check if this is a poll system message
+        const pollAtt = message.attachments?.find((a: any) => a.kind === 'poll');
+        if (pollAtt) {
+          return (
+            <div className={cn('px-1', isOwn ? 'flex justify-end' : '')}>
+              <ChatPollCard
+                pollId={(pollAtt as any).poll_id}
+                pollEvent={(pollAtt as any).poll_event}
+                messageText={message.text}
+              />
+            </div>
+          );
+        }
+
+        return isEditing ? (
           <div className="max-w-[85%] flex flex-col gap-2">
             <textarea
               ref={editRef}
@@ -220,8 +235,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               {message.text}
             </p>
           </div>
-        )
-      )}
+        );
+      })()}
 
       {/* Reactions */}
       {message.reactions && Object.keys(message.reactions).length > 0 && (
