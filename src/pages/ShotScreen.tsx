@@ -103,10 +103,25 @@ export const ShotScreen: React.FC = () => {
 
     if (data && data.length > 0) {
       setActiveEvent(data[0] as unknown as ShotEvent);
-      // Check overdue
+      // Check overdue + send shame push
       const ev = data[0] as unknown as ShotEvent;
       if (ev.status === "selected" && ev.deadline_at && new Date(ev.deadline_at) < new Date() && !ev.confirmed_at) {
         await supabase.rpc("rpc_apply_overdue", { p_event_id: ev.id });
+        // Shame push
+        const sess = await supabase.auth.getSession();
+        const t = sess.data.session?.access_token;
+        if (t) {
+          const cowardName = profiles[ev.selected_user_id || ""] || "Noen";
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
+            body: JSON.stringify({
+              type: "overdue_shame",
+              heading: "Feiging! 🐔",
+              message: `${cowardName} feiget ut og tok ikke shotten i tide! 12-timers ban.`,
+            }),
+          }).catch(() => {});
+        }
       }
     } else {
       setActiveEvent(null);
@@ -306,13 +321,25 @@ export const ShotScreen: React.FC = () => {
           }),
         }).catch(() => {});
       } else if (mode === "witness_deny") {
+        // Shame push: witness denied = player is busted
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             type: "witness_deny",
-            heading: "Dispute! ⚠️",
-            message: `Vitne avviste ${selectedName}s shot. Admin må avgjøre.`,
+            heading: "Busted! 🚨",
+            message: `${callerName} avslørte at ${selectedName} IKKE tok shotten! 12-timers ban utdelt. 💀`,
+          }),
+        }).catch(() => {});
+      } else if (mode === "refuse") {
+        // Shame push: player refused
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            type: "refused_shame",
+            heading: "Feiging! 🐔",
+            message: `${selectedName} nektet å ta shotten! Dobbel skam og 12-timers ban. 💀`,
           }),
         }).catch(() => {});
       }
