@@ -133,7 +133,7 @@ serve(async (req) => {
       target_channel: "push",
       headings: { en: sender_name },
       contents: { en: preview || "Ny melding" },
-      url: "https://davos-joy-connect.lovable.app/chat",
+      url: "https://guttahutte.lovable.app/chat",
       ios_badgeType: "Increase",
       ios_badgeCount: 1,
       collapse_id: `thread_${thread_id}`,

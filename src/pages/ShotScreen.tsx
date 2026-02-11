@@ -279,7 +279,7 @@ export const ShotScreen: React.FC = () => {
               heading: "Du er vitne! 👁",
               message: `${callerName} har tatt shotten – bekreft i appen innen 15 min.`,
               include_user_ids: [witnessId],
-              url: "https://davos-joy-connect.lovable.app/shot",
+              url: "https://guttahutte.lovable.app/shot",
             }),
           }).catch(() => {});
         }
