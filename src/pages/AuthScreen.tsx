@@ -35,9 +35,10 @@ export const AuthScreen: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { user, profile, signIn, signUp, signOut, resetPassword, updateProfile, isLoading } = useAuth();
   
-  const [mode, setMode] = React.useState<AuthMode>(
-    searchParams.get("mode") === "signup" ? "signup" : "login"
-  );
+  const [mode, setMode] = React.useState<AuthMode>(() => {
+    if (searchParams.get("mode") === "signup") return "signup";
+    return "login";
+  });
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [fullName, setFullName] = React.useState("");
