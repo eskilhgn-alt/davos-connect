@@ -236,6 +236,7 @@ export async function editMessage(messageId: string, newText: string): Promise<v
     .eq('id', messageId);
 
   if (error) console.error('Error editing message:', error);
+  else notifySubscribers();
 }
 
 export async function deleteMessage(messageId: string): Promise<void> {
@@ -245,6 +246,7 @@ export async function deleteMessage(messageId: string): Promise<void> {
     .eq('id', messageId);
 
   if (error) console.error('Error deleting message:', error);
+  else notifySubscribers();
 }
 
 export async function toggleReaction(messageId: string, emoji: string): Promise<void> {
@@ -276,7 +278,10 @@ export async function toggleReaction(messageId: string, emoji: string): Promise<
       .update({ reactions: Object.keys(reactions).length > 0 ? reactions : {} })
       .eq('id', messageId);
 
-    if (!error) return;
+    if (!error) {
+      notifySubscribers();
+      return;
+    }
     console.warn(`Reaction toggle attempt ${attempt + 1} failed:`, error);
   }
   console.error('Failed to toggle reaction after 3 attempts');

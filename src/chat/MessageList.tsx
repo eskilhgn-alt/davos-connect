@@ -205,11 +205,10 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   // Get user name for reactions dialog
   const getUserName = React.useCallback((uid: string) => {
-    const currentUser = chatStore.getUser();
-    if (uid === currentUser.id) return 'Du';
+    if (uid === currentUserId) return 'Du';
     const msg = messages.find(m => m.senderId === uid);
     return msg?.senderName || 'Ukjent';
-  }, [messages]);
+  }, [messages, currentUserId]);
 
   const groups = groupMessagesByDate(messages);
   const paddingBottom = composerHeight + 16;
@@ -243,7 +242,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                 const prevMsg = idx > 0 ? group.messages[idx - 1] : null;
                 const showSender = !prevMsg || prevMsg.senderId !== msg.senderId;
 
-                return (
+                  return (
                   <MessageItem
                     key={msg.id}
                     message={msg}
@@ -252,6 +251,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                     currentUserId={currentUserId}
                     onShowActions={handleShowActions}
                     onShowReactions={handleShowReactions}
+                    onMediaTap={(src, type) => setViewerMedia({ src, type })}
                   />
                 );
               })}

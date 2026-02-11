@@ -27,36 +27,35 @@ export const SeenBySheet: React.FC<SeenBySheetProps> = ({ messageId, onClose }) 
     const fetchSeenBy = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
+        const { data: reads, error } = await supabase
           .from("chat_reads")
-          .select(`
-            user_id,
-            read_at,
-            profiles:user_id (
-              nickname,
-              full_name,
-              email
-            )
-          `)
+          .select("user_id, read_at")
           .eq("message_id", messageId)
           .order("read_at", { ascending: false });
 
-        if (error) {
-          console.error("Error fetching seen by:", error);
+        if (error || !reads || reads.length === 0) {
           setSeenBy([]);
           return;
         }
 
-        const entries: SeenByEntry[] = (data || []).map((row: Record<string, unknown>) => {
-          const profile = row.profiles as { nickname?: string; full_name?: string; email?: string } | null;
-          return {
-            userId: row.user_id as string,
-            name: profile?.nickname || profile?.full_name || profile?.email || "Ukjent",
-            seenAt: row.read_at as string,
-          };
-        });
+        const userIds = reads.map((r) => r.user_id);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, nickname, full_name, email")
+          .in("id", userIds);
 
-        setSeenBy(entries);
+        const profileMap = new Map<string, string>();
+        for (const p of (profiles || []) as any[]) {
+          profileMap.set(p.id, p.nickname || p.full_name || p.email || "Ukjent");
+        }
+
+        setSeenBy(
+          reads.map((row) => ({
+            userId: row.user_id,
+            name: profileMap.get(row.user_id) || "Ukjent",
+            seenAt: row.read_at,
+          }))
+        );
       } catch (err) {
         console.error("Seen by fetch error:", err);
         setSeenBy([]);
