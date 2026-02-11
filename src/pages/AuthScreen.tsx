@@ -29,7 +29,7 @@ function sendWelcomeMessage(displayName: string) {
   });
 }
 
-type AuthMode = "login" | "signup" | "forgot" | "onboarding" | "verify-email";
+type AuthMode = "login" | "signup" | "forgot" | "onboarding" | "verify-email" | "awaiting-admin";
 
 export const AuthScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -56,7 +56,7 @@ export const AuthScreen: React.FC = () => {
 
   React.useEffect(() => {
     if (user && profile?.email_verified === false) {
-      setMode("verify-email");
+      setMode("awaiting-admin");
     } else if (user && profile?.full_name && profile?.nickname && profile?.avatar_url && profile?.email_verified !== false) {
       navigate("/");
     } else if (user && profile && profile.email_verified !== false && (!profile?.full_name || !profile?.nickname || !profile?.avatar_url)) {
@@ -117,44 +117,21 @@ export const AuthScreen: React.FC = () => {
       errorToast("Registrering feilet", { description: error.message });
     } else {
       toast.success("Konto opprettet!");
+      // Notify admins about new signup
       setTimeout(async () => {
-        try {
-          await supabase.functions.invoke("send-verification-email", {
-            body: { app_url: window.location.origin },
-          });
-        } catch (err) {
-          console.warn("Could not send verification email:", err);
-        }
-        // Notify admins about new signup
         try {
           await supabase.functions.invoke("notify-admin-new-user");
         } catch (err) {
           console.warn("Could not notify admin:", err);
         }
       }, 1500);
-      setMode("verify-email");
+      setMode("awaiting-admin");
     }
     setIsSubmitting(false);
   };
 
   const handleResendVerification = async () => {
-    if (resendCooldown > 0) return;
-    try {
-      const { error } = await supabase.functions.invoke("send-verification-email", {
-        body: { app_url: window.location.origin },
-      });
-      if (error) throw error;
-      toast.success("Ny bekreftelseslenke sendt!");
-      setResendCooldown(60);
-      const interval = setInterval(() => {
-        setResendCooldown((c) => {
-          if (c <= 1) { clearInterval(interval); return 0; }
-          return c - 1;
-        });
-      }, 1000);
-    } catch {
-      errorToast("Kunne ikke sende e-post");
-    }
+    // No longer needed - kept as no-op
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -360,35 +337,33 @@ export const AuthScreen: React.FC = () => {
             </form>
           )}
 
-          {mode === "verify-email" && (
+          {(mode === "verify-email" || mode === "awaiting-admin") && (
             <div className="space-y-6 text-center">
               <div className="mb-6">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <span className="text-3xl">📧</span>
+                  <span className="text-3xl">⏳</span>
                 </div>
-                <h2 className="font-heading text-xl font-semibold">Sjekk e-posten din</h2>
+                <h2 className="font-heading text-xl font-semibold">Venter på godkjenning</h2>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Vi har sendt en bekreftelseslenke til<br />
-                  <span className="font-medium text-foreground">{user?.email || email}</span>
+                  Kontoen din er opprettet, men en admin må godkjenne den før du kan logge inn.
                 </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Klikk på lenken i e-posten for å bekrefte kontoen din. Sjekk også søppelpost/spam.
-              </p>
-              <DavosButton
-                variant="outline"
-                className="w-full"
-                onClick={handleResendVerification}
-                disabled={resendCooldown > 0}
-              >
-                {resendCooldown > 0 ? `Send på nytt (${resendCooldown}s)` : "Send bekreftelse på nytt"}
-              </DavosButton>
+              <div className="bg-muted/50 rounded-xl p-4 text-left space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  <strong className="text-foreground">Hva skjer nå?</strong>
+                </p>
+                <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                  <li>Admin har fått varsel om registreringen din</li>
+                  <li>Når kontoen er godkjent, kan du logge inn som vanlig</li>
+                  <li>Dette tar vanligvis kort tid</li>
+                </ul>
+              </div>
               <button
                 type="button"
                 onClick={async () => { await signOut(); setMode("login"); }}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                Logg ut og bruk en annen e-post
+                Tilbake til innlogging
               </button>
             </div>
           )}
