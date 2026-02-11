@@ -11,7 +11,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { prefetchWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
 import { errorToast } from "@/utils/errorToast";
-import { useIdleLogout } from "@/hooks/useIdleLogout";
+
 import ChatScreen from "./pages/ChatScreen";
 import HomeScreen from "./pages/HomeScreen";
 import MapScreen from "./pages/MapScreen";
@@ -168,7 +168,7 @@ const AppShell = () => {
       <OfflineIndicator />
       <BrowserRouter>
         <AuthProvider>
-          <IdleLogoutWrapper />
+          
           <AppRoutes />
         </AuthProvider>
       </BrowserRouter>
@@ -176,12 +176,6 @@ const AppShell = () => {
   );
 };
 
-/** Wrapper that uses auth context for idle logout */
-const IdleLogoutWrapper = () => {
-  const { user } = useAuth();
-  useIdleLogout(!!user);
-  return null;
-};
 
 const App = () => (
   <ErrorBoundary>
