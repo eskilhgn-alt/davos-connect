@@ -9,6 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosAvatar } from "@/components/ui/davos-avatar";
 import { MapPin, Clock, Navigation, Search, Crosshair, X } from "lucide-react";
+import { SkiPerformanceTracker } from "@/components/ski/SkiPerformanceTracker";
+import { useSkiTracker } from "@/hooks/useSkiTracker";
 import { formatDistanceToNow } from "date-fns";
 import { nb } from "date-fns/locale";
 import L from "leaflet";
@@ -71,6 +73,9 @@ export const CrewMapScreen: React.FC = () => {
   const searchMarkerRef = React.useRef<L.Marker | null>(null);
   const { locations, loading } = useUserLocations();
   const { user } = useAuth();
+
+  // Activate ski tracker in background
+  useSkiTracker();
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchResults, setSearchResults] = React.useState<SearchResult[]>([]);
@@ -282,6 +287,11 @@ export const CrewMapScreen: React.FC = () => {
               );
             })}
           </div>
+        </div>
+
+        {/* Ski performance tracker */}
+        <div className="border-t border-border">
+          <SkiPerformanceTracker />
         </div>
       </div>
     </div>
