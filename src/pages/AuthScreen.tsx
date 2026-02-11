@@ -9,10 +9,11 @@ import { DavosButton } from "@/components/ui/davos-button";
 import { DavosInput } from "@/components/ui/davos-input";
 import { DavosAvatar } from "@/components/ui/davos-avatar";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Loader2, Camera, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Camera, Check, ShieldCheck } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
+import { useAuthRateLimit } from "@/hooks/useAuthRateLimit";
 
 const WELCOME_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -51,6 +52,7 @@ export const AuthScreen: React.FC = () => {
   const [avatarPreview, setAvatarPreview] = React.useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
+  const { isLocked, remainingLockSeconds, recordAttempt, attempts } = useAuthRateLimit();
 
   React.useEffect(() => {
     if (user && profile?.email_verified === false) {
@@ -87,26 +89,34 @@ export const AuthScreen: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked()) {
+      errorToast(`For mange forsøk. Prøv igjen om ${remainingLockSeconds()} sekunder.`);
+      return;
+    }
     setIsSubmitting(true);
     const { error } = await signIn(email, password);
+    recordAttempt(!error);
     if (error) {
       errorToast("Innlogging feilet", { description: error.message });
     } else {
       toast.success("Logget inn!");
-      // The useEffect will handle redirect to verify-email if not verified
     }
     setIsSubmitting(false);
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked()) {
+      errorToast(`For mange forsøk. Prøv igjen om ${remainingLockSeconds()} sekunder.`);
+      return;
+    }
     setIsSubmitting(true);
     const { error } = await signUp(email, password);
+    recordAttempt(!error);
     if (error) {
       errorToast("Registrering feilet", { description: error.message });
     } else {
       toast.success("Konto opprettet!");
-      // Send verification email after a short delay to allow profile creation
       setTimeout(async () => {
         try {
           await supabase.functions.invoke("send-verification-email", {
@@ -378,6 +388,17 @@ export const AuthScreen: React.FC = () => {
           )}
         </div>
       </main>
+
+      {/* Security footer */}
+      <footer className="pb-6 px-6 flex flex-col items-center gap-2">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          <span className="text-[10px] tracking-wide uppercase font-medium">Sikret forbindelse</span>
+        </div>
+        <p className="text-[10px] text-muted-foreground/60 text-center max-w-xs leading-relaxed">
+          E2E-kryptert auth · RLS-beskyttet data · Auto-utlogging ved inaktivitet · Rate-limiting på innlogging
+        </p>
+      </footer>
     </div>
   );
 };
