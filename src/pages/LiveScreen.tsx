@@ -9,7 +9,7 @@ import { BackButton } from "@/components/layout/BackButton";
 import { WindyEmbed } from "@/components/live";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { WEBCAMS, type Webcam } from "@/config/webcams";
-import { Mountain, ExternalLink } from "lucide-react";
+import { Mountain } from "lucide-react";
 import { Link } from "react-router-dom";
 import { WebcamModal } from "@/components/webcams";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -18,9 +18,6 @@ export const LiveScreen: React.FC = () => {
   const { position } = useGeolocation();
   const [selectedWebcam, setSelectedWebcam] = React.useState<Webcam | null>(null);
 
-  const handleOpenWindy = () => {
-    window.open("https://www.windy.com/nb/-V%C3%A6rradar-radar?radar,46.8,9.83,10", "_blank");
-  };
 
   // Show first 6 webcams
   const displayedWebcams = WEBCAMS.slice(0, 6);
@@ -46,18 +43,9 @@ export const LiveScreen: React.FC = () => {
         <div className="p-4 space-y-6">
           {/* Windy Radar Section */}
           <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-heading text-sm font-medium text-muted-foreground">
-                Live værradar
-              </h2>
-              <button 
-                onClick={handleOpenWindy}
-                className="flex items-center gap-1 text-xs text-primary hover:underline"
-              >
-                <ExternalLink size={12} />
-                Fullskjerm
-              </button>
-            </div>
+            <h2 className="font-heading text-sm font-medium text-muted-foreground mb-3">
+              Live værradar
+            </h2>
             
             <WindyEmbed className="h-[350px]" overlay="radar" lat={position?.lat} lon={position?.lon} />
             
