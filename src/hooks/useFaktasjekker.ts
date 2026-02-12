@@ -2,6 +2,7 @@
  * useFaktasjekker — manages conversation threads with the AI fact-checker
  */
 import { useState, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface FaktaMessage {
   role: "user" | "assistant";
@@ -16,7 +17,6 @@ export interface FaktaThread {
 }
 
 const STORAGE_KEY = "faktasjekker-threads";
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/faktasjekker`;
 
 function loadThreads(): FaktaThread[] {
   try {
@@ -94,11 +94,17 @@ export function useFaktasjekker() {
     abortRef.current = ac;
 
     try {
-      const resp = await fetch(CHAT_URL, {
+      // Get the user's actual JWT for authenticated requests
+      const { data: { session } } = await supabase.auth.getSession();
+      const jwt = session?.access_token;
+      if (!jwt) throw new Error("Du må være logget inn");
+
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/faktasjekker`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${jwt}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ messages: allMessages }),
         signal: ac.signal,

@@ -66,14 +66,18 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     };
   }, [groupIdx, storyIdx, DISPLAY_MS, paused]); // eslint-disable-line
 
+  // Track closing state to prevent pointer events from leaking to elements underneath
+  const closingRef = React.useRef(false);
+
   const goNext = React.useCallback(() => {
-    if (!group) return;
+    if (!group || closingRef.current) return;
     if (storyIdx < group.stories.length - 1) {
       setStoryIdx((i) => i + 1);
     } else if (groupIdx < groups.length - 1) {
       setGroupIdx((i) => i + 1);
       setStoryIdx(0);
     } else {
+      closingRef.current = true;
       onClose();
     }
   }, [group, storyIdx, groupIdx, groups.length, onClose]);
@@ -101,11 +105,16 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    // Always prevent event from reaching elements underneath
+    e.preventDefault();
+    e.stopPropagation();
+
     // Clear the hold timer if it hasn't fired yet
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
       holdTimerRef.current = undefined;
     }
+    if (closingRef.current) return;
     if (holdRef.current) {
       // Was a hold → unpause
       setPaused(false);

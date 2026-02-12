@@ -137,23 +137,30 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
       }
     }
 
-    const { error } = await onSubmit(
-      user.id,
-      activeDrinkType(),
-      total,
-      perPerson,
-      Array.from(selectedUsers),
-      note || undefined,
-      quantities,
-      receiptUrl,
-      isTreated
-    );
-    setSubmitting(false);
-    if (error) {
-      errorToast("Kunne ikke registrere runde");
-    } else {
-      toast.success("Runde registrert! 🍻");
-      onOpenChange(false);
+    try {
+      const { error } = await onSubmit(
+        user.id,
+        activeDrinkType(),
+        total,
+        perPerson,
+        Array.from(selectedUsers),
+        note || undefined,
+        quantities,
+        receiptUrl,
+        isTreated
+      );
+      setSubmitting(false);
+      if (error) {
+        console.error("Round submit error:", error);
+        errorToast("Kunne ikke registrere runde", { description: error?.message || String(error) });
+      } else {
+        toast.success("Runde registrert! 🍻");
+        onOpenChange(false);
+      }
+    } catch (e: any) {
+      console.error("Round submit exception:", e);
+      errorToast("Feil ved registrering", { description: e?.message || "Ukjent feil" });
+      setSubmitting(false);
     }
   };
 
