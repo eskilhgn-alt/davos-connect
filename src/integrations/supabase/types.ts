@@ -231,6 +231,36 @@ export type Database = {
           },
         ]
       }
+      debt_settlements: {
+        Row: {
+          amount: number
+          created_by: string
+          from_user_id: string
+          id: string
+          note: string | null
+          settled_at: string
+          to_user_id: string
+        }
+        Insert: {
+          amount: number
+          created_by: string
+          from_user_id: string
+          id?: string
+          note?: string | null
+          settled_at?: string
+          to_user_id: string
+        }
+        Update: {
+          amount?: number
+          created_by?: string
+          from_user_id?: string
+          id?: string
+          note?: string | null
+          settled_at?: string
+          to_user_id?: string
+        }
+        Relationships: []
+      }
       gallery_items: {
         Row: {
           created_at: string
@@ -914,6 +944,42 @@ export type Database = {
           max_speed_kmh?: number
           recorded_at?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ski_track_points: {
+        Row: {
+          altitude: number
+          day_date: string
+          direction: string
+          id: string
+          lat: number
+          lon: number
+          recorded_at: string
+          speed: number | null
+          user_id: string
+        }
+        Insert: {
+          altitude: number
+          day_date?: string
+          direction?: string
+          id?: string
+          lat: number
+          lon: number
+          recorded_at?: string
+          speed?: number | null
+          user_id: string
+        }
+        Update: {
+          altitude?: number
+          day_date?: string
+          direction?: string
+          id?: string
+          lat?: number
+          lon?: number
+          recorded_at?: string
+          speed?: number | null
           user_id?: string
         }
         Relationships: []

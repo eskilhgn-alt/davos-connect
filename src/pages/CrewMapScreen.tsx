@@ -10,6 +10,7 @@ import { DavosSkeleton } from "@/components/ui/davos-skeleton";
 import { DavosAvatar } from "@/components/ui/davos-avatar";
 import { MapPin, Clock, Navigation, Search, Crosshair, X } from "lucide-react";
 import { SkiPerformanceTracker } from "@/components/ski/SkiPerformanceTracker";
+import { SkiRouteMap } from "@/components/ski/SkiRouteMap";
 import { useSkiTracker } from "@/hooks/useSkiTracker";
 import { formatDistanceToNow } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -287,6 +288,11 @@ export const CrewMapScreen: React.FC = () => {
               );
             })}
           </div>
+        </div>
+
+        {/* GPS Route tracking */}
+        <div className="border-t border-border">
+          <SkiRouteMap />
         </div>
 
         {/* Ski performance tracker */}

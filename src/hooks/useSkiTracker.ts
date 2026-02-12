@@ -19,6 +19,9 @@ export function useSkiTracker() {
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const lastRecordRef = useRef<number>(0);
   const topSpeedTodayRef = useRef<number>(0);
+  const lastAltRef = useRef<number | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const v_prev_altitude: number | null = null; // placeholder for direction detection
 
   useEffect(() => {
     if (!user || !enabled || !position) return;
@@ -44,6 +47,20 @@ export function useSkiTracker() {
         p_lat: position.lat,
         p_lon: position.lon,
       });
+
+      // Record GPS track point for route visualization
+      const direction = v_prev_altitude != null && altitude > v_prev_altitude ? "up" : "down";
+      // Use simple heuristic: if speed < 3 m/s and altitude increasing => lift
+      const isLift = speed < 3 && altitude > (lastAltRef.current ?? altitude);
+      await supabase.from("ski_track_points").insert({
+        user_id: user.id,
+        lat: position.lat,
+        lon: position.lon,
+        altitude,
+        speed,
+        direction: isLift ? "up" : "down",
+      });
+      lastAltRef.current = altitude;
 
       // Track top speed (convert m/s to km/h)
       const speedKmh = speed * 3.6;
