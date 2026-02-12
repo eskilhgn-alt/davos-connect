@@ -53,16 +53,29 @@ export const AuthScreen: React.FC = () => {
   const [avatarUploading, setAvatarUploading] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const { isLocked, remainingLockSeconds, recordAttempt, attempts } = useAuthRateLimit();
+  const profileRetryRef = React.useRef(0);
+
   React.useEffect(() => {
     if (!user || isProfileLoading) return;
 
     if (profile === null) {
-      // Trigger failed – sign out immediately so the user can retry
+      // Profile might not be loaded yet (e.g. after token refresh or network hiccup)
+      // Retry a few times before giving up
+      if (profileRetryRef.current < 3) {
+        profileRetryRef.current += 1;
+        const timer = setTimeout(() => refreshProfile(), 1500);
+        return () => clearTimeout(timer);
+      }
+      // After retries, sign out so the user can try again
       signOut();
-      errorToast("Profilen din kunne ikke opprettes. Prøv igjen eller kontakt admin.");
+      errorToast("Kunne ikke laste profilen din. Logg inn på nytt.");
       setMode("login");
+      profileRetryRef.current = 0;
       return;
     }
+
+    // Profile loaded successfully, reset retry counter
+    profileRetryRef.current = 0;
 
     if (profile.email_verified === false) {
       setMode("awaiting-admin");
