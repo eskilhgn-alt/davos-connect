@@ -155,7 +155,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 />
               ) : (
                 <img
-                  src={att.objectUrl}
+                  src={(att as any).thumbUrl || att.objectUrl}
                   alt="Vedlegg"
                   className="max-w-full h-auto"
                   loading="lazy"

@@ -158,10 +158,34 @@ export async function sendMessage(
     attachments.map(async (att) => {
       if (att.file) {
         const ext = att.file.name.split('.').pop() || 'jpg';
-        const path = `${sid}/${crypto.randomUUID()}.${ext}`;
+        const fileId = crypto.randomUUID();
+        const path = `${sid}/${fileId}.${ext}`;
+
+        // Compress images for faster loading (keep original quality for zoom)
+        let uploadFile: File | Blob = att.file;
+        let thumbUrl: string | undefined;
+
+        if (att.kind === 'image' && att.file.type.startsWith('image/')) {
+          try {
+            const { createThumbnail } = await import('@/utils/imageThumb');
+            const result = await createThumbnail(att.file);
+            // Upload thumbnail for feed display
+            const thumbPath = `${sid}/${fileId}_thumb.jpg`;
+            await supabase.storage
+              .from('chat-media')
+              .upload(thumbPath, result.thumbBlob, { contentType: 'image/jpeg' });
+            const { data: thumbData } = supabase.storage
+              .from('chat-media')
+              .getPublicUrl(thumbPath);
+            thumbUrl = thumbData.publicUrl;
+          } catch (e) {
+            console.warn('Thumbnail creation failed, using original:', e);
+          }
+        }
+
         const { error } = await supabase.storage
           .from('chat-media')
-          .upload(path, att.file, { contentType: att.file.type });
+          .upload(path, uploadFile, { contentType: att.file.type });
 
         if (error) {
           console.error('Upload failed:', error);
@@ -172,7 +196,12 @@ export async function sendMessage(
           .from('chat-media')
           .getPublicUrl(path);
 
-        return { id: att.id, kind: att.kind, objectUrl: urlData.publicUrl };
+        return {
+          id: att.id,
+          kind: att.kind,
+          objectUrl: urlData.publicUrl,
+          thumbUrl, // thumbnail for feed, objectUrl for full quality zoom
+        };
       }
       // GIFs already have external URLs
       return { id: att.id, kind: att.kind, objectUrl: att.objectUrl };
