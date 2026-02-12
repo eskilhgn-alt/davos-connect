@@ -33,8 +33,19 @@ const typeLabels: Record<string, { emoji: string; label: (name: string, payload?
     const reason = (p as any)?.reason === 'refused' ? "nektet å ta shot" : "ikke tatt i tide";
     return `Straff utdelt til ${n} – ${reason}.`;
   }},
-  admin_confirmed: { emoji: "🛡️", label: () => "Admin har avgjort: shotten godkjennes – ingen straff." },
-  admin_punished: { emoji: "🛡️", label: () => "Admin har avgjort: straffeshot utdelt!" },
+  admin_confirmed: { emoji: "🛡️", label: (n, p) => {
+    const verdict = (p as any)?.verdict;
+    const reason = (p as any)?.reason;
+    const label = verdict === "approve_reluctant" ? "godkjent under tvil" : "godkjent";
+    return `Admin har avgjort: shotten ${label}.${reason ? ` Grunn: "${reason}"` : ""}`;
+  }},
+  admin_punished: { emoji: "🛡️", label: (n, p) => {
+    const reason = (p as any)?.reason;
+    return `Admin har avgjort: straff opprettholdt.${reason ? ` Grunn: "${reason}"` : ""}`;
+  }},
+  checker_approved: { emoji: "✅", label: (n, p) => `Tilfeldig sjekker godkjente shotten.${(p as any)?.reason ? ` "${(p as any).reason}"` : ""}` },
+  checker_denied: { emoji: "❌", label: (n, p) => `Tilfeldig sjekker avviste shotten.${(p as any)?.reason ? ` "${(p as any).reason}"` : ""}` },
+  checker_escalated: { emoji: "⬆️", label: (n, p) => `Tilfeldig sjekker eskalerte til admin.${(p as any)?.reason ? ` "${(p as any).reason}"` : ""}` },
   bonus_token: { emoji: "🎁", label: (n) => `${n} fikk et bonustoken som belønning.` },
   banned: { emoji: "🚫", label: (n) => `${n} er midlertidig utestengt fra Shoot your shot.` },
   frikort_used: { emoji: "🎫", label: (n) => `${n} brukte et frikort og slipper denne runden.` },

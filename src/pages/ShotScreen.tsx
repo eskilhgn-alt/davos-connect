@@ -15,6 +15,8 @@ import { ShotEventFeed } from "@/components/shot/ShotEventFeed";
 import { ShotLeaderboard } from "@/components/shot/ShotLeaderboard";
 import { ShotTransparency } from "@/components/shot/ShotTransparency";
 import { ShotHistory } from "@/components/shot/ShotHistory";
+import { CheckerOverlay } from "@/components/shot/CheckerOverlay";
+import { AdminShotPopup } from "@/components/shot/AdminShotPopup";
 import { SkiAwardClaimDialog } from "@/components/ski/SkiAwardClaimDialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
@@ -46,6 +48,11 @@ export interface ShotEvent {
   dispute_details: string | null;
   dispute_resolved_by: string | null;
   dispute_resolved_at: string | null;
+  random_checker_id: string | null;
+  checker_verdict: string | null;
+  checker_reason: string | null;
+  admin_verdict: string | null;
+  admin_reason: string | null;
 }
 
 export interface ShotLogEntry {
@@ -448,6 +455,10 @@ export const ShotScreen: React.FC = () => {
       {/* Rules sheet */}
       <ShotRulesSheet open={rulesOpen} onOpenChange={setRulesOpen} />
 
+      {/* Checker + Admin overlays */}
+      <CheckerOverlay />
+      <AdminShotPopup />
+
       {/* Award claim dialog */}
       <SkiAwardClaimDialog />
     </div>
@@ -463,6 +474,8 @@ const SHOT_RULES = [
   { title: "Vektet trekning", desc: "De som trekkes ofte har lavere sjanse neste gang. Formelen: 1/(1 + 0.3 × nylige trekninger)." },
   { title: "15 min frist", desc: "Den trukne har 15 minutter til å ta shotten og velge et vitne." },
   { title: "Vitne bekrefter", desc: "Vitnet får push og har 15 min til å bekrefte eller avslå." },
+  { title: "Tilfeldig sjekk", desc: "Ved dispute velges en tilfeldig bruker til å vurdere saken. De kan godkjenne, avvise, eller eskalere til admin." },
+  { title: "Admin-avgjørelse", desc: "Eskalerte saker avgjøres av admin med full begrunnelse som loggføres." },
   { title: "12-timers ban", desc: "Nekting, timeout eller avslag fra vitne gir 12 timers utestengelse." },
   { title: "Frikort", desc: "Tjenes gjennom ski-kåringer. Lar deg slippe unna en trekning uten straff." },
   { title: "Bonustoken", desc: "Leder du med 2+ trekninger mer enn nestemann, får du automatisk +1 token." },
