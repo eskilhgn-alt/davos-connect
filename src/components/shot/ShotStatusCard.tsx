@@ -6,7 +6,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { ShotEvent } from "@/pages/ShotScreen";
-import { Check, Eye, AlertTriangle, Clock, ChevronDown, Ticket, Shield } from "lucide-react";
+import { Check, Eye, AlertTriangle, Clock, ChevronDown, Ticket } from "lucide-react";
 
 interface ShotStatusCardProps {
   event: ShotEvent;
@@ -256,18 +256,18 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
             <AlertTriangle size={14} />
             <span>Dispute: {event.dispute_reason}</span>
           </div>
-          <p className="text-xs text-muted-foreground">Venter på at admin avgjør...</p>
-          {isAdmin && (
-            <div className="flex gap-2">
-              <button type="button" onClick={() => onConfirm("admin_resolve", undefined, "confirm")}
-                className="flex-1 py-2.5 rounded-lg bg-success/10 text-success text-sm font-semibold flex items-center justify-center gap-1.5">
-                <Shield size={14} /> Godkjenn
-              </button>
-              <button type="button" onClick={() => onConfirm("admin_resolve", undefined, "deny")}
-                className="flex-1 py-2.5 rounded-lg bg-destructive/10 text-destructive text-sm font-semibold flex items-center justify-center gap-1.5">
-                <Shield size={14} /> Avvis
-              </button>
-            </div>
+          {event.random_checker_id && !event.checker_verdict && (
+            <p className="text-xs text-muted-foreground">
+              Tilfeldig sjekker vurderer saken...
+            </p>
+          )}
+          {event.checker_verdict === "escalate" && (
+            <p className="text-xs text-muted-foreground">
+              Eskalert til admin – venter på avgjørelse...
+            </p>
+          )}
+          {!event.random_checker_id && (
+            <p className="text-xs text-muted-foreground">Venter på avgjørelse...</p>
           )}
         </div>
       )}

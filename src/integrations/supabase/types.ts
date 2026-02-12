@@ -686,6 +686,10 @@ export type Database = {
       }
       shot_events: {
         Row: {
+          admin_reason: string | null
+          admin_verdict: string | null
+          checker_reason: string | null
+          checker_verdict: string | null
           chosen_witness_id: string | null
           confirmed_at: string | null
           countdown_ends_at: string | null
@@ -699,6 +703,7 @@ export type Database = {
           id: string
           punishment_applied_at: string | null
           punishment_deadline_at: string | null
+          random_checker_id: string | null
           selected_at: string | null
           selected_user_id: string | null
           self_confirmed: boolean | null
@@ -708,6 +713,10 @@ export type Database = {
           witness_confirmed_by: string | null
         }
         Insert: {
+          admin_reason?: string | null
+          admin_verdict?: string | null
+          checker_reason?: string | null
+          checker_verdict?: string | null
           chosen_witness_id?: string | null
           confirmed_at?: string | null
           countdown_ends_at?: string | null
@@ -721,6 +730,7 @@ export type Database = {
           id?: string
           punishment_applied_at?: string | null
           punishment_deadline_at?: string | null
+          random_checker_id?: string | null
           selected_at?: string | null
           selected_user_id?: string | null
           self_confirmed?: boolean | null
@@ -730,6 +740,10 @@ export type Database = {
           witness_confirmed_by?: string | null
         }
         Update: {
+          admin_reason?: string | null
+          admin_verdict?: string | null
+          checker_reason?: string | null
+          checker_verdict?: string | null
           chosen_witness_id?: string | null
           confirmed_at?: string | null
           countdown_ends_at?: string | null
@@ -743,6 +757,7 @@ export type Database = {
           id?: string
           punishment_applied_at?: string | null
           punishment_deadline_at?: string | null
+          random_checker_id?: string | null
           selected_at?: string | null
           selected_user_id?: string | null
           self_confirmed?: boolean | null
@@ -1515,6 +1530,10 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: Json
       }
+      rpc_admin_resolve_shot: {
+        Args: { p_event_id: string; p_reason?: string; p_verdict: string }
+        Returns: Json
+      }
       rpc_admin_set_ban: {
         Args: { p_banned: boolean; p_reason?: string; p_user_id: string }
         Returns: Json
@@ -1538,6 +1557,10 @@ export type Database = {
         Returns: undefined
       }
       rpc_check_shot_ban: { Args: never; Returns: Json }
+      rpc_checker_verdict: {
+        Args: { p_event_id: string; p_reason?: string; p_verdict: string }
+        Returns: Json
+      }
       rpc_claim_ski_award: {
         Args: { p_award_id: string; p_choice: string }
         Returns: Json
