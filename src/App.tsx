@@ -61,9 +61,13 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/auth" replace />;
   }
 
-  // If we couldn't load a profile at all, don't hang on a spinner
+  // If profile hasn't loaded yet, keep showing spinner – NEVER auto-logout
   if (!profile) {
-    return <Navigate to="/auth" replace />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   // Require profile completion (including avatar) and email verification
