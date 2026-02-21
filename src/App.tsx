@@ -29,6 +29,7 @@ import StoriesScreen from "./pages/StoriesScreen";
 
 import PollScreen from "./pages/PollScreen";
 import RoundsScreen from "./pages/RoundsScreen";
+import RoomiesScreen from "./pages/RoomiesScreen";
 
 import SettingsScreen from "./pages/SettingsScreen";
 import WebcamsScreen from "./pages/WebcamsScreen";
@@ -123,6 +124,7 @@ const AppRoutes = () => (
       <Route path="/historier" element={<StoriesScreen />} />
       <Route path="/poll" element={<PollScreen />} />
       <Route path="/runder" element={<RoundsScreen />} />
+      <Route path="/roomies" element={<RoomiesScreen />} />
       <Route path="/alle" element={<GroupScreen />} />
     </Route>
     

@@ -30,6 +30,7 @@ import {
   Beer,
   Vote,
   Users,
+  Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +67,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/shot", label: "Shoot", icon: Target, badge: badges.shot },
       { to: "/poll", label: "Avstemming", icon: Vote, badge: badges.polls },
       { to: "/runder", label: "Runder", icon: Beer, badge: badges.runder },
+      { to: "/roomies", label: "Roomies", icon: Home },
       { to: "/galleri", label: "Galleri", icon: Film },
       { to: "/alle", label: "Gütta", icon: Users },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },

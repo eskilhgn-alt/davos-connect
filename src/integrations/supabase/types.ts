@@ -611,6 +611,33 @@ export type Database = {
         }
         Relationships: []
       }
+      roomie_draws: {
+        Row: {
+          countdown_ends_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          pairs: Json
+          status: string
+        }
+        Insert: {
+          countdown_ends_at?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          pairs?: Json
+          status?: string
+        }
+        Update: {
+          countdown_ends_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          pairs?: Json
+          status?: string
+        }
+        Relationships: []
+      }
       round_participants: {
         Row: {
           created_at: string
