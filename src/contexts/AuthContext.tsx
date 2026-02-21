@@ -107,6 +107,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, fetchProfile, checkAdminRole]);
 
+  // Supabase stores sessions under this key in localStorage
+  const STORAGE_KEY = `sb-${import.meta.env.VITE_SUPABASE_URL?.replace(/https?:\/\//, '').split('.')[0]}-auth-token`;
+
+  const hasStoredSession = React.useCallback(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      return !!parsed?.refresh_token;
+    } catch {
+      return false;
+    }
+  }, [STORAGE_KEY]);
+
   // Setup auth state listener
   React.useEffect(() => {
     let isMounted = true;
@@ -144,6 +158,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (shouldBlockForProfile && isMounted) setIsProfileLoading(false);
         }, 0);
       } else {
+        // CRITICAL: If we lost the session but localStorage still has one,
+        // DON'T clear state — a token refresh is likely in progress or network is waking up
+        if (hasStoredSession()) {
+          console.warn("[Auth] Session event returned null but localStorage has session — keeping state, retrying…");
+          // Retry getSession after a short delay (network might be waking up on iOS PWA)
+          setTimeout(async () => {
+            if (!isMounted) return;
+            const { data: { session: retrySession } } = await supabase.auth.getSession();
+            if (!isMounted) return;
+            if (retrySession?.user) {
+              setSession(retrySession);
+              setUser(retrySession.user);
+              console.log("[Auth] Session recovered on retry");
+            }
+            // If still null after retry, keep existing state — don't log out
+          }, 2000);
+          return;
+        }
+
         setProfile(null);
         setIsAdmin(false);
         setIsProfileLoading(false);
@@ -152,17 +185,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     });
 
-    // Get initial session
-    (async () => {
+    // Get initial session with retry logic for PWA cold starts
+    const initSession = async (attempt = 1): Promise<void> => {
       const { data: { session: initialSession } } = await supabase.auth.getSession();
       if (!isMounted) return;
+
+      if (!initialSession?.user && hasStoredSession() && attempt <= 3) {
+        console.warn(`[Auth] getSession() returned null but localStorage has session — retry ${attempt}/3`);
+        await new Promise(r => setTimeout(r, attempt * 1500));
+        return initSession(attempt + 1);
+      }
 
       setSession(initialSession);
       setUser(initialSession?.user ?? null);
 
       if (initialSession?.user) {
         setIsProfileLoading(true);
-        // Kick off weather prefetch as early as possible
         prefetchWeatherAiSummary();
 
         const profileData = await fetchProfile(initialSession.user.id);
@@ -176,13 +214,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setIsLoading(false);
-    })();
+    };
+
+    initSession();
 
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchProfile, checkAdminRole]);
+  }, [fetchProfile, checkAdminRole, hasStoredSession]);
 
   const signUp = async (email: string, password: string) => {
     const { error } = await supabase.auth.signUp({
