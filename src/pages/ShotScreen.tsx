@@ -452,6 +452,17 @@ export const ShotScreen: React.FC = () => {
         </div>
       </PullToRefreshWrapper>
 
+      {/* Floating rules button at bottom */}
+      {!rulesOpen && (
+        <button
+          onClick={() => setRulesOpen(true)}
+          className="fixed bottom-[calc(var(--bottom-nav-h-effective)+12px)] left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 rounded-full bg-foreground/90 backdrop-blur-sm px-4 py-2 text-xs font-medium text-background shadow-lg active:scale-95 transition-transform"
+        >
+          <BookOpen size={14} />
+          Regler
+        </button>
+      )}
+
       {/* Rules sheet */}
       <ShotRulesSheet open={rulesOpen} onOpenChange={setRulesOpen} />
 
