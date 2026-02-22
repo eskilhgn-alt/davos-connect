@@ -638,6 +638,24 @@ export type Database = {
         }
         Relationships: []
       }
+      roomie_rooms: {
+        Row: {
+          room_label: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          room_label?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          room_label?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       round_participants: {
         Row: {
           created_at: string
@@ -1040,6 +1058,32 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      story_likes: {
+        Row: {
+          created_at: string
+          story_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          story_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          story_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_likes_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       story_views: {
         Row: {

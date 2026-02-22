@@ -1,12 +1,13 @@
 /**
  * StoryViewer – Snapchat/Instagram-style fullscreen viewer
- * Features: progress bars, tap left/right, swipe between users, pause on hold, view counter
+ * Features: progress bars, tap left/right, swipe between users, pause on hold, view counter, likes
  */
 
 import * as React from "react";
-import { X } from "lucide-react";
+import { X, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { StoryViewers } from "@/components/stories/StoryViewers";
 import type { StoryGroup } from "@/hooks/useStories";
 
@@ -28,6 +29,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   const [storyIdx, setStoryIdx] = React.useState(0);
   const [progress, setProgress] = React.useState(0);
   const [paused, setPaused] = React.useState(false);
+  const [liked, setLiked] = React.useState(false);
+  const [likeCount, setLikeCount] = React.useState(0);
+  const [likeAnimating, setLikeAnimating] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setInterval>>();
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
@@ -39,6 +43,20 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   React.useEffect(() => {
     if (story) onViewed(story.id);
   }, [story?.id]); // eslint-disable-line
+
+  // Fetch like status for current story
+  React.useEffect(() => {
+    if (!story || !user) return;
+    const fetchLikes = async () => {
+      const [{ count }, { data: myLike }] = await Promise.all([
+        supabase.from("story_likes").select("*", { count: "exact", head: true }).eq("story_id", story.id),
+        supabase.from("story_likes").select("story_id").eq("story_id", story.id).eq("user_id", user.id).maybeSingle(),
+      ]);
+      setLikeCount(count || 0);
+      setLiked(!!myLike);
+    };
+    fetchLikes();
+  }, [story?.id, user]); // eslint-disable-line
 
   // Progress timer
   React.useEffect(() => {
@@ -91,6 +109,23 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     }
   }, [storyIdx, groupIdx, groups]);
 
+  // Like handler
+  const handleLike = React.useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!story || !user) return;
+    if (liked) {
+      await supabase.from("story_likes").delete().eq("story_id", story.id).eq("user_id", user.id);
+      setLiked(false);
+      setLikeCount(c => Math.max(0, c - 1));
+    } else {
+      await supabase.from("story_likes").insert({ story_id: story.id, user_id: user.id } as any);
+      setLiked(true);
+      setLikeCount(c => c + 1);
+      setLikeAnimating(true);
+      setTimeout(() => setLikeAnimating(false), 600);
+    }
+  }, [story, user, liked]);
+
   // Tap zones + hold-to-pause
   const holdTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
   const holdRef = React.useRef(false);
@@ -133,11 +168,34 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     }
   };
 
+  // Close handler that prevents navigation leak
+  const handleClose = React.useCallback((e: React.MouseEvent | React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    closingRef.current = true;
+    // Small delay to ensure pointer events don't leak through
+    requestAnimationFrame(() => {
+      onClose();
+    });
+  }, [onClose]);
+
   // Cleanup hold timer on unmount
   React.useEffect(() => {
     return () => {
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
     };
+  }, []);
+
+  // Block all click events from propagating outside the viewer
+  React.useEffect(() => {
+    const blocker = (e: Event) => {
+      if (closingRef.current) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("click", blocker, true);
+    return () => document.removeEventListener("click", blocker, true);
   }, []);
 
   if (!story) return null;
@@ -154,6 +212,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       className="fixed inset-0 z-50 bg-black flex flex-col touch-none select-none"
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
+      onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
     >
       {/* Progress bars */}
       <div
@@ -195,12 +254,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         </div>
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
+          onClick={handleClose}
           onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
+          onPointerUp={(e) => { e.stopPropagation(); e.preventDefault(); }}
           className="p-2 rounded-full bg-black/30 text-white backdrop-blur-sm"
         >
           <X size={20} />
@@ -237,10 +293,36 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         )}
       </div>
 
-      {/* View counter for own stories */}
-      {story && user && (
-        <StoryViewers storyId={story.id} isOwner={story.userId === user.id} />
-      )}
+      {/* Bottom bar: likes + view counter */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-between px-4"
+        style={{ paddingBottom: "max(calc(env(safe-area-inset-bottom, 0px) + 12px), 20px)" }}
+      >
+        {/* Like button */}
+        <button
+          type="button"
+          onClick={handleLike}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          className="flex items-center gap-1.5 py-2 px-3 rounded-full bg-black/40 backdrop-blur-sm active:scale-95 transition-transform"
+        >
+          <Heart
+            size={20}
+            className={cn(
+              "transition-all",
+              liked ? "fill-red-500 text-red-500" : "text-white",
+              likeAnimating && "scale-125"
+            )}
+          />
+          {likeCount > 0 && (
+            <span className="text-white text-xs font-medium">{likeCount}</span>
+          )}
+        </button>
+
+        {/* View counter for own stories */}
+        {story && user && (
+          <StoryViewers storyId={story.id} isOwner={story.userId === user.id} />
+        )}
+      </div>
     </div>
   );
 };
