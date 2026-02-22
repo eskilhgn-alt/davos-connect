@@ -384,6 +384,170 @@ export type Database = {
           },
         ]
       }
+      place_query_cache: {
+        Row: {
+          created_at: string
+          expires_at: string
+          filters: Json | null
+          id: string
+          lat: number
+          lng: number
+          location_hash: string
+          query_type: string
+          radius_m: number
+          result_place_ids: Json | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          filters?: Json | null
+          id?: string
+          lat: number
+          lng: number
+          location_hash: string
+          query_type: string
+          radius_m: number
+          result_place_ids?: Json | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          filters?: Json | null
+          id?: string
+          lat?: number
+          lng?: number
+          location_hash?: string
+          query_type?: string
+          radius_m?: number
+          result_place_ids?: Json | null
+        }
+        Relationships: []
+      }
+      place_signals: {
+        Row: {
+          ai_summary: string | null
+          date_night_score: number | null
+          evidence: Json | null
+          group_friendly_score: number | null
+          id: string
+          local_vibe_score: number | null
+          place_id: string
+          quality_score: number | null
+          quick_bite_score: number | null
+          touristy_score: number | null
+          updated_at: string
+          value_score: number | null
+          why_this: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          date_night_score?: number | null
+          evidence?: Json | null
+          group_friendly_score?: number | null
+          id?: string
+          local_vibe_score?: number | null
+          place_id: string
+          quality_score?: number | null
+          quick_bite_score?: number | null
+          touristy_score?: number | null
+          updated_at?: string
+          value_score?: number | null
+          why_this?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          date_night_score?: number | null
+          evidence?: Json | null
+          group_friendly_score?: number | null
+          id?: string
+          local_vibe_score?: number | null
+          place_id?: string
+          quality_score?: number | null
+          quick_bite_score?: number | null
+          touristy_score?: number | null
+          updated_at?: string
+          value_score?: number | null
+          why_this?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "place_signals_place_id_fkey"
+            columns: ["place_id"]
+            isOneToOne: true
+            referencedRelation: "places"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      places: {
+        Row: {
+          address: string | null
+          categories: Json | null
+          city: string | null
+          country: string | null
+          created_at: string
+          external_id: string | null
+          id: string
+          last_synced_at: string | null
+          lat: number
+          lng: number
+          name: string
+          opening_hours: Json | null
+          phone: string | null
+          photo_url: string | null
+          price_level: number | null
+          rating: number | null
+          raw_source_payload: Json | null
+          review_count: number | null
+          source: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          categories?: Json | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          lat: number
+          lng: number
+          name: string
+          opening_hours?: Json | null
+          phone?: string | null
+          photo_url?: string | null
+          price_level?: number | null
+          rating?: number | null
+          raw_source_payload?: Json | null
+          review_count?: number | null
+          source?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          categories?: Json | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          lat?: number
+          lng?: number
+          name?: string
+          opening_hours?: Json | null
+          phone?: string | null
+          photo_url?: string | null
+          price_level?: number | null
+          rating?: number | null
+          raw_source_payload?: Json | null
+          review_count?: number | null
+          source?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       points_ledger: {
         Row: {
           created_at: string
