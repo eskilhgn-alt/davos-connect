@@ -35,7 +35,6 @@ import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
 import TokensScreen from "./pages/TokensScreen";
-import EmergencyScreen from "./pages/EmergencyScreen";
 import CasinoScreen from "./pages/CasinoScreen";
 
 
@@ -131,7 +130,7 @@ const AppRoutes = () => (
       <Route path="/alle" element={<GroupScreen />} />
       <Route path="/tokens" element={<TokensScreen />} />
       <Route path="/regler" element={<Navigate to="/tokens" replace />} />
-      <Route path="/nodinfo" element={<EmergencyScreen />} />
+      <Route path="/nodinfo" element={<Navigate to="/hjem" replace />} />
       <Route path="/casino" element={<CasinoScreen />} />
 
     </Route>
