@@ -1,5 +1,6 @@
 /**
  * AvalancheScreen — Official SLF avalanche forecast for the Davos region
+ * Maps regions to local ski resorts for easy understanding
  * With beginner-friendly explanations in Norwegian
  */
 import * as React from "react";
@@ -30,9 +31,17 @@ interface AvalancheProblem {
   validTimePeriod?: string;
 }
 
+interface SkiArea {
+  name: string;
+  elevation: string;
+}
+
 interface Region {
   regionId: string;
   regionName: string;
+  fullRegionName: string;
+  skiResorts: string[];
+  davosSkiAreas: SkiArea[];
   dangerRatings: DangerRating[];
   maxDangerLevel: number;
   maxDangerColor: string;
@@ -53,6 +62,7 @@ interface BulletinData {
   overallMaxDangerColor: string;
   overallMaxDangerLabel: string;
   regions: Region[];
+  affectedDavosSkiAreas: SkiArea[];
   matchedRegions: number;
   error?: string;
 }
@@ -187,6 +197,43 @@ const DangerHero: React.FC<{ level: number; label: string; time: string | null }
   </div>
 );
 
+/** Shows which ski areas are affected by the current bulletin */
+const SkiAreasBanner: React.FC<{ areas: SkiArea[]; dangerLevel: number }> = ({ areas, dangerLevel }) => {
+  if (areas.length === 0) return null;
+
+  return (
+    <div className="mx-4 rounded-xl border border-border bg-card p-3 space-y-2">
+      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+        ⛷️ Berørte skianlegg i Davos
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {areas.map((area) => (
+          <div
+            key={area.name}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border",
+              dangerLevel >= 4
+                ? "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400"
+                : dangerLevel >= 3
+                ? "bg-orange-500/10 border-orange-500/20 text-orange-600 dark:text-orange-400"
+                : dangerLevel >= 2
+                ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-700 dark:text-yellow-400"
+                : "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400",
+            )}
+          >
+            <span>{DANGER_EMOJIS[dangerLevel]}</span>
+            <span>{area.name}</span>
+            <span className="text-[9px] opacity-60">{area.elevation}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground leading-relaxed">
+        Disse skianleggene ligger i varslingsområdet. Varselet gjelder fjellterreng utenfor preparerte løyper.
+      </p>
+    </div>
+  );
+};
+
 const AspectRose: React.FC<{ aspects: string[] }> = ({ aspects }) => {
   const allAspects = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
   return (
@@ -272,6 +319,25 @@ const RegionCard: React.FC<{ region: Region; defaultOpen?: boolean }> = ({ regio
 
       {open && (
         <div className="px-4 pb-4 pt-2 space-y-3 bg-card/50 animate-in slide-in-from-top-1 duration-200">
+          {/* Ski areas in this region */}
+          {region.davosSkiAreas.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                ⛷️ Skianlegg i dette området
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {region.davosSkiAreas.map((area) => (
+                  <span
+                    key={area.name}
+                    className="text-[11px] bg-muted px-2 py-1 rounded-full text-foreground font-medium"
+                  >
+                    {area.name} ({area.elevation})
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Simple explanation */}
           <p className="text-xs text-foreground/80 bg-muted/30 rounded-lg p-2 leading-relaxed">
             {DANGER_SIMPLE[region.maxDangerLevel] || ""}
@@ -340,6 +406,14 @@ const RegionCard: React.FC<{ region: Region; defaultOpen?: boolean }> = ({ regio
               <p className="text-xs text-foreground/80 leading-relaxed">{stripHtml(region.tendencyComment)}</p>
             </div>
           )}
+
+          {/* Full region name for reference */}
+          {region.fullRegionName !== region.regionName && (
+            <details className="text-[10px] text-muted-foreground/50">
+              <summary className="cursor-pointer">SLF-regioner i dette varselet</summary>
+              <p className="mt-1 leading-relaxed">{region.fullRegionName}</p>
+            </details>
+          )}
         </div>
       )}
     </div>
@@ -397,6 +471,12 @@ const AvalancheScreen: React.FC = () => {
               level={data.overallMaxDanger}
               label={data.overallMaxDangerLabel}
               time={data.publicationTime || data.fetchedAt}
+            />
+
+            {/* Which ski areas are affected */}
+            <SkiAreasBanner
+              areas={data.affectedDavosSkiAreas || []}
+              dangerLevel={data.overallMaxDanger}
             />
 
             {/* Education banner for beginners */}
@@ -468,7 +548,7 @@ const AvalancheScreen: React.FC = () => {
             <div className="mx-4 space-y-3">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                 <Mountain size={11} />
-                Varslingsregioner ({data.regions.length})
+                Varslingsområder ({data.regions.length})
               </p>
               {data.regions.map((region, i) => (
                 <RegionCard key={region.regionId} region={region} defaultOpen={i === 0} />
