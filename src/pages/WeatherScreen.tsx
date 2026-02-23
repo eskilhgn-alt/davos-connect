@@ -26,6 +26,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin, Navigation, Sparkles, Sun, CloudSun, Shield, ChevronRight, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MountainDetailSheet } from "@/components/weather/MountainDetailSheet";
+import { WeatherForecastChart } from "@/components/weather/WeatherForecastChart";
 import { DavosInput } from "@/components/ui/davos-input";
 import { type LocationPoint } from "@/config/locations";
 
@@ -294,6 +295,13 @@ const WeatherScreen: React.FC = () => {
 
               {/* AI Summary Card */}
               <AiSummaryCard summary={aiSummary} loading={aiLoading} />
+
+              {/* Forecast chart */}
+              <WeatherForecastChart
+                daily={forecast?.daily || []}
+                hourly={forecast?.hourly || []}
+                loading={loading}
+              />
 
               {/* 7-day strip */}
               <section className="mt-4">
