@@ -7,12 +7,14 @@ import { WebcamPreloadProvider } from "@/components/webcams";
 import { WitnessOverlay } from "@/components/shot/WitnessOverlay";
 import { PermissionPrompt } from "@/components/onboarding/PermissionPrompt";
 import { useLocationTracker } from "@/hooks/useLocationTracker";
+import { useAutoPush } from "@/hooks/useAutoPush";
 
 /**
  * AppLayout: App shell with floating home button (no bottom nav bar)
  */
 export const AppLayout: React.FC = () => {
   useLocationTracker();
+  useAutoPush();
 
   return (
     <WebcamPreloadProvider>

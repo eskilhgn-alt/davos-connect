@@ -43,7 +43,6 @@ const APP_VERSION = "1.0.0-beta.1";
 
 /** Inline password change – no email needed */
 const ChangePasswordCard: React.FC = () => {
-  const [currentPw, setCurrentPw] = React.useState("");
   const [newPw, setNewPw] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [open, setOpen] = React.useState(false);
@@ -59,7 +58,6 @@ const ChangePasswordCard: React.FC = () => {
       errorToast("Kunne ikke endre passord", { description: error.message });
     } else {
       toast.success("Passord endret!");
-      setCurrentPw("");
       setNewPw("");
       setOpen(false);
     }
