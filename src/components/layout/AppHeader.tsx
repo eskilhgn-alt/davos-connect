@@ -23,7 +23,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {leftAction}
         </div>
         <div className="flex-1 text-center">
-          <h1 className="font-heading text-base font-semibold text-foreground tracking-tight truncate">{title}</h1>
+          <h1 className="font-heading text-base font-semibold text-foreground tracking-tight truncate">{title}<sup className="ml-0.5 text-[9px] font-body font-normal text-muted-foreground align-super">Beta</sup></h1>
           {subtitle && (
             <p className="font-body text-[11px] text-muted-foreground truncate">
               {subtitle}
