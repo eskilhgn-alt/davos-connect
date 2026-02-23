@@ -34,6 +34,10 @@ import WebcamsScreen from "./pages/WebcamsScreen";
 import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
+import TokensScreen from "./pages/TokensScreen";
+import RulesScreen from "./pages/RulesScreen";
+import EmergencyScreen from "./pages/EmergencyScreen";
+import ChecklistScreen from "./pages/ChecklistScreen";
 
 
 import ResetPasswordScreen from "./pages/ResetPasswordScreen";
@@ -125,6 +129,10 @@ const AppRoutes = () => (
       <Route path="/runder" element={<RoundsScreen />} />
       <Route path="/roomies" element={<RoomiesScreen />} />
       <Route path="/alle" element={<GroupScreen />} />
+      <Route path="/tokens" element={<TokensScreen />} />
+      <Route path="/regler" element={<RulesScreen />} />
+      <Route path="/nodinfo" element={<EmergencyScreen />} />
+      <Route path="/pakkeliste" element={<ChecklistScreen />} />
       
     </Route>
     

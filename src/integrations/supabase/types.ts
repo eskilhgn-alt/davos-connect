@@ -231,6 +231,36 @@ export type Database = {
           },
         ]
       }
+      checklist_items: {
+        Row: {
+          checked: boolean
+          checked_by: string | null
+          created_at: string
+          created_by: string
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          checked?: boolean
+          checked_by?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          checked?: boolean
+          checked_by?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       debt_settlements: {
         Row: {
           amount: number
