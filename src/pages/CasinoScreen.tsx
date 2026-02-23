@@ -1,17 +1,24 @@
 /**
  * CasinoScreen — Walking directions + info for Casino Davos
- * Leaflet + OSRM routing, centered on user position
+ * Shows user's own position + Dag Erik (Dawgen) position relative to casino
+ * Special push feature for Dag Erik when within 200m
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { useUserLocations } from "@/hooks/useUserLocations";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Loader2, Navigation, Dice5, Footprints, Clock, MapPin,
-  ExternalLink, Phone, Globe, ChevronUp, ChevronDown,
+  ExternalLink, Phone, Globe, ChevronUp, ChevronDown, User,
 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
+const DAG_ERIK_ID = "8c66109a-2a99-4c91-bc7a-8de6a4020a06";
+const DAG_ERIK_PROXIMITY_M = 200;
 
 const CASINO = {
   lat: 46.7935,
@@ -45,15 +52,12 @@ function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number)
 
 function isOpenNow(): { open: boolean; closes?: string; opens?: string } {
   const now = new Date();
-  const dayIndex = now.getDay(); // 0=Sun
+  const dayIndex = now.getDay();
   const hour = now.getHours();
   const minute = now.getMinutes();
   const currentMin = hour * 60 + minute;
-
-  // Simplified: Mon-Thu 12-02, Fri-Sat 12-03, Sun 12-02
   const isFriSat = dayIndex === 5 || dayIndex === 6;
-  const openMin = 12 * 60; // 12:00
-  const closeMin = isFriSat ? 27 * 60 : 26 * 60; // 02:00 or 03:00 next day
+  const openMin = 12 * 60;
 
   if (currentMin >= openMin) {
     return { open: true, closes: isFriSat ? "03:00" : "02:00" };
@@ -66,25 +70,62 @@ function isOpenNow(): { open: boolean; closes?: string; opens?: string } {
 
 const CasinoScreen: React.FC = () => {
   const geo = useGeolocation();
+  const { user } = useAuth();
+  const { locations } = useUserLocations();
   const mapRef = React.useRef<HTMLDivElement>(null);
   const mapInstance = React.useRef<L.Map | null>(null);
   const routeLayer = React.useRef<L.LayerGroup | null>(null);
-  const userMarkerRef = React.useRef<L.Marker | null>(null);
+  const dagMarkerRef = React.useRef<L.Marker | null>(null);
   const [distance, setDistance] = React.useState<number | null>(null);
   const [duration, setDuration] = React.useState<number | null>(null);
   const [straightLine, setStraightLine] = React.useState<number | null>(null);
   const [routeError, setRouteError] = React.useState(false);
   const [infoExpanded, setInfoExpanded] = React.useState(false);
+  const [dagPushSent, setDagPushSent] = React.useState(false);
   const openStatus = React.useMemo(isOpenNow, []);
 
-  // Straight-line distance (always available once we have position)
+  // Find Dag Erik's location from realtime locations
+  const dagLocation = React.useMemo(() => {
+    return locations.find((l) => l.user_id === DAG_ERIK_ID);
+  }, [locations]);
+
+  const dagDistanceToCasino = React.useMemo(() => {
+    if (!dagLocation) return null;
+    return Math.round(haversineMeters(dagLocation.lat, dagLocation.lon, CASINO.lat, CASINO.lon));
+  }, [dagLocation]);
+
+  // Straight-line distance for current user
   React.useEffect(() => {
     if (!geo.position) return;
     const d = haversineMeters(geo.position.lat, geo.position.lon, CASINO.lat, CASINO.lon);
     setStraightLine(Math.round(d));
   }, [geo.position]);
 
-  // Initialize map centered on user if available, otherwise casino
+  // Special push for Dag Erik when within 200m of casino
+  React.useEffect(() => {
+    if (!user || user.id !== DAG_ERIK_ID) return;
+    if (!geo.position || dagPushSent) return;
+
+    const dist = haversineMeters(geo.position.lat, geo.position.lon, CASINO.lat, CASINO.lon);
+    if (dist <= DAG_ERIK_PROXIMITY_M) {
+      // Send push via edge function
+      setDagPushSent(true);
+      const sessionKey = `dag_casino_push_${new Date().toDateString()}`;
+      if (localStorage.getItem(sessionKey)) return;
+      localStorage.setItem(sessionKey, "1");
+
+      supabase.functions.invoke("send-push-notification", {
+        body: {
+          user_ids: [DAG_ERIK_ID],
+          title: "🎰 Dawgen, du er nær Casino!",
+          message: `Du er bare ${Math.round(dist)}m unna Casino Davos! Lykken smiler i dag? 🍀`,
+          url: "/casino",
+        },
+      }).catch(() => {});
+    }
+  }, [geo.position, user, dagPushSent]);
+
+  // Initialize map
   React.useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
@@ -129,14 +170,13 @@ const CasinoScreen: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch walking route when position available
+  // User walking route
   React.useEffect(() => {
     if (!geo.position || !mapInstance.current) return;
 
     const { lat, lon } = geo.position;
     const map = mapInstance.current;
 
-    // User marker (update or create)
     const userIcon = L.divIcon({
       html: `<div style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:hsl(var(--foreground));border:3px solid hsl(var(--background));box-shadow:0 2px 8px rgba(0,0,0,0.3);">
         <span style="font-size:15px;">📍</span>
@@ -147,9 +187,8 @@ const CasinoScreen: React.FC = () => {
     });
 
     routeLayer.current?.clearLayers();
-    userMarkerRef.current = L.marker([lat, lon], { icon: userIcon }).addTo(routeLayer.current!);
+    L.marker([lat, lon], { icon: userIcon }).addTo(routeLayer.current!);
 
-    // OSRM walking route
     fetch(
       `https://router.project-osrm.org/route/v1/foot/${lon},${lat};${CASINO.lon},${CASINO.lat}?overview=full&geometries=geojson`
     )
@@ -184,8 +223,38 @@ const CasinoScreen: React.FC = () => {
       .catch(() => setRouteError(true));
   }, [geo.position]);
 
+  // Dag Erik marker on map (always visible, realtime)
+  React.useEffect(() => {
+    if (!mapInstance.current || !routeLayer.current) return;
+
+    // Remove old Dag marker
+    if (dagMarkerRef.current) {
+      routeLayer.current.removeLayer(dagMarkerRef.current);
+      dagMarkerRef.current = null;
+    }
+
+    if (!dagLocation) return;
+
+    const dagIcon = L.divIcon({
+      html: `<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#f59e0b;border:3px solid #fef3c7;box-shadow:0 2px 10px rgba(0,0,0,0.35);">
+        <span style="font-size:14px;font-weight:700;color:#fff;">D</span>
+      </div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+      className: "",
+    });
+
+    const distText = dagDistanceToCasino !== null ? `${dagDistanceToCasino < 1000 ? dagDistanceToCasino + " m" : (dagDistanceToCasino / 1000).toFixed(1) + " km"} fra Casino` : "";
+
+    dagMarkerRef.current = L.marker([dagLocation.lat, dagLocation.lon], { icon: dagIcon })
+      .addTo(routeLayer.current)
+      .bindPopup(`<b>🎲 Dawgen</b><br/>${distText}`);
+  }, [dagLocation, dagDistanceToCasino]);
+
   const fmtDist = (m: number) =>
     m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
+
+  const isDagErik = user?.id === DAG_ERIK_ID;
 
   return (
     <div
@@ -245,6 +314,36 @@ const CasinoScreen: React.FC = () => {
         </div>
       </div>
 
+      {/* Dawgen tracker bar */}
+      <div className="px-4 py-2 flex items-center gap-3 border-b border-border bg-amber-500/5">
+        <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500 text-white text-xs font-bold shrink-0">
+          D
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-foreground">
+            Dawgen
+            {isDagErik && <span className="ml-1 text-amber-500">(deg)</span>}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            {dagLocation
+              ? dagDistanceToCasino !== null
+                ? `${fmtDist(dagDistanceToCasino)} fra Casino`
+                : "Posisjon kjent"
+              : "Posisjon ikke tilgjengelig"}
+          </p>
+        </div>
+        {dagDistanceToCasino !== null && dagDistanceToCasino <= DAG_ERIK_PROXIMITY_M && (
+          <span className="text-[10px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full animate-pulse">
+            🎰 Nær Casino!
+          </span>
+        )}
+        {dagDistanceToCasino !== null && (
+          <span className="text-sm font-bold text-foreground">
+            {fmtDist(dagDistanceToCasino)}
+          </span>
+        )}
+      </div>
+
       {/* GPS status */}
       {!geo.position && (
         <div className="px-4 py-3 bg-muted/50 flex items-center gap-2">
@@ -291,7 +390,6 @@ const CasinoScreen: React.FC = () => {
 
         {infoExpanded && (
           <div className="px-4 pb-4 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
-            {/* Opening hours */}
             <div className="grid grid-cols-2 gap-1">
               {CASINO.openingHours.map((h) => (
                 <div key={h.day} className="flex justify-between text-xs text-muted-foreground px-2 py-1 rounded bg-muted/40">
@@ -301,7 +399,6 @@ const CasinoScreen: React.FC = () => {
               ))}
             </div>
 
-            {/* Quick facts */}
             <div className="flex flex-wrap gap-2">
               <span className="text-[11px] bg-muted px-2 py-1 rounded-full text-muted-foreground">
                 🎂 {CASINO.minAge}+ år
@@ -316,7 +413,6 @@ const CasinoScreen: React.FC = () => {
               ))}
             </div>
 
-            {/* Action links */}
             <div className="flex gap-2">
               <a
                 href={`tel:${CASINO.phone}`}
