@@ -1,33 +1,99 @@
 /**
- * CasinoScreen — Shows walking directions to nearest casino (Casino Davos)
- * Uses Leaflet with OpenStreetMap + OSRM routing
+ * CasinoScreen — Walking directions + info for Casino Davos
+ * Leaflet + OSRM routing, centered on user position
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { Loader2, Navigation, Dice5, Footprints } from "lucide-react";
+import {
+  Loader2, Navigation, Dice5, Footprints, Clock, MapPin,
+  ExternalLink, Phone, Globe, ChevronUp, ChevronDown,
+} from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Casino Davos – Promenade 63, 7270 Davos Platz
-const CASINO = { lat: 46.7935, lon: 9.8360, name: "Casino Davos", address: "Promenade 63, 7270 Davos Platz" };
+const CASINO = {
+  lat: 46.7935,
+  lon: 9.8360,
+  name: "Casino Davos",
+  address: "Promenade 63, 7270 Davos Platz",
+  phone: "+41 81 415 56 00",
+  website: "https://www.casinodavos.ch",
+  googleMaps: "https://www.google.com/maps/dir/?api=1&destination=46.7935,9.8360&travelmode=walking",
+  openingHours: [
+    { day: "Man–Tor", time: "12:00–02:00" },
+    { day: "Fre", time: "12:00–03:00" },
+    { day: "Lør", time: "12:00–03:00" },
+    { day: "Søn", time: "12:00–02:00" },
+  ],
+  minAge: 18,
+  dressCode: "Smart casual",
+  games: ["Roulette", "Blackjack", "Poker", "Spilleautomater"],
+};
+
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function isOpenNow(): { open: boolean; closes?: string; opens?: string } {
+  const now = new Date();
+  const dayIndex = now.getDay(); // 0=Sun
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  const currentMin = hour * 60 + minute;
+
+  // Simplified: Mon-Thu 12-02, Fri-Sat 12-03, Sun 12-02
+  const isFriSat = dayIndex === 5 || dayIndex === 6;
+  const openMin = 12 * 60; // 12:00
+  const closeMin = isFriSat ? 27 * 60 : 26 * 60; // 02:00 or 03:00 next day
+
+  if (currentMin >= openMin) {
+    return { open: true, closes: isFriSat ? "03:00" : "02:00" };
+  }
+  if (currentMin < (isFriSat ? 3 * 60 : 2 * 60)) {
+    return { open: true, closes: isFriSat ? "03:00" : "02:00" };
+  }
+  return { open: false, opens: "12:00" };
+}
 
 const CasinoScreen: React.FC = () => {
   const geo = useGeolocation();
   const mapRef = React.useRef<HTMLDivElement>(null);
   const mapInstance = React.useRef<L.Map | null>(null);
   const routeLayer = React.useRef<L.LayerGroup | null>(null);
+  const userMarkerRef = React.useRef<L.Marker | null>(null);
   const [distance, setDistance] = React.useState<number | null>(null);
   const [duration, setDuration] = React.useState<number | null>(null);
+  const [straightLine, setStraightLine] = React.useState<number | null>(null);
   const [routeError, setRouteError] = React.useState(false);
+  const [infoExpanded, setInfoExpanded] = React.useState(false);
+  const openStatus = React.useMemo(isOpenNow, []);
 
-  // Initialize map
+  // Straight-line distance (always available once we have position)
+  React.useEffect(() => {
+    if (!geo.position) return;
+    const d = haversineMeters(geo.position.lat, geo.position.lon, CASINO.lat, CASINO.lon);
+    setStraightLine(Math.round(d));
+  }, [geo.position]);
+
+  // Initialize map centered on user if available, otherwise casino
   React.useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
+    const center: [number, number] = geo.position
+      ? [geo.position.lat, geo.position.lon]
+      : [CASINO.lat, CASINO.lon];
+
     const map = L.map(mapRef.current, {
-      center: [CASINO.lat, CASINO.lon],
+      center,
       zoom: 15,
       zoomControl: false,
       attributionControl: false,
@@ -39,17 +105,19 @@ const CasinoScreen: React.FC = () => {
 
     // Casino marker
     const casinoIcon = L.divIcon({
-      html: `<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:hsl(var(--primary));border:3px solid hsl(var(--primary-foreground));box-shadow:0 2px 8px rgba(0,0,0,0.3);">
-        <span style="font-size:18px;">🎰</span>
+      html: `<div style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:hsl(var(--primary));border:3px solid hsl(var(--primary-foreground));box-shadow:0 2px 10px rgba(0,0,0,0.35);">
+        <span style="font-size:20px;">🎰</span>
       </div>`,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
       className: "",
     });
 
     L.marker([CASINO.lat, CASINO.lon], { icon: casinoIcon })
       .addTo(map)
-      .bindPopup(`<b>${CASINO.name}</b><br/>${CASINO.address}`);
+      .bindPopup(
+        `<b>${CASINO.name}</b><br/>${CASINO.address}<br/><a href="${CASINO.googleMaps}" target="_blank" rel="noopener">Åpne i Google Maps</a>`
+      );
 
     routeLayer.current = L.layerGroup().addTo(map);
     mapInstance.current = map;
@@ -58,6 +126,7 @@ const CasinoScreen: React.FC = () => {
       map.remove();
       mapInstance.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch walking route when position available
@@ -67,21 +136,20 @@ const CasinoScreen: React.FC = () => {
     const { lat, lon } = geo.position;
     const map = mapInstance.current;
 
-    // User marker
+    // User marker (update or create)
     const userIcon = L.divIcon({
-      html: `<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:hsl(var(--foreground));border:3px solid hsl(var(--background));box-shadow:0 2px 8px rgba(0,0,0,0.3);">
-        <span style="font-size:14px;">📍</span>
+      html: `<div style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:hsl(var(--foreground));border:3px solid hsl(var(--background));box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+        <span style="font-size:15px;">📍</span>
       </div>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
       className: "",
     });
 
-    // Clear previous
     routeLayer.current?.clearLayers();
-    L.marker([lat, lon], { icon: userIcon }).addTo(routeLayer.current!);
+    userMarkerRef.current = L.marker([lat, lon], { icon: userIcon }).addTo(routeLayer.current!);
 
-    // Fetch walking route from OSRM
+    // OSRM walking route
     fetch(
       `https://router.project-osrm.org/route/v1/foot/${lon},${lat};${CASINO.lon},${CASINO.lat}?overview=full&geometries=geojson`
     )
@@ -102,20 +170,22 @@ const CasinoScreen: React.FC = () => {
 
         L.polyline(coords, {
           color: "hsl(var(--primary))",
-          weight: 4,
-          opacity: 0.8,
-          dashArray: "8 6",
+          weight: 5,
+          opacity: 0.85,
+          dashArray: "10 8",
         }).addTo(routeLayer.current!);
 
-        // Fit bounds
         const bounds = L.latLngBounds([
           [lat, lon],
           [CASINO.lat, CASINO.lon],
         ]);
-        map.fitBounds(bounds, { padding: [50, 50] });
+        map.fitBounds(bounds, { padding: [60, 60] });
       })
       .catch(() => setRouteError(true));
   }, [geo.position]);
+
+  const fmtDist = (m: number) =>
+    m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
 
   return (
     <div
@@ -128,24 +198,51 @@ const CasinoScreen: React.FC = () => {
         leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
-      {/* Info bar */}
+      {/* Status bar */}
       <div className="px-4 py-3 flex items-center gap-3 border-b border-border bg-muted/30">
-        <Dice5 size={20} className="text-primary shrink-0" />
+        <Dice5 size={22} className="text-primary shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground">{CASINO.name}</p>
-          <p className="text-xs text-muted-foreground">{CASINO.address}</p>
-        </div>
-        {distance !== null && duration !== null && (
-          <div className="text-right shrink-0">
-            <p className="text-sm font-bold text-foreground flex items-center gap-1 justify-end">
-              <Footprints size={14} />
-              {duration} min
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              {distance < 1000 ? `${distance} m` : `${(distance / 1000).toFixed(1)} km`}
-            </p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span
+              className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full ${
+                openStatus.open
+                  ? "bg-green-500/15 text-green-600 dark:text-green-400"
+                  : "bg-red-500/15 text-red-500"
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  openStatus.open ? "bg-green-500" : "bg-red-500"
+                }`}
+              />
+              {openStatus.open
+                ? `Åpent – stenger ${openStatus.closes}`
+                : `Stengt – åpner ${openStatus.opens}`}
+            </span>
           </div>
-        )}
+        </div>
+
+        {/* Distance info */}
+        <div className="text-right shrink-0">
+          {distance !== null && duration !== null ? (
+            <>
+              <p className="text-sm font-bold text-foreground flex items-center gap-1 justify-end">
+                <Footprints size={14} />
+                {duration} min
+              </p>
+              <p className="text-[10px] text-muted-foreground">{fmtDist(distance)} gangvei</p>
+            </>
+          ) : straightLine !== null ? (
+            <>
+              <p className="text-sm font-bold text-foreground flex items-center gap-1 justify-end">
+                <MapPin size={14} />
+                {fmtDist(straightLine)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">luftlinje</p>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {/* GPS status */}
@@ -154,7 +251,7 @@ const CasinoScreen: React.FC = () => {
           {geo.loading ? (
             <>
               <Loader2 size={14} className="animate-spin text-primary" />
-              <span className="text-xs text-muted-foreground">Henter posisjon...</span>
+              <span className="text-xs text-muted-foreground">Henter posisjon…</span>
             </>
           ) : !geo.enabled ? (
             <button
@@ -165,7 +262,7 @@ const CasinoScreen: React.FC = () => {
               Aktiver posisjon for å se rute
             </button>
           ) : (
-            <span className="text-xs text-muted-foreground">Venter på GPS...</span>
+            <span className="text-xs text-muted-foreground">Venter på GPS…</span>
           )}
         </div>
       )}
@@ -177,7 +274,79 @@ const CasinoScreen: React.FC = () => {
       )}
 
       {/* Map */}
-      <div ref={mapRef} className="flex-1 w-full" />
+      <div ref={mapRef} className="flex-1 w-full relative" />
+
+      {/* Bottom info panel */}
+      <div className="border-t border-border bg-card">
+        <button
+          onClick={() => setInfoExpanded((v) => !v)}
+          className="w-full px-4 py-2.5 flex items-center justify-between text-sm font-medium text-foreground"
+        >
+          <span className="flex items-center gap-2">
+            <Clock size={14} className="text-muted-foreground" />
+            Info & åpningstider
+          </span>
+          {infoExpanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+        </button>
+
+        {infoExpanded && (
+          <div className="px-4 pb-4 space-y-3 animate-in slide-in-from-bottom-2 duration-200">
+            {/* Opening hours */}
+            <div className="grid grid-cols-2 gap-1">
+              {CASINO.openingHours.map((h) => (
+                <div key={h.day} className="flex justify-between text-xs text-muted-foreground px-2 py-1 rounded bg-muted/40">
+                  <span className="font-medium text-foreground">{h.day}</span>
+                  <span>{h.time}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Quick facts */}
+            <div className="flex flex-wrap gap-2">
+              <span className="text-[11px] bg-muted px-2 py-1 rounded-full text-muted-foreground">
+                🎂 {CASINO.minAge}+ år
+              </span>
+              <span className="text-[11px] bg-muted px-2 py-1 rounded-full text-muted-foreground">
+                👔 {CASINO.dressCode}
+              </span>
+              {CASINO.games.map((g) => (
+                <span key={g} className="text-[11px] bg-muted px-2 py-1 rounded-full text-muted-foreground">
+                  🎲 {g}
+                </span>
+              ))}
+            </div>
+
+            {/* Action links */}
+            <div className="flex gap-2">
+              <a
+                href={`tel:${CASINO.phone}`}
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium bg-muted hover:bg-muted/80 rounded-lg py-2.5 text-foreground transition-colors"
+              >
+                <Phone size={13} />
+                Ring
+              </a>
+              <a
+                href={CASINO.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium bg-muted hover:bg-muted/80 rounded-lg py-2.5 text-foreground transition-colors"
+              >
+                <Globe size={13} />
+                Nettside
+              </a>
+              <a
+                href={CASINO.googleMaps}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg py-2.5 transition-colors"
+              >
+                <ExternalLink size={13} />
+                Google Maps
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
