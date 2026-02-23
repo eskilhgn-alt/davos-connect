@@ -1,6 +1,6 @@
 /**
  * AvalancheScreen — Official SLF avalanche forecast for the Davos region
- * Data from WSL Institute for Snow and Avalanche Research (CC BY 4.0)
+ * With beginner-friendly explanations in Norwegian
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -12,6 +12,8 @@ import {
   Compass, ArrowUp, ArrowDown, Clock, Shield, Loader2, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { InfoButton, AvalancheEducationBanner } from "@/components/avalanche/AvalancheInfoSheet";
+import type { InfoTopic } from "@/components/avalanche/AvalancheInfoSheet";
 
 /* ---------- types ---------- */
 interface DangerRating {
@@ -78,6 +80,15 @@ const DANGER_BORDER: Record<number, string> = {
   5: "border-neutral-700",
 };
 
+const DANGER_SIMPLE: Record<number, string> = {
+  0: "Ingen vurdering tilgjengelig",
+  1: "Generelt trygge forhold. Du kan ferdes i fjellet, men bruk alltid sunn fornuft.",
+  2: "Stort sett OK, men vær forsiktig i bratt terreng. Unngå de bratteste partiene.",
+  3: "⚠️ Farlig! Skred kan utløses av én person i bratt terreng. Kun for erfarne.",
+  4: "🚨 Svært farlig! Hold dere til preparerte løyper og stier.",
+  5: "☠️ Ekstremt farlig! Hold dere inne eller i sikrede områder.",
+};
+
 const PROBLEM_ICONS: Record<string, string> = {
   new_snow: "❄️",
   wind_slab: "💨",
@@ -103,6 +114,23 @@ function formatTime(iso: string | null) {
   }
 }
 
+function dangerNum(val: string): number {
+  const m: Record<string, number> = { low: 1, moderate: 2, considerable: 3, high: 4, very_high: 5 };
+  return m[val] ?? 0;
+}
+
+function dangerLbl(val: string): string {
+  const m: Record<string, string> = {
+    low: "Liten", moderate: "Moderat", considerable: "Betydelig", high: "Stor", very_high: "Meget stor",
+    no_rating: "Ikke vurdert", no_snow: "Ingen snø",
+  };
+  return m[val] ?? val;
+}
+
+function stripHtml(s: string): string {
+  return s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+}
+
 /* ---------- data hook ---------- */
 function useAvalancheBulletin() {
   return useQuery<BulletinData>({
@@ -112,7 +140,7 @@ function useAvalancheBulletin() {
       if (error) throw error;
       return data as BulletinData;
     },
-    staleTime: 30 * 60 * 1000, // 30 min
+    staleTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 }
@@ -121,10 +149,13 @@ function useAvalancheBulletin() {
 
 const DangerHero: React.FC<{ level: number; label: string; time: string | null }> = ({ level, label, time }) => (
   <div className={cn(
-    "mx-4 mt-3 rounded-2xl border p-5 text-center",
+    "mx-4 mt-3 rounded-2xl border p-5 text-center relative",
     DANGER_BG[level] || DANGER_BG[0],
     DANGER_BORDER[level] || DANGER_BORDER[0],
   )}>
+    <div className="absolute top-3 right-3">
+      <InfoButton topic={`danger_${level}` as InfoTopic} size={14} />
+    </div>
     <p className="text-4xl mb-1">{DANGER_EMOJIS[level] || "⚪"}</p>
     <p className={cn(
       "text-2xl font-bold font-heading",
@@ -133,7 +164,13 @@ const DangerHero: React.FC<{ level: number; label: string; time: string | null }
       {level}/5 – {label}
     </p>
     <p className={cn(
-      "text-xs mt-1",
+      "text-xs mt-2 px-4 leading-relaxed",
+      level >= 5 ? "text-white/80" : "text-muted-foreground",
+    )}>
+      {DANGER_SIMPLE[level] || ""}
+    </p>
+    <p className={cn(
+      "text-[10px] mt-1",
       level >= 5 ? "text-white/70" : "text-muted-foreground",
     )}>
       Skredvarsel Davos-regionen
@@ -171,38 +208,45 @@ const AspectRose: React.FC<{ aspects: string[] }> = ({ aspects }) => {
   );
 };
 
-const ProblemCard: React.FC<{ problem: AvalancheProblem }> = ({ problem }) => (
-  <div className="bg-muted/40 rounded-xl p-3 space-y-2">
-    <div className="flex items-center gap-2">
-      <span className="text-lg">{PROBLEM_ICONS[problem.problemType] || "⚠️"}</span>
-      <span className="text-sm font-semibold text-foreground">{problem.label}</span>
+const ProblemCard: React.FC<{ problem: AvalancheProblem }> = ({ problem }) => {
+  const infoTopic = PROBLEM_ICONS[problem.problemType] ? problem.problemType as InfoTopic : undefined;
+
+  return (
+    <div className="bg-muted/40 rounded-xl p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">{PROBLEM_ICONS[problem.problemType] || "⚠️"}</span>
+        <span className="text-sm font-semibold text-foreground flex-1">{problem.label}</span>
+        {infoTopic && <InfoButton topic={infoTopic} size={12} />}
+      </div>
+      {problem.elevation && (problem.elevation.lowerBound || problem.elevation.upperBound) && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {problem.elevation.lowerBound && (
+            <span className="flex items-center gap-0.5">
+              <ArrowUp size={11} />
+              over {problem.elevation.lowerBound}m
+            </span>
+          )}
+          {problem.elevation.upperBound && (
+            <span className="flex items-center gap-0.5">
+              <ArrowDown size={11} />
+              under {problem.elevation.upperBound}m
+            </span>
+          )}
+          <InfoButton topic="elevation" size={11} />
+        </div>
+      )}
+      {problem.aspects && problem.aspects.length > 0 && (
+        <div>
+          <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+            <Compass size={10} /> Utsatte himmelretninger
+            <InfoButton topic="aspects" size={10} />
+          </p>
+          <AspectRose aspects={problem.aspects} />
+        </div>
+      )}
     </div>
-    {problem.elevation && (problem.elevation.lowerBound || problem.elevation.upperBound) && (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        {problem.elevation.lowerBound && (
-          <span className="flex items-center gap-0.5">
-            <ArrowUp size={11} />
-            over {problem.elevation.lowerBound}m
-          </span>
-        )}
-        {problem.elevation.upperBound && (
-          <span className="flex items-center gap-0.5">
-            <ArrowDown size={11} />
-            under {problem.elevation.upperBound}m
-          </span>
-        )}
-      </div>
-    )}
-    {problem.aspects && problem.aspects.length > 0 && (
-      <div>
-        <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-          <Compass size={10} /> Utsatte himmelretninger
-        </p>
-        <AspectRose aspects={problem.aspects} />
-      </div>
-    )}
-  </div>
-);
+  );
+};
 
 const RegionCard: React.FC<{ region: Region; defaultOpen?: boolean }> = ({ region, defaultOpen = false }) => {
   const [open, setOpen] = React.useState(defaultOpen);
@@ -228,10 +272,18 @@ const RegionCard: React.FC<{ region: Region; defaultOpen?: boolean }> = ({ regio
 
       {open && (
         <div className="px-4 pb-4 pt-2 space-y-3 bg-card/50 animate-in slide-in-from-top-1 duration-200">
+          {/* Simple explanation */}
+          <p className="text-xs text-foreground/80 bg-muted/30 rounded-lg p-2 leading-relaxed">
+            {DANGER_SIMPLE[region.maxDangerLevel] || ""}
+          </p>
+
           {/* Danger ratings by elevation */}
           {region.dangerRatings.length > 1 && (
             <div className="space-y-1">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Faregrad etter høyde</p>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                Faregrad etter høyde
+                <InfoButton topic="elevation" size={10} />
+              </p>
               {region.dangerRatings.map((dr, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs">
                   <span>{DANGER_EMOJIS[dangerNum(dr.mainValue)]}</span>
@@ -254,7 +306,9 @@ const RegionCard: React.FC<{ region: Region; defaultOpen?: boolean }> = ({ regio
           {/* Avalanche problems */}
           {region.avalancheProblems.length > 0 && (
             <div className="space-y-2">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Skredproblemer</p>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Skredproblemer
+              </p>
               {region.avalancheProblems.map((p, i) => (
                 <ProblemCard key={i} problem={p} />
               ))}
@@ -291,23 +345,6 @@ const RegionCard: React.FC<{ region: Region; defaultOpen?: boolean }> = ({ regio
     </div>
   );
 };
-
-function dangerNum(val: string): number {
-  const m: Record<string, number> = { low: 1, moderate: 2, considerable: 3, high: 4, very_high: 5 };
-  return m[val] ?? 0;
-}
-
-function dangerLbl(val: string): string {
-  const m: Record<string, string> = {
-    low: "Liten", moderate: "Moderat", considerable: "Betydelig", high: "Stor", very_high: "Meget stor",
-    no_rating: "Ikke vurdert", no_snow: "Ingen snø",
-  };
-  return m[val] ?? val;
-}
-
-function stripHtml(s: string): string {
-  return s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
-}
 
 /* ---------- main ---------- */
 const AvalancheScreen: React.FC = () => {
@@ -347,10 +384,7 @@ const AvalancheScreen: React.FC = () => {
             <AlertTriangle className="mx-auto h-8 w-8 text-destructive" />
             <p className="text-sm font-medium text-destructive">Kunne ikke hente skredvarsel</p>
             <p className="text-xs text-muted-foreground">Sjekk internett-tilkoblingen og prøv igjen.</p>
-            <button
-              onClick={() => refetch()}
-              className="text-xs text-primary font-medium mt-2"
-            >
+            <button onClick={() => refetch()} className="text-xs text-primary font-medium mt-2">
               Prøv igjen
             </button>
           </div>
@@ -365,6 +399,9 @@ const AvalancheScreen: React.FC = () => {
               time={data.publicationTime || data.fetchedAt}
             />
 
+            {/* Education banner for beginners */}
+            <AvalancheEducationBanner />
+
             {/* Safety banner for high danger */}
             {data.overallMaxDanger >= 3 && (
               <div className={cn(
@@ -372,7 +409,7 @@ const AvalancheScreen: React.FC = () => {
                 data.overallMaxDanger >= 4 ? "bg-red-500/10 border-red-500/30" : "bg-orange-500/10 border-orange-500/30",
               )}>
                 <Shield size={18} className={data.overallMaxDanger >= 4 ? "text-red-500 shrink-0 mt-0.5" : "text-orange-500 shrink-0 mt-0.5"} />
-                <div>
+                <div className="flex-1">
                   <p className="text-xs font-semibold text-foreground">
                     {data.overallMaxDanger >= 4
                       ? "⚠️ Stor eller meget stor skredfare!"
@@ -380,17 +417,19 @@ const AvalancheScreen: React.FC = () => {
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     {data.overallMaxDanger >= 4
-                      ? "Unngå skredterreng. Hold dere til sikrede løyper og merkede stier."
-                      : "Vurder nøye før dere beveger dere i skredterreng. Sjekk eksponering og bratthet."}
+                      ? "Unngå alt bratt terreng utenfor preparerte løyper. Naturlige skred er sannsynlige."
+                      : "Skred kan utløses av enkeltpersoner i bratt terreng. Vurder nøye før dere beveger dere utenfor løypene."}
                   </p>
                 </div>
+                <InfoButton topic={`danger_${data.overallMaxDanger}` as InfoTopic} size={14} />
               </div>
             )}
 
             {/* Danger scale legend */}
             <div className="mx-4">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
                 Europeisk fareskala
+                <InfoButton topic="danger_scale" size={10} />
               </p>
               <div className="flex gap-1">
                 {[1, 2, 3, 4, 5].map((lvl) => (
@@ -411,6 +450,17 @@ const AvalancheScreen: React.FC = () => {
               <div className="flex justify-between mt-1 px-1">
                 <span className="text-[8px] text-muted-foreground">Liten</span>
                 <span className="text-[8px] text-muted-foreground">Meget stor</span>
+              </div>
+            </div>
+
+            {/* Safety tips shortcut */}
+            <div className="mx-4">
+              <div className="flex items-center gap-2 rounded-xl bg-muted/40 border border-border p-3">
+                <span className="text-lg">🛡️</span>
+                <p className="text-xs text-foreground/80 flex-1">
+                  Husk alltid skredutstyr utenfor løypene: sender/mottaker, spade og søkestang.
+                </p>
+                <InfoButton topic="safety_tips" size={14} />
               </div>
             </div>
 
