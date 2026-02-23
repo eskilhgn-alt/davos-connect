@@ -23,7 +23,7 @@ interface BugReport {
   created_at: string;
 }
 
-export const AdminBugReports: React.FC<Props> = ({ users }) => {
+export const AdminBugReports = React.forwardRef<HTMLDivElement, Props>(({ users }, ref) => {
   const [reports, setReports] = React.useState<BugReport[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
@@ -177,4 +177,5 @@ export const AdminBugReports: React.FC<Props> = ({ users }) => {
       )}
     </div>
   );
-};
+});
+AdminBugReports.displayName = "AdminBugReports";

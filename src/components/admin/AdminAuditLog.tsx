@@ -35,7 +35,7 @@ interface Props {
   onRefresh: () => void;
 }
 
-export const AdminAuditLog: React.FC<Props> = ({ auditLog, users, loading, onRefresh }) => {
+export const AdminAuditLog = React.forwardRef<HTMLDivElement, Props>(({ auditLog, users, loading, onRefresh }, ref) => {
   const getDisplayName = (userId: string) => {
     const u = users.find(u => u.id === userId);
     return u?.nickname || u?.full_name || u?.email || userId?.slice(0, 8) || "—";
@@ -92,4 +92,5 @@ export const AdminAuditLog: React.FC<Props> = ({ auditLog, users, loading, onRef
       )}
     </div>
   );
-};
+});
+AdminAuditLog.displayName = "AdminAuditLog";
