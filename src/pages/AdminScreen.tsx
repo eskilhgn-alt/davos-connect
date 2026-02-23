@@ -21,12 +21,14 @@ import { AdminPushTools } from "@/components/admin/AdminPushTools";
 import { AdminAuditLog } from "@/components/admin/AdminAuditLog";
 import { AdminBugReports } from "@/components/admin/AdminBugReports";
 import { AdminAnnouncements } from "@/components/admin/AdminAnnouncements";
+import { AdminModeration } from "@/components/admin/AdminModeration";
 
 const TAB_OPTIONS: SegmentOption[] = [
   { value: "overview", label: "Oversikt" },
   { value: "users", label: "Brukere" },
   { value: "shot", label: "Shot" },
   { value: "tokens", label: "Tokens" },
+  { value: "moderate", label: "Innhold" },
   { value: "push", label: "Push" },
   { value: "announce", label: "Varsler" },
   { value: "bugs", label: "Feil" },
@@ -124,6 +126,14 @@ export const AdminScreen: React.FC = () => {
 
         {tab === "tokens" && (
           <AdminTokenLedger users={users} />
+        )}
+
+        {tab === "moderate" && (
+          <AdminModeration
+            users={users}
+            currentUserId={user!.id}
+            onLogAction={logAction}
+          />
         )}
 
         {tab === "push" && (

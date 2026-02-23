@@ -1,6 +1,6 @@
 /**
  * AdminUserDetail – Expandable user detail panel for admin management
- * Edit profile, send password reset, manage roles, notes, view activity
+ * Edit profile, send password reset, manage roles, notes, award points, toggle admin
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,7 @@ import { DavosBadge } from "@/components/ui/davos-badge";
 import {
   UserX, UserCheck, Coins, Ticket, Loader2, Key, Save,
   ChevronDown, ChevronUp, Bell, Edit3, ShieldOff, StickyNote, Send,
-  Mail, CheckCircle, XCircle, Calendar, Shield, Trash2,
+  Mail, CheckCircle, XCircle, Calendar, Shield, Trash2, Star, Crown,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -63,6 +63,9 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
   const [notes, setNotes] = React.useState<AdminNote[]>([]);
   const [newNote, setNewNote] = React.useState("");
   const [showNotes, setShowNotes] = React.useState(false);
+  const [pointsAmount, setPointsAmount] = React.useState(1);
+  const [pointsReason, setPointsReason] = React.useState("");
+  const [showPoints, setShowPoints] = React.useState(false);
 
   const fetchNotes = React.useCallback(async () => {
     const { data } = await supabase.from("admin_notes")
@@ -197,6 +200,54 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
     } finally { setLoading(null); }
   };
 
+  const awardPoints = async () => {
+    if (!pointsReason.trim() || pointsAmount === 0) return;
+    setLoading("points");
+    try {
+      const { error } = await supabase.rpc("rpc_award_points", {
+        p_user_id: u.id,
+        p_points: pointsAmount,
+        p_reason: "admin_award",
+        p_description: pointsReason.trim(),
+      });
+      if (error) throw error;
+      toast.success(`${pointsAmount > 0 ? "+" : ""}${pointsAmount} poeng til ${u.nickname || u.full_name}`);
+      onLogAction(currentUserId, "points_awarded", u.id, { points: pointsAmount, reason: pointsReason });
+      setPointsAmount(1);
+      setPointsReason("");
+      setShowPoints(false);
+    } catch (e: any) {
+      errorToast("Kunne ikke gi poeng", { description: e.message });
+    } finally { setLoading(null); }
+  };
+
+  const toggleAdminRole = async () => {
+    if (u.id === currentUserId) return;
+    setLoading("role");
+    try {
+      if (u.role === "admin") {
+        // Remove admin role
+        const { error } = await supabase.from("user_roles").delete()
+          .eq("user_id", u.id).eq("role", "admin");
+        if (error) throw error;
+        toast.success(`${u.nickname || u.full_name} er ikke lenger admin`);
+        onLogAction(currentUserId, "admin_role_removed", u.id);
+      } else {
+        // Add admin role
+        const { error } = await supabase.from("user_roles").insert({
+          user_id: u.id,
+          role: "admin",
+        });
+        if (error) throw error;
+        toast.success(`${u.nickname || u.full_name} er nå admin`);
+        onLogAction(currentUserId, "admin_role_granted", u.id);
+      }
+      onRefresh();
+    } catch (e: any) {
+      errorToast("Kunne ikke endre rolle", { description: e.message });
+    } finally { setLoading(null); }
+  };
+
   return (
     <DavosCard>
       <DavosCardContent className="p-4">
@@ -323,6 +374,9 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
               <DavosButton variant="outline" size="sm" onClick={() => onAdjustTokens(u.id)}>
                 <Coins size={14} className="mr-1" /> Juster tokens
               </DavosButton>
+              <DavosButton variant="outline" size="sm" onClick={() => setShowPoints(!showPoints)}>
+                <Star size={14} className="mr-1" /> Gi poeng
+              </DavosButton>
               <DavosButton
                 variant={u.is_active ? "outline" : "primary"}
                 size="sm"
@@ -347,6 +401,18 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
               </DavosButton>
               <DavosButton variant="outline" size="sm" onClick={() => setShowNotes(!showNotes)}>
                 <StickyNote size={14} className="mr-1" /> Notater
+              </DavosButton>
+
+              {/* Toggle admin role */}
+              <DavosButton
+                variant="outline"
+                size="sm"
+                onClick={toggleAdminRole}
+                disabled={loading === "role" || u.id === currentUserId}
+                className={u.role === "admin" ? "border-amber-500/30 text-amber-600" : "border-primary/30 text-primary"}
+              >
+                {loading === "role" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Crown size={14} className="mr-1" />}
+                {u.role === "admin" ? "Fjern admin" : "Gjør admin"}
               </DavosButton>
 
               {/* Manual email verification */}
@@ -408,6 +474,25 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                 </AlertDialogContent>
               </AlertDialog>
             </div>
+
+            {/* Points award section */}
+            {showPoints && (
+              <div className="space-y-2 border-t border-border pt-2">
+                <p className="text-xs font-medium text-foreground flex items-center gap-1"><Star size={12} /> Tildel poeng</p>
+                <div className="flex gap-2 items-center">
+                  <DavosButton variant="outline" size="sm" onClick={() => setPointsAmount(a => a - 1)}>−</DavosButton>
+                  <span className="font-mono text-sm font-bold min-w-[40px] text-center text-foreground">
+                    {pointsAmount > 0 ? "+" : ""}{pointsAmount}
+                  </span>
+                  <DavosButton variant="outline" size="sm" onClick={() => setPointsAmount(a => a + 1)}>+</DavosButton>
+                </div>
+                <DavosInput placeholder="Grunn..." value={pointsReason} onChange={e => setPointsReason(e.target.value)} />
+                <DavosButton size="sm" onClick={awardPoints} disabled={!pointsReason.trim() || pointsAmount === 0 || loading === "points"} className="w-full">
+                  {loading === "points" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Star size={14} className="mr-1" />}
+                  Gi {pointsAmount > 0 ? "+" : ""}{pointsAmount} poeng
+                </DavosButton>
+              </div>
+            )}
 
             {/* Admin notes */}
             {showNotes && (
