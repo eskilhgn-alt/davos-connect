@@ -18,8 +18,6 @@ import MapScreen from "./pages/MapScreen";
 import CrewMapScreen from "./pages/CrewMapScreen";
 import LiveScreen from "./pages/LiveScreen";
 import GalleryScreen from "./pages/GalleryScreen";
-import FeedScreen from "./pages/FeedScreen";
-import MoreScreen from "./pages/MoreScreen";
 import WeatherScreen from "./pages/WeatherScreen";
 import ShotScreen from "./pages/ShotScreen";
 import AgendaScreen from "./pages/AgendaScreen";
