@@ -6,6 +6,7 @@ import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosButton } from "@/components/ui/davos-button";
 import {
   Users, Target, Bell, BellOff, Loader2, Zap, Link2, UserPlus, Check,
+  MessageCircle, Star, Flame, BarChart3, Image,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -32,6 +33,41 @@ const SHARE_LINKS = [
 export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, onNavigate, onLogAction }) => {
   const [testPushLoading, setTestPushLoading] = React.useState(false);
   const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
+  const [extendedStats, setExtendedStats] = React.useState<{
+    totalMessages: number;
+    totalPoints: number;
+    activePolls: number;
+    galleryItems: number;
+    topStreak: number;
+    topStreakUser: string;
+  } | null>(null);
+
+  // Fetch extended stats
+  React.useEffect(() => {
+    const load = async () => {
+      const [msgRes, pointsRes, pollsRes, galleryRes, streaksRes] = await Promise.all([
+        supabase.from("messages").select("id", { count: "exact", head: true }),
+        supabase.from("user_points").select("total_points"),
+        supabase.from("polls").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("gallery_items").select("id", { count: "exact", head: true }),
+        supabase.from("user_streaks").select("user_id, current_streak").order("current_streak", { ascending: false }).limit(1),
+      ]);
+
+      const totalPts = (pointsRes.data || []).reduce((s, r) => s + (r.total_points || 0), 0);
+      const topStreak = streaksRes.data?.[0];
+      const topUser = topStreak ? users.find(u => u.id === topStreak.user_id) : null;
+
+      setExtendedStats({
+        totalMessages: msgRes.count ?? 0,
+        totalPoints: totalPts,
+        activePolls: pollsRes.count ?? 0,
+        galleryItems: galleryRes.count ?? 0,
+        topStreak: topStreak?.current_streak ?? 0,
+        topStreakUser: topUser?.nickname || topUser?.full_name || "—",
+      });
+    };
+    if (users.length > 0) load();
+  }, [users]);
 
   const sendTestPush = async () => {
     setTestPushLoading(true);
@@ -89,16 +125,25 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
     <div className="px-4 space-y-4 pb-6">
       {/* Stats grid */}
       {stats && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <StatCard icon={Users} value={stats.activeUsers24h} label="Aktive (24t)" />
           <StatCard icon={Target} value={stats.shotRounds24h} label="Shot (24t)" />
+          <StatCard icon={UserPlus} value={todayCount} label="Nye i dag" />
           <StatCard
             icon={stats.pushOk ? Bell : BellOff}
             value={stats.pushOk ? "OK" : "Feil"}
-            label="Push-status"
+            label="Push"
             accent={stats.pushOk}
           />
-          <StatCard icon={UserPlus} value={todayCount} label="Nye i dag" />
+          {extendedStats && (
+            <>
+              <StatCard icon={MessageCircle} value={extendedStats.totalMessages} label="Meldinger" />
+              <StatCard icon={Star} value={extendedStats.totalPoints} label="Poeng totalt" />
+              <StatCard icon={BarChart3} value={extendedStats.activePolls} label="Polls aktive" />
+              <StatCard icon={Image} value={extendedStats.galleryItems} label="Galleri" />
+              <StatCard icon={Flame} value={`${extendedStats.topStreak}d`} label={extendedStats.topStreakUser} />
+            </>
+          )}
         </div>
       )}
 
@@ -110,6 +155,12 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
         </DavosButton>
         <DavosButton variant="outline" onClick={() => onNavigate("shot")} className="h-12">
           <Zap size={16} className="mr-2" /> Siste hendelser
+        </DavosButton>
+        <DavosButton variant="outline" onClick={() => onNavigate("moderate")} className="h-12">
+          <BarChart3 size={16} className="mr-2" /> Moderering
+        </DavosButton>
+        <DavosButton variant="outline" onClick={() => onNavigate("bugs")} className="h-12">
+          <MessageCircle size={16} className="mr-2" /> Feilrapporter
         </DavosButton>
       </div>
 
@@ -182,9 +233,9 @@ function formatRelative(dateStr: string): string {
 const StatCard: React.FC<{ icon: any; value: string | number; label: string; accent?: boolean }> = ({ icon: Icon, value, label, accent }) => (
   <DavosCard>
     <DavosCardContent className="p-3 text-center">
-      <Icon size={16} className={`mx-auto mb-1 ${accent ? "text-success" : "text-muted-foreground"}`} />
-      <p className="text-lg font-bold font-mono text-foreground">{value}</p>
-      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <Icon size={14} className={`mx-auto mb-1 ${accent ? "text-success" : "text-muted-foreground"}`} />
+      <p className="text-base font-bold font-mono text-foreground">{value}</p>
+      <p className="text-[9px] text-muted-foreground leading-tight truncate">{label}</p>
     </DavosCardContent>
   </DavosCard>
 );
