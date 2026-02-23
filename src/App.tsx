@@ -36,7 +36,7 @@ import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
 import TokensScreen from "./pages/TokensScreen";
 import EmergencyScreen from "./pages/EmergencyScreen";
-import ChecklistScreen from "./pages/ChecklistScreen";
+
 
 
 import ResetPasswordScreen from "./pages/ResetPasswordScreen";
@@ -131,7 +131,7 @@ const AppRoutes = () => (
       <Route path="/tokens" element={<TokensScreen />} />
       <Route path="/regler" element={<Navigate to="/tokens" replace />} />
       <Route path="/nodinfo" element={<EmergencyScreen />} />
-      <Route path="/pakkeliste" element={<ChecklistScreen />} />
+      
       
     </Route>
     
