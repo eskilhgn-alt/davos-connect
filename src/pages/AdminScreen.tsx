@@ -4,7 +4,7 @@
  * Tabs: Oversikt, Brukere, Shot, Tokens, Push, Logg
  */
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
@@ -26,6 +26,7 @@ import { AdminModeration } from "@/components/admin/AdminModeration";
 const TAB_OPTIONS: SegmentOption[] = [
   { value: "overview", label: "Oversikt" },
   { value: "users", label: "Brukere" },
+  { value: "leaderboard", label: "Topplister" },
   { value: "shot", label: "Shot" },
   { value: "tokens", label: "Tokens" },
   { value: "moderate", label: "Innhold" },
@@ -106,6 +107,18 @@ export const AdminScreen: React.FC = () => {
             onAdjustTokens={handleAdjustTokens}
             onLogAction={logAction}
           />
+        )}
+
+        {tab === "leaderboard" && (
+          <div className="px-4 py-6 flex flex-col items-center gap-3">
+            <p className="text-sm text-muted-foreground text-center">Poeng, tokens, streaks og topplister</p>
+            <Link
+              to="/tokens"
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-heading text-sm font-semibold active:scale-[0.97] transition-transform"
+            >
+              Åpne Topplister
+            </Link>
+          </div>
         )}
 
         {tab === "shot" && (
