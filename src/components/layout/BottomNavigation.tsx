@@ -16,7 +16,7 @@ const navItems: NavItem[] = [
   { icon: MessageCircle, label: "Chat", path: "/chat", badge: true },
   { icon: CloudSun, label: "Vær", path: "/vaer" },
   { icon: Radio, label: "Live", path: "/live" },
-  { icon: MoreHorizontal, label: "Mer", path: "/mer" },
+  { icon: MoreHorizontal, label: "Mer", path: "/hjem" },
 ];
 
 export const BottomNavigation: React.FC = () => {
