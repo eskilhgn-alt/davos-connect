@@ -31,6 +31,10 @@ import {
   Vote,
   Users,
   Home,
+  Trophy,
+  BookOpen,
+  AlertTriangle,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +74,11 @@ export const HomeScreen: React.FC = () => {
       { to: "/roomies", label: "Roomies", icon: Home },
       { to: "/galleri", label: "Galleri", icon: Film },
       { to: "/alle", label: "Gütta", icon: Users },
+      { to: "/tokens", label: "Topplister", icon: Trophy },
+      { to: "/pakkeliste", label: "Pakkeliste", icon: ListChecks },
+      { to: "/nodinfo", label: "Nødinfo", icon: AlertTriangle },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
+      { to: "/regler", label: "Regler", icon: BookOpen },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
     ];
     if (isAdmin) {

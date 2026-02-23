@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { DavosInput } from "@/components/ui/davos-input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Beer, Wine, Loader2, Minus, Plus, Camera, ImageIcon, X, Gift } from "lucide-react";
+import { Beer, Wine, Loader2, Minus, Plus, Camera, ImageIcon, X, Gift, UtensilsCrossed, ShoppingCart } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,8 @@ interface Profile {
 const DRINK_TYPES = [
   { key: "beer", label: "Øl", icon: Beer },
   { key: "drink", label: "Drinker", icon: Wine },
+  { key: "food", label: "Mat", icon: UtensilsCrossed },
+  { key: "grocery", label: "Dagligvare", icon: ShoppingCart },
 ] as const;
 
 export type DrinkQuantities = Record<string, number>;
@@ -174,7 +176,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
         <div className="space-y-5 py-4">
           {/* Drink quantities */}
           <div className="space-y-2">
-            <p className="text-sm font-medium text-foreground">Hva ble bestilt?</p>
+            <p className="text-sm font-medium text-foreground">Hva ble kjøpt?</p>
             <div className="space-y-2">
               {DRINK_TYPES.map((dt) => {
                 const qty = quantities[dt.key] || 0;
@@ -213,7 +215,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
               })}
             </div>
             {totalDrinks > 0 && (
-              <p className="text-xs text-muted-foreground px-1">{totalDrinks} drikke totalt</p>
+              <p className="text-xs text-muted-foreground px-1">{totalDrinks} enheter totalt</p>
             )}
           </div>
 
