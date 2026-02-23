@@ -30,7 +30,9 @@ export const ChatScreen: React.FC = () => {
 
   React.useEffect(() => {
     if (userId) {
-      oneSignalService.init(userId);
+      oneSignalService.init(userId).catch((err) => {
+        console.warn("[ChatScreen] OneSignal init failed:", err);
+      });
     }
   }, [userId]);
 

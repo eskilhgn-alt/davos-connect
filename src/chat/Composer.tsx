@@ -68,7 +68,9 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
     const trimmed = text.trim();
     if (!trimmed && attachments.length === 0) return;
 
-    onSend(trimmed, attachments);
+    Promise.resolve(onSend(trimmed, attachments)).catch((err) => {
+      console.error("[Composer] Send failed:", err);
+    });
     setText('');
     setAttachments([]);
     chatStore.setTyping(false);
