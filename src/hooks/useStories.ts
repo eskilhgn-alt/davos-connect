@@ -46,44 +46,38 @@ export function useStories() {
       return;
     }
 
-    // Fetch profile names separately
-    const userIds = [...new Set((storiesData || []).map((s: any) => s.user_id))];
-    const profileMap = new Map<string, { nickname: string | null; full_name: string | null }>();
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, nickname, full_name")
-        .in("id", userIds);
-      for (const p of (profiles || []) as any[]) {
-        profileMap.set(p.id, { nickname: p.nickname, full_name: p.full_name });
-      }
-    }
-
-    if (error) {
-      console.error("Stories fetch error:", error);
+    if (!storiesData || storiesData.length === 0) {
+      setGroups([]);
       setLoading(false);
       return;
     }
 
-    // Fetch views for current user
-    const storyIds = (storiesData || []).map((s: any) => s.id);
-    let viewedIds = new Set<string>();
-    if (storyIds.length > 0) {
-      const { data: viewsData } = await supabase
-        .from("story_views")
-        .select("story_id")
-        .eq("user_id", user.id)
-        .in("story_id", storyIds);
-      viewedIds = new Set((viewsData || []).map((v: any) => v.story_id));
+    // Parallel fetch: profiles + views
+    const userIds = [...new Set(storiesData.map((s: any) => s.user_id))];
+    const storyIds = storiesData.map((s: any) => s.id);
+
+    const [profilesRes, viewsRes] = await Promise.all([
+      userIds.length > 0
+        ? supabase.from("profiles").select("id, nickname, full_name").in("id", userIds)
+        : Promise.resolve({ data: [] }),
+      storyIds.length > 0
+        ? supabase.from("story_views").select("story_id").eq("user_id", user.id).in("story_id", storyIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const profileMap = new Map<string, { nickname: string | null; full_name: string | null }>();
+    for (const p of (profilesRes.data || []) as any[]) {
+      profileMap.set(p.id, { nickname: p.nickname, full_name: p.full_name });
     }
+    const viewedIds = new Set((viewsRes.data || []).map((v: any) => v.story_id));
+
+    // Build public URL base once
+    const { data: baseUrlData } = supabase.storage.from("stories").getPublicUrl("");
+    const storageBase = baseUrlData.publicUrl.replace(/\/$/, "");
 
     // Group by user
     const groupMap = new Map<string, StoryGroup>();
-    for (const row of (storiesData || []) as any[]) {
-      const { data: urlData } = supabase.storage
-        .from("stories")
-        .getPublicUrl(row.storage_path);
-
+    for (const row of storiesData as any[]) {
       const story: Story = {
         id: row.id,
         userId: row.user_id,
@@ -92,7 +86,7 @@ export function useStories() {
         durationSec: row.duration_sec || 0,
         createdAt: row.created_at,
         expiresAt: row.expires_at,
-        publicUrl: urlData.publicUrl,
+        publicUrl: `${storageBase}/${row.storage_path}`,
         viewed: viewedIds.has(row.id),
       };
 

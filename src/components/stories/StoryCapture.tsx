@@ -510,6 +510,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         .from("stories")
         .upload(path, finalBlob, {
           contentType: blobMime,
+          cacheControl: "3600",
         });
       if (uploadErr) throw uploadErr;
 
