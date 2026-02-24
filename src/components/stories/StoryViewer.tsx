@@ -1,10 +1,11 @@
 /**
  * StoryViewer – Snapchat/Instagram-style fullscreen viewer
  * Features: progress bars, tap left/right, swipe between users, pause on hold, view counter, likes
+ * Hardened: preloading, error recovery, retry logic
  */
 
 import * as React from "react";
-import { X, Heart } from "lucide-react";
+import { X, Heart, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,12 +33,43 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   const [liked, setLiked] = React.useState(false);
   const [likeCount, setLikeCount] = React.useState(0);
   const [likeAnimating, setLikeAnimating] = React.useState(false);
+  const [mediaError, setMediaError] = React.useState(false);
+  const [mediaLoaded, setMediaLoaded] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setInterval>>();
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   const group = groups[groupIdx];
   const story = group?.stories[storyIdx];
   const DISPLAY_MS = story?.type === "video" ? (story.durationSec || 10) * 1000 : 5000;
+
+  // Reset media state on story change
+  React.useEffect(() => {
+    setMediaError(false);
+    setMediaLoaded(false);
+  }, [groupIdx, storyIdx]);
+
+  // Preload next story media
+  React.useEffect(() => {
+    if (!group) return;
+    const nextStories: string[] = [];
+    // Next in same group
+    if (storyIdx < group.stories.length - 1) {
+      nextStories.push(group.stories[storyIdx + 1].publicUrl);
+    }
+    // First in next group
+    if (groupIdx < groups.length - 1) {
+      nextStories.push(groups[groupIdx + 1].stories[0].publicUrl);
+    }
+    for (const url of nextStories) {
+      const link = document.createElement("link");
+      link.rel = "prefetch";
+      link.href = url;
+      link.as = url.match(/\.(mp4|webm|mov)/) ? "video" : "image";
+      document.head.appendChild(link);
+      // Clean up after 30s
+      setTimeout(() => link.remove(), 30000);
+    }
+  }, [groupIdx, storyIdx, group, groups]);
 
   // Mark as viewed
   React.useEffect(() => {
@@ -58,9 +90,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     fetchLikes();
   }, [story?.id, user]); // eslint-disable-line
 
-  // Progress timer
+  // Progress timer - only runs when media is loaded and not paused/errored
   React.useEffect(() => {
-    if (!story || paused) {
+    if (!story || paused || mediaError || !mediaLoaded) {
       if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
@@ -82,7 +114,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [groupIdx, storyIdx, DISPLAY_MS, paused]); // eslint-disable-line
+  }, [groupIdx, storyIdx, DISPLAY_MS, paused, mediaError, mediaLoaded]); // eslint-disable-line
 
   // Track closing state to prevent pointer events from leaking to elements underneath
   const closingRef = React.useRef(false);
@@ -264,31 +296,76 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       </div>
 
       {/* Media – full bleed */}
-      <div className="flex-1 flex items-center justify-center overflow-hidden">
+      <div className="flex-1 flex items-center justify-center overflow-hidden relative">
+        {/* Loading spinner while media loads */}
+        {!mediaLoaded && !mediaError && (
+          <div className="absolute inset-0 flex items-center justify-center z-[1]">
+            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          </div>
+        )}
+
+        {/* Error state with retry */}
+        {mediaError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-[1] gap-3">
+            <AlertTriangle size={32} className="text-white/60" />
+            <p className="text-white/60 text-sm">Kunne ikke laste innhold</p>
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => { e.stopPropagation(); e.preventDefault(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMediaError(false);
+                setMediaLoaded(false);
+              }}
+              className="px-4 py-2 rounded-full bg-white/20 text-white text-sm backdrop-blur-sm"
+            >
+              Prøv igjen
+            </button>
+          </div>
+        )}
+
         {story.type === "video" ? (
           <video
             ref={videoRef}
-            key={story.id}
+            key={story.id + (mediaError ? "" : "-v")}
             src={story.publicUrl}
             autoPlay
             playsInline
             muted
-            className="w-full h-full object-cover"
+            preload="auto"
+            className={cn("w-full h-full object-cover transition-opacity", mediaLoaded ? "opacity-100" : "opacity-0")}
             onEnded={goNext}
             onLoadedData={(e) => {
+              setMediaLoaded(true);
               const v = e.currentTarget;
               v.play().then(() => { v.muted = false; }).catch(() => {});
             }}
-            onError={(e) => {
-              console.error("[StoryViewer] Video error:", e);
+            onError={() => {
+              console.error("[StoryViewer] Video load error for:", story.publicUrl);
+              setMediaError(true);
+            }}
+            onStalled={() => {
+              // Auto-retry on stall after 5s
+              setTimeout(() => {
+                if (videoRef.current && videoRef.current.readyState < 3) {
+                  videoRef.current.load();
+                }
+              }, 5000);
             }}
           />
         ) : (
           <img
+            key={story.id + (mediaError ? "" : "-i")}
             src={story.publicUrl}
             alt=""
-            className="w-full h-full object-cover"
+            className={cn("w-full h-full object-cover transition-opacity", mediaLoaded ? "opacity-100" : "opacity-0")}
             draggable={false}
+            onLoad={() => setMediaLoaded(true)}
+            onError={() => {
+              console.error("[StoryViewer] Image load error for:", story.publicUrl);
+              setMediaError(true);
+            }}
           />
         )}
       </div>

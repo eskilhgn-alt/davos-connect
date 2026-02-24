@@ -97,14 +97,22 @@ export const StoriesScreen: React.FC = () => {
                           alt=""
                           className="w-full h-full object-cover"
                           loading="lazy"
+                          decoding="async"
+                          onError={(e) => {
+                            // Hide broken image, show placeholder
+                            e.currentTarget.style.display = "none";
+                          }}
                         />
                       ) : (
                         <video
-                          src={thumbUrl}
+                          src={thumbUrl + "#t=0.5"}
                           className="w-full h-full object-cover"
                           muted
                           playsInline
                           preload="metadata"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
                         />
                       )}
 
