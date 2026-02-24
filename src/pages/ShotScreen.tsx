@@ -114,20 +114,23 @@ export const ShotScreen: React.FC = () => {
     try {
       const { data: finalData, error: finalError } = await supabase.rpc("rpc_finalize_countdown", { p_event_id: ev.id });
       if (!finalError && finalData) {
-        const result = finalData as { selected_user_id: string };
-        const winnerName = profiles[result.selected_user_id] || "Noen";
-        const sess = await supabase.auth.getSession();
-        const t = sess.data.session?.access_token;
-        if (t) {
-          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
-            body: JSON.stringify({
-              type: "selected",
-              heading: "Vinner trukket! 🏆",
-              message: `${winnerName} må ta shot innen 15 minutter!`,
-            }),
-          }).catch(() => {});
+        const result = finalData as { selected_user_id: string; deadline_at?: string; status: string };
+        // Only send push if THIS client actually finalized (deadline_at present = real finalization)
+        if (result.deadline_at && result.status === "selected") {
+          const winnerName = profiles[result.selected_user_id] || "Noen";
+          const sess = await supabase.auth.getSession();
+          const t = sess.data.session?.access_token;
+          if (t) {
+            fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
+              body: JSON.stringify({
+                type: "selected",
+                heading: "Vinner trukket! 🏆",
+                message: `${winnerName} må ta shot innen 15 minutter!`,
+              }),
+            }).catch(() => {});
+          }
         }
         return result;
       }
@@ -167,21 +170,27 @@ export const ShotScreen: React.FC = () => {
 
       // Any client can apply overdue
       if (ev.status === "selected" && ev.deadline_at && new Date(ev.deadline_at) < new Date() && !ev.confirmed_at) {
-        await supabase.rpc("rpc_apply_overdue", { p_event_id: ev.id });
-        const sess = await supabase.auth.getSession();
-        const t = sess.data.session?.access_token;
-        if (t) {
-          const cowardName = profiles[ev.selected_user_id || ""] || "Noen";
-          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
-            body: JSON.stringify({
-              type: "overdue_shame",
-              heading: "Feiging! 🐔",
-              message: `${cowardName} feiget ut og tok ikke shotten i tide! 12-timers ban.`,
-            }),
-          }).catch(() => {});
+        const { data: overdueResult } = await supabase.rpc("rpc_apply_overdue", { p_event_id: ev.id });
+        const result = overdueResult as { status?: string } | null;
+        // Only send shame push if THIS client actually applied the punishment
+        if (result?.status === "punished") {
+          const sess = await supabase.auth.getSession();
+          const t = sess.data.session?.access_token;
+          if (t) {
+            const cowardName = profiles[ev.selected_user_id || ""] || "Noen";
+            fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
+              body: JSON.stringify({
+                type: "overdue_shame",
+                heading: "Feiging! 🐔",
+                message: `${cowardName} feiget ut og tok ikke shotten i tide! 12-timers ban.`,
+              }),
+            }).catch(() => {});
+          }
         }
+        // Re-fetch updated event
+        loadActiveEvent();
       }
     } else {
       setActiveEvent(null);
@@ -426,7 +435,10 @@ export const ShotScreen: React.FC = () => {
         }).catch(() => {});
       }
     }
-  }, [activeEvent, profiles, user, loadActiveEvent]);
+    // Always refresh state after confirm action
+    loadActiveEvent();
+    loadTokens();
+  }, [activeEvent, profiles, user, loadActiveEvent, loadTokens]);
 
   // Use frikort
   const handleUseFrikort = React.useCallback(async () => {
@@ -438,15 +450,16 @@ export const ShotScreen: React.FC = () => {
     }
     toast.success("Frikort brukt! Du slipper denne runden. 🎫");
     loadFrikort();
-  }, [activeEvent, loadFrikort]);
+    loadActiveEvent();
+  }, [activeEvent, loadFrikort, loadActiveEvent]);
 
   // Check ban status
   const isBanned = tokens?.shot_banned_until && new Date(tokens.shot_banned_until) > new Date();
   const banEndsAt = tokens?.shot_banned_until ? new Date(tokens.shot_banned_until) : null;
 
-  // Allow pressing when no countdown is running and not banned
-  const isCountdownActive = activeEvent?.status === "countdown";
-  const canPress = !isCountdownActive && !isBanned && tokens && tokens.balance > 0 && !pressing;
+  // Allow pressing only when no active event exists
+  const hasActiveEvent = activeEvent && ["countdown", "selected"].includes(activeEvent.status);
+  const canPress = !hasActiveEvent && !isBanned && tokens && tokens.balance > 0 && !pressing;
 
   return (
     <div
