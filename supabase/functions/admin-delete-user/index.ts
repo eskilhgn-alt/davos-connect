@@ -68,6 +68,34 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Clean up non-FK-linked data before auth deletion
+    // These tables reference user_id but may not have CASCADE FKs
+    const cleanupTables = [
+      { table: "user_locations", col: "user_id" },
+      { table: "user_streaks", col: "user_id" },
+      { table: "user_points", col: "user_id" },
+      { table: "points_ledger", col: "user_id" },
+      { table: "token_ledger", col: "user_id" },
+      { table: "ski_altitude_samples", col: "user_id" },
+      { table: "ski_daily_vertical", col: "user_id" },
+      { table: "ski_daily_awards", col: "user_id" },
+      { table: "ski_speed_records", col: "user_id" },
+      { table: "ski_track_points", col: "user_id" },
+      { table: "chat_reads", col: "user_id" },
+      { table: "poll_votes", col: "user_id" },
+      { table: "story_views", col: "user_id" },
+      { table: "bug_reports", col: "user_id" },
+      { table: "checklist_items", col: "created_by" },
+      { table: "admin_notes", col: "target_user_id" },
+    ];
+
+    for (const { table, col } of cleanupTables) {
+      await supabaseAdmin.from(table).delete().eq(col, target_user_id);
+    }
+
+    // Also clean up audit log references (target only, keep admin actions)
+    await supabaseAdmin.from("admin_audit_log").delete().eq("target_user_id", target_user_id);
+
     // Log the action before deletion
     await supabaseAdmin.from("admin_audit_log").insert({
       admin_id: adminId,
@@ -76,11 +104,11 @@ Deno.serve(async (req) => {
       details: { reason: "admin_kick" },
     });
 
-    // Delete from auth.users (cascades to profiles via FK)
+    // Delete from auth.users (cascades to profiles, user_roles, shot_tokens, etc. via FK CASCADE)
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(target_user_id);
     if (deleteError) {
       console.error("Delete user error:", deleteError);
-      return new Response(JSON.stringify({ error: "Failed to delete user" }), {
+      return new Response(JSON.stringify({ error: "Failed to delete user", details: deleteError.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

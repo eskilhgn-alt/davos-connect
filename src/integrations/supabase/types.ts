@@ -976,7 +976,7 @@ export type Database = {
           selected_at: string | null
           selected_user_id: string | null
           self_confirmed: boolean | null
-          started_by: string
+          started_by: string | null
           status: string
           witness_confirmed_at: string | null
           witness_confirmed_by: string | null
@@ -1003,7 +1003,7 @@ export type Database = {
           selected_at?: string | null
           selected_user_id?: string | null
           self_confirmed?: boolean | null
-          started_by: string
+          started_by?: string | null
           status?: string
           witness_confirmed_at?: string | null
           witness_confirmed_by?: string | null
@@ -1030,7 +1030,7 @@ export type Database = {
           selected_at?: string | null
           selected_user_id?: string | null
           self_confirmed?: boolean | null
-          started_by?: string
+          started_by?: string | null
           status?: string
           witness_confirmed_at?: string | null
           witness_confirmed_by?: string | null
