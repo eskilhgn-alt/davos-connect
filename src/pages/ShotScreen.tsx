@@ -507,6 +507,8 @@ export const ShotScreen: React.FC = () => {
             disabled={!canPress}
             loading={pressing}
             activeEvent={activeEvent}
+            tokenBalance={tokens?.balance ?? null}
+            isBanned={!!isBanned}
           />
 
           {/* Status card */}

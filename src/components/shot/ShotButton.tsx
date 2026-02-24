@@ -11,6 +11,8 @@ interface ShotButtonProps {
   disabled: boolean;
   loading: boolean;
   activeEvent: ShotEvent | null;
+  tokenBalance?: number | null;
+  isBanned?: boolean;
 }
 
 export const ShotButton: React.FC<ShotButtonProps> = ({
@@ -18,6 +20,8 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
   disabled,
   loading,
   activeEvent,
+  tokenBalance,
+  isBanned,
 }) => {
   const [countdown, setCountdown] = React.useState<number | null>(null);
   const [progress, setProgress] = React.useState(1); // 1 = full, 0 = empty
@@ -123,10 +127,24 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
           ) : loading ? (
             <span className="text-lg">Starter...</span>
           ) : disabled ? (
-            <>
-              <span className="text-lg">Ingen tokens</span>
-              <span className="text-xs font-normal mt-1 opacity-60">Refill i morgen</span>
-            </>
+            activeEvent && ["countdown", "selected", "disputed"].includes(activeEvent.status) ? (
+              <>
+                <span className="text-3xl">⏳</span>
+                <span className="text-sm font-normal mt-2">Runde pågår</span>
+              </>
+            ) : isBanned ? (
+              <>
+                <span className="text-3xl">🚫</span>
+                <span className="text-sm font-normal mt-2">Utestengt</span>
+              </>
+            ) : (tokenBalance != null && tokenBalance <= 0) ? (
+              <>
+                <span className="text-lg">Ingen tokens</span>
+                <span className="text-xs font-normal mt-1 opacity-60">Refill i morgen</span>
+              </>
+            ) : (
+              <span className="text-lg">Venter...</span>
+            )
           ) : (
             <>
               <span className="text-4xl">🎯</span>
