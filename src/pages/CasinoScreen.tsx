@@ -108,11 +108,7 @@ const CasinoScreen: React.FC = () => {
 
     const dist = haversineMeters(geo.position.lat, geo.position.lon, CASINO.lat, CASINO.lon);
     if (dist <= DAG_ERIK_PROXIMITY_M) {
-      // Send push via edge function
       setDagPushSent(true);
-      const sessionKey = `dag_casino_push_${new Date().toDateString()}`;
-      if (localStorage.getItem(sessionKey)) return;
-      localStorage.setItem(sessionKey, "1");
 
       supabase.functions.invoke("send-push-notification", {
         body: {
@@ -122,6 +118,9 @@ const CasinoScreen: React.FC = () => {
           url: "/casino",
         },
       }).catch(() => {});
+
+      // Reset after 5 min so he gets another push if still nearby
+      setTimeout(() => setDagPushSent(false), 5 * 60 * 1000);
     }
   }, [geo.position, user, dagPushSent]);
 
