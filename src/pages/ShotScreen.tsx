@@ -77,6 +77,11 @@ export const ShotScreen: React.FC = () => {
   const [rulesOpen, setRulesOpen] = React.useState(false);
   const frikortCountRef = React.useRef(0);
   const countdownTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeEventRef = React.useRef<ShotEvent | null>(null);
+
+  // Keep ref in sync for use in callbacks
+  React.useEffect(() => { activeEventRef.current = activeEvent; }, [activeEvent]);
 
   // Load profiles for display names
   const loadProfiles = React.useCallback(async () => {
