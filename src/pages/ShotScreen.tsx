@@ -457,9 +457,9 @@ export const ShotScreen: React.FC = () => {
   const isBanned = tokens?.shot_banned_until && new Date(tokens.shot_banned_until) > new Date();
   const banEndsAt = tokens?.shot_banned_until ? new Date(tokens.shot_banned_until) : null;
 
-  // Allow pressing only when no active event exists
-  const hasActiveEvent = activeEvent && ["countdown", "selected"].includes(activeEvent.status);
-  const canPress = !hasActiveEvent && !isBanned && tokens && tokens.balance > 0 && !pressing;
+  // Allow pressing when no countdown is actively running (selected/disputed rounds don't block new rounds)
+  const hasCountdown = activeEvent && activeEvent.status === "countdown";
+  const canPress = !hasCountdown && !isBanned && tokens && tokens.balance > 0 && !pressing;
 
   return (
     <div
