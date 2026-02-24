@@ -116,6 +116,13 @@ export const ShotStatusCard: React.FC<ShotStatusCardProps> = ({
         </span>
       </div>
 
+      {/* Countdown state */}
+      {event.status === "countdown" && (
+        <div className="text-center py-4">
+          <p className="text-sm text-muted-foreground">Nedtelling pågår – vinner trekkes snart!</p>
+        </div>
+      )}
+
       {/* Winner display */}
       {event.selected_user_id && (
         <div className="text-center py-2">
