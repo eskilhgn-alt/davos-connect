@@ -106,23 +106,56 @@ export const ShotScreen: React.FC = () => {
     if (!error && data) setTokens(data as { balance: number; shot_banned_until?: string | null });
   }, []);
 
-  // Load active event
+  // Try to finalize any expired countdown (any client can do this)
+  const tryFinalizeCountdown = React.useCallback(async (ev: ShotEvent) => {
+    if (ev.status !== "countdown" || !ev.countdown_ends_at) return;
+    if (new Date(ev.countdown_ends_at) > new Date()) return;
+    try {
+      const { data: finalData, error: finalError } = await supabase.rpc("rpc_finalize_countdown", { p_event_id: ev.id });
+      if (!finalError && finalData) {
+        const result = finalData as { selected_user_id: string };
+        const winnerName = profiles[result.selected_user_id] || "Noen";
+        const sess = await supabase.auth.getSession();
+        const t = sess.data.session?.access_token;
+        if (t) {
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
+            body: JSON.stringify({
+              type: "selected",
+              heading: "Vinner trukket! 🏆",
+              message: `${winnerName} må ta shot innen 15 minutter!`,
+            }),
+          }).catch(() => {});
+        }
+      }
+    } catch { /* another client may have finalized first – that's fine */ }
+  }, [profiles]);
+
+  // Load active event – exclude terminal states, prioritize active ones
   const loadActiveEvent = React.useCallback(async () => {
+    // Only look for non-terminal events (no confirmed/punished/cancelled)
     const { data } = await supabase
       .from("shot_events")
       .select("*")
       .eq("group_id", GROUP_ID)
-      .in("status", ["countdown", "selected", "overdue", "disputed", "confirmed"])
+      .in("status", ["countdown", "selected", "overdue", "disputed"])
       .order("created_at", { ascending: false })
       .limit(1);
 
     if (data && data.length > 0) {
-      setActiveEvent(data[0] as unknown as ShotEvent);
-      // Check overdue + send shame push
       const ev = data[0] as unknown as ShotEvent;
+      setActiveEvent(ev);
+
+      // Any client can finalize an expired countdown
+      if (ev.status === "countdown" && ev.countdown_ends_at && new Date(ev.countdown_ends_at) <= new Date()) {
+        await tryFinalizeCountdown(ev);
+        return;
+      }
+
+      // Any client can apply overdue
       if (ev.status === "selected" && ev.deadline_at && new Date(ev.deadline_at) < new Date() && !ev.confirmed_at) {
         await supabase.rpc("rpc_apply_overdue", { p_event_id: ev.id });
-        // Shame push
         const sess = await supabase.auth.getSession();
         const t = sess.data.session?.access_token;
         if (t) {
@@ -141,7 +174,7 @@ export const ShotScreen: React.FC = () => {
     } else {
       setActiveEvent(null);
     }
-  }, []);
+  }, [profiles, tryFinalizeCountdown]);
 
   // Load log
   const loadLog = React.useCallback(async () => {
@@ -175,8 +208,15 @@ export const ShotScreen: React.FC = () => {
     load();
   }, [loadProfiles, loadTokens, loadActiveEvent, loadLog, loadFrikort]);
 
-  // Realtime subscriptions
+  // Realtime subscriptions + visibility handler + polling fallback
   React.useEffect(() => {
+    const refreshAll = () => {
+      loadActiveEvent();
+      loadTokens();
+      loadFrikort();
+      loadLog();
+    };
+
     const channel = supabase
       .channel("shot-realtime")
       .on("postgres_changes", {
@@ -197,11 +237,30 @@ export const ShotScreen: React.FC = () => {
       })
       .subscribe();
 
+    // Visibility change handler: resync when app comes back from background
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refreshAll();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // Polling fallback every 5s to catch missed realtime events
+    const poll = setInterval(() => {
+      const ev = activeEventRef.current;
+      if (ev && (ev.status === "countdown" || ev.status === "selected")) {
+        loadActiveEvent();
+      }
+    }, 5000);
+    pollRef.current = poll as unknown as ReturnType<typeof setTimeout>;
+
     return () => {
       supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", handleVisibility);
       if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current);
+      if (pollRef.current) clearInterval(pollRef.current as unknown as number);
     };
-  }, [loadActiveEvent, loadLog, loadTokens]);
+  }, [loadActiveEvent, loadLog, loadTokens, loadFrikort]);
 
   // Start round
   const handlePress = React.useCallback(async () => {
@@ -235,45 +294,40 @@ export const ShotScreen: React.FC = () => {
         }).catch(() => {});
       }
 
-      // Wait for countdown then finalize
+      // Schedule finalization attempt – but loadActiveEvent also handles this
+      // so if this timer is killed (backgrounding), the polling/visibility handler picks it up
       const eventId = (data as { event_id: string }).event_id;
       const countdownTimer = setTimeout(async () => {
         try {
-          const { data: finalData, error: finalError } = await supabase.rpc("rpc_finalize_countdown", { p_event_id: eventId });
-          if (!finalError && finalData) {
-            const result = finalData as { selected_user_id: string };
-            const winnerName = profiles[result.selected_user_id] || "Noen";
-            // Push winner
-            const sess = await supabase.auth.getSession();
-            const t = sess.data.session?.access_token;
-            if (t) {
-              fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
-                body: JSON.stringify({
-                  type: "selected",
-                  heading: "Vinner trukket! 🏆",
-                  message: `${winnerName} må ta shot innen 15 minutter!`,
-                }),
-              }).catch(() => {});
-            }
-          }
-        } catch { /* handled silently */ }
+          await supabase.rpc("rpc_finalize_countdown", { p_event_id: eventId });
+        } catch { /* polling/visibility will catch it */ }
+        loadActiveEvent();
       }, 11000);
-      // Store timer ref for cleanup
       countdownTimerRef.current = countdownTimer;
     } catch (e) {
       errorToast("Noe gikk galt");
     } finally {
       setPressing(false);
     }
-  }, [user, pressing, profiles]);
+  }, [user, pressing, profiles, loadActiveEvent]);
 
-  // Confirm shot
+  // Confirm shot – re-fetch fresh event state to avoid acting on stale data
   const handleConfirm = React.useCallback(async (mode: string, witnessId?: string, disputeReason?: string, disputeDetails?: string) => {
     if (!activeEvent) return;
+    // Fetch fresh event state from DB to avoid race conditions
+    const { data: freshEvents } = await supabase
+      .from("shot_events")
+      .select("*")
+      .eq("id", activeEvent.id)
+      .limit(1);
+    const freshEvent = freshEvents?.[0] as unknown as ShotEvent | undefined;
+    if (!freshEvent || freshEvent.status === "confirmed" || freshEvent.status === "cancelled" || freshEvent.status === "punished") {
+      toast.info("Denne runden er allerede avsluttet.");
+      loadActiveEvent();
+      return;
+    }
     const { error } = await supabase.rpc("rpc_confirm_shot", {
-      p_event_id: activeEvent.id,
+      p_event_id: freshEvent.id,
       p_mode: mode,
       p_witness_id: mode === "self" && witnessId ? witnessId : undefined,
       p_dispute_reason: disputeReason || undefined,
@@ -359,7 +413,7 @@ export const ShotScreen: React.FC = () => {
         }).catch(() => {});
       }
     }
-  }, [activeEvent, profiles, user]);
+  }, [activeEvent, profiles, user, loadActiveEvent]);
 
   // Use frikort
   const handleUseFrikort = React.useCallback(async () => {
