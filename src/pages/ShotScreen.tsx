@@ -107,9 +107,10 @@ export const ShotScreen: React.FC = () => {
   }, []);
 
   // Try to finalize any expired countdown (any client can do this)
-  const tryFinalizeCountdown = React.useCallback(async (ev: ShotEvent) => {
-    if (ev.status !== "countdown" || !ev.countdown_ends_at) return;
-    if (new Date(ev.countdown_ends_at) > new Date()) return;
+  // Returns the finalized result if successful, null otherwise
+  const tryFinalizeCountdown = React.useCallback(async (ev: ShotEvent): Promise<{ selected_user_id: string } | null> => {
+    if (ev.status !== "countdown" || !ev.countdown_ends_at) return null;
+    if (new Date(ev.countdown_ends_at) > new Date()) return null;
     try {
       const { data: finalData, error: finalError } = await supabase.rpc("rpc_finalize_countdown", { p_event_id: ev.id });
       if (!finalError && finalData) {
@@ -128,8 +129,10 @@ export const ShotScreen: React.FC = () => {
             }),
           }).catch(() => {});
         }
+        return result;
       }
     } catch { /* another client may have finalized first – that's fine */ }
+    return null;
   }, [profiles]);
 
   // Load active event – exclude terminal states, prioritize active ones
@@ -298,7 +301,6 @@ export const ShotScreen: React.FC = () => {
             type: "countdown_started",
             heading: "Shoot your shot! 🎯",
             message: `${profile} trykket knappen! Trekning om 10 sek.`,
-            exclude_user_id: user.id,
           }),
         }).catch(() => {});
       }
@@ -306,10 +308,15 @@ export const ShotScreen: React.FC = () => {
       // Schedule finalization attempt – but loadActiveEvent also handles this
       // so if this timer is killed (backgrounding), the polling/visibility handler picks it up
       const eventId = (data as { event_id: string }).event_id;
+      const countdownEndsAt = (data as { countdown_ends_at: string }).countdown_ends_at;
       const countdownTimer = setTimeout(async () => {
-        try {
-          await supabase.rpc("rpc_finalize_countdown", { p_event_id: eventId });
-        } catch { /* polling/visibility will catch it */ }
+        // Build a minimal ShotEvent for tryFinalizeCountdown
+        const stubEvent: ShotEvent = {
+          id: eventId,
+          status: "countdown",
+          countdown_ends_at: countdownEndsAt,
+        } as ShotEvent;
+        await tryFinalizeCountdown(stubEvent);
         loadActiveEvent();
       }, 11000);
       countdownTimerRef.current = countdownTimer;
@@ -318,7 +325,7 @@ export const ShotScreen: React.FC = () => {
     } finally {
       setPressing(false);
     }
-  }, [user, pressing, profiles, loadActiveEvent]);
+  }, [user, pressing, profiles, loadActiveEvent, tryFinalizeCountdown]);
 
   // Confirm shot – re-fetch fresh event state to avoid acting on stale data
   const handleConfirm = React.useCallback(async (mode: string, witnessId?: string, disputeReason?: string, disputeDetails?: string) => {
@@ -360,22 +367,19 @@ export const ShotScreen: React.FC = () => {
       const selectedName = profiles[activeEvent?.selected_user_id || ""] || "Noen";
       const callerName = profiles[user?.id || ""] || "Noen";
 
-      if (mode === "self") {
+      if (mode === "self" && witnessId) {
         // Push to chosen witness specifically
-        const witnessId = activeEvent?.chosen_witness_id;
-        if (witnessId) {
-          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              type: "witness_request",
-              heading: "Du er vitne! 👁",
-              message: `${callerName} har tatt shotten – bekreft i appen innen 15 min.`,
-              include_user_ids: [witnessId],
-              url: "https://guttahutte.lovable.app/shot",
-            }),
-          }).catch(() => {});
-        }
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            type: "witness_request",
+            heading: "Du er vitne! 👁",
+            message: `${callerName} har tatt shotten – bekreft i appen innen 15 min.`,
+            include_user_ids: [witnessId],
+            url: "https://guttahutte.lovable.app/shot",
+          }),
+        }).catch(() => {});
         // Also notify everyone else
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
           method: "POST",
