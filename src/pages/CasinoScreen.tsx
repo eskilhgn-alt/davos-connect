@@ -21,13 +21,13 @@ const DAG_ERIK_ID = "8c66109a-2a99-4c91-bc7a-8de6a4020a06";
 const DAG_ERIK_PROXIMITY_M = 200;
 
 const CASINO = {
-  lat: 46.7935,
-  lon: 9.8360,
+  lat: 46.7962,
+  lon: 9.8214,
   name: "Casino Davos",
   address: "Promenade 63, 7270 Davos Platz",
   phone: "+41 81 415 56 00",
   website: "https://www.casinodavos.ch",
-  googleMaps: "https://www.google.com/maps/dir/?api=1&destination=46.7935,9.8360&travelmode=walking",
+  googleMaps: "https://www.google.com/maps/dir/?api=1&destination=46.7962,9.8214&travelmode=walking",
   openingHours: [
     { day: "Man–Tor", time: "12:00–02:00" },
     { day: "Fre", time: "12:00–03:00" },
