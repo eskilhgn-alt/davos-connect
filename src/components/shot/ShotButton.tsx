@@ -47,7 +47,7 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
     return () => clearInterval(interval);
   }, [activeEvent]);
 
-  const isCountdown = activeEvent?.status === "countdown" && countdown !== null && countdown > 0;
+  const isCountdown = activeEvent?.status === "countdown" && countdown !== null;
 
   // SVG circle params
   const size = 200;
@@ -107,12 +107,19 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
           )}
         >
           {isCountdown ? (
-            <>
-              <span className="font-heading text-6xl font-bold tabular-nums">
-                {countdown}
-              </span>
-              <span className="text-sm font-normal mt-1 opacity-70">Trekning...</span>
-            </>
+            countdown && countdown > 0 ? (
+              <>
+                <span className="font-heading text-6xl font-bold tabular-nums">
+                  {countdown}
+                </span>
+                <span className="text-sm font-normal mt-1 opacity-70">Trekning...</span>
+              </>
+            ) : (
+              <>
+                <span className="text-4xl">🎲</span>
+                <span className="text-sm font-normal mt-2">Trekker vinner...</span>
+              </>
+            )
           ) : loading ? (
             <span className="text-lg">Starter...</span>
           ) : disabled ? (

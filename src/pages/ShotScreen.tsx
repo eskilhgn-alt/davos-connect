@@ -150,6 +150,15 @@ export const ShotScreen: React.FC = () => {
       // Any client can finalize an expired countdown
       if (ev.status === "countdown" && ev.countdown_ends_at && new Date(ev.countdown_ends_at) <= new Date()) {
         await tryFinalizeCountdown(ev);
+        // Re-fetch the now-finalized event so UI updates immediately
+        const { data: updated } = await supabase
+          .from("shot_events")
+          .select("*")
+          .eq("id", ev.id)
+          .limit(1);
+        if (updated?.[0]) {
+          setActiveEvent(updated[0] as unknown as ShotEvent);
+        }
         return;
       }
 
