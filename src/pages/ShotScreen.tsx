@@ -21,8 +21,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { toast } from "sonner";
 import { markPageSeen } from "@/hooks/useAppBadges";
 import { errorToast } from "@/utils/errorToast";
-import { BookOpen, Skull } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { BookOpen } from "lucide-react";
+
 
 const GROUP_ID = "global";
 
@@ -76,7 +76,6 @@ export const ShotScreen: React.FC = () => {
   const [profiles, setProfiles] = React.useState<Record<string, string>>({});
   const [frikortCount, setFrikortCount] = React.useState(0);
   const [rulesOpen, setRulesOpen] = React.useState(false);
-  const [monsterLoading, setMonsterLoading] = React.useState(false);
   const countdownTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeEventRef = React.useRef<ShotEvent | null>(null);
@@ -233,57 +232,50 @@ export const ShotScreen: React.FC = () => {
     try {
       const { data, error } = await supabase.rpc("rpc_start_shot_round", { p_group_id: GROUP_ID });
       if (error) { errorToast("Kunne ikke starte runde", { description: error.message }); return; }
-      toast.success("Runde startet!");
+      const result = data as any;
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
-      if (token) {
-        const profile = profiles[user.id] || "Noen";
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ type: "countdown_started", heading: "Shoot your shot! 🎯", message: `${profile} trykket knappen! Trekning om 10 sek.` }),
-        }).catch(() => {});
-      }
-      const eventId = (data as { event_id: string }).event_id;
-      const countdownEndsAt = (data as { countdown_ends_at: string }).countdown_ends_at;
-      countdownTimerRef.current = setTimeout(async () => {
-        await tryFinalizeCountdown({ id: eventId, status: "countdown", countdown_ends_at: countdownEndsAt } as ShotEvent);
+      
+      if (result.is_monster) {
+        // Monster round was triggered randomly!
+        toast.success(`🔥 MONSTERRUNDE! ${result.total_users} personer trukket!`);
+        if (token) {
+          const starterName = profiles[user.id] || "Noen";
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              type: "monster_round",
+              heading: "🔥 MONSTERRUNDE! 🔥",
+              message: `${starterName} trigget en monsterrunde! ALLE er trukket – alle må ta shot!`,
+              url: "https://guttahutte.lovable.app/shot",
+            }),
+          }).catch(() => {});
+        }
         loadActiveEvent();
-      }, 11000);
+      } else {
+        // Normal round
+        toast.success("Runde startet!");
+        if (token) {
+          const profile = profiles[user.id] || "Noen";
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ type: "countdown_started", heading: "Shoot your shot! 🎯", message: `${profile} trykket knappen! Trekning om 10 sek.` }),
+          }).catch(() => {});
+        }
+        const eventId = result.event_id;
+        const countdownEndsAt = result.countdown_ends_at;
+        countdownTimerRef.current = setTimeout(async () => {
+          await tryFinalizeCountdown({ id: eventId, status: "countdown", countdown_ends_at: countdownEndsAt } as ShotEvent);
+          loadActiveEvent();
+        }, 11000);
+      }
     } catch { errorToast("Noe gikk galt"); }
     finally { setPressing(false); }
   }, [user, pressing, profiles, loadActiveEvent, tryFinalizeCountdown]);
 
-  // Start monster round
-  const handleMonsterRound = React.useCallback(async () => {
-    if (!user || monsterLoading) return;
-    setMonsterLoading(true);
-    try {
-      const { data, error } = await supabase.rpc("rpc_start_monster_round", { p_group_id: GROUP_ID } as any);
-      if (error) { errorToast("Kunne ikke starte monsterrunde", { description: error.message }); return; }
-      const result = data as { monster_round_id: string; total_users: number; first_user_id: string };
-      toast.success(`🔥 Monsterrunde startet! ${result.total_users} personer trukket!`);
-      
-      // Push to all
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (token) {
-        const starterName = profiles[user.id] || "Noen";
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            type: "monster_round",
-            heading: "🔥 MONSTERRUNDE! 🔥",
-            message: `${starterName} aktiverte monsterrunde! ALLE er trukket – alle må ta shot! Første opp: ${profiles[result.first_user_id] || "Noen"}`,
-            url: "https://guttahutte.lovable.app/shot",
-          }),
-        }).catch(() => {});
-      }
-      loadActiveEvent();
-    } catch { errorToast("Noe gikk galt"); }
-    finally { setMonsterLoading(false); }
-  }, [user, monsterLoading, profiles, loadActiveEvent]);
+
 
   // Confirm shot (direct mode)
   const handleConfirm = React.useCallback(async (mode: string) => {
@@ -367,16 +359,7 @@ export const ShotScreen: React.FC = () => {
           {/* Big red button */}
           <ShotButton onPress={handlePress} disabled={!canPress} loading={pressing} activeEvent={activeEvent} tokenBalance={tokens?.balance ?? null} />
 
-          {/* Monster round button */}
-          <button type="button" onClick={handleMonsterRound} disabled={monsterLoading || !tokens || tokens.balance < 1}
-            className={cn(
-              "w-full flex items-center justify-center gap-2 py-4 rounded-xl font-heading font-bold text-lg transition-all active:scale-[0.97]",
-              "bg-gradient-to-r from-destructive to-destructive/80 text-destructive-foreground shadow-lg",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}>
-            <Skull size={22} />
-            {monsterLoading ? "Starter..." : "🔥 Monsterrunde"}
-          </button>
+
 
           {/* Monster round events for current user */}
           {myMonsterEvent && !activeEvent && (
@@ -433,7 +416,7 @@ const SHOT_RULES = [
   { title: "10 sek nedtelling", desc: "Etter du trykker starter en 10 sekunders nedtelling med push til alle." },
   { title: "100% tilfeldig", desc: "Alle har lik sjanse hver gang – ren random trekning." },
   { title: "Direkte bekreftelse", desc: "Den trukne bekrefter selv at shotten er tatt." },
-  { title: "🔥 Monsterrunde", desc: "Alle brukere trekkes samtidig i tilfeldig rekkefølge! Alle må ta shot." },
+  { title: "🔥 Monsterrunde", desc: "5% sjanse ved hvert trykk – alle trekkes samtidig i tilfeldig rekkefølge!" },
   { title: "Frikort", desc: "Tjenes gjennom ski-kåringer. Lar deg slippe unna en vanlig trekning uten straff." },
 ];
 
