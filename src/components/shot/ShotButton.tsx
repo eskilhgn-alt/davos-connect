@@ -12,7 +12,6 @@ interface ShotButtonProps {
   loading: boolean;
   activeEvent: ShotEvent | null;
   tokenBalance?: number | null;
-  isBanned?: boolean;
 }
 
 export const ShotButton: React.FC<ShotButtonProps> = ({
@@ -21,12 +20,10 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
   loading,
   activeEvent,
   tokenBalance,
-  isBanned,
 }) => {
   const [countdown, setCountdown] = React.useState<number | null>(null);
-  const [progress, setProgress] = React.useState(1); // 1 = full, 0 = empty
+  const [progress, setProgress] = React.useState(1);
 
-  // Countdown timer with smooth progress
   React.useEffect(() => {
     if (!activeEvent || activeEvent.status !== "countdown" || !activeEvent.countdown_ends_at) {
       setCountdown(null);
@@ -35,7 +32,7 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
     }
 
     const endTime = new Date(activeEvent.countdown_ends_at).getTime();
-    const startTime = endTime - 10000; // 10 second countdown
+    const startTime = endTime - 10000;
 
     const tick = () => {
       const now = Date.now();
@@ -53,7 +50,6 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
 
   const isCountdown = activeEvent?.status === "countdown" && countdown !== null;
 
-  // SVG circle params
   const size = 200;
   const strokeWidth = 6;
   const radius = (size - strokeWidth) / 2;
@@ -62,60 +58,27 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
   return (
     <div className="flex justify-center">
       <div className="relative">
-        {/* Progress ring during countdown */}
         {isCountdown && (
-          <svg
-            width={size + 20}
-            height={size + 20}
-            className="absolute -top-[10px] -left-[10px] -rotate-90"
-          >
-            <circle
-              cx={(size + 20) / 2}
-              cy={(size + 20) / 2}
-              r={radius + 4}
-              fill="none"
-              stroke="hsl(var(--border))"
-              strokeWidth={strokeWidth}
-            />
-            <circle
-              cx={(size + 20) / 2}
-              cy={(size + 20) / 2}
-              r={radius + 4}
-              fill="none"
-              stroke="hsl(var(--destructive))"
-              strokeWidth={strokeWidth}
-              strokeDasharray={circumference}
-              strokeDashoffset={circumference * (1 - progress)}
-              strokeLinecap="round"
-              className="transition-[stroke-dashoffset] duration-100 ease-linear"
-            />
+          <svg width={size + 20} height={size + 20} className="absolute -top-[10px] -left-[10px] -rotate-90">
+            <circle cx={(size + 20) / 2} cy={(size + 20) / 2} r={radius + 4} fill="none" stroke="hsl(var(--border))" strokeWidth={strokeWidth} />
+            <circle cx={(size + 20) / 2} cy={(size + 20) / 2} r={radius + 4} fill="none" stroke="hsl(var(--destructive))" strokeWidth={strokeWidth}
+              strokeDasharray={circumference} strokeDashoffset={circumference * (1 - progress)} strokeLinecap="round"
+              className="transition-[stroke-dashoffset] duration-100 ease-linear" />
           </svg>
         )}
 
-        <button
-          type="button"
-          onClick={onPress}
-          disabled={disabled || isCountdown}
+        <button type="button" onClick={onPress} disabled={disabled || isCountdown}
           style={{ width: size, height: size }}
           className={cn(
-            "relative rounded-full",
-            "flex flex-col items-center justify-center",
-            "font-heading font-bold text-xl",
-            "transition-all duration-200 active:scale-95",
-            "shadow-lg",
-            isCountdown
-              ? "bg-foreground text-background animate-pulse"
-              : disabled
-                  ? "bg-muted text-muted-foreground cursor-not-allowed"
-                  : "bg-destructive text-destructive-foreground hover:brightness-110"
-          )}
-        >
+            "relative rounded-full flex flex-col items-center justify-center font-heading font-bold text-xl transition-all duration-200 active:scale-95 shadow-lg",
+            isCountdown ? "bg-foreground text-background animate-pulse"
+              : disabled ? "bg-muted text-muted-foreground cursor-not-allowed"
+              : "bg-destructive text-destructive-foreground hover:brightness-110"
+          )}>
           {isCountdown ? (
             countdown && countdown > 0 ? (
               <>
-                <span className="font-heading text-6xl font-bold tabular-nums">
-                  {countdown}
-                </span>
+                <span className="font-heading text-6xl font-bold tabular-nums">{countdown}</span>
                 <span className="text-sm font-normal mt-1 opacity-70">Trekning...</span>
               </>
             ) : (
@@ -127,15 +90,10 @@ export const ShotButton: React.FC<ShotButtonProps> = ({
           ) : loading ? (
             <span className="text-lg">Starter...</span>
           ) : disabled ? (
-            activeEvent && ["countdown", "selected", "disputed"].includes(activeEvent.status) ? (
+            activeEvent && ["countdown", "selected"].includes(activeEvent.status) ? (
               <>
                 <span className="text-3xl">⏳</span>
                 <span className="text-sm font-normal mt-2">Runde pågår</span>
-              </>
-            ) : isBanned ? (
-              <>
-                <span className="text-3xl">🚫</span>
-                <span className="text-sm font-normal mt-2">Utestengt</span>
               </>
             ) : (tokenBalance != null && tokenBalance <= 0) ? (
               <>

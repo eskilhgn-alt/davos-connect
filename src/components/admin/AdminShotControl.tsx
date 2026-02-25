@@ -144,36 +144,8 @@ export const AdminShotControl: React.FC<Props> = ({
     }
   };
 
-  // Find banned users
-  const bannedUsers = users.filter(u => u.is_active && (u as any).shot_banned_until && new Date((u as any).shot_banned_until) > new Date());
-
   return (
     <div className="px-4 space-y-4 pb-6">
-      {/* Banned users */}
-      {bannedUsers.length > 0 && (
-        <DavosCard>
-          <DavosCardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <ShieldOff size={18} className="text-destructive" />
-              <h3 className="font-heading font-semibold text-foreground text-sm">Utestengte (Shot)</h3>
-            </div>
-            {bannedUsers.map(u => (
-              <div key={u.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{u.nickname || u.full_name || u.email}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Utestengt til {new Date((u as any).shot_banned_until).toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                </div>
-                <DavosButton variant="outline" size="sm" onClick={() => unbanShot(u.id)}
-                  disabled={actionLoading === `unban-${u.id}`}>
-                  {actionLoading === `unban-${u.id}` ? <Loader2 size={14} className="animate-spin" /> : "Fjern ban"}
-                </DavosButton>
-              </div>
-            ))}
-          </DavosCardContent>
-        </DavosCard>
-      )}
       {/* Token adjustment */}
       <DavosCard>
         <DavosCardContent className="p-4 space-y-3">
