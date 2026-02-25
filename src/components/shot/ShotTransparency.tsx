@@ -25,14 +25,17 @@ LIMIT 1;
 -- Alle aktive brukere har identisk
 -- sannsynlighet: 1/N (ca. 11.1% med 9 spillere)`;
 
-const MONSTER_SQL = `-- Monsterrunde (rpc_start_monster_round)
+const MONSTER_SQL = `-- Monsterrunde (5% sjanse per trykk)
+-- Trigges tilfeldig inne i rpc_start_shot_round.
 -- Alle trekkes i tilfeldig rekkefølge.
 
-SELECT p.id as user_id
-FROM profiles p
-WHERE p.is_active = true
-ORDER BY random();`;
-
+IF random() < 0.05 THEN  -- 5% sjanse
+  FOR v_member IN
+    SELECT p.id FROM profiles p
+    WHERE p.is_active = true
+    ORDER BY random()
+  LOOP ...  -- Alle får egen shot-event
+END IF;`;
 interface DistStat {
   display_name: string;
   times_selected: number;
