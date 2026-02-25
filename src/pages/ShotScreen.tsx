@@ -431,11 +431,10 @@ const SHOT_RULES = [
   { title: "1 token per runde", desc: "Koster 1 token å starte. Hoarding er lov." },
   { title: "5 tokens per dag", desc: "Du får 5 nye tokens ved midnatt hver dag." },
   { title: "10 sek nedtelling", desc: "Etter du trykker starter en 10 sekunders nedtelling med push til alle." },
-  { title: "Vektet trekning", desc: "De som trekkes ofte har lavere sjanse neste gang." },
+  { title: "100% tilfeldig", desc: "Alle har lik sjanse hver gang – ren random trekning." },
   { title: "Direkte bekreftelse", desc: "Den trukne bekrefter selv at shotten er tatt." },
-  { title: "🔥 Monsterrunde", desc: "Alle brukere trekkes samtidig! Alle må ta shot. Første er vektet, resten tilfeldig rekkefølge." },
+  { title: "🔥 Monsterrunde", desc: "Alle brukere trekkes samtidig i tilfeldig rekkefølge! Alle må ta shot." },
   { title: "Frikort", desc: "Tjenes gjennom ski-kåringer. Lar deg slippe unna en vanlig trekning uten straff." },
-  { title: "Bonustoken", desc: "Leder du med 2+ trekninger mer enn nestemann, får du automatisk +1 token." },
 ];
 
 const ShotRulesSheet: React.FC<{ open: boolean; onOpenChange: (o: boolean) => void }> = ({ open, onOpenChange }) => (
