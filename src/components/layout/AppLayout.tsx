@@ -4,7 +4,7 @@ import { FloatingHomeButton } from "./FloatingHomeButton";
 
 import { PopupAnnouncementOverlay } from "./PopupAnnouncement";
 import { WebcamPreloadProvider } from "@/components/webcams";
-import { WitnessOverlay } from "@/components/shot/WitnessOverlay";
+
 import { PermissionPrompt } from "@/components/onboarding/PermissionPrompt";
 import { useLocationTracker } from "@/hooks/useLocationTracker";
 import { useAutoPush } from "@/hooks/useAutoPush";
@@ -24,7 +24,7 @@ export const AppLayout: React.FC = () => {
           <Outlet />
         </main>
         <FloatingHomeButton />
-        <WitnessOverlay />
+        
         <PermissionPrompt />
         <PopupAnnouncementOverlay />
       </div>

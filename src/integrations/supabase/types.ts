@@ -1023,6 +1023,7 @@ export type Database = {
           dispute_resolved_by: string | null
           group_id: string
           id: string
+          monster_round_id: string | null
           punishment_applied_at: string | null
           punishment_deadline_at: string | null
           random_checker_id: string | null
@@ -1050,6 +1051,7 @@ export type Database = {
           dispute_resolved_by?: string | null
           group_id?: string
           id?: string
+          monster_round_id?: string | null
           punishment_applied_at?: string | null
           punishment_deadline_at?: string | null
           random_checker_id?: string | null
@@ -1077,6 +1079,7 @@ export type Database = {
           dispute_resolved_by?: string | null
           group_id?: string
           id?: string
+          monster_round_id?: string | null
           punishment_applied_at?: string | null
           punishment_deadline_at?: string | null
           random_checker_id?: string | null
@@ -1978,6 +1981,7 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_start_monster_round: { Args: { p_group_id?: string }; Returns: Json }
       rpc_start_shot_round: { Args: { p_group_id?: string }; Returns: Json }
       rpc_use_frikort: { Args: { p_event_id: string }; Returns: Json }
     }

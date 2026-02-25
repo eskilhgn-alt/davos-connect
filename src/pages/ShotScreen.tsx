@@ -1,6 +1,6 @@
 /**
  * ShotScreen – "Shoot your shot" main screen
- * Minimal, full-featured: button, countdown, status, feed, leaderboard
+ * Simplified: no bans, no witness, direct confirm + monster round
  */
 
 import * as React from "react";
@@ -15,14 +15,13 @@ import { ShotEventFeed } from "@/components/shot/ShotEventFeed";
 import { ShotLeaderboard } from "@/components/shot/ShotLeaderboard";
 import { ShotTransparency } from "@/components/shot/ShotTransparency";
 import { ShotHistory } from "@/components/shot/ShotHistory";
-import { CheckerOverlay } from "@/components/shot/CheckerOverlay";
 import { AdminShotPopup } from "@/components/shot/AdminShotPopup";
 import { SkiAwardClaimDialog } from "@/components/ski/SkiAwardClaimDialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { markPageSeen } from "@/hooks/useAppBadges";
 import { errorToast } from "@/utils/errorToast";
-import { BookOpen, ChevronDown } from "lucide-react";
+import { BookOpen, Skull } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const GROUP_ID = "global";
@@ -53,6 +52,7 @@ export interface ShotEvent {
   checker_reason: string | null;
   admin_verdict: string | null;
   admin_reason: string | null;
+  monster_round_id: string | null;
 }
 
 export interface ShotLogEntry {
@@ -67,30 +67,27 @@ export interface ShotLogEntry {
 export const ShotScreen: React.FC = () => {
   React.useEffect(() => { markPageSeen("shot"); }, []);
   const { user, isAdmin } = useAuth();
-  const [tokens, setTokens] = React.useState<{ balance: number; shot_banned_until?: string | null } | null>(null);
+  const [tokens, setTokens] = React.useState<{ balance: number } | null>(null);
   const [activeEvent, setActiveEvent] = React.useState<ShotEvent | null>(null);
+  const [monsterEvents, setMonsterEvents] = React.useState<ShotEvent[]>([]);
   const [logEntries, setLogEntries] = React.useState<ShotLogEntry[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [pressing, setPressing] = React.useState(false);
   const [profiles, setProfiles] = React.useState<Record<string, string>>({});
   const [frikortCount, setFrikortCount] = React.useState(0);
   const [rulesOpen, setRulesOpen] = React.useState(false);
-  const frikortCountRef = React.useRef(0);
+  const [monsterLoading, setMonsterLoading] = React.useState(false);
   const countdownTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeEventRef = React.useRef<ShotEvent | null>(null);
 
-  // Keep ref in sync for use in callbacks
   React.useEffect(() => { activeEventRef.current = activeEvent; }, [activeEvent]);
 
-  // Load profiles for display names
   const loadProfiles = React.useCallback(async () => {
     const { data } = await supabase.from("profiles").select("id, nickname, full_name, email");
     if (data) {
       const map: Record<string, string> = {};
-      data.forEach((p) => {
-        map[p.id] = p.nickname || p.full_name || p.email;
-      });
+      data.forEach((p) => { map[p.id] = p.nickname || p.full_name || p.email; });
       setProfiles(map);
     }
   }, []);
@@ -100,14 +97,11 @@ export const ShotScreen: React.FC = () => {
     return profiles[userId] || "Ukjent";
   }, [profiles]);
 
-  // Load tokens
   const loadTokens = React.useCallback(async () => {
     const { data, error } = await supabase.rpc("rpc_get_shot_tokens");
-    if (!error && data) setTokens(data as { balance: number; shot_banned_until?: string | null });
+    if (!error && data) setTokens(data as { balance: number });
   }, []);
 
-  // Try to finalize any expired countdown (any client can do this)
-  // Returns the finalized result if successful, null otherwise
   const tryFinalizeCountdown = React.useCallback(async (ev: ShotEvent): Promise<{ selected_user_id: string } | null> => {
     if (ev.status !== "countdown" || !ev.countdown_ends_at) return null;
     if (new Date(ev.countdown_ends_at) > new Date()) return null;
@@ -115,7 +109,6 @@ export const ShotScreen: React.FC = () => {
       const { data: finalData, error: finalError } = await supabase.rpc("rpc_finalize_countdown", { p_event_id: ev.id });
       if (!finalError && finalData) {
         const result = finalData as { selected_user_id: string; deadline_at?: string; status: string };
-        // Only send push if THIS client actually finalized (deadline_at present = real finalization)
         if (result.deadline_at && result.status === "selected") {
           const winnerName = profiles[result.selected_user_id] || "Noen";
           const sess = await supabase.auth.getSession();
@@ -124,28 +117,24 @@ export const ShotScreen: React.FC = () => {
             fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
-              body: JSON.stringify({
-                type: "selected",
-                heading: "Vinner trukket! 🏆",
-                message: `${winnerName} må ta shot innen 15 minutter!`,
-              }),
+              body: JSON.stringify({ type: "selected", heading: "Vinner trukket! 🏆", message: `${winnerName} må ta shot!` }),
             }).catch(() => {});
           }
         }
         return result;
       }
-    } catch { /* another client may have finalized first – that's fine */ }
+    } catch { /* another client may have finalized first */ }
     return null;
   }, [profiles]);
 
-  // Load active event – exclude terminal states, prioritize active ones
   const loadActiveEvent = React.useCallback(async () => {
-    // Only look for non-terminal events (no confirmed/punished/cancelled)
+    // Regular (non-monster) active event
     const { data } = await supabase
       .from("shot_events")
       .select("*")
       .eq("group_id", GROUP_ID)
-      .in("status", ["countdown", "selected", "overdue", "disputed"])
+      .is("monster_round_id", null)
+      .in("status", ["countdown", "selected", "overdue"])
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -153,26 +142,16 @@ export const ShotScreen: React.FC = () => {
       const ev = data[0] as unknown as ShotEvent;
       setActiveEvent(ev);
 
-      // Any client can finalize an expired countdown
       if (ev.status === "countdown" && ev.countdown_ends_at && new Date(ev.countdown_ends_at) <= new Date()) {
         await tryFinalizeCountdown(ev);
-        // Re-fetch the now-finalized event so UI updates immediately
-        const { data: updated } = await supabase
-          .from("shot_events")
-          .select("*")
-          .eq("id", ev.id)
-          .limit(1);
-        if (updated?.[0]) {
-          setActiveEvent(updated[0] as unknown as ShotEvent);
-        }
+        const { data: updated } = await supabase.from("shot_events").select("*").eq("id", ev.id).limit(1);
+        if (updated?.[0]) setActiveEvent(updated[0] as unknown as ShotEvent);
         return;
       }
 
-      // Any client can apply overdue
       if (ev.status === "selected" && ev.deadline_at && new Date(ev.deadline_at) < new Date() && !ev.confirmed_at) {
         const { data: overdueResult } = await supabase.rpc("rpc_apply_overdue", { p_event_id: ev.id });
         const result = overdueResult as { status?: string } | null;
-        // Only send shame push if THIS client actually applied the punishment
         if (result?.status === "punished") {
           const sess = await supabase.auth.getSession();
           const t = sess.data.session?.access_token;
@@ -181,45 +160,41 @@ export const ShotScreen: React.FC = () => {
             fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
-              body: JSON.stringify({
-                type: "overdue_shame",
-                heading: "Feiging! 🐔",
-                message: `${cowardName} feiget ut og tok ikke shotten i tide! 12-timers ban.`,
-              }),
+              body: JSON.stringify({ type: "overdue_shame", heading: "Feiging! 🐔", message: `${cowardName} tok ikke shotten i tide!` }),
             }).catch(() => {});
           }
         }
-        // Re-fetch updated event
         loadActiveEvent();
       }
     } else {
       setActiveEvent(null);
     }
-  }, [profiles, tryFinalizeCountdown]);
 
-  // Load log
+    // Monster round active events (for current user)
+    if (user) {
+      const { data: monsterData } = await supabase
+        .from("shot_events")
+        .select("*")
+        .eq("group_id", GROUP_ID)
+        .not("monster_round_id", "is", null)
+        .in("status", ["selected"])
+        .order("created_at", { ascending: false })
+        .limit(20);
+      setMonsterEvents((monsterData || []) as unknown as ShotEvent[]);
+    }
+  }, [profiles, tryFinalizeCountdown, user]);
+
   const loadLog = React.useCallback(async () => {
-    const { data } = await supabase
-      .from("shot_event_log")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(20);
-
+    const { data } = await supabase.from("shot_event_log").select("*").order("created_at", { ascending: false }).limit(20);
     if (data) setLogEntries(data as unknown as ShotLogEntry[]);
   }, []);
 
-  // Load frikort count
   const loadFrikort = React.useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("user_frikort")
-      .select("id")
-      .eq("user_id", user.id)
-      .is("used_at", null);
+    const { data } = await supabase.from("user_frikort").select("id").eq("user_id", user.id).is("used_at", null);
     setFrikortCount(data?.length ?? 0);
   }, [user]);
 
-  // Initial load
   React.useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -229,52 +204,20 @@ export const ShotScreen: React.FC = () => {
     load();
   }, [loadProfiles, loadTokens, loadActiveEvent, loadLog, loadFrikort]);
 
-  // Realtime subscriptions + visibility handler + polling fallback
   React.useEffect(() => {
-    const refreshAll = () => {
-      loadActiveEvent();
-      loadTokens();
-      loadFrikort();
-      loadLog();
-    };
-
+    const refreshAll = () => { loadActiveEvent(); loadTokens(); loadFrikort(); loadLog(); };
     const channel = supabase
       .channel("shot-realtime")
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "shot_events",
-      }, () => {
-        loadActiveEvent();
-        loadTokens();
-        loadFrikort();
-      })
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "shot_event_log",
-      }, () => {
-        loadLog();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "shot_events" }, () => { loadActiveEvent(); loadTokens(); loadFrikort(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "shot_event_log" }, () => { loadLog(); })
       .subscribe();
-
-    // Visibility change handler: resync when app comes back from background
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        refreshAll();
-      }
-    };
+    const handleVisibility = () => { if (document.visibilityState === "visible") refreshAll(); };
     document.addEventListener("visibilitychange", handleVisibility);
-
-    // Polling fallback every 5s to catch missed realtime events
     const poll = setInterval(() => {
       const ev = activeEventRef.current;
-      if (ev && (ev.status === "countdown" || ev.status === "selected")) {
-        loadActiveEvent();
-      }
+      if (ev && (ev.status === "countdown" || ev.status === "selected")) loadActiveEvent();
     }, 5000);
     pollRef.current = poll as unknown as ReturnType<typeof setTimeout>;
-
     return () => {
       supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", handleVisibility);
@@ -283,189 +226,123 @@ export const ShotScreen: React.FC = () => {
     };
   }, [loadActiveEvent, loadLog, loadTokens, loadFrikort]);
 
-  // Start round
+  // Start regular round
   const handlePress = React.useCallback(async () => {
     if (!user || pressing) return;
     setPressing(true);
     try {
       const { data, error } = await supabase.rpc("rpc_start_shot_round", { p_group_id: GROUP_ID });
-      if (error) {
-        errorToast("Kunne ikke starte runde", { description: error.message });
-        return;
-      }
+      if (error) { errorToast("Kunne ikke starte runde", { description: error.message }); return; }
       toast.success("Runde startet!");
-
-      // Send push
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
       if (token) {
         const profile = profiles[user.id] || "Noen";
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ type: "countdown_started", heading: "Shoot your shot! 🎯", message: `${profile} trykket knappen! Trekning om 10 sek.` }),
+        }).catch(() => {});
+      }
+      const eventId = (data as { event_id: string }).event_id;
+      const countdownEndsAt = (data as { countdown_ends_at: string }).countdown_ends_at;
+      countdownTimerRef.current = setTimeout(async () => {
+        await tryFinalizeCountdown({ id: eventId, status: "countdown", countdown_ends_at: countdownEndsAt } as ShotEvent);
+        loadActiveEvent();
+      }, 11000);
+    } catch { errorToast("Noe gikk galt"); }
+    finally { setPressing(false); }
+  }, [user, pressing, profiles, loadActiveEvent, tryFinalizeCountdown]);
+
+  // Start monster round
+  const handleMonsterRound = React.useCallback(async () => {
+    if (!user || monsterLoading) return;
+    setMonsterLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("rpc_start_monster_round", { p_group_id: GROUP_ID } as any);
+      if (error) { errorToast("Kunne ikke starte monsterrunde", { description: error.message }); return; }
+      const result = data as { monster_round_id: string; total_users: number; first_user_id: string };
+      toast.success(`🔥 Monsterrunde startet! ${result.total_users} personer trukket!`);
+      
+      // Push to all
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      if (token) {
+        const starterName = profiles[user.id] || "Noen";
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
-            type: "countdown_started",
-            heading: "Shoot your shot! 🎯",
-            message: `${profile} trykket knappen! Trekning om 10 sek.`,
+            type: "monster_round",
+            heading: "🔥 MONSTERRUNDE! 🔥",
+            message: `${starterName} aktiverte monsterrunde! ALLE er trukket – alle må ta shot! Første opp: ${profiles[result.first_user_id] || "Noen"}`,
+            url: "https://guttahutte.lovable.app/shot",
           }),
         }).catch(() => {});
       }
+      loadActiveEvent();
+    } catch { errorToast("Noe gikk galt"); }
+    finally { setMonsterLoading(false); }
+  }, [user, monsterLoading, profiles, loadActiveEvent]);
 
-      // Schedule finalization attempt – but loadActiveEvent also handles this
-      // so if this timer is killed (backgrounding), the polling/visibility handler picks it up
-      const eventId = (data as { event_id: string }).event_id;
-      const countdownEndsAt = (data as { countdown_ends_at: string }).countdown_ends_at;
-      const countdownTimer = setTimeout(async () => {
-        // Build a minimal ShotEvent for tryFinalizeCountdown
-        const stubEvent: ShotEvent = {
-          id: eventId,
-          status: "countdown",
-          countdown_ends_at: countdownEndsAt,
-        } as ShotEvent;
-        await tryFinalizeCountdown(stubEvent);
-        loadActiveEvent();
-      }, 11000);
-      countdownTimerRef.current = countdownTimer;
-    } catch (e) {
-      errorToast("Noe gikk galt");
-    } finally {
-      setPressing(false);
+  // Confirm shot (direct mode)
+  const handleConfirm = React.useCallback(async (mode: string) => {
+    if (!activeEvent && monsterEvents.length === 0) return;
+    // Find the event to confirm – either active or the user's monster event
+    let eventToConfirm = activeEvent;
+    if (!eventToConfirm || eventToConfirm.selected_user_id !== user?.id) {
+      eventToConfirm = monsterEvents.find(e => e.selected_user_id === user?.id && e.status === "selected") || null;
     }
-  }, [user, pressing, profiles, loadActiveEvent, tryFinalizeCountdown]);
+    if (!eventToConfirm) return;
 
-  // Confirm shot – re-fetch fresh event state to avoid acting on stale data
-  const handleConfirm = React.useCallback(async (mode: string, witnessId?: string, disputeReason?: string, disputeDetails?: string) => {
-    if (!activeEvent) return;
-    // Fetch fresh event state from DB to avoid race conditions
-    const { data: freshEvents } = await supabase
-      .from("shot_events")
-      .select("*")
-      .eq("id", activeEvent.id)
-      .limit(1);
+    const { data: freshEvents } = await supabase.from("shot_events").select("*").eq("id", eventToConfirm.id).limit(1);
     const freshEvent = freshEvents?.[0] as unknown as ShotEvent | undefined;
     if (!freshEvent || freshEvent.status === "confirmed" || freshEvent.status === "cancelled" || freshEvent.status === "punished") {
       toast.info("Denne runden er allerede avsluttet.");
       loadActiveEvent();
       return;
     }
-    const { error } = await supabase.rpc("rpc_confirm_shot", {
-      p_event_id: freshEvent.id,
-      p_mode: mode,
-      p_witness_id: mode === "self" && witnessId ? witnessId : undefined,
-      p_dispute_reason: disputeReason || undefined,
-      p_dispute_details: disputeDetails || undefined,
-    } as any);
-    if (error) {
-      errorToast("Bekreftelse feilet", { description: error.message });
-      return;
-    }
+    const { error } = await supabase.rpc("rpc_confirm_shot", { p_event_id: freshEvent.id, p_mode: mode } as any);
+    if (error) { errorToast("Bekreftelse feilet", { description: error.message }); return; }
+    toast.success("Shot bekreftet! ✅");
 
-    const messages: Record<string, string> = {
-      self: "Shot bekreftet! Venter på vitne.",
-      witness: "Vitnebekreftelse registrert!",
-    };
-    toast.success(messages[mode] || "Oppdatert!");
-
-    // Send push for all confirmation events
     const session = await supabase.auth.getSession();
     const token = session.data.session?.access_token;
     if (token) {
-      const selectedName = profiles[activeEvent?.selected_user_id || ""] || "Noen";
       const callerName = profiles[user?.id || ""] || "Noen";
-
-      if (mode === "self" && witnessId) {
-        // Push to chosen witness specifically
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            type: "witness_request",
-            heading: "Du er vitne! 👁",
-            message: `${callerName} har tatt shotten – bekreft i appen innen 15 min.`,
-            include_user_ids: [witnessId],
-            url: "https://guttahutte.lovable.app/shot",
-          }),
-        }).catch(() => {});
-        // Also notify everyone else
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            type: "self_confirm",
-            heading: "Shot bekreftet! ✅",
-            message: `${callerName} har tatt shotten – venter på vitne.`,
-            exclude_user_id: user?.id,
-          }),
-        }).catch(() => {});
-      } else if (mode === "witness") {
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            type: "witness_confirm",
-            heading: "Vitne bekreftet! 👁",
-            message: `${callerName} bekreftet som vitne for ${selectedName}.`,
-            exclude_user_id: user?.id,
-          }),
-        }).catch(() => {});
-      } else if (mode === "witness_deny") {
-        // Shame push: witness denied = player is busted
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            type: "witness_deny",
-            heading: "Busted! 🚨",
-            message: `${callerName} avslørte at ${selectedName} IKKE tok shotten! 12-timers ban utdelt. 💀`,
-          }),
-        }).catch(() => {});
-      } else if (mode === "refuse") {
-        // Shame push: player refused
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            type: "refused_shame",
-            heading: "Feiging! 🐔",
-            message: `${selectedName} nektet å ta shotten! Dobbel skam og 12-timers ban. 💀`,
-          }),
-        }).catch(() => {});
-      }
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: "direct_confirm",
+          heading: "Shot tatt! ✅",
+          message: `${callerName} har tatt shotten!`,
+          exclude_user_id: user?.id,
+        }),
+      }).catch(() => {});
     }
-    // Always refresh state after confirm action
     loadActiveEvent();
     loadTokens();
-  }, [activeEvent, profiles, user, loadActiveEvent, loadTokens]);
+  }, [activeEvent, monsterEvents, profiles, user, loadActiveEvent, loadTokens]);
 
   // Use frikort
   const handleUseFrikort = React.useCallback(async () => {
     if (!activeEvent) return;
     const { error } = await supabase.rpc("rpc_use_frikort", { p_event_id: activeEvent.id });
-    if (error) {
-      errorToast("Frikort-feil", { description: error.message });
-      return;
-    }
+    if (error) { errorToast("Frikort-feil", { description: error.message }); return; }
     toast.success("Frikort brukt! Du slipper denne runden. 🎫");
     loadFrikort();
     loadActiveEvent();
   }, [activeEvent, loadFrikort, loadActiveEvent]);
 
-  // Check ban status
-  const isBanned = tokens?.shot_banned_until && new Date(tokens.shot_banned_until) > new Date();
-  const banEndsAt = tokens?.shot_banned_until ? new Date(tokens.shot_banned_until) : null;
-
-  // Allow pressing when no countdown is actively running (selected/disputed rounds don't block new rounds)
   const hasCountdown = activeEvent && activeEvent.status === "countdown";
-  const canPress = !hasCountdown && !isBanned && tokens && tokens.balance > 0 && !pressing;
+  const canPress = !hasCountdown && tokens && tokens.balance > 0 && !pressing;
+
+  // My monster event (if any active)
+  const myMonsterEvent = monsterEvents.find(e => e.selected_user_id === user?.id && e.status === "selected");
 
   return (
-    <div
-      className="flex flex-col overflow-hidden bg-background"
-      style={{ height: "var(--app-height)" }}
-    >
+    <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
       <AppHeader title="Shoot your shot" leftAction={<BackButton fallbackPath="/hjem" />} rightAction={
         <button onClick={() => setRulesOpen(true)} className="tap-target flex items-center justify-center text-primary" aria-label="Regler">
           <BookOpen size={20} strokeWidth={2} />
@@ -475,43 +352,68 @@ export const ShotScreen: React.FC = () => {
       <PullToRefreshWrapper
         onRefresh={async () => { await Promise.all([loadTokens(), loadActiveEvent(), loadLog(), loadFrikort()]); }}
         className="flex-1 overflow-y-auto overscroll-contain"
-        style={{
-          paddingBottom: "var(--bottom-nav-h-effective)",
-          WebkitOverflowScrolling: "touch",
-        }}
+        style={{ paddingBottom: "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}
       >
         <div className="px-6 py-8 space-y-8">
-          {/* Token + frikort display */}
+          {/* Token display */}
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Tokens</p>
-            <p className="font-heading text-2xl font-bold text-foreground mt-1">
-              {tokens ? tokens.balance : "..."}
-            </p>
+            <p className="font-heading text-2xl font-bold text-foreground mt-1">{tokens ? tokens.balance : "..."}</p>
             {frikortCount > 0 && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                🎫 {frikortCount} frikort
-              </p>
-            )}
-            {isBanned && banEndsAt && (
-              <div className="mt-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
-                <p className="text-xs text-destructive font-medium">
-                  🚫 Utestengt til {banEndsAt.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">🎫 {frikortCount} frikort</p>
             )}
           </div>
 
           {/* Big red button */}
-          <ShotButton
-            onPress={handlePress}
-            disabled={!canPress}
-            loading={pressing}
-            activeEvent={activeEvent}
-            tokenBalance={tokens?.balance ?? null}
-            isBanned={!!isBanned}
-          />
+          <ShotButton onPress={handlePress} disabled={!canPress} loading={pressing} activeEvent={activeEvent} tokenBalance={tokens?.balance ?? null} />
 
-          {/* Status card */}
+          {/* Monster round button */}
+          <button type="button" onClick={handleMonsterRound} disabled={monsterLoading || !tokens || tokens.balance < 1}
+            className={cn(
+              "w-full flex items-center justify-center gap-2 py-4 rounded-xl font-heading font-bold text-lg transition-all active:scale-[0.97]",
+              "bg-gradient-to-r from-destructive to-destructive/80 text-destructive-foreground shadow-lg",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}>
+            <Skull size={22} />
+            {monsterLoading ? "Starter..." : "🔥 Monsterrunde"}
+          </button>
+
+          {/* Monster round events for current user */}
+          {myMonsterEvent && (
+            <ShotStatusCard
+              event={myMonsterEvent}
+              currentUserId={user?.id || ""}
+              isAdmin={isAdmin}
+              getDisplayName={getDisplayName}
+              onConfirm={handleConfirm}
+              profiles={profiles}
+            />
+          )}
+
+          {/* Active monster round overview */}
+          {monsterEvents.length > 0 && (
+            <div className="border border-destructive/30 rounded-xl p-4 space-y-3 bg-destructive/5">
+              <p className="font-heading font-bold text-sm text-destructive flex items-center gap-1.5">
+                <Skull size={16} /> Monsterrunde aktiv
+              </p>
+              <div className="space-y-1.5">
+                {monsterEvents.map(e => (
+                  <div key={e.id} className="flex items-center justify-between text-sm">
+                    <span className="text-foreground">{getDisplayName(e.selected_user_id)}</span>
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full",
+                      e.status === "confirmed" ? "bg-success/10 text-success" :
+                      e.status === "punished" ? "bg-destructive/10 text-destructive" :
+                      "bg-muted text-muted-foreground"
+                    )}>
+                      {e.status === "selected" ? "Venter..." : e.status === "confirmed" ? "✅" : "💀"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Regular status card */}
           {activeEvent && (
             <ShotStatusCard
               event={activeEvent}
@@ -525,39 +427,22 @@ export const ShotScreen: React.FC = () => {
             />
           )}
 
-          {/* My shot history */}
           <ShotHistory getDisplayName={getDisplayName} />
-
-          {/* Leaderboard */}
           <ShotLeaderboard groupId={GROUP_ID} />
-
-          {/* Feed */}
           <ShotEventFeed entries={logEntries} getDisplayName={getDisplayName} />
-
-          {/* Transparency / fairness checker */}
           <ShotTransparency />
         </div>
       </PullToRefreshWrapper>
 
-      {/* Floating rules button at bottom */}
       {!rulesOpen && (
-        <button
-          onClick={() => setRulesOpen(true)}
-          className="fixed bottom-[calc(var(--bottom-nav-h-effective)+12px)] left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 rounded-full bg-foreground/90 backdrop-blur-sm px-4 py-2 text-xs font-medium text-background shadow-lg active:scale-95 transition-transform"
-        >
-          <BookOpen size={14} />
-          Regler
+        <button onClick={() => setRulesOpen(true)}
+          className="fixed bottom-[calc(var(--bottom-nav-h-effective)+12px)] left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 rounded-full bg-foreground/90 backdrop-blur-sm px-4 py-2 text-xs font-medium text-background shadow-lg active:scale-95 transition-transform">
+          <BookOpen size={14} /> Regler
         </button>
       )}
 
-      {/* Rules sheet */}
       <ShotRulesSheet open={rulesOpen} onOpenChange={setRulesOpen} />
-
-      {/* Checker + Admin overlays */}
-      <CheckerOverlay />
       <AdminShotPopup />
-
-      {/* Award claim dialog */}
       <SkiAwardClaimDialog />
     </div>
   );
@@ -566,16 +451,13 @@ export const ShotScreen: React.FC = () => {
 /* ---------- Rules Sheet ---------- */
 const SHOT_RULES = [
   { title: "Alle er med", desc: "Alle aktive brukere er automatisk med i trekningen." },
-  { title: "1 token per runde", desc: "Koster 1 token å starte. Hoarding er lov – ingen øvre grense." },
+  { title: "1 token per runde", desc: "Koster 1 token å starte. Hoarding er lov." },
   { title: "5 tokens per dag", desc: "Du får 5 nye tokens ved midnatt hver dag." },
   { title: "10 sek nedtelling", desc: "Etter du trykker starter en 10 sekunders nedtelling med push til alle." },
-  { title: "Vektet trekning", desc: "De som trekkes ofte har lavere sjanse neste gang. Formelen: 1/(1 + 0.3 × nylige trekninger)." },
-  { title: "15 min frist", desc: "Den trukne har 15 minutter til å ta shotten og velge et vitne." },
-  { title: "Vitne bekrefter", desc: "Vitnet får push og har 15 min til å bekrefte eller avslå." },
-  { title: "Tilfeldig sjekk", desc: "Ved dispute velges en tilfeldig bruker til å vurdere saken. De kan godkjenne, avvise, eller eskalere til admin." },
-  { title: "Admin-avgjørelse", desc: "Eskalerte saker avgjøres av admin med full begrunnelse som loggføres." },
-  { title: "12-timers ban", desc: "Nekting, timeout eller avslag fra vitne gir 12 timers utestengelse." },
-  { title: "Frikort", desc: "Tjenes gjennom ski-kåringer. Lar deg slippe unna en trekning uten straff." },
+  { title: "Vektet trekning", desc: "De som trekkes ofte har lavere sjanse neste gang." },
+  { title: "Direkte bekreftelse", desc: "Den trukne bekrefter selv at shotten er tatt." },
+  { title: "🔥 Monsterrunde", desc: "Alle brukere trekkes samtidig! Alle må ta shot. Første er vektet, resten tilfeldig rekkefølge." },
+  { title: "Frikort", desc: "Tjenes gjennom ski-kåringer. Lar deg slippe unna en vanlig trekning uten straff." },
   { title: "Bonustoken", desc: "Leder du med 2+ trekninger mer enn nestemann, får du automatisk +1 token." },
 ];
 
