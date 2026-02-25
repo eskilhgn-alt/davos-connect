@@ -1,6 +1,6 @@
 /**
- * FaktasjekkerScreen — AI fact-checker with conversation history
- * Features: search bar, streaming responses, thread history, continue conversations
+ * FaktasjekkerScreen — AI fact-checker with shared conversation history
+ * All users can see all threads. Only thread owner can delete.
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -17,8 +17,50 @@ import {
   Loader2,
   Sparkles,
   MessageCircle,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/* ── Thread list item ── */
+const ThreadRow: React.FC<{
+  thread: FaktaThread;
+  onOpen: () => void;
+  onDelete?: () => void;
+  msgCount: number;
+}> = ({ thread, onOpen, onDelete, msgCount }) => (
+  <div className="flex items-center">
+    <button
+      onClick={onOpen}
+      className="flex-1 text-left px-4 py-3.5 hover:bg-muted/50 active:bg-muted transition-colors"
+    >
+      <p className="text-sm font-medium text-foreground truncate">
+        {thread.title}
+      </p>
+      <div className="flex items-center gap-2 mt-0.5">
+        <span className="text-xs text-muted-foreground flex items-center gap-1">
+          <User size={10} />
+          {thread.userName || "Ukjent"}
+        </span>
+        <span className="text-xs text-muted-foreground">·</span>
+        <span className="text-xs text-muted-foreground">
+          {msgCount} meldinger
+        </span>
+        <span className="text-xs text-muted-foreground">·</span>
+        <span className="text-xs text-muted-foreground">
+          {new Date(thread.createdAt).toLocaleDateString("nb-NO")}
+        </span>
+      </div>
+    </button>
+    {onDelete && (
+      <button
+        onClick={onDelete}
+        className="p-3 text-muted-foreground hover:text-destructive transition-colors"
+      >
+        <Trash2 size={16} />
+      </button>
+    )}
+  </div>
+);
 
 export const FaktasjekkerScreen: React.FC = () => {
   const {
@@ -27,24 +69,25 @@ export const FaktasjekkerScreen: React.FC = () => {
     activeThreadId,
     streaming,
     error,
+    loading,
     send,
     startNewThread,
     openThread,
     deleteThread,
+    getMessageCount,
+    userId,
   } = useFaktasjekker();
 
   const [input, setInput] = React.useState("");
   const [view, setView] = React.useState<"search" | "chat" | "history">("search");
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
-  // Auto-scroll on new content
   React.useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [activeThread?.messages]);
 
-  // Switch to chat view when thread becomes active
   React.useEffect(() => {
     if (activeThreadId) setView("chat");
   }, [activeThreadId]);
@@ -70,42 +113,29 @@ export const FaktasjekkerScreen: React.FC = () => {
   // Search/landing view
   if (view === "search" && !activeThreadId) {
     return (
-      <div
-        className="flex flex-col overflow-hidden bg-background"
-        style={{ height: "var(--app-height)" }}
-      >
+      <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
         <AppHeader
           title="Faktasjekker"
           subtitle="Spør AI hva som helst"
           leftAction={<BackButton fallbackPath="/hjem" />}
         />
-
         <div
           className="flex-1 overflow-y-auto overscroll-contain"
-          style={{
-            paddingBottom: "var(--bottom-nav-h-effective)",
-            WebkitOverflowScrolling: "touch",
-          }}
+          style={{ paddingBottom: "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}
         >
           <div className="flex flex-col items-center justify-center px-6 pt-16 pb-8">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
               <Sparkles size={32} className="text-primary" />
             </div>
-
             <h2 className="font-heading text-xl font-bold text-foreground mb-2">
               Hva påstår Andreas?
             </h2>
             <p className="text-sm text-muted-foreground text-center mb-8 max-w-xs">
               Eller hva krangler Dawgen med noen om? Spør AI-en, så faktasjekker vi det.
             </p>
-
-            {/* Search bar */}
             <form onSubmit={handleSubmit} className="w-full max-w-md">
               <div className="relative">
-                <Search
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   value={input}
@@ -119,9 +149,7 @@ export const FaktasjekkerScreen: React.FC = () => {
                   disabled={!input.trim()}
                   className={cn(
                     "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors",
-                    input.trim()
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground"
+                    input.trim() ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                   )}
                 >
                   <Send size={16} />
@@ -130,15 +158,19 @@ export const FaktasjekkerScreen: React.FC = () => {
             </form>
           </div>
 
-          {/* History section */}
-          {threads.length > 0 && (
+          {/* Shared history section */}
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 size={20} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : threads.length > 0 ? (
             <div className="px-4 pb-8">
               <button
                 onClick={() => setView("history")}
                 className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-3 hover:text-foreground transition-colors"
               >
                 <Clock size={14} />
-                Tidligere spørsmål ({threads.length})
+                Alle spørsmål ({threads.length})
               </button>
               <div className="space-y-2">
                 {threads.slice(0, 3).map((thread) => (
@@ -147,12 +179,17 @@ export const FaktasjekkerScreen: React.FC = () => {
                     onClick={() => handleOpenThread(thread)}
                     className="w-full text-left px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 active:bg-muted transition-colors"
                   >
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {thread.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {thread.messages.length} meldinger
-                    </p>
+                    <p className="text-sm font-medium text-foreground truncate">{thread.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <User size={10} />
+                        {thread.userName || "Ukjent"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">·</span>
+                      <span className="text-xs text-muted-foreground">
+                        {getMessageCount(thread.id)} meldinger
+                      </span>
+                    </div>
                   </button>
                 ))}
                 {threads.length > 3 && (
@@ -165,65 +202,42 @@ export const FaktasjekkerScreen: React.FC = () => {
                 )}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {error && (
-            <p className="text-sm text-destructive text-center px-4">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive text-center px-4">{error}</p>}
         </div>
       </div>
     );
   }
 
-  // History view
+  // History view — all users' threads
   if (view === "history") {
     return (
-      <div
-        className="flex flex-col overflow-hidden bg-background"
-        style={{ height: "var(--app-height)" }}
-      >
+      <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
         <AppHeader
-          title="Historikk"
-          subtitle={`${threads.length} samtaler`}
+          title="Alle spørsmål"
+          subtitle={`${threads.length} samtaler fra hele gjengen`}
           leftAction={
             <button onClick={() => setView("search")} className="p-2 -ml-2">
               <ArrowLeft size={20} className="text-foreground" />
             </button>
           }
         />
-
         <div
           className="flex-1 overflow-y-auto overscroll-contain"
-          style={{
-            paddingBottom: "var(--bottom-nav-h-effective)",
-            WebkitOverflowScrolling: "touch",
-          }}
+          style={{ paddingBottom: "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}
         >
           <div className="divide-y divide-border">
             {threads.map((thread) => (
-              <div key={thread.id} className="flex items-center">
-                <button
-                  onClick={() => handleOpenThread(thread)}
-                  className="flex-1 text-left px-4 py-3.5 hover:bg-muted/50 active:bg-muted transition-colors"
-                >
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {thread.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {thread.messages.length} meldinger ·{" "}
-                    {new Date(thread.createdAt).toLocaleDateString("nb-NO")}
-                  </p>
-                </button>
-                <button
-                  onClick={() => deleteThread(thread.id)}
-                  className="p-3 text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+              <ThreadRow
+                key={thread.id}
+                thread={thread}
+                onOpen={() => handleOpenThread(thread)}
+                onDelete={thread.userId === userId ? () => deleteThread(thread.id) : undefined}
+                msgCount={getMessageCount(thread.id)}
+              />
             ))}
           </div>
-
           {threads.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <MessageCircle size={32} className="mb-3 opacity-50" />
@@ -237,12 +251,10 @@ export const FaktasjekkerScreen: React.FC = () => {
 
   // Chat view
   return (
-    <div
-      className="flex flex-col overflow-hidden bg-background"
-      style={{ height: "var(--app-height)" }}
-    >
+    <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
       <AppHeader
         title="Faktasjekker"
+        subtitle={activeThread ? `av ${activeThread.userName || "Ukjent"}` : undefined}
         leftAction={
           <button onClick={handleNewChat} className="p-2 -ml-2">
             <ArrowLeft size={20} className="text-foreground" />
@@ -254,21 +266,13 @@ export const FaktasjekkerScreen: React.FC = () => {
           </button>
         }
       />
-
-      {/* Messages */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {activeThread?.messages.map((msg, i) => (
-          <div
-            key={i}
-            className={cn(
-              "max-w-[90%]",
-              msg.role === "user" ? "ml-auto" : "mr-auto"
-            )}
-          >
+          <div key={i} className={cn("max-w-[90%]", msg.role === "user" ? "ml-auto" : "mr-auto")}>
             {msg.role === "user" ? (
               <div className="bg-primary text-primary-foreground px-4 py-3 rounded-2xl rounded-br-md">
                 <p className="text-sm">{msg.content}</p>
@@ -291,42 +295,36 @@ export const FaktasjekkerScreen: React.FC = () => {
         ))}
       </div>
 
-      {/* Input */}
-      <div
-        className="border-t border-border px-4 py-3 bg-background"
-        style={{ paddingBottom: "calc(var(--bottom-nav-h-effective) + 12px)" }}
-      >
-        {error && (
-          <p className="text-xs text-destructive mb-2">{error}</p>
-        )}
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Følg opp med et spørsmål..."
-            disabled={streaming}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
-            style={{ fontSize: 16 }}
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || streaming}
-            className={cn(
-              "p-2.5 rounded-xl transition-colors flex-shrink-0",
-              input.trim() && !streaming
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground"
-            )}
-          >
-            {streaming ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Send size={18} />
-            )}
-          </button>
-        </form>
-      </div>
+      {/* Only thread owner or new threads can send */}
+      {(!activeThread || activeThread.userId === userId) && (
+        <div
+          className="border-t border-border px-4 py-3 bg-background"
+          style={{ paddingBottom: "calc(var(--bottom-nav-h-effective) + 12px)" }}
+        >
+          {error && <p className="text-xs text-destructive mb-2">{error}</p>}
+          <form onSubmit={handleSubmit} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Følg opp med et spørsmål..."
+              disabled={streaming}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
+              style={{ fontSize: 16 }}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || streaming}
+              className={cn(
+                "p-2.5 rounded-xl transition-colors flex-shrink-0",
+                input.trim() && !streaming ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              )}
+            >
+              {streaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
