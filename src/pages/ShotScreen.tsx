@@ -379,7 +379,7 @@ export const ShotScreen: React.FC = () => {
           </button>
 
           {/* Monster round events for current user */}
-          {myMonsterEvent && (
+          {myMonsterEvent && !activeEvent && (
             <ShotStatusCard
               event={myMonsterEvent}
               currentUserId={user?.id || ""}
@@ -390,30 +390,7 @@ export const ShotScreen: React.FC = () => {
             />
           )}
 
-          {/* Active monster round overview */}
-          {monsterEvents.length > 0 && (
-            <div className="border border-destructive/30 rounded-xl p-4 space-y-3 bg-destructive/5">
-              <p className="font-heading font-bold text-sm text-destructive flex items-center gap-1.5">
-                <Skull size={16} /> Monsterrunde aktiv
-              </p>
-              <div className="space-y-1.5">
-                {monsterEvents.map(e => (
-                  <div key={e.id} className="flex items-center justify-between text-sm">
-                    <span className="text-foreground">{getDisplayName(e.selected_user_id)}</span>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full",
-                      e.status === "confirmed" ? "bg-success/10 text-success" :
-                      e.status === "punished" ? "bg-destructive/10 text-destructive" :
-                      "bg-muted text-muted-foreground"
-                    )}>
-                      {e.status === "selected" ? "Venter..." : e.status === "confirmed" ? "✅" : "💀"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Regular status card */}
+          {/* Regular status card (includes monster if user is selected) */}
           {activeEvent && (
             <ShotStatusCard
               event={activeEvent}
