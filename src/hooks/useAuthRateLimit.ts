@@ -4,8 +4,8 @@
  */
 import { useState, useCallback } from "react";
 
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS = 5 * 60 * 1000; // 5 min lockout
+const MAX_ATTEMPTS = 15;
+const LOCKOUT_MS = 2 * 60 * 1000; // 2 min lockout
 
 interface RateLimitState {
   attempts: number;
