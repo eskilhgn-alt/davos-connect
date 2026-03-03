@@ -1,10 +1,9 @@
 /**
- * Dual-source weather service (Yr + MeteoSwiss)
- * Calls edge functions and returns normalized data
+ * Weather service — Yr-based, position-aware
+ * Fetches weather for any location via edge function
  */
 
-
-import { DAVOS, MOUNTAIN_AREAS, type LocationPoint } from "@/config/locations";
+import { type LocationPoint } from "@/config/locations";
 
 // ============================================
 // TYPES
@@ -49,31 +48,17 @@ export interface SourceForecast {
   daily: WeatherDaily[];
 }
 
-export interface DualWeatherData {
-  location: LocationPoint;
-  yr: SourceForecast | null;
-  meteoswiss: SourceForecast | null;
-  fetchedAt: number;
-}
-
-export interface MountainForecast {
-  mountain: LocationPoint;
-  yr: SourceForecast | null;
-  meteoswiss: SourceForecast | null;
-}
-
 export interface FullWeatherData {
-  davos: DualWeatherData;
-  mountains: MountainForecast[];
+  forecast: SourceForecast | null;
   fetchedAt: number;
 }
 
 // ============================================
-// CACHE (localStorage for UI pref only — short TTL)
+// CACHE
 // ============================================
 
 const CACHE_KEY = "weather-dual-cache";
-const CACHE_TTL = 15 * 60 * 1000; // 15 min — reduces excessive re-fetching
+const CACHE_TTL = 15 * 60 * 1000;
 
 function getCached(): FullWeatherData | null {
   try {
@@ -101,7 +86,7 @@ export function clearDualWeatherCache(): void {
 }
 
 // ============================================
-// FETCH HELPERS
+// FETCH
 // ============================================
 
 async function fetchSource(
@@ -131,20 +116,6 @@ async function fetchSource(
   }
 }
 
-async function fetchForLocation(loc: LocationPoint): Promise<DualWeatherData> {
-  const [yr, meteoswiss] = await Promise.all([
-    fetchSource("weather-yr", loc.lat, loc.lon),
-    fetchSource("weather-meteoswiss", loc.lat, loc.lon),
-  ]);
-
-  return {
-    location: loc,
-    yr,
-    meteoswiss,
-    fetchedAt: Date.now(),
-  };
-}
-
 // ============================================
 // MAIN SERVICE
 // ============================================
@@ -153,35 +124,23 @@ export async function getDualWeather(
   forceRefresh = false,
   customLocation?: { lat: number; lon: number }
 ): Promise<FullWeatherData> {
-  // Skip cache if custom location differs
   if (!forceRefresh && !customLocation) {
     const cached = getCached();
     if (cached) return cached;
   }
 
-  const mainLocation: LocationPoint = customLocation
-    ? { id: "custom", name: "Din posisjon", lat: customLocation.lat, lon: customLocation.lon }
-    : DAVOS;
+  // Default to Oslo if no position
+  const lat = customLocation?.lat ?? 59.91;
+  const lon = customLocation?.lon ?? 10.75;
 
-  // Fetch main location + all mountains in parallel
-  const [davos, ...mountainResults] = await Promise.all([
-    fetchForLocation(mainLocation),
-    ...MOUNTAIN_AREAS.map((m) => fetchForLocation(m)),
-  ]);
-
-  const mountains: MountainForecast[] = mountainResults.map((result, i) => ({
-    mountain: MOUNTAIN_AREAS[i],
-    yr: result.yr,
-    meteoswiss: result.meteoswiss,
-  }));
+  const yr = await fetchSource("weather-yr", lat, lon);
 
   const fullData: FullWeatherData = {
-    davos,
-    mountains,
+    forecast: yr,
     fetchedAt: Date.now(),
   };
 
-  setCache(fullData);
+  if (!customLocation) setCache(fullData);
   return fullData;
 }
 
