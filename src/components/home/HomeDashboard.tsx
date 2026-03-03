@@ -4,7 +4,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import {
-  ArrowRightLeft,
   CalendarDays,
   Wind,
   Sun,
@@ -18,7 +17,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
-import { CurrencyCalculator } from "./CurrencyCalculator";
 
 interface NextEvent {
   title: string;
@@ -46,32 +44,13 @@ function windArrowRotation(deg: number) {
 
 export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey }) => {
   const { user } = useAuth();
-  const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
   const [nextEvent, setNextEvent] = React.useState<NextEvent | null>(null);
-  const [calcOpen, setCalcOpen] = React.useState(false);
 
   // AI weather summary (includes structured weather numbers)
   const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary();
   const wx = aiSummary?.weather;
 
-  // 1. NOK/CHF (ECB)
-  const [rateDate, setRateDate] = React.useState<string | null>(null);
-  const [rateFetchedAt, setRateFetchedAt] = React.useState<Date | null>(null);
-  React.useEffect(() => {
-    let cancelled = false;
-    fetch("https://api.frankfurter.dev/v1/latest?base=CHF&symbols=NOK")
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled) return;
-        setRate({ rate: d?.rates?.NOK ?? null, loading: false });
-        setRateDate(d?.date ?? null);
-        setRateFetchedAt(new Date());
-      })
-      .catch(() => { if (!cancelled) setRate({ rate: null, loading: false }); });
-    return () => { cancelled = true; };
-  }, [refreshKey]);
-
-  // 2. Next agenda event
+  // Next agenda event
   React.useEffect(() => {
     if (!user) return;
     supabase
@@ -90,20 +69,7 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
 
   return (
     <section className="space-y-2">
-      <div className="grid grid-cols-3 gap-2">
-        {/* CHF → NOK – opens calculator */}
-        <button
-          onClick={() => setCalcOpen(true)}
-          className="rounded-xl bg-muted/50 border border-border p-3 flex flex-col items-center justify-center gap-1 text-left active:scale-[0.97] transition-transform"
-        >
-          <ArrowRightLeft size={14} className="text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">1 CHF</span>
-          <span className="font-heading text-sm font-bold text-foreground leading-none">
-            {rate.loading ? "…" : rate.rate ? `${rate.rate.toFixed(2)} kr` : "–"}
-          </span>
-          <span className="text-[8px] text-muted-foreground/60 leading-none w-full text-center truncate">ECB</span>
-        </button>
-
+      <div className="grid grid-cols-2 gap-2">
         {/* Next event → agenda */}
         <Link
           to="/agenda"
@@ -156,17 +122,6 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
           )}
         </Link>
       </div>
-
-      {/* Currency calculator popup */}
-      {rate.rate && (
-        <CurrencyCalculator
-          rate={rate.rate}
-          rateDate={rateDate}
-          rateFetchedAt={rateFetchedAt}
-          open={calcOpen}
-          onClose={() => setCalcOpen(false)}
-        />
-      )}
     </section>
   );
 };
