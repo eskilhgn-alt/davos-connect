@@ -14,32 +14,16 @@ import { errorToast } from "@/utils/errorToast";
 
 import ChatScreen from "./pages/ChatScreen";
 import HomeScreen from "./pages/HomeScreen";
-import MapScreen from "./pages/MapScreen";
-import CrewMapScreen from "./pages/CrewMapScreen";
-import LiveScreen from "./pages/LiveScreen";
-import GalleryScreen from "./pages/GalleryScreen";
 import WeatherScreen from "./pages/WeatherScreen";
-import ShotScreen from "./pages/ShotScreen";
 import AgendaScreen from "./pages/AgendaScreen";
-
-import FaktasjekkerScreen from "./pages/FaktasjekkerScreen";
-import StoriesScreen from "./pages/StoriesScreen";
-
+import GalleryScreen from "./pages/GalleryScreen";
 import PollScreen from "./pages/PollScreen";
 import RoundsScreen from "./pages/RoundsScreen";
-import RoomiesScreen from "./pages/RoomiesScreen";
-
 import SettingsScreen from "./pages/SettingsScreen";
-import WebcamsScreen from "./pages/WebcamsScreen";
-import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
-import TokensScreen from "./pages/TokensScreen";
-import CasinoScreen from "./pages/CasinoScreen";
-import AvalancheScreen from "./pages/AvalancheScreen";
 
-
-
+import AuthScreen from "./pages/AuthScreen";
 import ResetPasswordScreen from "./pages/ResetPasswordScreen";
 import VerifyEmailScreen from "./pages/VerifyEmailScreen";
 import NotFound from "./pages/NotFound";
@@ -114,27 +98,27 @@ const AppRoutes = () => (
       <Route path="/" element={<Navigate to="/hjem" replace />} />
       <Route path="/hjem" element={<HomeScreen />} />
       <Route path="/vaer" element={<WeatherScreen />} />
-      <Route path="/live" element={<LiveScreen />} />
-      <Route path="/kart" element={<MapScreen />} />
-      <Route path="/magnus" element={<CrewMapScreen />} />
-      <Route path="/webcams" element={<WebcamsScreen />} />
       <Route path="/galleri" element={<GalleryScreen />} />
       <Route path="/innstillinger" element={<SettingsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
-      <Route path="/shot" element={<ShotScreen />} />
       <Route path="/agenda" element={<AgendaScreen />} />
-      <Route path="/faktasjekker" element={<FaktasjekkerScreen />} />
-      <Route path="/historier" element={<StoriesScreen />} />
       <Route path="/poll" element={<PollScreen />} />
       <Route path="/runder" element={<RoundsScreen />} />
-      <Route path="/roomies" element={<RoomiesScreen />} />
       <Route path="/alle" element={<GroupScreen />} />
-      <Route path="/tokens" element={<TokensScreen />} />
-      <Route path="/regler" element={<Navigate to="/tokens" replace />} />
+      {/* Redirects for removed features */}
+      <Route path="/live" element={<Navigate to="/vaer" replace />} />
+      <Route path="/kart" element={<Navigate to="/hjem" replace />} />
+      <Route path="/magnus" element={<Navigate to="/hjem" replace />} />
+      <Route path="/webcams" element={<Navigate to="/hjem" replace />} />
+      <Route path="/shot" element={<Navigate to="/hjem" replace />} />
+      <Route path="/faktasjekker" element={<Navigate to="/hjem" replace />} />
+      <Route path="/historier" element={<Navigate to="/hjem" replace />} />
+      <Route path="/roomies" element={<Navigate to="/hjem" replace />} />
+      <Route path="/tokens" element={<Navigate to="/hjem" replace />} />
+      <Route path="/regler" element={<Navigate to="/hjem" replace />} />
       <Route path="/nodinfo" element={<Navigate to="/hjem" replace />} />
-      <Route path="/casino" element={<CasinoScreen />} />
-      <Route path="/skred" element={<AvalancheScreen />} />
-
+      <Route path="/casino" element={<Navigate to="/hjem" replace />} />
+      <Route path="/skred" element={<Navigate to="/hjem" replace />} />
     </Route>
     
     <Route path="*" element={<NotFound />} />

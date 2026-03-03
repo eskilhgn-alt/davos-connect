@@ -1,7 +1,7 @@
 import * as React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Home, MessageCircle, CloudSun, Radio, MoreHorizontal, LucideIcon } from "lucide-react";
+import { Home, MessageCircle, CloudSun, Film, LucideIcon } from "lucide-react";
 import { useAppBadges } from "@/hooks/useAppBadges";
 
 interface NavItem {
@@ -15,8 +15,7 @@ const navItems: NavItem[] = [
   { icon: Home, label: "Hjem", path: "/hjem" },
   { icon: MessageCircle, label: "Chat", path: "/chat", badge: true },
   { icon: CloudSun, label: "Vær", path: "/vaer" },
-  { icon: Radio, label: "Live", path: "/live" },
-  { icon: MoreHorizontal, label: "Mer", path: "/hjem" },
+  { icon: Film, label: "Galleri", path: "/galleri" },
 ];
 
 export const BottomNavigation: React.FC = () => {
