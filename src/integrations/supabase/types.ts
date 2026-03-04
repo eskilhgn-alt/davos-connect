@@ -1909,10 +1909,6 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
-      rpc_admin_adjust_tokens: {
-        Args: { p_delta: number; p_reason: string; p_user_id: string }
-        Returns: Json
-      }
       rpc_admin_reset_shot_event: {
         Args: { p_event_id: string }
         Returns: Json
@@ -1928,28 +1924,9 @@ export type Database = {
       rpc_admin_unban_shot: { Args: { p_user_id: string }; Returns: Json }
       rpc_apply_overdue: { Args: { p_event_id: string }; Returns: Json }
       rpc_apply_punishment_ban: { Args: { p_event_id: string }; Returns: Json }
-      rpc_award_points: {
-        Args: {
-          p_description?: string
-          p_points: number
-          p_reason: string
-          p_user_id: string
-        }
-        Returns: Json
-      }
-      rpc_award_ski_daily_winner: { Args: never; Returns: Json }
-      rpc_award_ski_speed_winner: { Args: never; Returns: Json }
-      rpc_check_bonus_token: {
-        Args: { p_group_id: string; p_user_id: string }
-        Returns: undefined
-      }
       rpc_check_shot_ban: { Args: never; Returns: Json }
       rpc_checker_verdict: {
         Args: { p_event_id: string; p_reason?: string; p_verdict: string }
-        Returns: Json
-      }
-      rpc_claim_ski_award: {
-        Args: { p_award_id: string; p_choice: string }
         Returns: Json
       }
       rpc_confirm_shot: {
@@ -1963,28 +1940,7 @@ export type Database = {
         Returns: Json
       }
       rpc_finalize_countdown: { Args: { p_event_id: string }; Returns: Json }
-      rpc_get_all_shot_tokens: { Args: never; Returns: Json }
-      rpc_get_gamification_leaderboard: { Args: never; Returns: Json }
-      rpc_get_points_leaderboard: { Args: { p_days?: number }; Returns: Json }
-      rpc_get_shot_leaderboard: {
-        Args: { p_days?: number; p_group_id?: string }
-        Returns: Json
-      }
-      rpc_get_shot_tokens: { Args: never; Returns: Json }
-      rpc_get_ski_leaderboard: { Args: { p_days?: number }; Returns: Json }
-      rpc_record_ski_sample: {
-        Args: {
-          p_altitude: number
-          p_lat?: number
-          p_lon?: number
-          p_speed: number
-        }
-        Returns: Json
-      }
-      rpc_start_monster_round: { Args: { p_group_id?: string }; Returns: Json }
-      rpc_start_shot_round: { Args: { p_group_id?: string }; Returns: Json }
       rpc_start_shot_simple: { Args: { p_group_id?: string }; Returns: Json }
-      rpc_use_frikort: { Args: { p_event_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "user" | "admin"
