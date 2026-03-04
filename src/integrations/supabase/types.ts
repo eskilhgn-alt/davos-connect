@@ -1983,6 +1983,7 @@ export type Database = {
       }
       rpc_start_monster_round: { Args: { p_group_id?: string }; Returns: Json }
       rpc_start_shot_round: { Args: { p_group_id?: string }; Returns: Json }
+      rpc_start_shot_simple: { Args: { p_group_id?: string }; Returns: Json }
       rpc_use_frikort: { Args: { p_event_id: string }; Returns: Json }
     }
     Enums: {

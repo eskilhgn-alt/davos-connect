@@ -22,6 +22,7 @@ import RoundsScreen from "./pages/RoundsScreen";
 import SettingsScreen from "./pages/SettingsScreen";
 import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
+import ShotScreen from "./pages/ShotScreen";
 
 import AuthScreen from "./pages/AuthScreen";
 import ResetPasswordScreen from "./pages/ResetPasswordScreen";
@@ -105,12 +106,12 @@ const AppRoutes = () => (
       <Route path="/poll" element={<PollScreen />} />
       <Route path="/runder" element={<RoundsScreen />} />
       <Route path="/alle" element={<GroupScreen />} />
+      <Route path="/shot" element={<ShotScreen />} />
       {/* Redirects for removed features */}
       <Route path="/live" element={<Navigate to="/vaer" replace />} />
       <Route path="/kart" element={<Navigate to="/hjem" replace />} />
       <Route path="/magnus" element={<Navigate to="/hjem" replace />} />
       <Route path="/webcams" element={<Navigate to="/hjem" replace />} />
-      <Route path="/shot" element={<Navigate to="/hjem" replace />} />
       <Route path="/faktasjekker" element={<Navigate to="/hjem" replace />} />
       <Route path="/historier" element={<Navigate to="/hjem" replace />} />
       <Route path="/roomies" element={<Navigate to="/hjem" replace />} />
