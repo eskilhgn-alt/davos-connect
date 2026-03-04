@@ -11,7 +11,7 @@ import { markPageSeen } from "@/hooks/useAppBadges";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DavosInput } from "@/components/ui/davos-input";
-import { Beer, Wine, Plus, ChevronRight, Gift, Pencil, Check, X } from "lucide-react";
+import { Beer, Wine, Plus, ChevronRight, Gift, Pencil, Check, X, UtensilsCrossed, ShoppingCart, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -24,12 +24,18 @@ import type { Round, DrinkQuantities } from "@/hooks/useRounds";
 const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
   beer: { icon: Beer, label: "Øl" },
   drink: { icon: Wine, label: "Drinker" },
+  food: { icon: UtensilsCrossed, label: "Mat" },
+  grocery: { icon: ShoppingCart, label: "Dagligvare" },
+  misc: { icon: Package, label: "Diverse" },
 };
 
 const drinkSummary = (q: DrinkQuantities): string => {
   const parts: string[] = [];
   if (q.beer) parts.push(`${q.beer} øl`);
   if (q.drink) parts.push(`${q.drink} drink`);
+  if (q.food) parts.push(`${q.food} mat`);
+  if (q.grocery) parts.push(`${q.grocery} dagligvare`);
+  if (q.misc) parts.push(`${q.misc} diverse`);
   return parts.length > 0 ? parts.join(", ") : "–";
 };
 
