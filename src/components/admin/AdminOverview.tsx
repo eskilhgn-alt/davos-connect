@@ -1,12 +1,13 @@
 /**
  * AdminOverview – Quick stats + action buttons + share link + recent signups
+ * Cleaned: removed points, streaks, tokens references
  */
 import * as React from "react";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosButton } from "@/components/ui/davos-button";
 import {
   Users, Target, Bell, BellOff, Loader2, Zap, Link2, UserPlus, Check,
-  MessageCircle, Star, Flame, BarChart3, Image,
+  MessageCircle, BarChart3, Image,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -35,35 +36,21 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
   const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
   const [extendedStats, setExtendedStats] = React.useState<{
     totalMessages: number;
-    totalPoints: number;
     activePolls: number;
     galleryItems: number;
-    topStreak: number;
-    topStreakUser: string;
   } | null>(null);
 
-  // Fetch extended stats
   React.useEffect(() => {
     const load = async () => {
-      const [msgRes, pointsRes, pollsRes, galleryRes, streaksRes] = await Promise.all([
+      const [msgRes, pollsRes, galleryRes] = await Promise.all([
         supabase.from("messages").select("id", { count: "exact", head: true }),
-        supabase.from("user_points").select("total_points"),
         supabase.from("polls").select("id", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("gallery_items").select("id", { count: "exact", head: true }),
-        supabase.from("user_streaks").select("user_id, current_streak").order("current_streak", { ascending: false }).limit(1),
       ]);
-
-      const totalPts = (pointsRes.data || []).reduce((s, r) => s + (r.total_points || 0), 0);
-      const topStreak = streaksRes.data?.[0];
-      const topUser = topStreak ? users.find(u => u.id === topStreak.user_id) : null;
-
       setExtendedStats({
         totalMessages: msgRes.count ?? 0,
-        totalPoints: totalPts,
         activePolls: pollsRes.count ?? 0,
         galleryItems: galleryRes.count ?? 0,
-        topStreak: topStreak?.current_streak ?? 0,
-        topStreakUser: topUser?.nickname || topUser?.full_name || "—",
       });
     };
     if (users.length > 0) load();
@@ -106,7 +93,6 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
     }
   };
 
-  // Recent signups (last 7 days)
   const recentSignups = React.useMemo(() => {
     const weekAgo = Date.now() - 7 * 86400000;
     return users
@@ -114,7 +100,6 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [users]);
 
-  // Signups today
   const todayCount = React.useMemo(() => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -123,31 +108,22 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
 
   return (
     <div className="px-4 space-y-4 pb-6">
-      {/* Stats grid */}
       {stats && (
         <div className="grid grid-cols-3 gap-2">
           <StatCard icon={Users} value={stats.activeUsers24h} label="Aktive (24t)" />
           <StatCard icon={Target} value={stats.shotRounds24h} label="Shot (24t)" />
           <StatCard icon={UserPlus} value={todayCount} label="Nye i dag" />
-          <StatCard
-            icon={stats.pushOk ? Bell : BellOff}
-            value={stats.pushOk ? "OK" : "Feil"}
-            label="Push"
-            accent={stats.pushOk}
-          />
+          <StatCard icon={stats.pushOk ? Bell : BellOff} value={stats.pushOk ? "OK" : "Feil"} label="Push" accent={stats.pushOk} />
           {extendedStats && (
             <>
               <StatCard icon={MessageCircle} value={extendedStats.totalMessages} label="Meldinger" />
-              <StatCard icon={Star} value={extendedStats.totalPoints} label="Poeng totalt" />
               <StatCard icon={BarChart3} value={extendedStats.activePolls} label="Polls aktive" />
               <StatCard icon={Image} value={extendedStats.galleryItems} label="Galleri" />
-              <StatCard icon={Flame} value={`${extendedStats.topStreak}d`} label={extendedStats.topStreakUser} />
             </>
           )}
         </div>
       )}
 
-      {/* Quick actions */}
       <div className="grid grid-cols-2 gap-2">
         <DavosButton variant="outline" onClick={sendTestPush} disabled={testPushLoading} className="h-12">
           {testPushLoading ? <Loader2 size={16} className="animate-spin mr-2" /> : <Bell size={16} className="mr-2" />}
@@ -164,7 +140,6 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
         </DavosButton>
       </div>
 
-      {/* Share links */}
       <DavosCard>
         <DavosCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
@@ -173,13 +148,7 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
           </div>
           <div className="grid grid-cols-2 gap-2">
             {SHARE_LINKS.map((link, idx) => (
-              <DavosButton
-                key={link.path}
-                variant="outline"
-                size="sm"
-                className="justify-start gap-2 text-xs"
-                onClick={() => copyLink(idx, link.path)}
-              >
+              <DavosButton key={link.path} variant="outline" size="sm" className="justify-start gap-2 text-xs" onClick={() => copyLink(idx, link.path)}>
                 {copiedIdx === idx ? <Check size={14} className="text-success" /> : <Link2 size={14} />}
                 {link.label}
               </DavosButton>
@@ -188,7 +157,6 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
         </DavosCardContent>
       </DavosCard>
 
-      {/* Recent signups */}
       <DavosCard>
         <DavosCardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -204,12 +172,8 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
             <div className="space-y-2">
               {recentSignups.slice(0, 8).map(u => (
                 <div key={u.id} className="flex items-center justify-between text-sm">
-                  <span className="text-foreground truncate flex-1">
-                    {u.nickname || u.full_name || u.email}
-                  </span>
-                  <span className="text-xs text-muted-foreground ml-2 shrink-0">
-                    {formatRelative(u.created_at)}
-                  </span>
+                  <span className="text-foreground truncate flex-1">{u.nickname || u.full_name || u.email}</span>
+                  <span className="text-xs text-muted-foreground ml-2 shrink-0">{formatRelative(u.created_at)}</span>
                 </div>
               ))}
             </div>
