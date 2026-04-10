@@ -1,6 +1,6 @@
 /**
- * WeatherScreen — Yr-based, position-aware weather
- * Supports GPS + manual location search
+ * WeatherScreen — Dual-source (Yr + MeteoSwiss) with mountain cards + AI summary
+ * Minimalist, mobile-first — supports GPS-based location
  */
 
 import * as React from "react";
@@ -9,22 +9,35 @@ import { BackButton } from "@/components/layout/BackButton";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosSkeleton } from "@/components/ui/davos-skeleton";
+import { DavosSegmented, type SegmentOption } from "@/components/ui/davos-segmented";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { MOUNTAIN_AREAS } from "@/config/locations";
 import {
   getDualWeather,
   clearDualWeatherCache,
   getWeatherIcon,
   getWeatherDescription,
   type FullWeatherData,
+  type SourceForecast,
   type WeatherDaily,
 } from "@/services/weather-dual.service";
 import { useWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { RefreshCw, Snowflake, Droplets, Wind, MapPin, Navigation, Sparkles, Sun, CloudSun, Shield, Search, X } from "lucide-react";
+import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin, Navigation, Sparkles, Sun, CloudSun, Shield, ChevronRight, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MountainDetailSheet } from "@/components/weather/MountainDetailSheet";
 import { WeatherForecastChart } from "@/components/weather/WeatherForecastChart";
 import { DavosInput } from "@/components/ui/davos-input";
+import { type LocationPoint } from "@/config/locations";
 
+type SourceTab = "yr" | "meteoswiss";
+
+const SOURCE_OPTIONS: SegmentOption[] = [
+  { value: "yr", label: "Yr" },
+  { value: "meteoswiss", label: "MeteoSwiss" },
+];
+
+// Day name helper
 function dayLabel(dateStr: string, index: number): string {
   if (index === 0) return "I dag";
   if (index === 1) return "I morgen";
@@ -41,6 +54,7 @@ const WeatherScreen: React.FC = () => {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searching, setSearching] = React.useState(false);
 
+  // The effective position: custom search > GPS
   const effectivePos = customLocation
     ? { lat: customLocation.lat, lon: customLocation.lon }
     : geo.position
@@ -51,11 +65,16 @@ const WeatherScreen: React.FC = () => {
   const [data, setData] = React.useState<FullWeatherData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [source, setSource] = React.useState<SourceTab>("yr");
+  const [selectedMountain, setSelectedMountain] = React.useState<LocationPoint | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = React.useState<number | null>(null);
 
-  // Reverse geocode
+  // Reverse geocode GPS position to get place name
   React.useEffect(() => {
-    if (customLocation) { setLocationName(customLocation.name); return; }
+    if (customLocation) {
+      setLocationName(customLocation.name);
+      return;
+    }
     if (!geo.position) { setLocationName(null); return; }
     const { lat, lon } = geo.position;
     fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10&accept-language=no`)
@@ -67,19 +86,26 @@ const WeatherScreen: React.FC = () => {
       .catch(() => setLocationName("Min posisjon"));
   }, [geo.position, customLocation]);
 
+  // Search locations via Nominatim
   const handleSearch = React.useCallback(async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=5&accept-language=no`);
-      const results = await res.json();
-      setSearchResults(results);
-    } catch { setSearchResults([]); }
+      const data = await res.json();
+      setSearchResults(data);
+    } catch {
+      setSearchResults([]);
+    }
     setSearching(false);
   }, [searchQuery]);
 
   const selectSearchResult = (result: any) => {
-    setCustomLocation({ lat: parseFloat(result.lat), lon: parseFloat(result.lon), name: result.display_name.split(",")[0] });
+    setCustomLocation({
+      lat: parseFloat(result.lat),
+      lon: parseFloat(result.lon),
+      name: result.display_name.split(",")[0],
+    });
     setSearchOpen(false);
     setSearchQuery("");
     setSearchResults([]);
@@ -87,6 +113,7 @@ const WeatherScreen: React.FC = () => {
 
   const clearCustomLocation = () => {
     setCustomLocation(null);
+    // Reload with GPS
     if (geo.position) load(true);
   };
 
@@ -105,45 +132,77 @@ const WeatherScreen: React.FC = () => {
     }
   }, [effectivePos]);
 
+  // Load once on mount
   const hasLoaded = React.useRef(false);
   React.useEffect(() => {
-    if (!hasLoaded.current) { hasLoaded.current = true; load(); }
-  }, []);
+    if (!hasLoaded.current) {
+      hasLoaded.current = true;
+      load();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Reload when effective position changes
   const prevPosRef = React.useRef<{ lat: number; lon: number } | null>(null);
   React.useEffect(() => {
     if (!effectivePos) return;
     const prev = prevPosRef.current;
     if (!prev || Math.abs(prev.lat - effectivePos.lat) > 0.001 || Math.abs(prev.lon - effectivePos.lon) > 0.001) {
       prevPosRef.current = { lat: effectivePos.lat, lon: effectivePos.lon };
-      if (hasLoaded.current) load(true);
+      if (hasLoaded.current) {
+        load(true);
+      }
     }
   }, [effectivePos, load]);
 
-  const forecast = data?.forecast ?? null;
+  const getForecast = (d: FullWeatherData | null): SourceForecast | null => {
+    if (!d) return null;
+    return source === "yr" ? d.davos.yr : d.davos.meteoswiss;
+  };
+
+  const forecast = getForecast(data);
   const today = forecast?.daily?.[0] || null;
 
   return (
-    <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
+    <div
+      className="flex flex-col overflow-hidden bg-background"
+      style={{ height: "var(--app-height)" }}
+    >
       <AppHeader
         title="Vær"
         leftAction={<BackButton fallbackPath="/hjem" />}
-        rightAction={loading ? <RefreshCw className="h-5 w-5 animate-spin text-primary-foreground/70" /> : null}
+        rightAction={
+          loading ? <RefreshCw className="h-5 w-5 animate-spin text-primary-foreground/70" /> : null
+        }
       />
 
       <PullToRefreshWrapper
         onRefresh={async () => { await load(true); }}
         className="flex-1 overflow-y-auto overscroll-contain"
-        style={{ paddingBottom: "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}
+        style={{
+          paddingBottom: "var(--bottom-nav-h-effective)",
+          WebkitOverflowScrolling: "touch",
+        }}
       >
         <div className="pb-6">
-          {/* Location controls */}
+          {/* Source toggle + location controls */}
           <div className="px-4 pt-4 pb-2 space-y-2">
+            <DavosSegmented
+              options={SOURCE_OPTIONS}
+              value={source}
+              onChange={(v) => setSource(v as SourceTab)}
+            />
             <div className="flex gap-2 items-center">
               <button
                 onClick={() => {
-                  if (customLocation) { clearCustomLocation(); return; }
-                  if (!geo.enabled) { geo.request(); } else { load(true); }
+                  if (customLocation) {
+                    clearCustomLocation();
+                    return;
+                  }
+                  if (!geo.enabled) {
+                    geo.request();
+                  } else {
+                    load(true);
+                  }
                 }}
                 disabled={geo.loading}
                 className={cn(
@@ -170,6 +229,7 @@ const WeatherScreen: React.FC = () => {
               </button>
             </div>
 
+            {/* Current location indicator */}
             {locationName && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <MapPin size={12} className="text-primary shrink-0" />
@@ -182,6 +242,7 @@ const WeatherScreen: React.FC = () => {
               </div>
             )}
 
+            {/* Search bar */}
             {searchOpen && (
               <div className="space-y-2">
                 <div className="flex gap-2">
@@ -223,19 +284,30 @@ const WeatherScreen: React.FC = () => {
           {error ? (
             <div className="px-4 py-12 text-center">
               <p className="text-muted-foreground">{error}</p>
-              <button onClick={() => load(true)} className="mt-4 text-primary underline text-sm">Prøv igjen</button>
+              <button onClick={() => load(true)} className="mt-4 text-primary underline text-sm">
+                Prøv igjen
+              </button>
             </div>
           ) : (
             <>
-              <HeroCard today={today} loading={loading} updatedAt={forecast?.updatedAt} locationName={locationName || (effectivePos ? "Laster sted..." : "Standard")} />
+              {/* Hero card */}
+              <HeroCard today={today} loading={loading} source={source} updatedAt={forecast?.updatedAt} locationName={locationName || (effectivePos ? "Laster sted..." : "Standard")} />
 
+              {/* AI Summary Card */}
               <AiSummaryCard summary={aiSummary} loading={aiLoading} />
 
-              <WeatherForecastChart daily={forecast?.daily || []} hourly={forecast?.hourly || []} loading={loading} />
+              {/* Forecast chart */}
+              <WeatherForecastChart
+                daily={forecast?.daily || []}
+                hourly={forecast?.hourly || []}
+                loading={loading}
+              />
 
               {/* 7-day strip */}
               <section className="mt-4">
-                <h2 className="px-4 font-heading text-sm font-medium text-muted-foreground mb-2">7-dagers varsel</h2>
+                <h2 className="px-4 font-heading text-sm font-medium text-muted-foreground mb-2">
+                  7-dagers varsel
+                </h2>
                 {loading ? (
                   <div className="px-4 flex gap-2 overflow-hidden">
                     {Array.from({ length: 7 }).map((_, i) => (
@@ -254,8 +326,74 @@ const WeatherScreen: React.FC = () => {
                 )}
               </section>
 
+              {/* Mountain areas */}
+              <section className="mt-6 px-4 space-y-3">
+                <h2 className="font-heading text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Mountain className="h-4 w-4 text-primary" />
+                  Fjellområder
+                </h2>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <DavosSkeleton key={i} className="h-16 rounded-card" />
+                  ))
+                ) : (
+                  MOUNTAIN_AREAS.map((mt) => {
+                    const mtData = data?.mountains.find((m) => m.mountain.id === mt.id);
+                    const mtForecast = source === "yr" ? mtData?.yr : mtData?.meteoswiss;
+                    const mtToday = mtForecast?.daily?.[0];
+
+                    return (
+                      <DavosCard
+                        key={mt.id}
+                        className="cursor-pointer active:scale-[0.98] transition-transform"
+                        onClick={() => setSelectedMountain(mt)}
+                      >
+                        <DavosCardContent className="p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">
+                              {mtToday ? getWeatherIcon(mtToday.weatherCode) : "☁️"}
+                            </span>
+                            <div>
+                              <p className="font-heading text-sm font-semibold text-foreground">
+                                {mt.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {mt.elevation}m
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {mtToday ? (
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span className="font-mono font-semibold text-foreground text-sm">
+                                  {mtToday.tempMax}° / {mtToday.tempMin}°
+                                </span>
+                                {mtToday.snow > 0 && (
+                                  <span className="flex items-center gap-0.5">
+                                    <Snowflake size={12} className="text-primary" />
+                                    {mtToday.snow}cm
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">–</span>
+                            )}
+                            <ChevronRight size={14} className="text-muted-foreground" />
+                          </div>
+                        </DavosCardContent>
+                      </DavosCard>
+                    );
+                  })
+                )}
+              </section>
+
+              {/* Refresh */}
               <div className="px-4 mt-6 text-center">
-                <button onClick={() => load(true)} disabled={loading} className="text-xs text-primary hover:underline disabled:opacity-50">
+                <button
+                  onClick={() => load(true)}
+                  disabled={loading}
+                  className="text-xs text-primary hover:underline disabled:opacity-50"
+                >
                   Oppdater data
                 </button>
               </div>
@@ -264,11 +402,29 @@ const WeatherScreen: React.FC = () => {
         </div>
       </PullToRefreshWrapper>
 
+      {/* Mountain detail sheet */}
+      <MountainDetailSheet
+        open={!!selectedMountain}
+        onOpenChange={(open) => !open && setSelectedMountain(null)}
+        mountain={selectedMountain}
+        forecast={
+          selectedMountain
+            ? (() => {
+                const mtData = data?.mountains.find((m) => m.mountain.id === selectedMountain.id);
+                return source === "yr" ? mtData?.yr ?? null : mtData?.meteoswiss ?? null;
+              })()
+            : null
+        }
+        sourceName={source === "yr" ? "Yr" : "MeteoSwiss"}
+      />
+
+      {/* Day detail sheet */}
       <DayDetailSheet
         day={selectedDayIndex !== null ? (forecast?.daily?.[selectedDayIndex] ?? null) : null}
         index={selectedDayIndex}
         open={selectedDayIndex !== null}
         onClose={() => setSelectedDayIndex(null)}
+        source={source}
       />
     </div>
   );
@@ -281,24 +437,34 @@ const WeatherScreen: React.FC = () => {
 interface HeroCardProps {
   today: WeatherDaily | null;
   loading: boolean;
+  source: SourceTab;
   updatedAt?: string;
   locationName: string;
 }
 
-const HeroCard: React.FC<HeroCardProps> = ({ today, loading, updatedAt, locationName }) => {
+const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt, locationName }) => {
   if (loading || !today) {
     return (
       <DavosCard className="mx-4 mt-2">
         <DavosCardContent className="p-6">
           <div className="flex items-center justify-between">
-            <div className="space-y-2"><DavosSkeleton className="h-14 w-28" /><DavosSkeleton className="h-4 w-20" /></div>
+            <div className="space-y-2">
+              <DavosSkeleton className="h-14 w-28" />
+              <DavosSkeleton className="h-4 w-20" />
+            </div>
             <DavosSkeleton variant="circular" className="h-14 w-14" />
           </div>
-          <div className="grid grid-cols-3 gap-4 mt-4"><DavosSkeleton className="h-12" /><DavosSkeleton className="h-12" /><DavosSkeleton className="h-12" /></div>
+          <div className="grid grid-cols-3 gap-4 mt-4">
+            <DavosSkeleton className="h-12" />
+            <DavosSkeleton className="h-12" />
+            <DavosSkeleton className="h-12" />
+          </div>
         </DavosCardContent>
       </DavosCard>
     );
   }
+
+  const sourceName = source === "yr" ? "Yr" : "MeteoSwiss";
 
   return (
     <DavosCard className="mx-4 mt-2">
@@ -307,13 +473,21 @@ const HeroCard: React.FC<HeroCardProps> = ({ today, loading, updatedAt, location
           <div>
             <div className="flex items-center gap-2 mb-1">
               <MapPin size={14} className="text-primary" />
-              <span className="text-xs text-muted-foreground">{locationName}</span>
+              <span className="text-xs text-muted-foreground">
+                {locationName} · {sourceName}
+              </span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-heading text-5xl font-bold text-foreground">{today.tempMax}°</span>
-              <span className="font-mono text-sm text-muted-foreground">/ {today.tempMin}°</span>
+              <span className="font-heading text-5xl font-bold text-foreground">
+                {today.tempMax}°
+              </span>
+              <span className="font-mono text-sm text-muted-foreground">
+                / {today.tempMin}°
+              </span>
             </div>
-            <p className="text-sm text-muted-foreground mt-1">{getWeatherDescription(today.weatherCode)}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {getWeatherDescription(today.weatherCode)}
+            </p>
           </div>
           <span className="text-5xl">{getWeatherIcon(today.weatherCode)}</span>
         </div>
@@ -346,7 +520,11 @@ const HeroCard: React.FC<HeroCardProps> = ({ today, loading, updatedAt, location
   );
 };
 
-interface DayPillProps { day: WeatherDaily; index: number; onTap: () => void; }
+interface DayPillProps {
+  day: WeatherDaily;
+  index: number;
+  onTap: () => void;
+}
 
 const DayPill: React.FC<DayPillProps> = ({ day, index, onTap }) => (
   <button
@@ -358,10 +536,16 @@ const DayPill: React.FC<DayPillProps> = ({ day, index, onTap }) => (
       index === 0 ? "bg-primary/10 border border-primary/20" : "bg-card border border-border"
     )}
   >
-    <span className="text-[10px] font-medium text-muted-foreground uppercase">{dayLabel(day.date, index)}</span>
+    <span className="text-[10px] font-medium text-muted-foreground uppercase">
+      {dayLabel(day.date, index)}
+    </span>
     <span className="text-xl">{getWeatherIcon(day.weatherCode)}</span>
-    <span className="font-mono text-xs font-semibold text-foreground">{day.tempMax}° / {day.tempMin}°</span>
-    {day.snow > 0 && <span className="text-[10px] text-primary font-medium">{day.snow}cm ❄️</span>}
+    <span className="font-mono text-xs font-semibold text-foreground">
+      {day.tempMax}° / {day.tempMin}°
+    </span>
+    {day.snow > 0 && (
+      <span className="text-[10px] text-primary font-medium">{day.snow}cm ❄️</span>
+    )}
   </button>
 );
 
@@ -369,24 +553,43 @@ const DayPill: React.FC<DayPillProps> = ({ day, index, onTap }) => (
 // DAY DETAIL SHEET
 // ============================================
 
-interface DayDetailSheetProps { day: WeatherDaily | null; index: number | null; open: boolean; onClose: () => void; }
+interface DayDetailSheetProps {
+  day: WeatherDaily | null;
+  index: number | null;
+  open: boolean;
+  onClose: () => void;
+  source: SourceTab;
+}
 
-const DayDetailSheet: React.FC<DayDetailSheetProps> = ({ day, index, open, onClose }) => {
+const DayDetailSheet: React.FC<DayDetailSheetProps> = ({ day, index, open, onClose, source }) => {
   if (!open || !day || index === null) return null;
 
   const dateLabel2 = index === 0 ? "I dag" : index === 1 ? "I morgen" : new Date(day.date).toLocaleDateString("no-NO", { weekday: "long", day: "numeric", month: "long" });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-      <div className={cn("w-full max-w-lg bg-background rounded-t-2xl", "animate-in slide-in-from-bottom duration-200")} onClick={(e) => e.stopPropagation()} style={{ paddingBottom: "env(safe-area-inset-bottom)", maxHeight: "75vh" }}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+    >
+      <div
+        className={cn(
+          "w-full max-w-lg bg-background rounded-t-2xl",
+          "animate-in slide-in-from-bottom duration-200"
+        )}
+        onClick={(e) => e.stopPropagation()}
+        style={{ paddingBottom: "env(safe-area-inset-bottom)", maxHeight: "75vh" }}
+      >
+        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <div>
             <h3 className="font-heading text-lg font-semibold capitalize">{dateLabel2}</h3>
-            <p className="text-sm text-muted-foreground">{getWeatherDescription(day.weatherCode)}</p>
+            <p className="text-sm text-muted-foreground">{getWeatherDescription(day.weatherCode)} · {source === "yr" ? "Yr" : "MeteoSwiss"}</p>
           </div>
           <span className="text-4xl">{getWeatherIcon(day.weatherCode)}</span>
         </div>
 
+        {/* Temperature */}
         <div className="px-5 pb-3">
           <div className="flex items-baseline gap-3">
             <span className="font-heading text-4xl font-bold text-foreground">{day.tempMax}°</span>
@@ -394,6 +597,7 @@ const DayDetailSheet: React.FC<DayDetailSheetProps> = ({ day, index, open, onClo
           </div>
         </div>
 
+        {/* Stats grid */}
         <div className="grid grid-cols-4 gap-2 px-5 pb-4">
           <div className="bg-muted/50 rounded-xl p-3 text-center">
             <Snowflake className="h-5 w-5 mx-auto text-primary mb-1" />
@@ -419,8 +623,11 @@ const DayDetailSheet: React.FC<DayDetailSheetProps> = ({ day, index, open, onClo
           )}
         </div>
 
+        {/* Close */}
         <div className="flex justify-center pb-4">
-          <button type="button" onClick={onClose} className="px-6 py-1.5 rounded-full bg-muted text-sm text-muted-foreground">Lukk</button>
+          <button type="button" onClick={onClose} className="px-6 py-1.5 rounded-full bg-muted text-sm text-muted-foreground">
+            Lukk
+          </button>
         </div>
       </div>
     </div>
@@ -441,7 +648,10 @@ const AiSummaryCard: React.FC<AiSummaryCardProps> = ({ summary, loading }) => {
     return (
       <DavosCard className="mx-4 mt-3">
         <DavosCardContent className="p-4">
-          <div className="flex items-center gap-2 mb-3"><DavosSkeleton className="h-4 w-4" /><DavosSkeleton className="h-4 w-32" /></div>
+          <div className="flex items-center gap-2 mb-3">
+            <DavosSkeleton className="h-4 w-4" />
+            <DavosSkeleton className="h-4 w-32" />
+          </div>
           <DavosSkeleton className="h-4 w-full mb-2" />
           <DavosSkeleton className="h-4 w-3/4 mb-2" />
           <DavosSkeleton className="h-3 w-40" />
@@ -452,16 +662,22 @@ const AiSummaryCard: React.FC<AiSummaryCardProps> = ({ summary, loading }) => {
 
   if (!summary) return null;
 
-  const confidenceColor = summary.confidence === "high" ? "text-success" : summary.confidence === "medium" ? "text-warning" : "text-destructive";
+  const confidenceColor =
+    summary.confidence === "high"
+      ? "text-success"
+      : summary.confidence === "medium"
+        ? "text-warning"
+        : "text-destructive";
 
   return (
     <DavosCard className="mx-4 mt-3">
       <DavosCardContent className="p-4">
         <div className="space-y-3">
+          {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <Sparkles className="h-4 w-4 text-primary shrink-0" />
-              AI-vurdering
+              AI-vurdering (OpenAI)
             </div>
             <div className={cn("flex items-center gap-1 text-[10px] font-medium", confidenceColor)}>
               <Shield className="h-3 w-3" />
@@ -469,6 +685,14 @@ const AiSummaryCard: React.FC<AiSummaryCardProps> = ({ summary, loading }) => {
             </div>
           </div>
 
+          {/* Ski conditions highlight */}
+          {summary.skiConditions && (
+            <div className="bg-primary/10 rounded-lg px-3 py-2">
+              <p className="text-sm font-medium text-foreground">{summary.skiConditions}</p>
+            </div>
+          )}
+
+          {/* Today */}
           {summary.todaySummary && (
             <div className="flex items-start gap-2">
               <Sun className="h-4 w-4 text-primary mt-0.5 shrink-0" />
@@ -479,6 +703,7 @@ const AiSummaryCard: React.FC<AiSummaryCardProps> = ({ summary, loading }) => {
             </div>
           )}
 
+          {/* Tomorrow */}
           {summary.tomorrowSummary && (
             <div className="flex items-start gap-2">
               <CloudSun className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -489,6 +714,14 @@ const AiSummaryCard: React.FC<AiSummaryCardProps> = ({ summary, loading }) => {
             </div>
           )}
 
+          {/* Source comparison */}
+          {summary.sourceComparison && (
+            <p className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
+              {summary.sourceComparison}
+            </p>
+          )}
+
+          {/* Timestamp */}
           {summary.generatedAt && (
             <p className="text-[10px] text-muted-foreground text-right">
               Generert: {new Date(summary.generatedAt).toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" })}

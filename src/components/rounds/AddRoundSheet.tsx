@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { DavosInput } from "@/components/ui/davos-input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Beer, Wine, Loader2, Minus, Plus, Camera, ImageIcon, X, Gift, UtensilsCrossed, ShoppingCart, Package } from "lucide-react";
+import { Beer, Wine, Loader2, Minus, Plus, Camera, ImageIcon, X, Gift, UtensilsCrossed, ShoppingCart } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,7 +27,6 @@ const DRINK_TYPES = [
   { key: "drink", label: "Drinker", icon: Wine },
   { key: "food", label: "Mat", icon: UtensilsCrossed },
   { key: "grocery", label: "Dagligvare", icon: ShoppingCart },
-  { key: "misc", label: "Diverse", icon: Package },
 ] as const;
 
 export type DrinkQuantities = Record<string, number>;

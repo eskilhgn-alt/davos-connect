@@ -1,9 +1,10 @@
 /**
- * AdminScreen – Admin dashboard for GüttaHütte
- * Tabs: Oversikt, Brukere, Shot, Innhold, Push, Varsler, Feil, Logg
+ * AdminScreen – Comprehensive admin dashboard for GüttaHütte
+ * Safari-first, mobile-first, max 2 clicks to action
+ * Tabs: Oversikt, Brukere, Shot, Tokens, Push, Logg
  */
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
@@ -15,6 +16,7 @@ import { useAdminData } from "@/components/admin/useAdminData";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { AdminUserList } from "@/components/admin/AdminUserList";
 import { AdminShotControl } from "@/components/admin/AdminShotControl";
+import { AdminTokenLedger } from "@/components/admin/AdminTokenLedger";
 import { AdminPushTools } from "@/components/admin/AdminPushTools";
 import { AdminAuditLog } from "@/components/admin/AdminAuditLog";
 import { AdminBugReports } from "@/components/admin/AdminBugReports";
@@ -24,7 +26,9 @@ import { AdminModeration } from "@/components/admin/AdminModeration";
 const TAB_OPTIONS: SegmentOption[] = [
   { value: "overview", label: "Oversikt" },
   { value: "users", label: "Brukere" },
+  { value: "leaderboard", label: "Topplister" },
   { value: "shot", label: "Shot" },
+  { value: "tokens", label: "Tokens" },
   { value: "moderate", label: "Innhold" },
   { value: "push", label: "Push" },
   { value: "announce", label: "Varsler" },
@@ -79,6 +83,7 @@ export const AdminScreen: React.FC = () => {
       />
 
       <div className="flex-1 overflow-y-auto overscroll-contain" style={{ paddingBottom: "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}>
+        {/* Tab bar – scrollable for 6 tabs */}
         <div className="px-4 pt-3 pb-2 overflow-x-auto">
           <DavosSegmented options={TAB_OPTIONS} value={tab} onChange={setTab} />
         </div>
@@ -104,6 +109,18 @@ export const AdminScreen: React.FC = () => {
           />
         )}
 
+        {tab === "leaderboard" && (
+          <div className="px-4 py-6 flex flex-col items-center gap-3">
+            <p className="text-sm text-muted-foreground text-center">Poeng, tokens, streaks og topplister</p>
+            <Link
+              to="/tokens"
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-heading text-sm font-semibold active:scale-[0.97] transition-transform"
+            >
+              Åpne Topplister
+            </Link>
+          </div>
+        )}
+
         {tab === "shot" && (
           <AdminShotControl
             users={users}
@@ -118,6 +135,10 @@ export const AdminScreen: React.FC = () => {
             onLogAction={logAction}
             preselectedUserId={preselectedUserId}
           />
+        )}
+
+        {tab === "tokens" && (
+          <AdminTokenLedger users={users} />
         )}
 
         {tab === "moderate" && (

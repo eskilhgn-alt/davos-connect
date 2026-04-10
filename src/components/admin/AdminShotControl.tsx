@@ -1,14 +1,15 @@
 /**
- * AdminShotControl – Active rounds, history, force actions (token-free)
+ * AdminShotControl – Active rounds, history, token adjustment, force actions
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
 import { DavosButton } from "@/components/ui/davos-button";
+import { DavosInput } from "@/components/ui/davos-input";
 import { DavosBadge } from "@/components/ui/davos-badge";
 import {
-  Target, RefreshCw, RotateCcw, Loader2,
-  AlertTriangle,
+  Target, Coins, RefreshCw, RotateCcw, Loader2, Plus, Minus, Ticket,
+  AlertTriangle, ShieldOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
@@ -41,8 +42,16 @@ const STATUS_LABELS: Record<string, string> = {
 export const AdminShotControl: React.FC<Props> = ({
   users, activeShots, shotHistory, corrections, currentUserId,
   getDisplayName, onRefreshShots, onRefreshUsers, onRefreshCorrections, onLogAction,
+  preselectedUserId,
 }) => {
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
+  const [adjustUserId, setAdjustUserId] = React.useState<string | null>(preselectedUserId || null);
+  const [adjustDelta, setAdjustDelta] = React.useState(0);
+  const [adjustReason, setAdjustReason] = React.useState("");
+
+  React.useEffect(() => {
+    if (preselectedUserId) setAdjustUserId(preselectedUserId);
+  }, [preselectedUserId]);
 
   const resetShotEvent = async (eventId: string) => {
     setActionLoading(eventId);
@@ -62,6 +71,7 @@ export const AdminShotControl: React.FC<Props> = ({
   const removePenalty = async (eventId: string) => {
     setActionLoading(`penalty-${eventId}`);
     try {
+      // Resolve as confirmed (remove penalty)
       const { error } = await supabase.rpc("rpc_confirm_shot", {
         p_event_id: eventId,
         p_mode: "admin_resolve",
@@ -78,8 +88,108 @@ export const AdminShotControl: React.FC<Props> = ({
     }
   };
 
+  const adjustTokens = async () => {
+    if (!adjustUserId || adjustDelta === 0 || !adjustReason.trim()) return;
+    setActionLoading("adjust");
+    try {
+      const { error } = await supabase.rpc("rpc_admin_adjust_tokens", {
+        p_user_id: adjustUserId,
+        p_delta: adjustDelta,
+        p_reason: adjustReason,
+      });
+      if (error) throw error;
+      toast.success(`Tokens justert: ${adjustDelta > 0 ? "+" : ""}${adjustDelta}`);
+      onLogAction(currentUserId, "token_adjust", adjustUserId, { delta: adjustDelta, reason: adjustReason });
+      setAdjustUserId(null);
+      setAdjustDelta(0);
+      setAdjustReason("");
+      onRefreshUsers();
+    } catch (e: any) {
+      errorToast("Feil ved justering", { description: e.message });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const giveFrikort = async (userId: string) => {
+    setActionLoading(`frikort-${userId}`);
+    try {
+      const { error } = await supabase.from("user_frikort").insert({
+        user_id: userId,
+        reason: "admin_granted",
+      });
+      if (error) throw error;
+      toast.success("Frikort gitt");
+      onLogAction(currentUserId, "frikort_granted", userId);
+      onRefreshUsers();
+    } catch (e: any) {
+      errorToast("Feil", { description: e.message });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const unbanShot = async (userId: string) => {
+    setActionLoading(`unban-${userId}`);
+    try {
+      const { error } = await supabase.rpc("rpc_admin_unban_shot", { p_user_id: userId });
+      if (error) throw error;
+      toast.success("Utestengelse fjernet");
+      onLogAction(currentUserId, "shot_unban", userId);
+      onRefreshUsers();
+    } catch (e: any) {
+      errorToast("Feil", { description: e.message });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return (
     <div className="px-4 space-y-4 pb-6">
+      {/* Token adjustment */}
+      <DavosCard>
+        <DavosCardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Coins size={18} className="text-primary" />
+            <h3 className="font-heading font-semibold text-foreground text-sm">Juster tokens</h3>
+          </div>
+          <select
+            value={adjustUserId || ""}
+            onChange={e => setAdjustUserId(e.target.value || null)}
+            className="w-full px-3 py-2 rounded-lg border border-border bg-muted/30 text-sm text-foreground"
+          >
+            <option value="">Velg bruker...</option>
+            {users.filter(u => u.is_active).map(u => (
+              <option key={u.id} value={u.id}>
+                {u.nickname || u.full_name || u.email} ({u.token_balance} tokens)
+              </option>
+            ))}
+          </select>
+
+          <div className="flex gap-2 items-center justify-center">
+            <DavosButton variant="outline" size="sm" onClick={() => setAdjustDelta(d => d - 1)}><Minus size={16} /></DavosButton>
+            <span className="font-mono text-lg font-bold text-foreground min-w-[48px] text-center">
+              {adjustDelta > 0 ? "+" : ""}{adjustDelta}
+            </span>
+            <DavosButton variant="outline" size="sm" onClick={() => setAdjustDelta(d => d + 1)}><Plus size={16} /></DavosButton>
+          </div>
+
+          <DavosInput placeholder="Grunn..." value={adjustReason} onChange={e => setAdjustReason(e.target.value)} />
+
+          <DavosButton onClick={adjustTokens} disabled={!adjustUserId || adjustDelta === 0 || !adjustReason.trim() || actionLoading === "adjust"} className="w-full">
+            {actionLoading === "adjust" ? <Loader2 size={14} className="animate-spin mr-2" /> : <Coins size={14} className="mr-2" />}
+            Juster tokens
+          </DavosButton>
+
+          {adjustUserId && (
+            <DavosButton variant="outline" size="sm" onClick={() => giveFrikort(adjustUserId)} disabled={!!actionLoading} className="w-full">
+              {actionLoading === `frikort-${adjustUserId}` ? <Loader2 size={14} className="animate-spin mr-1" /> : <Ticket size={14} className="mr-1" />}
+              Gi frikort
+            </DavosButton>
+          )}
+        </DavosCardContent>
+      </DavosCard>
+
       {/* Active rounds */}
       <DavosCard>
         <DavosCardContent className="p-4 space-y-3">

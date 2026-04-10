@@ -10,7 +10,7 @@ import { HomeDashboard } from "@/components/home/HomeDashboard";
 import { StoryRing } from "@/components/stories/StoryRing";
 import { StoryViewer } from "@/components/stories/StoryViewer";
 import { StoryCapture } from "@/components/stories/StoryCapture";
-
+import { EmergencyInfoSheet } from "@/components/home/EmergencyInfoSheet";
 import { useStories } from "@/hooks/useStories";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppBadges } from "@/hooks/useAppBadges";
@@ -18,15 +18,22 @@ import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
 import {
   MessageCircle,
   CloudSun,
+  Radio,
+  Map,
+  MapPin,
+  Target,
   Settings,
   ShieldCheck,
   CalendarDays,
   Film,
+  Sparkles,
   LogOut,
   Beer,
   Vote,
   Users,
-  Target,
+  Home,
+  Dice5,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +53,7 @@ export const HomeScreen: React.FC = () => {
   const [viewerOpen, setViewerOpen] = React.useState(false);
   const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
   const [captureOpen, setCaptureOpen] = React.useState(false);
-  
+  const [emergencyOpen, setEmergencyOpen] = React.useState(false);
   const openStory = (groupIndex: number) => {
     setViewerGroupIdx(groupIndex);
     setViewerOpen(true);
@@ -56,12 +63,19 @@ export const HomeScreen: React.FC = () => {
     const base: TileItem[] = [
       { to: "/chat", label: "Chat", icon: MessageCircle, badge: badges.chat },
       { to: "/vaer", label: "Vær", icon: CloudSun },
+      { to: "/live", label: "Live", icon: Radio },
+      { to: "/kart", label: "Løypekart", icon: Map },
       { to: "/agenda", label: "Agenda", icon: CalendarDays, badge: badges.agenda },
+      { to: "/magnus", label: "Magnus?", icon: MapPin },
+      { to: "/shot", label: "Shoot", icon: Target, badge: badges.shot },
       { to: "/poll", label: "Avstemming", icon: Vote, badge: badges.polls },
       { to: "/runder", label: "Runder", icon: Beer, badge: badges.runder },
-      { to: "/shot", label: "Shot", icon: Target },
+      { to: "/roomies", label: "Roomies", icon: Home },
       { to: "/galleri", label: "Galleri", icon: Film },
       { to: "/alle", label: "Gütta", icon: Users },
+      { to: "/skred", label: "Skred", icon: AlertTriangle },
+      { to: "/casino", label: "Casino", icon: Dice5 },
+      { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/innstillinger", label: "Innstillinger", icon: Settings },
     ];
     if (isAdmin) {
@@ -132,6 +146,14 @@ export const HomeScreen: React.FC = () => {
             ))}
           </nav>
 
+          {/* Emergency info link – subtle at bottom */}
+          <button
+            onClick={() => setEmergencyOpen(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+          >
+            <AlertTriangle size={13} />
+            <span>Nødinfo & viktige numre (Davos)</span>
+          </button>
         </div>
       </PullToRefreshWrapper>
       {/* Story Viewer */}
@@ -158,6 +180,8 @@ export const HomeScreen: React.FC = () => {
         />
       )}
 
+      {/* Emergency info sheet */}
+      <EmergencyInfoSheet open={emergencyOpen} onOpenChange={setEmergencyOpen} />
     </div>
   );
 };

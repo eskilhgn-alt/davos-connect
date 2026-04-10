@@ -11,11 +11,12 @@ import { markPageSeen } from "@/hooks/useAppBadges";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DavosInput } from "@/components/ui/davos-input";
-import { Beer, Wine, Plus, ChevronRight, Gift, Pencil, Check, X, UtensilsCrossed, ShoppingCart, Package } from "lucide-react";
+import { Beer, Wine, Plus, ChevronRight, Gift, Pencil, Check, X, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import { AddRoundSheet } from "@/components/rounds/AddRoundSheet";
+import { DebtCalculator } from "@/components/rounds/DebtCalculator";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
@@ -24,18 +25,12 @@ import type { Round, DrinkQuantities } from "@/hooks/useRounds";
 const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
   beer: { icon: Beer, label: "Øl" },
   drink: { icon: Wine, label: "Drinker" },
-  food: { icon: UtensilsCrossed, label: "Mat" },
-  grocery: { icon: ShoppingCart, label: "Dagligvare" },
-  misc: { icon: Package, label: "Diverse" },
 };
 
 const drinkSummary = (q: DrinkQuantities): string => {
   const parts: string[] = [];
   if (q.beer) parts.push(`${q.beer} øl`);
   if (q.drink) parts.push(`${q.drink} drink`);
-  if (q.food) parts.push(`${q.food} mat`);
-  if (q.grocery) parts.push(`${q.grocery} dagligvare`);
-  if (q.misc) parts.push(`${q.misc} diverse`);
   return parts.length > 0 ? parts.join(", ") : "–";
 };
 
@@ -43,12 +38,16 @@ export const RoundsScreen: React.FC = () => {
   React.useEffect(() => { markPageSeen("runder"); }, []);
   const { rounds, profiles, loading, addRound, updateRound } = useRounds();
   const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [debtOpen, setDebtOpen] = React.useState(false);
   const [detailRound, setDetailRound] = React.useState<Round | null>(null);
 
   return (
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
       <AppHeader title="Runder" leftAction={<BackButton />} rightAction={
         <div className="flex items-center gap-1">
+          <button onClick={() => setDebtOpen(true)} className="tap-target flex items-center justify-center text-primary" aria-label="Gjeld">
+            <Wallet size={20} strokeWidth={2} />
+          </button>
           <button onClick={() => setSheetOpen(true)} className="tap-target flex items-center justify-center text-primary" aria-label="Legg til runde">
             <Plus size={22} strokeWidth={2} />
           </button>
@@ -94,7 +93,7 @@ export const RoundsScreen: React.FC = () => {
 
       <RoundDetailSheet round={detailRound} profiles={profiles} onClose={() => setDetailRound(null)} onUpdate={updateRound} />
       <AddRoundSheet open={sheetOpen} onOpenChange={setSheetOpen} onSubmit={addRound} />
-      
+      <DebtCalculator open={debtOpen} onOpenChange={setDebtOpen} />
     </div>
   );
 };

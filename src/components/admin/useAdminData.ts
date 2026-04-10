@@ -1,9 +1,10 @@
 /**
  * useAdminData – Central data hook for admin dashboard
- * Fetches users, stats, shots, corrections, audit log
+ * Fetches users, stats, shots, corrections, push status, audit log
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
 
 export interface AdminUser {
@@ -20,6 +21,9 @@ export interface AdminUser {
   created_at: string;
   updated_at: string;
   role: "user" | "admin";
+  token_balance: number;
+  frikort_count: number;
+  shot_banned_until: string | null;
 }
 
 export interface AdminStats {
@@ -46,12 +50,25 @@ export function useAdminData() {
   const fetchUsers = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [profilesRes, rolesRes] = await Promise.all([
+      const [profilesRes, rolesRes, tokensRes, frikortRes, shotTokensRes] = await Promise.all([
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
         supabase.from("user_roles").select("user_id, role"),
+        supabase.rpc("rpc_get_all_shot_tokens"),
+        supabase.from("user_frikort").select("user_id").is("used_at", null),
+        supabase.from("shot_tokens").select("user_id, shot_banned_until"),
       ]);
 
       const rolesMap = new Map((rolesRes.data || []).map(r => [r.user_id, r.role]));
+      const tokensArr = (tokensRes.data as any[] | null) || [];
+      const tokensMap = new Map(tokensArr.map((t: any) => [t.user_id, t.balance]));
+      const frikortMap = new Map<string, number>();
+      (frikortRes.data || []).forEach((f: any) => {
+        frikortMap.set(f.user_id, (frikortMap.get(f.user_id) || 0) + 1);
+      });
+      const banMap = new Map<string, string | null>();
+      (shotTokensRes.data || []).forEach((t: any) => {
+        banMap.set(t.user_id, t.shot_banned_until);
+      });
 
       setUsers((profilesRes.data || []).map(p => ({
         id: p.id,
@@ -67,6 +84,9 @@ export function useAdminData() {
         created_at: p.created_at,
         updated_at: p.updated_at,
         role: (rolesMap.get(p.id) as "user" | "admin") || "user",
+        token_balance: tokensMap.get(p.id) ?? 5,
+        frikort_count: frikortMap.get(p.id) ?? 0,
+        shot_banned_until: banMap.get(p.id) ?? null,
       })));
     } catch {
       errorToast("Kunne ikke hente brukere");
@@ -83,6 +103,7 @@ export function useAdminData() {
         supabase.from("messages").select("sender_id", { count: "exact", head: false }).gte("created_at", now24h),
       ]);
 
+      // Count unique active users from messages in last 24h (exclude system senders)
       const uniqueSenders = new Set(
         (msgRes.data || [])
           .map((m: any) => m.sender_id)
@@ -93,9 +114,9 @@ export function useAdminData() {
         activeUsers24h: uniqueSenders.size,
         totalUsers: users.length,
         shotRounds24h: shotRes.count ?? 0,
-        pushOk: true,
+        pushOk: true, // We'll assume OK unless we detect errors
       });
-    } catch { }
+    } catch {}
   }, [users]);
 
   const fetchActiveShots = React.useCallback(async () => {
