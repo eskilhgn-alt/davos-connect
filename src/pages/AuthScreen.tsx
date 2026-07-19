@@ -145,7 +145,22 @@ export const AuthScreen: React.FC = () => {
     setIsSubmitting(false);
   };
 
-  // handleResendVerification and handleForgotPassword removed – no email sending
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      errorToast("Skriv inn e-postadressen din");
+      return;
+    }
+    setIsSubmitting(true);
+    const { error } = await resetPassword(email);
+    setIsSubmitting(false);
+    if (error) {
+      errorToast("Kunne ikke sende e-post", { description: error.message });
+    } else {
+      toast.success("Sjekk e-posten din for lenke til å tilbakestille passord.");
+      setMode("login");
+    }
+  };
 
   const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
