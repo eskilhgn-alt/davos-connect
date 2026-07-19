@@ -77,7 +77,7 @@ export const AdminAnnouncements: React.FC = () => {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Feil");
-      toast.success(`Sendt! Push: ${result.push_sent}, E-post: ${result.emails_sent}`);
+      toast.success(`Sendt! Push: ${result.push_sent}`);
       loadAnnouncements();
     } catch (e: any) {
       errorToast("Broadcast feilet", { description: e.message });
