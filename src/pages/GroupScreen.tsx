@@ -15,11 +15,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Users, Crown, ChevronRight, Trophy, Target, Mountain } from "lucide-react";
 import { UserStatsSheet, type UserStats } from "@/components/group/UserStatsSheet";
 
-interface SpeedRecord {
-  user_id: string;
-  max_speed_kmh: number;
-}
-
 interface Profile {
   id: string;
   email: string;
