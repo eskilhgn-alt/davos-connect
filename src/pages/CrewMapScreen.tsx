@@ -75,9 +75,7 @@ export const CrewMapScreen: React.FC = () => {
   const searchMarkerRef = React.useRef<L.Marker | null>(null);
   const { locations, loading } = useUserLocations();
   const { user } = useAuth();
-
-  // Activate ski tracker in background
-  useSkiTracker();
+  const { enabled: sharingEnabled, startSharing, stopSharing } = useLocationTracker();
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchResults, setSearchResults] = React.useState<SearchResult[]>([]);
