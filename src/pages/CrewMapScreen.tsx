@@ -96,7 +96,29 @@ export const CrewMapScreen: React.FC = () => {
   const searchMarkerRef = React.useRef<L.Marker | null>(null);
   const { locations, loading } = useUserLocations();
   const { user } = useAuth();
-  const { enabled: sharingEnabled, startSharing, stopSharing } = useLocationTracker();
+  const {
+    enabled: sharingEnabled,
+    loading: sharingBusy,
+    error: sharingError,
+    startSharing,
+    stopSharing,
+  } = useLocationTracker();
+  const [stopping, setStopping] = React.useState(false);
+
+  const handleStart = React.useCallback(async () => {
+    await startSharing();
+  }, [startSharing]);
+
+  const handleStop = React.useCallback(async () => {
+    setStopping(true);
+    try {
+      await stopSharing();
+    } finally {
+      setStopping(false);
+    }
+  }, [stopSharing]);
+
+  const shareBusy = sharingBusy || stopping;
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchResults, setSearchResults] = React.useState<SearchResult[]>([]);
