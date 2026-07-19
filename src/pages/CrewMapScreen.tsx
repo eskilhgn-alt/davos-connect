@@ -45,7 +45,7 @@ function formatDist(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-const DAVOS_CENTER: [number, number] = [46.8, 9.84];
+const TRIP_CENTER: [number, number] = [ACTIVE_TRIP.center.lat, ACTIVE_TRIP.center.lon];
 
 interface SearchResult {
   display_name: string;
