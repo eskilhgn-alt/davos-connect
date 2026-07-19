@@ -19,7 +19,6 @@ import {
   Settings,
   ShieldCheck,
   LogOut,
-  Target,
   Beer,
   Sparkles,
   AlertTriangle,
