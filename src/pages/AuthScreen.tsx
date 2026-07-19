@@ -34,7 +34,7 @@ type AuthMode = "login" | "signup" | "forgot" | "onboarding" | "verify-email" | 
 export const AuthScreen: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, profile, signIn, signUp, signOut, updateProfile, isLoading, isProfileLoading, refreshProfile } = useAuth();
+  const { user, profile, signIn, signUp, signOut, updateProfile, resetPassword, isLoading, isProfileLoading, refreshProfile } = useAuth();
   
   const [mode, setMode] = React.useState<AuthMode>(() => {
     if (searchParams.get("mode") === "signup") return "signup";
