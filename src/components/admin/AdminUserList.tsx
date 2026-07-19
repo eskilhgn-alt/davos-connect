@@ -19,11 +19,10 @@ interface Props {
   loading: boolean;
   currentUserId: string;
   onRefresh: () => void;
-  onAdjustTokens: (userId: string) => void;
   onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
 }
 
-export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, onRefresh, onAdjustTokens, onLogAction }) => {
+export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, onRefresh, onLogAction }) => {
   const [search, setSearch] = React.useState("");
   const [unbanLoading, setUnbanLoading] = React.useState<string | null>(null);
   const [bulkMode, setBulkMode] = React.useState(false);
@@ -61,29 +60,8 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
     onRefresh();
   };
 
-  const bulkPush = async () => {
-    if (selected.size === 0) return;
-    setBulkLoading(true);
-    try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) throw new Error("Ikke autentisert");
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          type: "admin_notification",
-          heading: "Melding fra admin 📢",
-          message: "Sjekk appen for oppdateringer.",
-          include_user_ids: Array.from(selected),
-        }),
-      });
-      toast.success(`Push sendt til ${selected.size} brukere`);
-    } catch {
-      errorToast("Kunne ikke sende push");
-    }
-    setBulkLoading(false);
-  };
+
+
 
   const bannedUsers = React.useMemo(() => users.filter(u => u.is_banned), [users]);
   const unverifiedUsers = React.useMemo(() => users.filter(u => !u.email_verified), [users]);
@@ -224,9 +202,6 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
           </BrandButton>
           <span className="text-xs text-muted-foreground">{selected.size} valgt</span>
           <div className="flex-1" />
-          <BrandButton variant="outline" size="sm" onClick={bulkPush} disabled={selected.size === 0 || bulkLoading}>
-            <Bell size={14} className="mr-1" /> Push
-          </BrandButton>
           <BrandButton variant="outline" size="sm" onClick={bulkBan} disabled={selected.size === 0 || bulkLoading}
             className="border-destructive/30 text-destructive">
             <ShieldOff size={14} className="mr-1" /> Utesteng
@@ -254,7 +229,6 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
                 user={u}
                 currentUserId={currentUserId}
                 onRefresh={onRefresh}
-                onAdjustTokens={onAdjustTokens}
                 onLogAction={onLogAction}
               />
             </div>

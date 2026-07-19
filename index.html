@@ -9,9 +9,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     
     <!-- Security headers -->
-    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <!-- Kun referrer-policy fungerer pålitelig som meta. Ekte security-headere (X-Content-Type-Options, Permissions-Policy, CSP) må settes som HTTP-responsheadere hos hosten. -->
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(self), payment=()" />
     <title>GüttaHütte</title>
     <meta name="description" content="GüttaHütte – privat gruppe-app for ski, chat og opplevelser">
     <link rel="icon" type="image/jpeg" href="/app-icon.jpeg" />

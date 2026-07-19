@@ -53,15 +53,36 @@ interface SearchResult {
   lon: string;
 }
 
+/** Escaper som gjør at brukerdata trygt kan settes inn i HTML/attributter. */
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Tillat kun http(s)-URL-er i avatar-img. Alt annet faller tilbake til initial. */
+function safeAvatarUrl(input: string | undefined): string | null {
+  if (!input) return null;
+  try {
+    const u = new URL(input, window.location.origin);
+    if (u.protocol === "http:" || u.protocol === "https:") return u.toString();
+  } catch { /* */ }
+  return null;
+}
+
 function createAvatarIcon(avatarUrl: string | undefined, color: string, isMe: boolean): L.DivIcon {
   const size = isMe ? 40 : 32;
   const border = isMe ? 4 : 3;
-  const imgHtml = avatarUrl
-    ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" crossorigin="anonymous" />`
+  const safeUrl = safeAvatarUrl(avatarUrl);
+  const imgHtml = safeUrl
+    ? `<img src="${escapeHtml(safeUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" crossorigin="anonymous" alt="" />`
     : `<div style="width:100%;height:100%;border-radius:50%;background:#888;display:flex;align-items:center;justify-content:center;color:#fff;font-size:${size * 0.35}px;font-weight:700;">?</div>`;
 
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;border:${border}px solid ${color};overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:#fff;">${imgHtml}</div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;border:${border}px solid ${escapeHtml(color)};overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:#fff;">${imgHtml}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     className: "",
@@ -144,7 +165,7 @@ export const CrewMapScreen: React.FC = () => {
       const marker = L.marker([loc.lat, loc.lon], { icon }).addTo(map);
       const timeAgo = formatDistanceToNow(new Date(loc.updated_at), { addSuffix: true, locale: nb });
       marker.bindTooltip(
-        `<strong>${loc.display_name}</strong>${isMe ? " (deg)" : ""}<br/><span style="font-size:11px;opacity:.7">${timeAgo}</span>`,
+        `<strong>${escapeHtml(loc.display_name ?? "Ukjent")}</strong>${isMe ? " (deg)" : ""}<br/><span style="font-size:11px;opacity:.7">${escapeHtml(timeAgo)}</span>`,
         { permanent: false, direction: "top", offset: [0, -20] }
       );
       markersRef.current.push(marker);
@@ -168,7 +189,11 @@ export const CrewMapScreen: React.FC = () => {
     setSearching(true);
     searchTimeout.current = setTimeout(async () => {
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=9.6,46.7,10.1,46.9&bounded=1&limit=5`);
+        // Generer viewbox rundt aktiv trip-senter (~0.25° radius) for lokale treff.
+        const c = ACTIVE_TRIP.center;
+        const d = 0.25;
+        const viewbox = `${c.lon - d},${c.lat + d},${c.lon + d},${c.lat - d}`;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=${viewbox}&bounded=1&limit=5`);
         const data: SearchResult[] = await res.json();
         setSearchResults(data);
       } catch { setSearchResults([]); }

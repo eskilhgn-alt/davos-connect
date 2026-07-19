@@ -1,106 +1,25 @@
 /**
- * useGeolocation — returns the user's GPS position with high accuracy
- * Uses getCurrentPosition on an interval (avoids watchPosition HMR/stale-closure bugs)
+ * useGeolocation — tynn wrapper over `LocationSharingContext`.
+ *
+ * Beholder tidligere API-form (`enabled`, `position`, `loading`, `error`,
+ * `request`, `disable`) slik at eksisterende komponenter fortsetter å virke,
+ * men all state og pollingen bor nå i én delt provider.
+ *
+ * `enabled` er alltid `false` ved oppstart av ny sesjon — GPS starter aldri
+ * før brukeren eksplisitt trykker «Del min posisjon».
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useLocationSharing, type GeoPosition } from "@/contexts/LocationSharingContext";
 
-export interface GeoPosition {
-  lat: number;
-  lon: number;
-  accuracy?: number;
-  altitude?: number | null;
-  altitudeAccuracy?: number | null;
-  speed?: number | null; // m/s
-}
-
-const CACHE_KEY = "geo-position";
-const CACHE_TTL = 5 * 60 * 1000;
-const POLL_INTERVAL = 30_000; // 30s – balances accuracy vs battery
-
-function getCached(): GeoPosition | null {
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (Date.now() - parsed._ts > CACHE_TTL) return null;
-    return { lat: parsed.lat, lon: parsed.lon, accuracy: parsed.accuracy, altitude: parsed.altitude, altitudeAccuracy: parsed.altitudeAccuracy, speed: parsed.speed };
-  } catch {
-    return null;
-  }
-}
-
-function setCache(pos: GeoPosition) {
-  try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ...pos, _ts: Date.now() }));
-  } catch { /* */ }
-}
-
-function readEnabled(): boolean {
-  try { return localStorage.getItem("geo-enabled") === "true"; } catch { return false; }
-}
+export type { GeoPosition };
 
 export function useGeolocation() {
-  const [position, setPosition] = useState<GeoPosition | null>(getCached);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [enabled, setEnabled] = useState(readEnabled);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const fetchPosition = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError("Posisjon støttes ikke");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (geo) => {
-        const pos: GeoPosition = {
-          lat: geo.coords.latitude,
-          lon: geo.coords.longitude,
-          accuracy: geo.coords.accuracy,
-          altitude: geo.coords.altitude,
-          altitudeAccuracy: geo.coords.altitudeAccuracy,
-          speed: geo.coords.speed,
-        };
-        setPosition(pos);
-        setCache(pos);
-        setLoading(false);
-      },
-      (err) => {
-        console.warn("Geolocation error:", err.message);
-        setError("Kunne ikke hente posisjon");
-        setLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
-    );
-  }, []);
-
-  const request = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    setEnabled(true);
-    try { localStorage.setItem("geo-enabled", "true"); } catch { /* */ }
-    fetchPosition();
-  }, [fetchPosition]);
-
-  const disable = useCallback(() => {
-    setEnabled(false);
-    setPosition(null);
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    try {
-      localStorage.removeItem("geo-enabled");
-      sessionStorage.removeItem(CACHE_KEY);
-    } catch { /* */ }
-  }, []);
-
-  // Auto-poll when enabled
-  useEffect(() => {
-    if (!enabled) return;
-    fetchPosition();
-    intervalRef.current = setInterval(fetchPosition, POLL_INTERVAL);
-    return () => {
-      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    };
-  }, [enabled, fetchPosition]);
-
-  return { position, loading, error, enabled, request, disable };
+  const { enabled, position, loading, error, startSharing, stopSharing } = useLocationSharing();
+  return {
+    enabled,
+    position,
+    loading,
+    error,
+    request: startSharing,
+    disable: () => { void stopSharing(); },
+  };
 }

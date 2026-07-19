@@ -5,8 +5,8 @@ import * as React from "react";
 import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
 import { BrandButton } from "@/components/ui/brand-button";
 import {
-  Users, Target, Bell, BellOff, Loader2, Zap, Link2, UserPlus, Check,
-  MessageCircle, Star, Flame, BarChart3, Image,
+  Users, Bell, BellOff, Zap, Link2, UserPlus, Check,
+  MessageCircle, BarChart3, Image,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,69 +31,33 @@ const SHARE_LINKS = [
 ];
 
 export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, onNavigate, onLogAction }) => {
-  const [testPushLoading, setTestPushLoading] = React.useState(false);
+  
   const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
   const [extendedStats, setExtendedStats] = React.useState<{
     totalMessages: number;
-    totalPoints: number;
     activePolls: number;
     galleryItems: number;
-    topStreak: number;
-    topStreakUser: string;
   } | null>(null);
 
-  // Fetch extended stats
   React.useEffect(() => {
     const load = async () => {
-      const [msgRes, pointsRes, pollsRes, galleryRes, streaksRes] = await Promise.all([
+      const [msgRes, pollsRes, galleryRes] = await Promise.all([
         supabase.from("messages").select("id", { count: "exact", head: true }),
-        supabase.from("user_points").select("total_points"),
         supabase.from("polls").select("id", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("gallery_items").select("id", { count: "exact", head: true }),
-        supabase.from("user_streaks").select("user_id, current_streak").order("current_streak", { ascending: false }).limit(1),
       ]);
-
-      const totalPts = (pointsRes.data || []).reduce((s, r) => s + (r.total_points || 0), 0);
-      const topStreak = streaksRes.data?.[0];
-      const topUser = topStreak ? users.find(u => u.id === topStreak.user_id) : null;
 
       setExtendedStats({
         totalMessages: msgRes.count ?? 0,
-        totalPoints: totalPts,
         activePolls: pollsRes.count ?? 0,
         galleryItems: galleryRes.count ?? 0,
-        topStreak: topStreak?.current_streak ?? 0,
-        topStreakUser: topUser?.nickname || topUser?.full_name || "—",
       });
     };
     if (users.length > 0) load();
   }, [users]);
 
-  const sendTestPush = async () => {
-    setTestPushLoading(true);
-    try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) throw new Error("Ikke autentisert");
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          type: "test",
-          heading: "Test-push ✅",
-          message: "Push-systemet fungerer!",
-          include_user_ids: [currentUserId],
-        }),
-      });
-      if (!res.ok) throw new Error("Push feilet");
-      toast.success("Test-push sendt!");
-      onLogAction(currentUserId, "test_push_sent");
-    } catch {
-      errorToast("Kunne ikke sende test-push");
-    } finally {
-      setTestPushLoading(false);
-    }
-  };
+
+
 
   const copyLink = async (idx: number, path: string) => {
     try {
@@ -127,7 +91,6 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
       {stats && (
         <div className="grid grid-cols-3 gap-2">
           <StatCard icon={Users} value={stats.activeUsers24h} label="Aktive (24t)" />
-          <StatCard icon={Target} value={stats.shotRounds24h} label="Shot (24t)" />
           <StatCard icon={UserPlus} value={todayCount} label="Nye i dag" />
           <StatCard
             icon={stats.pushOk ? Bell : BellOff}
@@ -138,10 +101,8 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
           {extendedStats && (
             <>
               <StatCard icon={MessageCircle} value={extendedStats.totalMessages} label="Meldinger" />
-              <StatCard icon={Star} value={extendedStats.totalPoints} label="Poeng totalt" />
               <StatCard icon={BarChart3} value={extendedStats.activePolls} label="Polls aktive" />
               <StatCard icon={Image} value={extendedStats.galleryItems} label="Galleri" />
-              <StatCard icon={Flame} value={`${extendedStats.topStreak}d`} label={extendedStats.topStreakUser} />
             </>
           )}
         </div>
@@ -149,12 +110,8 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-2">
-        <BrandButton variant="outline" onClick={sendTestPush} disabled={testPushLoading} className="h-12">
-          {testPushLoading ? <Loader2 size={16} className="animate-spin mr-2" /> : <Bell size={16} className="mr-2" />}
-          Send test-push
-        </BrandButton>
-        <BrandButton variant="outline" onClick={() => onNavigate("shot")} className="h-12">
-          <Zap size={16} className="mr-2" /> Siste hendelser
+        <BrandButton variant="outline" onClick={() => onNavigate("push")} className="h-12">
+          <Bell size={16} className="mr-2" /> Push
         </BrandButton>
         <BrandButton variant="outline" onClick={() => onNavigate("moderate")} className="h-12">
           <BarChart3 size={16} className="mr-2" /> Moderering
@@ -162,7 +119,11 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
         <BrandButton variant="outline" onClick={() => onNavigate("bugs")} className="h-12">
           <MessageCircle size={16} className="mr-2" /> Feilrapporter
         </BrandButton>
+        <BrandButton variant="outline" onClick={() => onNavigate("log")} className="h-12">
+          <Zap size={16} className="mr-2" /> Logg
+        </BrandButton>
       </div>
+
 
       {/* Share links */}
       <BrandCard>

@@ -44,7 +44,6 @@ interface Props {
   user: UserProfile;
   currentUserId: string;
   onRefresh: () => void;
-  onAdjustTokens: (userId: string) => void;
   onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
 }
 
@@ -54,7 +53,7 @@ interface AdminNote {
   created_at: string;
 }
 
-export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRefresh, onAdjustTokens, onLogAction }) => {
+export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRefresh, onLogAction }) => {
   const [expanded, setExpanded] = React.useState(false);
   const [loading, setLoading] = React.useState<string | null>(null);
   const [editMode, setEditMode] = React.useState(false);
@@ -370,9 +369,6 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
               <BrandButton variant="outline" size="sm" onClick={sendPushNotification} disabled={loading === "push"}>
                 {loading === "push" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Bell size={14} className="mr-1" />}
                 Send push
-              </BrandButton>
-              <BrandButton variant="outline" size="sm" onClick={() => onAdjustTokens(u.id)}>
-                <Coins size={14} className="mr-1" /> Juster tokens
               </BrandButton>
               <BrandButton variant="outline" size="sm" onClick={() => setShowPoints(!showPoints)}>
                 <Star size={14} className="mr-1" /> Gi poeng
