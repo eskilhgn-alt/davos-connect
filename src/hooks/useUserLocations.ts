@@ -1,6 +1,9 @@
 /**
- * useUserLocations — subscribes to all user positions in realtime
+ * useUserLocations — subscribes to all user positions in realtime.
+ * Filtrerer bort foreldede posisjoner (> STALE_MS) slik at inaktive
+ * brukere aldri fremstår som "her nå".
  */
+export const STALE_LOCATION_MS = 10 * 60 * 1000; // 10 min
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
