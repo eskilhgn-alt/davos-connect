@@ -371,9 +371,6 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                 {loading === "push" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Bell size={14} className="mr-1" />}
                 Send push
               </BrandButton>
-              <BrandButton variant="outline" size="sm" onClick={() => onAdjustTokens(u.id)}>
-                <Coins size={14} className="mr-1" /> Juster tokens
-              </BrandButton>
               <BrandButton variant="outline" size="sm" onClick={() => setShowPoints(!showPoints)}>
                 <Star size={14} className="mr-1" /> Gi poeng
               </BrandButton>
