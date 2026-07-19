@@ -20,7 +20,7 @@ import CrewMapScreen from "./pages/CrewMapScreen";
 import LiveScreen from "./pages/LiveScreen";
 import GalleryScreen from "./pages/GalleryScreen";
 import WeatherScreen from "./pages/WeatherScreen";
-import ShotScreen from "./pages/ShotScreen";
+// ShotScreen fjernet fra aktiv navigasjon i step 3; ruter redirect til /hjem.
 import AgendaScreen from "./pages/AgendaScreen";
 
 import FaktasjekkerScreen from "./pages/FaktasjekkerScreen";
