@@ -31,7 +31,7 @@ const SHARE_LINKS = [
 ];
 
 export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, onNavigate, onLogAction }) => {
-  const [testPushLoading, setTestPushLoading] = React.useState(false);
+  
   const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
   const [extendedStats, setExtendedStats] = React.useState<{
     totalMessages: number;
