@@ -1,128 +1,101 @@
 /**
- * LiveScreen - Windy Radar + Webcam thumbnails
- * Primary live content view for the app
+ * LiveScreen – radar + lenke til offisielle Val Thorens webkameraer.
+ * Vi henter ikke lenger Feratel-/Davos-snapshots eller proxykaller.
  */
-
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { WindyEmbed } from "@/components/live";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { WEBCAMS, type Webcam } from "@/config/webcams";
-import { Mountain } from "lucide-react";
+import { ACTIVE_TRIP } from "@/config/trip";
+import { Camera, ExternalLink, CloudSun } from "lucide-react";
 import { Link } from "react-router-dom";
-import { WebcamModal } from "@/components/webcams";
-import { useGeolocation } from "@/hooks/useGeolocation";
 
 export const LiveScreen: React.FC = () => {
-  const { position } = useGeolocation();
-  const [selectedWebcam, setSelectedWebcam] = React.useState<Webcam | null>(null);
-
-
-  // Show first 6 webcams
-  const displayedWebcams = WEBCAMS.slice(0, 6);
+  const trip = ACTIVE_TRIP;
+  const webcamsLink = trip.officialLinks.webcams;
+  const weatherLink = trip.officialLinks.weather;
 
   return (
-    <div 
-      className="flex flex-col overflow-hidden bg-background"
-      style={{ height: "var(--app-height)" }}
-    >
-      <AppHeader 
-        title="Live" 
-        subtitle="Radar & webcams"
+    <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
+      <AppHeader
+        title="Live"
+        subtitle={`Radar & webkameraer · ${trip.destination}`}
         leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
-      <div 
+      <div
         className="flex-1 overflow-y-auto overscroll-contain"
-        style={{ 
-          paddingBottom: "var(--bottom-nav-h-effective)",
-          WebkitOverflowScrolling: 'touch',
-        }}
+        style={{ paddingBottom: "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}
       >
         <div className="p-4 space-y-6">
-          {/* Windy Radar Section */}
           <section>
             <h2 className="font-heading text-sm font-medium text-muted-foreground mb-3">
               Live værradar
             </h2>
-            
-            <WindyEmbed className="h-[350px]" overlay="radar" lat={position?.lat} lon={position?.lon} />
-            
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Animert nedbørradar · Oppdatert {new Date().toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" })}
+            <WindyEmbed className="h-[350px]" overlay="radar" lat={trip.center.lat} lon={trip.center.lon} />
+            <p className="text-xs text-muted-foreground/70 mt-2 text-center">
+              Kilde: Windy · Sentrert på {trip.destination}
             </p>
           </section>
 
-          {/* Webcams Section */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
               <h2 className="font-heading text-sm font-medium text-muted-foreground">
-                Webcams
+                Webkameraer
               </h2>
-              <Link 
-                to="/webcams"
-                className="text-xs text-primary hover:underline"
-              >
-                Alle ({WEBCAMS.length})
+              <Link to="/webcams" className="text-xs text-primary hover:underline">
+                Detaljer
               </Link>
             </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              {displayedWebcams.map((webcam) => {
-                return (
-                  <button
-                    key={webcam.id}
-                    onClick={() => setSelectedWebcam(webcam)}
-                    className="text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[var(--radius-card)] active:scale-[0.98] transition-transform"
-                  >
-                    <DavosCard className="overflow-hidden">
-                      <div className="relative aspect-video bg-muted">
-                        {webcam.videoUrl ? (
-                          <>
-                            <iframe
-                              src={webcam.videoUrl}
-                              className="w-full h-full border-0 pointer-events-none"
-                              allow="autoplay"
-                              sandbox="allow-scripts allow-same-origin allow-presentation"
-                              title={`${webcam.name} live`}
-                              loading="lazy"
-                            />
-                            <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-destructive text-destructive-foreground text-[10px] font-medium rounded flex items-center gap-1">
-                              <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
-                              LIVE
-                            </div>
-                          </>
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Mountain className="h-8 w-8 text-muted-foreground/50" />
-                          </div>
-                        )}
-                      </div>
-                      <DavosCardContent className="p-2">
-                        <p className="text-xs font-medium text-foreground truncate">
-                          {webcam.area}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {webcam.name}
-                          {webcam.elevation && ` · ${webcam.elevation}m`}
-                        </p>
-                      </DavosCardContent>
-                    </DavosCard>
-                  </button>
-                );
-              })}
-            </div>
+
+            {webcamsLink ? (
+              <a
+                href={webcamsLink.url}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl border border-border bg-muted/50 p-4 flex items-center gap-4 hover:bg-muted transition-colors"
+              >
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Camera className="text-primary" size={22} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-heading text-sm font-semibold text-foreground">
+                    Offisielle Val Thorens-webkameraer
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    Live bilder fra sentrum, løyper og topper
+                  </p>
+                </div>
+                <ExternalLink size={16} className="text-muted-foreground shrink-0" />
+              </a>
+            ) : (
+              <p className="text-sm text-muted-foreground">Webkameraer ikke konfigurert for aktiv tur.</p>
+            )}
+
+            {weatherLink && (
+              <a
+                href={weatherLink.url}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl border border-border bg-muted/30 p-4 flex items-center gap-4 hover:bg-muted/60 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <CloudSun className="text-primary" size={22} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-heading text-sm font-semibold text-foreground">
+                    {weatherLink.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    Offisielt fjellvær og skredvarsel
+                  </p>
+                </div>
+                <ExternalLink size={16} className="text-muted-foreground shrink-0" />
+              </a>
+            )}
           </section>
         </div>
       </div>
-
-      {/* Fullscreen modal */}
-      <WebcamModal
-        webcam={selectedWebcam}
-        open={!!selectedWebcam}
-        onOpenChange={(open) => !open && setSelectedWebcam(null)}
-      />
     </div>
   );
 };

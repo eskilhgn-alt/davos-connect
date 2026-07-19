@@ -16,7 +16,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: Home, label: "Hjem", path: "/hjem" },
   { icon: MessageCircle, label: "Chat", path: "/chat", badgeKey: "chat" },
-  { icon: MapIcon, label: "Kart", path: "/kart", match: ["/kart", "/magnus"] },
+  { icon: MapIcon, label: "Kart", path: "/kart", match: ["/kart", "/crew", "/magnus"] },
   {
     icon: MoreHorizontal,
     label: "Mer",
