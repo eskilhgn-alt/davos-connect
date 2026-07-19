@@ -36,7 +36,7 @@ import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
 // TokensScreen fjernet fra aktiv navigasjon i step 3; ruter redirect til /hjem.
-// Casino-skjermen er avviklet i step 1 – ruter redirect til /hjem.
+// Casino-skjermen er avviklet – ruter redirect til /hjem.
 import AvalancheScreen from "./pages/AvalancheScreen";
 
 

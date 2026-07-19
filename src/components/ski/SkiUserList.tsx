@@ -1,6 +1,6 @@
 /**
  * SkiUserList — Clickable list of all users with ski stats summary.
- * Used in CrewMapScreen (Magnus?) to view per-user ski data.
+ * Used in CrewMapScreen (Crew-kart) to view per-user ski data.
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";

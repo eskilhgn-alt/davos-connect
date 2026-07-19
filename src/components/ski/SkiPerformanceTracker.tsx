@@ -1,6 +1,6 @@
 /**
  * SkiPerformanceTracker — Shows daily vertical + speed per user,
- * daily winners, and clickable history. Used on Magnus? screen.
+ * daily winners, and clickable history. Used on Crew-kart screen.
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
