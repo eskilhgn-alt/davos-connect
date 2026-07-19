@@ -5,8 +5,8 @@ import * as React from "react";
 import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
 import { BrandButton } from "@/components/ui/brand-button";
 import {
-  Users, Target, Bell, BellOff, Loader2, Zap, Link2, UserPlus, Check,
-  MessageCircle, Star, Flame, BarChart3, Image,
+  Users, Bell, BellOff, Zap, Link2, UserPlus, Check,
+  MessageCircle, BarChart3, Image,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
