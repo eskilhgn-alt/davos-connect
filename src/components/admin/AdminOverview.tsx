@@ -69,31 +69,8 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
     if (users.length > 0) load();
   }, [users]);
 
-  const sendTestPush = async () => {
-    setTestPushLoading(true);
-    try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) throw new Error("Ikke autentisert");
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          type: "test",
-          heading: "Test-push ✅",
-          message: "Push-systemet fungerer!",
-          include_user_ids: [currentUserId],
-        }),
-      });
-      if (!res.ok) throw new Error("Push feilet");
-      toast.success("Test-push sendt!");
-      onLogAction(currentUserId, "test_push_sent");
-    } catch {
-      errorToast("Kunne ikke sende test-push");
-    } finally {
-      setTestPushLoading(false);
-    }
-  };
+
+
 
   const copyLink = async (idx: number, path: string) => {
     try {
