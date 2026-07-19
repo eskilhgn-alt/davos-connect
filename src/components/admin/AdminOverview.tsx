@@ -35,35 +35,22 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
   const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
   const [extendedStats, setExtendedStats] = React.useState<{
     totalMessages: number;
-    totalPoints: number;
     activePolls: number;
     galleryItems: number;
-    topStreak: number;
-    topStreakUser: string;
   } | null>(null);
 
-  // Fetch extended stats
   React.useEffect(() => {
     const load = async () => {
-      const [msgRes, pointsRes, pollsRes, galleryRes, streaksRes] = await Promise.all([
+      const [msgRes, pollsRes, galleryRes] = await Promise.all([
         supabase.from("messages").select("id", { count: "exact", head: true }),
-        supabase.from("user_points").select("total_points"),
         supabase.from("polls").select("id", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("gallery_items").select("id", { count: "exact", head: true }),
-        supabase.from("user_streaks").select("user_id, current_streak").order("current_streak", { ascending: false }).limit(1),
       ]);
-
-      const totalPts = (pointsRes.data || []).reduce((s, r) => s + (r.total_points || 0), 0);
-      const topStreak = streaksRes.data?.[0];
-      const topUser = topStreak ? users.find(u => u.id === topStreak.user_id) : null;
 
       setExtendedStats({
         totalMessages: msgRes.count ?? 0,
-        totalPoints: totalPts,
         activePolls: pollsRes.count ?? 0,
         galleryItems: galleryRes.count ?? 0,
-        topStreak: topStreak?.current_streak ?? 0,
-        topStreakUser: topUser?.nickname || topUser?.full_name || "—",
       });
     };
     if (users.length > 0) load();
