@@ -249,6 +249,13 @@ export const AuthScreen: React.FC = () => {
                     Opprett konto
                   </button>
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setMode("forgot")}
+                  className="text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
+                >
+                  Glemt passord?
+                </button>
               </div>
             </form>
           )}
