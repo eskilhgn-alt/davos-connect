@@ -1,6 +1,10 @@
 /**
- * Fixed location coordinates for Davos region
+ * Location points derived from the central trip config.
+ * Kept as a stable module path for backward compatibility with existing
+ * weather/services imports. Do NOT hard-code destination coordinates here —
+ * edit `src/config/trip.ts` instead.
  */
+import { ACTIVE_TRIP } from "./trip";
 
 export interface LocationPoint {
   id: string;
@@ -10,18 +14,22 @@ export interface LocationPoint {
   elevation?: number;
 }
 
-export const DAVOS: LocationPoint = {
-  id: "davos",
-  name: "Davos",
-  lat: 46.80,
-  lon: 9.84,
-  elevation: 1560,
+/** Map/weather anchor for the active trip. */
+export const TRIP_CENTER: LocationPoint = {
+  id: ACTIVE_TRIP.id,
+  name: ACTIVE_TRIP.destination,
+  lat: ACTIVE_TRIP.center.lat,
+  lon: ACTIVE_TRIP.center.lon,
+  elevation: ACTIVE_TRIP.center.elevation,
 };
 
-export const MOUNTAIN_AREAS: LocationPoint[] = [
-  { id: "parsenn", name: "Parsenn", lat: 46.83, lon: 9.80, elevation: 2844 },
-  { id: "jakobshorn", name: "Jakobshorn", lat: 46.77, lon: 9.85, elevation: 2590 },
-  { id: "pischa", name: "Pischa", lat: 46.85, lon: 9.90, elevation: 2483 },
-  { id: "rinerhorn", name: "Rinerhorn", lat: 46.74, lon: 9.77, elevation: 2490 },
-  { id: "madrisa", name: "Madrisa", lat: 46.93, lon: 9.86, elevation: 2602 },
-];
+/** Backwards-compat alias. New code should use `TRIP_CENTER`. */
+export const DAVOS: LocationPoint = TRIP_CENTER;
+
+export const MOUNTAIN_AREAS: LocationPoint[] = ACTIVE_TRIP.peaks.map((p) => ({
+  id: p.id,
+  name: p.name,
+  lat: p.lat,
+  lon: p.lon,
+  elevation: p.elevation,
+}));
