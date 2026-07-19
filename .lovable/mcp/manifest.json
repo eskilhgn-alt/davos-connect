@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "sdk_version": "0.23.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://psupgftxzyoyeyuhtqgw.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "guttahutte-mcp",
+      "version": "0.1.0",
+      "title": "GüttaHütte"
+    },
+    "tools": [
+      {
+        "name": "get_my_profile",
+        "title": "Hent min profil",
+        "description": "Hent den innloggede brukerens GüttaHütte-profil (navn, kallenavn, avatar, admin-status).",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_my_shot_tokens",
+        "title": "Hent mine shot tokens",
+        "description": "Hent den innloggede brukerens shot-token-saldo og frikort.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_shot_leaderboard",
+        "title": "Shot-toppliste",
+        "description": "Hent shot-topplisten (hvor mange shots hver bruker har tatt).",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_points_leaderboard",
+        "title": "Poeng-toppliste",
+        "description": "Hent poeng-topplisten for GüttaHütte.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_recent_chat_messages",
+        "title": "Nylige chat-meldinger",
+        "description": "Hent de siste meldingene fra hoved-chatten i GüttaHütte.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "default": 20,
+              "description": "Antall meldinger å hente (1-100).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "post_chat_message",
+        "title": "Send chat-melding",
+        "description": "Send en melding til GüttaHütte-hovedchatten som den innloggede brukeren.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "description": "Meldingsteksten som skal sendes."
+            }
+          },
+          "required": [
+            "text"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

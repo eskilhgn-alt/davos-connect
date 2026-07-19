@@ -42,6 +42,7 @@ import AvalancheScreen from "./pages/AvalancheScreen";
 
 import ResetPasswordScreen from "./pages/ResetPasswordScreen";
 import VerifyEmailScreen from "./pages/VerifyEmailScreen";
+import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -103,6 +104,8 @@ const AppRoutes = () => (
     <Route path="/auth" element={<AuthScreen />} />
     <Route path="/reset-password" element={<ResetPasswordScreen />} />
     <Route path="/verify-email" element={<VerifyEmailScreen />} />
+    <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+    
     
     {/* Protected routes - Chat with its own layout */}
     <Route element={<ProtectedRoute><ChatLayout /></ProtectedRoute>}>
