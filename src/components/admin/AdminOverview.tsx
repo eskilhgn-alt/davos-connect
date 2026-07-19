@@ -104,7 +104,6 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
       {stats && (
         <div className="grid grid-cols-3 gap-2">
           <StatCard icon={Users} value={stats.activeUsers24h} label="Aktive (24t)" />
-          <StatCard icon={Target} value={stats.shotRounds24h} label="Shot (24t)" />
           <StatCard icon={UserPlus} value={todayCount} label="Nye i dag" />
           <StatCard
             icon={stats.pushOk ? Bell : BellOff}
@@ -115,10 +114,8 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
           {extendedStats && (
             <>
               <StatCard icon={MessageCircle} value={extendedStats.totalMessages} label="Meldinger" />
-              <StatCard icon={Star} value={extendedStats.totalPoints} label="Poeng totalt" />
               <StatCard icon={BarChart3} value={extendedStats.activePolls} label="Polls aktive" />
               <StatCard icon={Image} value={extendedStats.galleryItems} label="Galleri" />
-              <StatCard icon={Flame} value={`${extendedStats.topStreak}d`} label={extendedStats.topStreakUser} />
             </>
           )}
         </div>
@@ -126,12 +123,8 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-2">
-        <BrandButton variant="outline" onClick={sendTestPush} disabled={testPushLoading} className="h-12">
-          {testPushLoading ? <Loader2 size={16} className="animate-spin mr-2" /> : <Bell size={16} className="mr-2" />}
-          Send test-push
-        </BrandButton>
-        <BrandButton variant="outline" onClick={() => onNavigate("shot")} className="h-12">
-          <Zap size={16} className="mr-2" /> Siste hendelser
+        <BrandButton variant="outline" onClick={() => onNavigate("push")} className="h-12">
+          <Bell size={16} className="mr-2" /> Push
         </BrandButton>
         <BrandButton variant="outline" onClick={() => onNavigate("moderate")} className="h-12">
           <BarChart3 size={16} className="mr-2" /> Moderering
@@ -139,7 +132,11 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
         <BrandButton variant="outline" onClick={() => onNavigate("bugs")} className="h-12">
           <MessageCircle size={16} className="mr-2" /> Feilrapporter
         </BrandButton>
+        <BrandButton variant="outline" onClick={() => onNavigate("log")} className="h-12">
+          <Zap size={16} className="mr-2" /> Logg
+        </BrandButton>
       </div>
+
 
       {/* Share links */}
       <BrandCard>
