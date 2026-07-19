@@ -1,5 +1,6 @@
 /**
- * GroupScreen - Shows all participants in GüttaHütte with clickable stats
+ * GroupScreen - Viser alle deltakere i GüttaHütte.
+ * Ingen gamification/shot/ski-statistikk vises her (byggetrinn 3-QA).
  */
 
 import * as React from "react";
@@ -12,8 +13,7 @@ import { BrandEmptyState } from "@/components/ui/brand-empty-state";
 import { BrandAvatar } from "@/components/ui/brand-avatar";
 import { BrandBadge } from "@/components/ui/brand-badge";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Crown, ChevronRight, Trophy, Target, Mountain } from "lucide-react";
-import { UserStatsSheet, type UserStats } from "@/components/group/UserStatsSheet";
+import { Users, Crown } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -25,8 +25,6 @@ interface Profile {
 }
 
 export const GroupScreen: React.FC = () => {
-  const [selectedUserId, setSelectedUserId] = React.useState<string | null>(null);
-
   const { data: profiles, isLoading, error } = useQuery({
     queryKey: ["group-profiles"],
     queryFn: async () => {
@@ -40,21 +38,6 @@ export const GroupScreen: React.FC = () => {
     },
   });
 
-  const { data: allStats } = useQuery({
-    queryKey: ["gamification-leaderboard"],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("rpc_get_gamification_leaderboard");
-      if (error) throw error;
-      return (data as unknown as UserStats[]) ?? [];
-    },
-  });
-
-  const statsMap = React.useMemo(() => {
-    const map = new Map<string, UserStats>();
-    allStats?.forEach((s) => map.set(s.user_id, s));
-    return map;
-  }, [allStats]);
-
   const getDisplayName = (p: Profile) =>
     p.nickname || p.full_name || p.email.split("@")[0];
 
@@ -65,9 +48,6 @@ export const GroupScreen: React.FC = () => {
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("nb-NO", { day: "numeric", month: "short", year: "numeric" });
-
-  const selectedProfile = profiles?.find((p) => p.id === selectedUserId);
-  const selectedStats = selectedUserId ? statsMap.get(selectedUserId) ?? null : null;
 
   return (
     <div
@@ -110,76 +90,38 @@ export const GroupScreen: React.FC = () => {
             !error &&
             profiles?.map((profile, index) => {
               const isCreator = index === 0;
-              const stats = statsMap.get(profile.id);
 
               return (
-                <button
-                  key={profile.id}
-                  type="button"
-                  onClick={() => setSelectedUserId(profile.id)}
-                  className="w-full text-left active:scale-[0.98] transition-transform"
-                >
-                  <BrandCard>
-                    <BrandCardContent className="flex items-center gap-3 p-4">
-                      <BrandAvatar
-                        src={profile.avatar_url || undefined}
-                        fallback={getInitials(profile)}
-                        size="md"
-                      />
+                <BrandCard key={profile.id}>
+                  <BrandCardContent className="flex items-center gap-3 p-4">
+                    <BrandAvatar
+                      src={profile.avatar_url || undefined}
+                      fallback={getInitials(profile)}
+                      size="md"
+                    />
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-heading font-semibold text-foreground truncate">
-                            {getDisplayName(profile)}
-                          </p>
-                          {isCreator && (
-                            <BrandBadge variant="accent" className="flex items-center gap-1">
-                              <Crown size={10} />
-                              Opprettet
-                            </BrandBadge>
-                          )}
-                        </div>
-
-                        {/* Mini stats row */}
-                        {stats && (
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                              <Trophy size={10} /> {stats.total_points}
-                            </span>
-                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                              <Target size={10} /> {stats.shots_selected}
-                            </span>
-                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                              <Mountain size={10} /> {Math.round(stats.ski_total_vertical)}m
-                            </span>
-                          </div>
-                        )}
-
-                        {!stats && (
-                          <p className="text-xs text-muted-foreground/70 mt-0.5">
-                            Ble med {formatDate(profile.created_at)}
-                          </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-heading font-semibold text-foreground truncate">
+                          {getDisplayName(profile)}
+                        </p>
+                        {isCreator && (
+                          <BrandBadge variant="accent" className="flex items-center gap-1">
+                            <Crown size={10} />
+                            Opprettet
+                          </BrandBadge>
                         )}
                       </div>
-
-                      <ChevronRight size={16} className="text-muted-foreground shrink-0" />
-                    </BrandCardContent>
-                  </BrandCard>
-                </button>
+                      <p className="text-xs text-muted-foreground/70 mt-0.5">
+                        Ble med {formatDate(profile.created_at)}
+                      </p>
+                    </div>
+                  </BrandCardContent>
+                </BrandCard>
               );
             })}
         </div>
       </div>
-
-      <UserStatsSheet
-        open={!!selectedUserId}
-        onClose={() => setSelectedUserId(null)}
-        stats={selectedStats}
-        avatarUrl={selectedProfile?.avatar_url}
-        isCreator={profiles?.[0]?.id === selectedUserId}
-        joinedDate={selectedProfile?.created_at}
-        topSpeed={null}
-      />
     </div>
   );
 };
