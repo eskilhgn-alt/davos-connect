@@ -39,12 +39,15 @@ export function useUserLocations() {
           (profiles || []).map((p) => [p.id, { name: p.nickname || p.full_name || "Ukjent", avatar: p.avatar_url }])
         );
 
+        const now = Date.now();
         setLocations(
-          data.map((d) => ({
-            ...d,
-            display_name: profileMap.get(d.user_id)?.name || "Ukjent",
-            avatar_url: profileMap.get(d.user_id)?.avatar || undefined,
-          }))
+          data
+            .filter((d) => now - new Date(d.updated_at).getTime() < STALE_LOCATION_MS)
+            .map((d) => ({
+              ...d,
+              display_name: profileMap.get(d.user_id)?.name || "Ukjent",
+              avatar_url: profileMap.get(d.user_id)?.avatar || undefined,
+            }))
         );
       }
       setLoading(false);
