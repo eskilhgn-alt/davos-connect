@@ -44,7 +44,6 @@ interface Props {
   user: UserProfile;
   currentUserId: string;
   onRefresh: () => void;
-  onAdjustTokens: (userId: string) => void;
   onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
 }
 
@@ -54,7 +53,7 @@ interface AdminNote {
   created_at: string;
 }
 
-export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRefresh, onAdjustTokens, onLogAction }) => {
+export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRefresh, onLogAction }) => {
   const [expanded, setExpanded] = React.useState(false);
   const [loading, setLoading] = React.useState<string | null>(null);
   const [editMode, setEditMode] = React.useState(false);
