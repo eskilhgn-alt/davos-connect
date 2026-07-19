@@ -189,7 +189,7 @@ export const AuthScreen: React.FC = () => {
       toast.success("Profil klar!");
       // Send welcome message in chat
       sendWelcomeMessage(nickname.trim() || fullName.split(" ")[0]);
-      navigate("/");
+      navigate(safeNext ?? "/");
     }
     setIsSubmitting(false);
   };
