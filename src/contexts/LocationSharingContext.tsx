@@ -5,8 +5,10 @@
  *  - `enabled` er alltid `false` ved oppstart av ny app-/nettleserøkt.
  *    Ingen GPS-polling starter før brukeren eksplisitt trykker
  *    «Del min posisjon» (via `startSharing`).
- *  - Provideren skal monteres i det autentiserte app-skallet (AppLayout).
- *    Dermed kan deling fortsette mens brukeren navigerer.
+ *  - `startSharing()` henter først en posisjon. Deling («enabled=true»)
+ *    aktiveres kun hvis geolocation faktisk lykkes. Blir tillatelsen
+ *    nektet, forblir `enabled=false` og en konkret feilmelding
+ *    eksponeres via `error`.
  *  - Bare én geolocation-poller og én database-upsert-loop kjører.
  *  - `stopSharing()` stopper pollere, tømmer cache og sletter egen
  *    `user_locations`-rad. Feil rapporteres via `error`.
@@ -35,7 +37,8 @@ interface LocationSharingContextValue {
   position: GeoPosition | null;
   loading: boolean;
   error: string | null;
-  startSharing: () => void;
+  /** Returnerer `true` når deling faktisk ble aktivert. */
+  startSharing: () => Promise<boolean>;
   stopSharing: () => Promise<void>;
 }
 
@@ -52,6 +55,20 @@ function haversineDistance(a: { lat: number; lon: number }, b: { lat: number; lo
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
 }
 
+/** Oversetter en `GeolocationPositionError`-kode til en kort norsk melding. */
+export function geoErrorMessage(code: number): string {
+  switch (code) {
+    case 1: // PERMISSION_DENIED
+      return "Posisjonstilgang er avslått. Aktiver stedstjenester i innstillingene for å dele posisjon.";
+    case 2: // POSITION_UNAVAILABLE
+      return "Posisjon er ikke tilgjengelig akkurat nå. Prøv igjen når du har bedre GPS-signal.";
+    case 3: // TIMEOUT
+      return "Tidsavbrudd ved henting av posisjon. Prøv igjen.";
+    default:
+      return "Kunne ikke hente posisjon.";
+  }
+}
+
 export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [enabled, setEnabled] = React.useState(false);
@@ -64,6 +81,7 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
   const lastSentRef = React.useRef<{ lat: number; lon: number; ts: number } | null>(null);
   const posRef = React.useRef<GeoPosition | null>(null);
   const userIdRef = React.useRef<string | null>(null);
+  const enabledRef = React.useRef(false);
 
   React.useEffect(() => {
     posRef.current = position;
@@ -71,38 +89,64 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
   React.useEffect(() => {
     userIdRef.current = user?.id ?? null;
   }, [user?.id]);
+  React.useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
 
-  const fetchPosition = React.useCallback(() => {
-    if (!navigator.geolocation) {
-      setError("Posisjon støttes ikke i denne nettleseren");
-      setLoading(false);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (geo) => {
-        const pos: GeoPosition = {
-          lat: geo.coords.latitude,
-          lon: geo.coords.longitude,
-          accuracy: geo.coords.accuracy,
-          altitude: geo.coords.altitude,
-          altitudeAccuracy: geo.coords.altitudeAccuracy,
-          speed: geo.coords.speed,
-        };
+  const stopTimers = React.useCallback(() => {
+    if (geoTimerRef.current) { clearInterval(geoTimerRef.current); geoTimerRef.current = null; }
+    if (upsertTimerRef.current) { clearInterval(upsertTimerRef.current); upsertTimerRef.current = null; }
+  }, []);
+
+  /** Henter én posisjon som Promise. Feil rejecter med GeolocationPositionError. */
+  const getPositionOnce = React.useCallback((): Promise<GeoPosition> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject({ code: 2, message: "Geolocation not supported" } as GeolocationPositionError);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (geo) => {
+          resolve({
+            lat: geo.coords.latitude,
+            lon: geo.coords.longitude,
+            accuracy: geo.coords.accuracy,
+            altitude: geo.coords.altitude,
+            altitudeAccuracy: geo.coords.altitudeAccuracy,
+            speed: geo.coords.speed,
+          });
+        },
+        (err) => reject(err),
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+      );
+    });
+  }, []);
+
+  /** Bakgrunnsoppdatering brukt av pollen. Stopper deling ved PERMISSION_DENIED. */
+  const pollPosition = React.useCallback(() => {
+    if (!enabledRef.current) return;
+    getPositionOnce()
+      .then((pos) => {
         setPosition(pos);
         setError(null);
-        setLoading(false);
         try {
           sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ...pos, _ts: Date.now() }));
         } catch { /* */ }
-      },
-      (err) => {
-        console.warn("Geolocation error:", err.message);
-        setError("Kunne ikke hente posisjon");
-        setLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
-    );
-  }, []);
+      })
+      .catch((err: GeolocationPositionError) => {
+        console.warn("Geolocation poll error:", err?.message);
+        // Ved nektet tillatelse: stopp deling helt, ikke fortsett å prompte hvert 30. sekund.
+        if (err?.code === 1) {
+          stopTimers();
+          setEnabled(false);
+          setPosition(null);
+          lastSentRef.current = null;
+          setError(geoErrorMessage(1));
+        } else {
+          setError(geoErrorMessage(err?.code ?? 0));
+        }
+      });
+  }, [getPositionOnce, stopTimers]);
 
   const upsert = React.useCallback(async (force: boolean) => {
     const pos = posRef.current;
@@ -113,7 +157,6 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
     if (!force && lastSentRef.current) {
       const dist = haversineDistance(lastSentRef.current, pos);
       const age = now - lastSentRef.current.ts;
-      // Send hvis vi har beveget oss nok, eller det er lenge siden forrige upsert
       if (dist < MIN_DISTANCE_M && age < UPSERT_HEARTBEAT_MS) return;
     }
 
@@ -144,18 +187,33 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
     }
   }, []);
 
-  const stopTimers = React.useCallback(() => {
-    if (geoTimerRef.current) { clearInterval(geoTimerRef.current); geoTimerRef.current = null; }
-    if (upsertTimerRef.current) { clearInterval(upsertTimerRef.current); upsertTimerRef.current = null; }
-  }, []);
-
-  const startSharing = React.useCallback(() => {
-    if (enabled) return;
+  const startSharing = React.useCallback(async (): Promise<boolean> => {
+    if (enabledRef.current) return true;
     setError(null);
     setLoading(true);
-    setEnabled(true);
-    fetchPosition();
-  }, [enabled, fetchPosition]);
+    try {
+      const pos = await getPositionOnce();
+      // Rekkefølge: sett posisjon først, deretter enabled=true. Da vil
+      // heartbeat-effekten under kunne kjøre en umiddelbar upsert.
+      setPosition(pos);
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ...pos, _ts: Date.now() }));
+      } catch { /* */ }
+      setEnabled(true);
+      setLoading(false);
+      return true;
+    } catch (err) {
+      const code = (err as GeolocationPositionError | undefined)?.code ?? 0;
+      console.warn("startSharing geolocation error:", (err as GeolocationPositionError | undefined)?.message);
+      stopTimers();
+      setEnabled(false);
+      setPosition(null);
+      lastSentRef.current = null;
+      setError(geoErrorMessage(code));
+      setLoading(false);
+      return false;
+    }
+  }, [getPositionOnce, stopTimers]);
 
   const stopSharing = React.useCallback(async () => {
     stopTimers();
@@ -175,11 +233,11 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
       stopTimers();
       return;
     }
-    geoTimerRef.current = setInterval(fetchPosition, GEO_POLL_MS);
+    geoTimerRef.current = setInterval(pollPosition, GEO_POLL_MS);
     // Heartbeat sjekker minst hvert 30. sekund om det er tid for upsert
     upsertTimerRef.current = setInterval(() => { void upsert(false); }, 30_000);
     return () => stopTimers();
-  }, [enabled, fetchPosition, upsert, stopTimers]);
+  }, [enabled, pollPosition, upsert, stopTimers]);
 
   // Upsert umiddelbart første gang vi får en posisjon etter oppstart.
   React.useEffect(() => {
@@ -196,12 +254,10 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
     const curr = user?.id ?? null;
     const prev = prevUserRef.current;
     if (prev && !curr && enabled) {
-      // Bruker logget ut; rydd
       stopTimers();
       setEnabled(false);
       setPosition(null);
       lastSentRef.current = null;
-      // clearRow bruker userIdRef, som nå er null. Prøv å slette basert på prev.
       supabase.from("user_locations").delete().eq("user_id", prev).then(({ error: delErr }) => {
         if (delErr) console.warn("logout cleanup failed:", delErr.message);
       });
