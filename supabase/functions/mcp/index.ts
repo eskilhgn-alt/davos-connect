@@ -38,107 +38,17 @@ var get_my_profile_default = defineTool({
   }
 });
 
-// src/lib/mcp/tools/get_my_shot_tokens.ts
+// src/lib/mcp/tools/list_recent_chat.ts
 import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.93.3";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.23.0";
+import { z } from "npm:zod@^4.4.3";
 function supabaseForUser2(ctx) {
   return createClient2(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var get_my_shot_tokens_default = defineTool2({
-  name: "get_my_shot_tokens",
-  title: "Hent mine shot tokens",
-  description: "Hent den innloggede brukerens shot-token-saldo og frikort.",
-  inputSchema: {},
-  annotations: { readOnlyHint: true, openWorldHint: false },
-  handler: async (_input, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const supabase = supabaseForUser2(ctx);
-    const [{ data: tokens }, { data: frikort }] = await Promise.all([
-      supabase.from("shot_tokens").select("*").eq("user_id", ctx.getUserId()).maybeSingle(),
-      supabase.from("user_frikort").select("*").eq("user_id", ctx.getUserId()).maybeSingle()
-    ]);
-    const result = { tokens: tokens ?? null, frikort: frikort ?? null };
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      structuredContent: result
-    };
-  }
-});
-
-// src/lib/mcp/tools/get_shot_leaderboard.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.93.3";
-import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.23.0";
-function supabaseForUser3(ctx) {
-  return createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
-var get_shot_leaderboard_default = defineTool3({
-  name: "get_shot_leaderboard",
-  title: "Shot-toppliste",
-  description: "Hent shot-topplisten (hvor mange shots hver bruker har tatt).",
-  inputSchema: {},
-  annotations: { readOnlyHint: true, openWorldHint: false },
-  handler: async (_input, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const supabase = supabaseForUser3(ctx);
-    const { data, error } = await supabase.rpc("rpc_get_shot_leaderboard");
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-      structuredContent: { leaderboard: data }
-    };
-  }
-});
-
-// src/lib/mcp/tools/get_points_leaderboard.ts
-import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.93.3";
-import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.23.0";
-function supabaseForUser4(ctx) {
-  return createClient4(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
-var get_points_leaderboard_default = defineTool4({
-  name: "get_points_leaderboard",
-  title: "Poeng-toppliste",
-  description: "Hent poeng-topplisten for G\xFCttaH\xFCtte.",
-  inputSchema: {},
-  annotations: { readOnlyHint: true, openWorldHint: false },
-  handler: async (_input, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const supabase = supabaseForUser4(ctx);
-    const { data, error } = await supabase.rpc("rpc_get_points_leaderboard");
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-      structuredContent: { leaderboard: data }
-    };
-  }
-});
-
-// src/lib/mcp/tools/list_recent_chat.ts
-import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.93.3";
-import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.23.0";
-import { z } from "npm:zod@^4.4.3";
-function supabaseForUser5(ctx) {
-  return createClient5(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
-var list_recent_chat_default = defineTool5({
+var list_recent_chat_default = defineTool2({
   name: "list_recent_chat_messages",
   title: "Nylige chat-meldinger",
   description: "Hent de siste meldingene fra hoved-chatten i G\xFCttaH\xFCtte.",
@@ -150,7 +60,7 @@ var list_recent_chat_default = defineTool5({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser5(ctx);
+    const supabase = supabaseForUser2(ctx);
     const { data, error } = await supabase.from("messages").select("id,text,sender_id,sender_name,created_at").order("created_at", { ascending: false }).limit(limit ?? 20);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
@@ -161,17 +71,17 @@ var list_recent_chat_default = defineTool5({
 });
 
 // src/lib/mcp/tools/post_chat_message.ts
-import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.93.3";
-import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.23.0";
+import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.93.3";
+import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.23.0";
 import { z as z2 } from "npm:zod@^4.4.3";
 var WELCOME_THREAD_ID = "00000000-0000-0000-0000-000000000001";
-function supabaseForUser6(ctx) {
-  return createClient6(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+function supabaseForUser3(ctx) {
+  return createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var post_chat_message_default = defineTool6({
+var post_chat_message_default = defineTool3({
   name: "post_chat_message",
   title: "Send chat-melding",
   description: "Send en melding til G\xFCttaH\xFCtte-hovedchatten som den innloggede brukeren.",
@@ -183,7 +93,7 @@ var post_chat_message_default = defineTool6({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser6(ctx);
+    const supabase = supabaseForUser3(ctx);
     const userId = ctx.getUserId();
     const { data: profile } = await supabase.from("profiles").select("nickname,full_name").eq("id", userId).maybeSingle();
     const senderName = profile?.nickname || profile?.full_name || "Ukjent";
@@ -201,20 +111,13 @@ var projectRef = "psupgftxzyoyeyuhtqgw";
 var mcp_default = defineMcp({
   name: "guttahutte-mcp",
   title: "G\xFCttaH\xFCtte",
-  version: "0.1.0",
-  instructions: "Verkt\xF8y for G\xFCttaH\xFCtte-appen. Brukeren logger inn med sin egen konto via OAuth, og alle verkt\xF8y kj\xF8rer som den brukeren (RLS gjelder). Bruk `get_my_profile` og `get_my_shot_tokens` for personlig data, toppliste-verkt\xF8yene for gruppestatistikk, `list_recent_chat_messages` for \xE5 lese chat, og `post_chat_message` for \xE5 sende meldinger.",
+  version: "0.2.0",
+  instructions: "Verkt\xF8y for G\xFCttaH\xFCtte-appen. Brukeren logger inn med sin egen konto via OAuth og alle kall kj\xF8rer som den brukeren (RLS gjelder). Bruk `get_my_profile` for egen profil, `list_recent_chat_messages` for \xE5 lese nylige chat-meldinger, og `post_chat_message` for \xE5 sende en melding til gruppechatten.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
-  tools: [
-    get_my_profile_default,
-    get_my_shot_tokens_default,
-    get_shot_leaderboard_default,
-    get_points_leaderboard_default,
-    list_recent_chat_default,
-    post_chat_message_default
-  ]
+  tools: [get_my_profile_default, list_recent_chat_default, post_chat_message_default]
 });
 
 // lovable-mcp-supabase-entry.ts
