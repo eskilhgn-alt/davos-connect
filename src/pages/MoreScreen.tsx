@@ -63,7 +63,6 @@ const MoreScreen: React.FC = () => {
     ];
 
     const funAndGames: Tile[] = [
-      { to: "/shot", label: "Shoot", icon: Target, badge: badges.shot },
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
     ];
 
@@ -77,7 +76,7 @@ const MoreScreen: React.FC = () => {
     return [
       { title: "Planlegging", tiles: planning },
       { title: "Fellesskap", tiles: community },
-      { title: "Fest og spill", subtitle: "Frivillige tilleggsfunksjoner", tiles: funAndGames, quiet: true },
+      { title: "Fest og spill", subtitle: "Helt frivillig", tiles: funAndGames, quiet: true },
       { title: "Konto", tiles: settingsTiles },
     ];
   }, [badges, isAdmin]);
