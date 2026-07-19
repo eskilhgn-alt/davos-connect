@@ -189,7 +189,11 @@ export const CrewMapScreen: React.FC = () => {
     setSearching(true);
     searchTimeout.current = setTimeout(async () => {
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=9.6,46.7,10.1,46.9&bounded=1&limit=5`);
+        // Generer viewbox rundt aktiv trip-senter (~0.25° radius) for lokale treff.
+        const c = ACTIVE_TRIP.center;
+        const d = 0.25;
+        const viewbox = `${c.lon - d},${c.lat + d},${c.lon + d},${c.lat - d}`;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=${viewbox}&bounded=1&limit=5`);
         const data: SearchResult[] = await res.json();
         setSearchResults(data);
       } catch { setSearchResults([]); }
