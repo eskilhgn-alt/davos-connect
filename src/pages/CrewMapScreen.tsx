@@ -289,19 +289,27 @@ export const CrewMapScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* GPS Route tracking */}
-        <div className="border-t border-border">
-          <SkiRouteMap />
-        </div>
-
-        {/* Ski performance tracker */}
-        <div className="border-t border-border">
-          <SkiPerformanceTracker />
-        </div>
-
-        {/* Per-user ski stats */}
-        <div className="border-t border-border">
-          <SkiUserList />
+        {/* Deling av posisjon (opt-in) */}
+        <div className="border-t border-border p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <Shield size={16} className="text-primary mt-0.5 shrink-0" />
+            <div className="text-xs text-muted-foreground leading-relaxed">
+              Posisjonsdeling er frivillig og av som standard. Når du slår det på deles din posisjon med resten av crewet ca. hvert 30. sekund så lenge appen er åpen. Slår du det av, fjernes din posisjon umiddelbart. Vi kan ikke garantere bakgrunnssporing i iOS PWA.
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <BatteryLow size={14} />
+            <span>Kontinuerlig GPS trekker batteri. Slå av når du ikke trenger å dele.</span>
+          </div>
+          {sharingEnabled ? (
+            <BrandButton onClick={stopSharing} variant="outline" className="w-full">
+              Stopp deling av posisjon
+            </BrandButton>
+          ) : (
+            <BrandButton onClick={startSharing} className="w-full">
+              Del min posisjon
+            </BrandButton>
+          )}
         </div>
       </div>
     </div>
