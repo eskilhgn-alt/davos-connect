@@ -64,7 +64,7 @@ export const BottomNavigation: React.FC = () => {
   if (isKeyboardOpen) return null;
 
   const merBadge =
-    (badges.agenda || 0) + (badges.polls || 0) + (badges.runder || 0) + (badges.shot || 0);
+    (badges.agenda || 0) + (badges.polls || 0) + (badges.runder || 0);
 
   const isActive = (item: NavItem) => {
     const paths = item.match ?? [item.path];
