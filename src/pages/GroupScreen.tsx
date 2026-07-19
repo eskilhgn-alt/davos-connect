@@ -40,26 +40,6 @@ export const GroupScreen: React.FC = () => {
     },
   });
 
-  const { data: speedRecords } = useQuery({
-    queryKey: ["all-speed-records"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("ski_speed_records")
-        .select("user_id, max_speed_kmh")
-        .order("max_speed_kmh", { ascending: false });
-      return (data ?? []) as SpeedRecord[];
-    },
-  });
-
-  const topSpeedMap = React.useMemo(() => {
-    const map = new Map<string, number>();
-    speedRecords?.forEach((r) => {
-      const cur = map.get(r.user_id) ?? 0;
-      if (r.max_speed_kmh > cur) map.set(r.user_id, r.max_speed_kmh);
-    });
-    return map;
-  }, [speedRecords]);
-
   const { data: allStats } = useQuery({
     queryKey: ["gamification-leaderboard"],
     queryFn: async () => {
