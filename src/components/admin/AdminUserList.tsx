@@ -202,9 +202,6 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
           </BrandButton>
           <span className="text-xs text-muted-foreground">{selected.size} valgt</span>
           <div className="flex-1" />
-          <BrandButton variant="outline" size="sm" onClick={bulkPush} disabled={selected.size === 0 || bulkLoading}>
-            <Bell size={14} className="mr-1" /> Push
-          </BrandButton>
           <BrandButton variant="outline" size="sm" onClick={bulkBan} disabled={selected.size === 0 || bulkLoading}
             className="border-destructive/30 text-destructive">
             <ShieldOff size={14} className="mr-1" /> Utesteng
