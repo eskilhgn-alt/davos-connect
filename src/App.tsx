@@ -14,6 +14,7 @@ import { errorToast } from "@/utils/errorToast";
 
 import ChatScreen from "./pages/ChatScreen";
 import HomeScreen from "./pages/HomeScreen";
+import MoreScreen from "./pages/MoreScreen";
 import MapScreen from "./pages/MapScreen";
 import CrewMapScreen from "./pages/CrewMapScreen";
 import LiveScreen from "./pages/LiveScreen";
