@@ -19,11 +19,10 @@ interface Props {
   loading: boolean;
   currentUserId: string;
   onRefresh: () => void;
-  onAdjustTokens: (userId: string) => void;
   onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
 }
 
-export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, onRefresh, onAdjustTokens, onLogAction }) => {
+export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, onRefresh, onLogAction }) => {
   const [search, setSearch] = React.useState("");
   const [unbanLoading, setUnbanLoading] = React.useState<string | null>(null);
   const [bulkMode, setBulkMode] = React.useState(false);
