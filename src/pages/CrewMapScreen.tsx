@@ -53,15 +53,36 @@ interface SearchResult {
   lon: string;
 }
 
+/** Escaper som gjør at brukerdata trygt kan settes inn i HTML/attributter. */
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Tillat kun http(s)-URL-er i avatar-img. Alt annet faller tilbake til initial. */
+function safeAvatarUrl(input: string | undefined): string | null {
+  if (!input) return null;
+  try {
+    const u = new URL(input, window.location.origin);
+    if (u.protocol === "http:" || u.protocol === "https:") return u.toString();
+  } catch { /* */ }
+  return null;
+}
+
 function createAvatarIcon(avatarUrl: string | undefined, color: string, isMe: boolean): L.DivIcon {
   const size = isMe ? 40 : 32;
   const border = isMe ? 4 : 3;
-  const imgHtml = avatarUrl
-    ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" crossorigin="anonymous" />`
+  const safeUrl = safeAvatarUrl(avatarUrl);
+  const imgHtml = safeUrl
+    ? `<img src="${escapeHtml(safeUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" crossorigin="anonymous" alt="" />`
     : `<div style="width:100%;height:100%;border-radius:50%;background:#888;display:flex;align-items:center;justify-content:center;color:#fff;font-size:${size * 0.35}px;font-weight:700;">?</div>`;
 
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;border:${border}px solid ${color};overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:#fff;">${imgHtml}</div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;border:${border}px solid ${escapeHtml(color)};overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:#fff;">${imgHtml}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     className: "",
