@@ -53,6 +53,14 @@ export const AuthScreen: React.FC = () => {
   const [avatarUploading, setAvatarUploading] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const { isLocked, remainingLockSeconds, recordAttempt, attempts } = useAuthRateLimit();
+  const nextParam = searchParams.get("next");
+  const safeNext = React.useMemo(() => {
+    if (!nextParam) return null;
+    // Bare same-origin relative paths
+    if (!nextParam.startsWith("/") || nextParam.startsWith("//")) return null;
+    return nextParam;
+  }, [nextParam]);
+
   React.useEffect(() => {
     if (!user || isProfileLoading) return;
 
@@ -65,11 +73,11 @@ export const AuthScreen: React.FC = () => {
     if (profile.email_verified === false) {
       setMode("awaiting-admin");
     } else if (profile.full_name && profile.nickname && profile.avatar_url) {
-      navigate("/");
+      navigate(safeNext ?? "/");
     } else {
       setMode("onboarding");
     }
-  }, [user, profile, isProfileLoading, navigate, refreshProfile, signOut]);
+  }, [user, profile, isProfileLoading, navigate, refreshProfile, signOut, safeNext]);
 
   // Clean up preview URL
   React.useEffect(() => {
