@@ -36,7 +36,7 @@ import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
 import TokensScreen from "./pages/TokensScreen";
-import CasinoScreen from "./pages/CasinoScreen";
+// Casino-skjermen er avviklet i step 1 – ruter redirect til /hjem.
 import AvalancheScreen from "./pages/AvalancheScreen";
 
 
