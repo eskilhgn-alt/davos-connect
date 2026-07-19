@@ -1,6 +1,7 @@
 /**
  * BackButton - Universal back navigation component
- * Uses history.back() when possible, falls back to home
+ * Always navigates to fallbackPath (default /hjem) with replace:true
+ * to avoid nested history stacks inside the PWA shell.
  */
 
 import * as React from "react";
