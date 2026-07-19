@@ -3,7 +3,7 @@
  *
  * All operativ værdata i appen skal hentes herfra, basert på
  * `ACTIVE_TRIP.center` og `ACTIVE_TRIP.timezone` – ingen hardkodede
- * koordinater eller Davos-defaults. Offisielt fjellvær og skredvarsel
+ * koordinater. Offisielt fjellvær og skredvarsel
  * lenkes til Meteo-France (se `ACTIVE_TRIP.officialLinks.weather`).
  */
 import { ACTIVE_TRIP, type TripConfig } from "@/config/trip";

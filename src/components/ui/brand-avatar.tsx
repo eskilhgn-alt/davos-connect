@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { User } from "lucide-react";
 
-const davosAvatarVariants = cva(
+const brandAvatarVariants = cva(
   "relative flex shrink-0 overflow-hidden rounded-full bg-muted items-center justify-center",
   {
     variants: {
@@ -22,7 +22,7 @@ const davosAvatarVariants = cva(
 
 export interface BrandAvatarProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof davosAvatarVariants> {
+    VariantProps<typeof brandAvatarVariants> {
   src?: string;
   alt?: string;
   fallback?: string;
@@ -46,7 +46,7 @@ const BrandAvatar = React.forwardRef<HTMLDivElement, BrandAvatarProps>(
     return (
       <div
         ref={ref}
-        className={cn(davosAvatarVariants({ size, className }))}
+        className={cn(brandAvatarVariants({ size, className }))}
         {...props}
       >
         {src && !hasError ? (
@@ -69,4 +69,4 @@ const BrandAvatar = React.forwardRef<HTMLDivElement, BrandAvatarProps>(
 );
 BrandAvatar.displayName = "BrandAvatar";
 
-export { BrandAvatar, davosAvatarVariants };
+export { BrandAvatar, brandAvatarVariants };

@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
 
-const davosToastVariants = cva(
+const brandToastVariants = cva(
   "pointer-events-auto flex w-full items-center gap-3 rounded-card p-4 shadow-lg transition-all animate-slide-up",
   {
     variants: {
@@ -22,7 +22,7 @@ const davosToastVariants = cva(
 
 export interface BrandToastProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof davosToastVariants> {
+    VariantProps<typeof brandToastVariants> {
   title: string;
   description?: string;
   onClose?: () => void;
@@ -48,7 +48,7 @@ const BrandToast = React.forwardRef<HTMLDivElement, BrandToastProps>(
     return (
       <div
         ref={ref}
-        className={cn(davosToastVariants({ variant, className }))}
+        className={cn(brandToastVariants({ variant, className }))}
         role="alert"
         {...props}
       >
@@ -82,4 +82,4 @@ const BrandToast = React.forwardRef<HTMLDivElement, BrandToastProps>(
 );
 BrandToast.displayName = "BrandToast";
 
-export { BrandToast, davosToastVariants };
+export { BrandToast, brandToastVariants };

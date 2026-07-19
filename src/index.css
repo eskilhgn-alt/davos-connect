@@ -45,13 +45,13 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
 
-    --primary: 206 71% 21%;              /* Davos Blue – accent only */
+    --primary: 206 71% 21%;              /* Primary brand blue */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 96%;               /* Very light grey */
     --secondary-foreground: 0 0% 10%;
 
-    --accent: 44 88% 60%;                /* Davos Yellow */
+    --accent: 44 88% 60%;                /* Brand yellow */
     --accent-foreground: 0 0% 0%;
     
     --success: 142 71% 45%;
