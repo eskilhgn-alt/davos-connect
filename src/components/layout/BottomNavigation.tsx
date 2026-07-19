@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Home, MessageCircle, Map as MapIcon, MoreHorizontal, LucideIcon } from "lucide-react";
 import { useAppBadges } from "@/hooks/useAppBadges";
 
-interface NavItem {
+export interface NavItem {
   icon: LucideIcon;
   label: string;
   path: string;
@@ -13,10 +13,14 @@ interface NavItem {
   badgeKey?: "chat" | "mer";
 }
 
-const navItems: NavItem[] = [
+/**
+ * NAV_ITEMS — sannheten om de fire hovedfanene. Eksportert slik at tester
+ * kan låse standardnavigasjonen (ingen shot/tokens-flater i aktiv nav).
+ */
+export const NAV_ITEMS: NavItem[] = [
   { icon: Home, label: "Hjem", path: "/hjem" },
   { icon: MessageCircle, label: "Chat", path: "/chat", badgeKey: "chat" },
-  { icon: MapIcon, label: "Kart", path: "/kart", match: ["/kart", "/crew", "/magnus"] },
+  { icon: MapIcon, label: "Kart", path: "/kart", match: ["/kart", "/crew"] },
   {
     icon: MoreHorizontal,
     label: "Mer",
@@ -32,14 +36,14 @@ const navItems: NavItem[] = [
       "/innstillinger",
       "/admin",
       "/alle",
-      "/shot",
-      "/tokens",
       "/faktasjekker",
       "/webcams",
     ],
     badgeKey: "mer",
   },
 ];
+
+const navItems = NAV_ITEMS;
 
 export const BottomNavigation: React.FC = () => {
   const location = useLocation();
