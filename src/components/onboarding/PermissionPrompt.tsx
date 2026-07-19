@@ -3,7 +3,7 @@
  */
 import * as React from "react";
 import { Bell, MapPin, X } from "lucide-react";
-import { DavosButton } from "@/components/ui/davos-button";
+import { BrandButton } from "@/components/ui/brand-button";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { oneSignalService } from "@/services/onesignal";
 import { useAuth } from "@/contexts/AuthContext";
@@ -107,12 +107,12 @@ export const PermissionPrompt: React.FC = () => {
               </p>
             </div>
             <div className="flex gap-3">
-              <DavosButton variant="outline" className="flex-1" onClick={skipStep} disabled={loading}>
+              <BrandButton variant="outline" className="flex-1" onClick={skipStep} disabled={loading}>
                 Senere
-              </DavosButton>
-              <DavosButton className="flex-1" onClick={handlePush} disabled={loading}>
+              </BrandButton>
+              <BrandButton className="flex-1" onClick={handlePush} disabled={loading}>
                 {loading ? "Aktiverer…" : "Aktiver"}
-              </DavosButton>
+              </BrandButton>
             </div>
           </>
         )}
@@ -128,12 +128,12 @@ export const PermissionPrompt: React.FC = () => {
               </p>
             </div>
             <div className="flex gap-3">
-              <DavosButton variant="outline" className="flex-1" onClick={skipStep}>
+              <BrandButton variant="outline" className="flex-1" onClick={skipStep}>
                 Senere
-              </DavosButton>
-              <DavosButton className="flex-1" onClick={handleLocation}>
+              </BrandButton>
+              <BrandButton className="flex-1" onClick={handleLocation}>
                 Del posisjon
-              </DavosButton>
+              </BrandButton>
             </div>
           </>
         )}

@@ -3,8 +3,8 @@
  */
 
 import * as React from "react";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosButton } from "@/components/ui/davos-button";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandButton } from "@/components/ui/brand-button";
 import { cn } from "@/lib/utils";
 import { Check, Clock, Crown, Lock, Users, Pin, Bell, X, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -49,8 +49,8 @@ export const PollCard: React.FC<PollCardProps> = ({
   const canVote = !isEnded && !isExpired;
 
   return (
-    <DavosCard className={cn(isEnded && "opacity-75")}>
-      <DavosCardContent className="p-4 space-y-3">
+    <BrandCard className={cn(isEnded && "opacity-75")}>
+      <BrandCardContent className="p-4 space-y-3">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
@@ -222,7 +222,7 @@ export const PollCard: React.FC<PollCardProps> = ({
         {(isCreator || isAdmin) && !isEnded && (
           <div className="flex flex-wrap gap-2">
             {poll.total_votes > 0 && !poll.is_tie && (
-              <DavosButton
+              <BrandButton
                 variant="outline"
                 size="sm"
                 className="flex-1"
@@ -230,9 +230,9 @@ export const PollCard: React.FC<PollCardProps> = ({
               >
                 <Lock size={14} className="mr-1.5" />
                 Avslutt
-              </DavosButton>
+              </BrandButton>
             )}
-            <DavosButton
+            <BrandButton
               variant="outline"
               size="sm"
               className="flex-1"
@@ -240,28 +240,28 @@ export const PollCard: React.FC<PollCardProps> = ({
             >
               <X size={14} className="mr-1.5" />
               Kanseller
-            </DavosButton>
+            </BrandButton>
             {poll.missing_voters.length > 0 && (
-              <DavosButton
+              <BrandButton
                 variant="outline"
                 size="sm"
                 onClick={() => onSendReminder(poll.id)}
               >
                 <Bell size={14} className="mr-1.5" />
                 Påminn
-              </DavosButton>
+              </BrandButton>
             )}
-            <DavosButton
+            <BrandButton
               variant="outline"
               size="sm"
               onClick={() => onTogglePin(poll.id)}
             >
               <Pin size={14} className={cn("mr-1.5", poll.is_pinned && "text-primary")} />
               {poll.is_pinned ? "Løsne" : "Fest"}
-            </DavosButton>
+            </BrandButton>
           </div>
         )}
-      </DavosCardContent>
-    </DavosCard>
+      </BrandCardContent>
+    </BrandCard>
   );
 };

@@ -9,8 +9,8 @@ import { usePolls } from "@/hooks/usePolls";
 import { useAuth } from "@/contexts/AuthContext";
 import { PollCard } from "@/components/poll/PollCard";
 import { CreatePollSheet } from "@/components/poll/CreatePollSheet";
-import { DavosEmptyState } from "@/components/ui/davos-empty-state";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
+import { BrandEmptyState } from "@/components/ui/brand-empty-state";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { Plus, Vote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { markPageSeen } from "@/hooks/useAppBadges";
@@ -100,11 +100,11 @@ export const PollScreen: React.FC = () => {
           {loading ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (
-                <DavosSkeleton key={i} className="h-40 rounded-2xl" />
+                <BrandSkeleton key={i} className="h-40 rounded-2xl" />
               ))}
             </div>
           ) : filteredPolls.length === 0 && pinnedPolls.length === 0 ? (
-            <DavosEmptyState
+            <BrandEmptyState
               icon={Vote}
               title={filter === "active" ? "Ingen aktive avstemminger" : filter === "mine" ? "Du har ingen avstemminger" : "Ingen avgjorte avstemminger"}
               description="Opprett den første og la Gütta bestemme!"

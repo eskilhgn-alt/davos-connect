@@ -20,7 +20,7 @@ const davosToastVariants = cva(
   }
 );
 
-export interface DavosToastProps
+export interface BrandToastProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof davosToastVariants> {
   title: string;
@@ -28,7 +28,7 @@ export interface DavosToastProps
   onClose?: () => void;
 }
 
-const DavosToast = React.forwardRef<HTMLDivElement, DavosToastProps>(
+const BrandToast = React.forwardRef<HTMLDivElement, BrandToastProps>(
   ({ className, variant, title, description, onClose, ...props }, ref) => {
     const IconMap = {
       default: null,
@@ -80,6 +80,6 @@ const DavosToast = React.forwardRef<HTMLDivElement, DavosToastProps>(
     );
   }
 );
-DavosToast.displayName = "DavosToast";
+BrandToast.displayName = "BrandToast";
 
-export { DavosToast, davosToastVariants };
+export { BrandToast, davosToastVariants };

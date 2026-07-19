@@ -1,16 +1,16 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { AlertCircle } from "lucide-react";
-import { DavosButton } from "./davos-button";
+import { BrandButton } from "./brand-button";
 
-export interface DavosErrorStateProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface BrandErrorStateProps extends React.HTMLAttributes<HTMLDivElement> {
   title?: string;
   description?: string;
   onRetry?: () => void;
   retryLabel?: string;
 }
 
-const DavosErrorState = React.forwardRef<HTMLDivElement, DavosErrorStateProps>(
+const BrandErrorState = React.forwardRef<HTMLDivElement, BrandErrorStateProps>(
   (
     {
       className,
@@ -41,14 +41,14 @@ const DavosErrorState = React.forwardRef<HTMLDivElement, DavosErrorStateProps>(
           {description}
         </p>
         {onRetry && (
-          <DavosButton variant="secondary" onClick={onRetry}>
+          <BrandButton variant="secondary" onClick={onRetry}>
             {retryLabel}
-          </DavosButton>
+          </BrandButton>
         )}
       </div>
     );
   }
 );
-DavosErrorState.displayName = "DavosErrorState";
+BrandErrorState.displayName = "BrandErrorState";
 
-export { DavosErrorState };
+export { BrandErrorState };

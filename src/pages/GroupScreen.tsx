@@ -6,11 +6,11 @@ import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { DavosEmptyState } from "@/components/ui/davos-empty-state";
-import { DavosAvatar } from "@/components/ui/davos-avatar";
-import { DavosBadge } from "@/components/ui/davos-badge";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
+import { BrandEmptyState } from "@/components/ui/brand-empty-state";
+import { BrandAvatar } from "@/components/ui/brand-avatar";
+import { BrandBadge } from "@/components/ui/brand-badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, Crown, ChevronRight, Trophy, Target, Mountain } from "lucide-react";
 import { UserStatsSheet, type UserStats } from "@/components/group/UserStatsSheet";
@@ -112,11 +112,11 @@ export const GroupScreen: React.FC = () => {
         <div className="p-4 space-y-2">
           {isLoading &&
             [...Array(5)].map((_, i) => (
-              <DavosSkeleton key={i} className="h-20 rounded-xl" />
+              <BrandSkeleton key={i} className="h-20 rounded-xl" />
             ))}
 
           {error && (
-            <DavosEmptyState
+            <BrandEmptyState
               icon={Users}
               title="Kunne ikke laste deltakere"
               description="Prøv å oppdatere siden"
@@ -124,7 +124,7 @@ export const GroupScreen: React.FC = () => {
           )}
 
           {!isLoading && !error && profiles?.length === 0 && (
-            <DavosEmptyState
+            <BrandEmptyState
               icon={Users}
               title="Ingen deltakere ennå"
               description="Inviter venner til GüttaHütte"
@@ -144,9 +144,9 @@ export const GroupScreen: React.FC = () => {
                   onClick={() => setSelectedUserId(profile.id)}
                   className="w-full text-left active:scale-[0.98] transition-transform"
                 >
-                  <DavosCard>
-                    <DavosCardContent className="flex items-center gap-3 p-4">
-                      <DavosAvatar
+                  <BrandCard>
+                    <BrandCardContent className="flex items-center gap-3 p-4">
+                      <BrandAvatar
                         src={profile.avatar_url || undefined}
                         fallback={getInitials(profile)}
                         size="md"
@@ -158,10 +158,10 @@ export const GroupScreen: React.FC = () => {
                             {getDisplayName(profile)}
                           </p>
                           {isCreator && (
-                            <DavosBadge variant="accent" className="flex items-center gap-1">
+                            <BrandBadge variant="accent" className="flex items-center gap-1">
                               <Crown size={10} />
                               Opprettet
-                            </DavosBadge>
+                            </BrandBadge>
                           )}
                         </div>
 
@@ -188,8 +188,8 @@ export const GroupScreen: React.FC = () => {
                       </div>
 
                       <ChevronRight size={16} className="text-muted-foreground shrink-0" />
-                    </DavosCardContent>
-                  </DavosCard>
+                    </BrandCardContent>
+                  </BrandCard>
                 </button>
               );
             })}

@@ -4,7 +4,7 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
 import { Phone, MapPin, Shield, Heart, Mountain, AlertTriangle } from "lucide-react";
 
 interface ContactCard {
@@ -81,8 +81,8 @@ export const EmergencyScreen: React.FC = () => (
         </div>
 
         {CONTACTS.map((card, idx) => (
-          <DavosCard key={idx}>
-            <DavosCardContent className="p-4 space-y-3">
+          <BrandCard key={idx}>
+            <BrandCardContent className="p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <card.icon size={18} className={card.accent ? "text-destructive" : "text-primary"} />
                 <h3 className="font-heading font-semibold text-foreground text-sm">{card.title}</h3>
@@ -106,8 +106,8 @@ export const EmergencyScreen: React.FC = () => (
                   </div>
                 ))}
               </div>
-            </DavosCardContent>
-          </DavosCard>
+            </BrandCardContent>
+          </BrandCard>
         ))}
       </div>
     </div>

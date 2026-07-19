@@ -4,8 +4,8 @@
 
 import * as React from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosInput } from "@/components/ui/davos-input";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandInput } from "@/components/ui/brand-input";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 
@@ -100,7 +100,7 @@ export const CreatePollSheet: React.FC<CreatePollSheetProps> = ({
           {/* Question */}
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Spørsmål</label>
-            <DavosInput
+            <BrandInput
               placeholder="Hva skal vi stemme over?"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
@@ -114,7 +114,7 @@ export const CreatePollSheet: React.FC<CreatePollSheetProps> = ({
             <div className="space-y-2">
               {options.map((opt, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <DavosInput
+                  <BrandInput
                     placeholder={`Alternativ ${i + 1}`}
                     value={opt}
                     onChange={(e) => updateOption(i, e.target.value)}
@@ -208,14 +208,14 @@ export const CreatePollSheet: React.FC<CreatePollSheetProps> = ({
             </div>
           </div>
 
-          <DavosButton
+          <BrandButton
             onClick={handleSubmit}
             disabled={!canSubmit || submitting}
             className="w-full"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Opprett avstemming
-          </DavosButton>
+          </BrandButton>
         </div>
       </SheetContent>
     </Sheet>

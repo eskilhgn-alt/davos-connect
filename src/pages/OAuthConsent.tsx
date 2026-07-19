@@ -6,7 +6,7 @@ import * as React from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { DavosButton } from "@/components/ui/davos-button";
+import { BrandButton } from "@/components/ui/brand-button";
 import { Loader2, ShieldCheck } from "lucide-react";
 
 // Beta-namespace — lokal type-wrapper så TS ikke klager.
@@ -140,9 +140,9 @@ export const OAuthConsent: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-2">
-          <DavosButton onClick={() => decide(true)} disabled={busy} className="w-full">
+          <BrandButton onClick={() => decide(true)} disabled={busy} className="w-full">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Godkjenn"}
-          </DavosButton>
+          </BrandButton>
           <button
             type="button"
             onClick={() => decide(false)}

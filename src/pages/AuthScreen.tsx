@@ -5,9 +5,9 @@
 import * as React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosInput } from "@/components/ui/davos-input";
-import { DavosAvatar } from "@/components/ui/davos-avatar";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandInput } from "@/components/ui/brand-input";
+import { BrandAvatar } from "@/components/ui/brand-avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Loader2, Camera, Check, ShieldCheck } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -222,11 +222,11 @@ export const AuthScreen: React.FC = () => {
               <div className="mb-8">
                 <h2 className="font-heading text-xl font-semibold">Logg inn</h2>
               </div>
-              <DavosInput type="email" placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-              <DavosInput type="password" placeholder="Passord" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
-              <DavosButton type="submit" className="w-full" disabled={isSubmitting}>
+              <BrandInput type="email" placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+              <BrandInput type="password" placeholder="Passord" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+              <BrandButton type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Logg inn"}
-              </DavosButton>
+              </BrandButton>
               <div className="flex flex-col gap-2 text-center text-sm pt-2">
                 <p className="text-muted-foreground">
                   Ny bruker?{" "}
@@ -243,8 +243,8 @@ export const AuthScreen: React.FC = () => {
               <div className="mb-8">
                 <h2 className="font-heading text-xl font-semibold">Opprett konto</h2>
               </div>
-              <DavosInput type="email" placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-              <DavosInput type="password" placeholder="Passord (minst 6 tegn)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" />
+              <BrandInput type="email" placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+              <BrandInput type="password" placeholder="Passord (minst 6 tegn)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" />
               
               <label className="flex items-start gap-3 cursor-pointer py-2">
                 <Checkbox
@@ -264,9 +264,9 @@ export const AuthScreen: React.FC = () => {
                 </span>
               </label>
 
-              <DavosButton type="submit" className="w-full" disabled={isSubmitting || !disclaimerAccepted}>
+              <BrandButton type="submit" className="w-full" disabled={isSubmitting || !disclaimerAccepted}>
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Opprett konto"}
-              </DavosButton>
+              </BrandButton>
               <p className="text-center text-sm text-muted-foreground">
                 Har du konto?{" "}
                 <button type="button" onClick={() => setMode("login")} className="text-foreground font-medium hover:underline">
@@ -292,7 +292,7 @@ export const AuthScreen: React.FC = () => {
                   onClick={() => fileRef.current?.click()}
                   className="relative group"
                 >
-                  <DavosAvatar
+                  <BrandAvatar
                     src={avatarPreview || profile?.avatar_url || undefined}
                     fallback={fullName || "?"}
                     size="xl"
@@ -314,13 +314,13 @@ export const AuthScreen: React.FC = () => {
                 />
               </div>
 
-              <DavosInput type="text" placeholder="Fullt navn" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoComplete="name" />
-              <DavosInput type="text" placeholder="Kallenavn" value={nickname} onChange={(e) => setNickname(e.target.value)} autoComplete="nickname" />
+              <BrandInput type="text" placeholder="Fullt navn" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoComplete="name" />
+              <BrandInput type="text" placeholder="Kallenavn" value={nickname} onChange={(e) => setNickname(e.target.value)} autoComplete="nickname" />
               <p className="text-xs text-muted-foreground">Kallenavnet brukes i chat. Tomt = fornavn.</p>
 
-              <DavosButton type="submit" className="w-full" disabled={isSubmitting || !fullName.trim()}>
+              <BrandButton type="submit" className="w-full" disabled={isSubmitting || !fullName.trim()}>
                 {isSubmitting || avatarUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Kom i gang"}
-              </DavosButton>
+              </BrandButton>
             </form>
           )}
 

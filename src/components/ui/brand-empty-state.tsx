@@ -1,9 +1,9 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
-import { DavosButton } from "./davos-button";
+import { BrandButton } from "./brand-button";
 
-export interface DavosEmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface BrandEmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   icon?: LucideIcon;
   title: string;
   description?: string;
@@ -11,7 +11,7 @@ export interface DavosEmptyStateProps extends React.HTMLAttributes<HTMLDivElemen
   onAction?: () => void;
 }
 
-const DavosEmptyState = React.forwardRef<HTMLDivElement, DavosEmptyStateProps>(
+const BrandEmptyState = React.forwardRef<HTMLDivElement, BrandEmptyStateProps>(
   ({ className, icon: Icon, title, description, actionLabel, onAction, ...props }, ref) => {
     return (
       <div
@@ -36,14 +36,14 @@ const DavosEmptyState = React.forwardRef<HTMLDivElement, DavosEmptyStateProps>(
           </p>
         )}
         {actionLabel && onAction && (
-          <DavosButton variant="primary" onClick={onAction}>
+          <BrandButton variant="primary" onClick={onAction}>
             {actionLabel}
-          </DavosButton>
+          </BrandButton>
         )}
       </div>
     );
   }
 );
-DavosEmptyState.displayName = "DavosEmptyState";
+BrandEmptyState.displayName = "BrandEmptyState";
 
-export { DavosEmptyState };
+export { BrandEmptyState };

@@ -5,8 +5,8 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { DavosErrorState } from "@/components/ui/davos-error-state";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
+import { BrandErrorState } from "@/components/ui/brand-error-state";
 import { Maximize2, X } from "lucide-react";
 
 interface WindyEmbedProps {
@@ -68,7 +68,7 @@ export const WindyEmbed: React.FC<WindyEmbedProps> = ({
   if (hasError) {
     return (
       <div className={cn("rounded-[var(--radius-card)] overflow-hidden", className)}>
-        <DavosErrorState
+        <BrandErrorState
           title="Værkart kan ikke vises"
           description="Åpne Windy.com direkte for live vindkart"
           retryLabel="Åpne Windy"
@@ -83,7 +83,7 @@ export const WindyEmbed: React.FC<WindyEmbedProps> = ({
       <div className={cn("relative rounded-[var(--radius-card)] overflow-hidden bg-muted", className)}>
         {isLoading && (
           <div className="absolute inset-0 z-10">
-            <DavosSkeleton className="w-full h-full" />
+            <BrandSkeleton className="w-full h-full" />
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-sm text-muted-foreground">Laster værkart...</span>
             </div>

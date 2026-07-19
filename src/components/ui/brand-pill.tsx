@@ -25,11 +25,11 @@ const davosPillVariants = cva(
   }
 );
 
-export interface DavosPillProps
+export interface BrandPillProps
   extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof davosPillVariants> {}
 
-const DavosPill = React.forwardRef<HTMLSpanElement, DavosPillProps>(
+const BrandPill = React.forwardRef<HTMLSpanElement, BrandPillProps>(
   ({ className, variant, size, ...props }, ref) => (
     <span
       ref={ref}
@@ -38,6 +38,6 @@ const DavosPill = React.forwardRef<HTMLSpanElement, DavosPillProps>(
     />
   )
 );
-DavosPill.displayName = "DavosPill";
+BrandPill.displayName = "BrandPill";
 
-export { DavosPill, davosPillVariants };
+export { BrandPill, davosPillVariants };

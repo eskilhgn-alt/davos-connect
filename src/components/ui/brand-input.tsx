@@ -1,13 +1,13 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export interface DavosInputProps
+export interface BrandInputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
 }
 
-const DavosInput = React.forwardRef<HTMLInputElement, DavosInputProps>(
+const BrandInput = React.forwardRef<HTMLInputElement, BrandInputProps>(
   ({ className, type, label, error, id, ...props }, ref) => {
     const generatedId = React.useId();
     const inputId = id || generatedId;
@@ -44,6 +44,6 @@ const DavosInput = React.forwardRef<HTMLInputElement, DavosInputProps>(
     );
   }
 );
-DavosInput.displayName = "DavosInput";
+BrandInput.displayName = "BrandInput";
 
-export { DavosInput };
+export { BrandInput };

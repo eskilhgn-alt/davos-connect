@@ -25,7 +25,7 @@ const COLORS = [
   { value: "primary", label: "Blå", css: "bg-primary" },
   { value: "destructive", label: "Rød", css: "bg-destructive" },
   { value: "accent", label: "Grå", css: "bg-accent" },
-  { value: "yellow", label: "Gul", css: "bg-[hsl(var(--davos-yellow))]" },
+  { value: "yellow", label: "Gul", css: "bg-[hsl(var(--brand-yellow))]" },
 ];
 
 interface Props {

@@ -5,7 +5,7 @@ import * as React from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
-import { DavosButton } from "@/components/ui/davos-button";
+import { BrandButton } from "@/components/ui/brand-button";
 
 export const VerifyEmailScreen: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -54,9 +54,9 @@ export const VerifyEmailScreen: React.FC = () => {
             <CheckCircle className="h-12 w-12 text-green-500" />
             <h2 className="font-heading text-xl font-semibold">E-post bekreftet!</h2>
             <p className="text-sm text-muted-foreground">Du kan nå logge inn og bruke appen.</p>
-            <DavosButton onClick={() => navigate("/auth")} className="w-full">
+            <BrandButton onClick={() => navigate("/auth")} className="w-full">
               Gå til innlogging
-            </DavosButton>
+            </BrandButton>
           </div>
         )}
 
@@ -65,9 +65,9 @@ export const VerifyEmailScreen: React.FC = () => {
             <XCircle className="h-12 w-12 text-destructive" />
             <h2 className="font-heading text-xl font-semibold">Bekreftelse feilet</h2>
             <p className="text-sm text-muted-foreground">{errorMsg}</p>
-            <DavosButton onClick={() => navigate("/auth")} className="w-full">
+            <BrandButton onClick={() => navigate("/auth")} className="w-full">
               Tilbake til innlogging
-            </DavosButton>
+            </BrandButton>
           </div>
         )}
       </div>

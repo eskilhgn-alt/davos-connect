@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { ChevronRight, LucideIcon } from "lucide-react";
 
-export interface DavosListRowProps
+export interface BrandListRowProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: LucideIcon;
   title: string;
@@ -11,7 +11,7 @@ export interface DavosListRowProps
   trailing?: React.ReactNode;
 }
 
-const DavosListRow = React.forwardRef<HTMLButtonElement, DavosListRowProps>(
+const BrandListRow = React.forwardRef<HTMLButtonElement, BrandListRowProps>(
   ({ className, icon: Icon, title, subtitle, showChevron = true, trailing, ...props }, ref) => {
     return (
       <button
@@ -47,6 +47,6 @@ const DavosListRow = React.forwardRef<HTMLButtonElement, DavosListRowProps>(
     );
   }
 );
-DavosListRow.displayName = "DavosListRow";
+BrandListRow.displayName = "BrandListRow";
 
-export { DavosListRow };
+export { BrandListRow };

@@ -20,7 +20,7 @@ const davosAvatarVariants = cva(
   }
 );
 
-export interface DavosAvatarProps
+export interface BrandAvatarProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof davosAvatarVariants> {
   src?: string;
@@ -28,7 +28,7 @@ export interface DavosAvatarProps
   fallback?: string;
 }
 
-const DavosAvatar = React.forwardRef<HTMLDivElement, DavosAvatarProps>(
+const BrandAvatar = React.forwardRef<HTMLDivElement, BrandAvatarProps>(
   ({ className, size, src, alt, fallback, ...props }, ref) => {
     const [hasError, setHasError] = React.useState(false);
 
@@ -67,6 +67,6 @@ const DavosAvatar = React.forwardRef<HTMLDivElement, DavosAvatarProps>(
     );
   }
 );
-DavosAvatar.displayName = "DavosAvatar";
+BrandAvatar.displayName = "BrandAvatar";
 
-export { DavosAvatar, davosAvatarVariants };
+export { BrandAvatar, davosAvatarVariants };

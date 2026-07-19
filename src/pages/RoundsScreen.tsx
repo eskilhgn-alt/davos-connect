@@ -5,12 +5,12 @@ import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { useRounds } from "@/hooks/useRounds";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { DavosEmptyState } from "@/components/ui/davos-empty-state";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
+import { BrandEmptyState } from "@/components/ui/brand-empty-state";
 import { markPageSeen } from "@/hooks/useAppBadges";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { DavosInput } from "@/components/ui/davos-input";
+import { BrandInput } from "@/components/ui/brand-input";
 import { Beer, Wine, Plus, ChevronRight, Gift, Pencil, Check, X, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -56,9 +56,9 @@ export const RoundsScreen: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-10" style={{ WebkitOverflowScrolling: "touch" }}>
         {loading ? (
-          <div className="space-y-3">{[1,2,3].map(i => <DavosSkeleton key={i} className="h-16 rounded-xl" />)}</div>
+          <div className="space-y-3">{[1,2,3].map(i => <BrandSkeleton key={i} className="h-16 rounded-xl" />)}</div>
         ) : rounds.length === 0 ? (
-          <DavosEmptyState icon={Beer} title="Ingen runder ennå" description="Trykk + for å registrere den første runden" />
+          <BrandEmptyState icon={Beer} title="Ingen runder ennå" description="Trykk + for å registrere den første runden" />
         ) : (
           <div className="space-y-2">
             {rounds.map((r) => {
@@ -217,7 +217,7 @@ const RoundDetailSheet: React.FC<{
           <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
             {editing ? (
               <div className="space-y-2">
-                <DavosInput label="Totalkostnad (kr)" type="number" inputMode="decimal" value={editCost} onChange={e => setEditCost(e.target.value)} />
+                <BrandInput label="Totalkostnad (kr)" type="number" inputMode="decimal" value={editCost} onChange={e => setEditCost(e.target.value)} />
               </div>
             ) : (
               <>
@@ -239,7 +239,7 @@ const RoundDetailSheet: React.FC<{
           <div className="p-3 rounded-xl bg-muted/20 border border-border">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Notat</p>
             {editing ? (
-              <DavosInput value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="Legg til notat..." />
+              <BrandInput value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="Legg til notat..." />
             ) : (
               <p className="text-sm text-foreground">{round.note || "–"}</p>
             )}

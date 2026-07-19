@@ -4,11 +4,11 @@
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosAvatar } from "@/components/ui/davos-avatar";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosInput } from "@/components/ui/davos-input";
-import { DavosBadge } from "@/components/ui/davos-badge";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandAvatar } from "@/components/ui/brand-avatar";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandInput } from "@/components/ui/brand-input";
+import { BrandBadge } from "@/components/ui/brand-badge";
 import {
   UserX, UserCheck, Coins, Ticket, Loader2, Key, Save,
   ChevronDown, ChevronUp, Bell, Edit3, ShieldOff, StickyNote, Send,
@@ -249,11 +249,11 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
   };
 
   return (
-    <DavosCard>
-      <DavosCardContent className="p-4">
+    <BrandCard>
+      <BrandCardContent className="p-4">
         <button onClick={() => setExpanded(!expanded)} className="w-full flex items-start justify-between text-left gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <DavosAvatar
+            <BrandAvatar
               src={u.avatar_url || undefined}
               fallback={u.nickname || u.full_name || u.email}
               size="md"
@@ -261,9 +261,9 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <p className="font-medium text-foreground truncate">{u.full_name || u.email}</p>
-                {u.role === "admin" && <DavosBadge variant="accent">Admin</DavosBadge>}
-                {!u.is_active && <DavosBadge variant="critical">Inaktiv</DavosBadge>}
-                {u.is_banned && <DavosBadge variant="critical">🚫 Ban</DavosBadge>}
+                {u.role === "admin" && <BrandBadge variant="accent">Admin</BrandBadge>}
+                {!u.is_active && <BrandBadge variant="critical">Inaktiv</BrandBadge>}
+                {u.is_banned && <BrandBadge variant="critical">🚫 Ban</BrandBadge>}
               </div>
               {u.nickname && <p className="text-xs text-muted-foreground">«{u.nickname}»</p>}
               <p className="text-xs text-muted-foreground truncate">{u.email}</p>
@@ -337,47 +337,47 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
             {/* Edit profile */}
             {editMode ? (
               <div className="space-y-2">
-                <DavosInput placeholder="Fullt navn" value={editName} onChange={e => setEditName(e.target.value)} />
-                <DavosInput placeholder="Kallenavn" value={editNickname} onChange={e => setEditNickname(e.target.value)} />
+                <BrandInput placeholder="Fullt navn" value={editName} onChange={e => setEditName(e.target.value)} />
+                <BrandInput placeholder="Kallenavn" value={editNickname} onChange={e => setEditNickname(e.target.value)} />
                 <div className="flex gap-2">
-                  <DavosButton size="sm" onClick={saveProfile} disabled={loading === "save"}>
+                  <BrandButton size="sm" onClick={saveProfile} disabled={loading === "save"}>
                     {loading === "save" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Save size={14} className="mr-1" />}
                     Lagre
-                  </DavosButton>
-                  <DavosButton variant="outline" size="sm" onClick={() => setEditMode(false)}>Avbryt</DavosButton>
+                  </BrandButton>
+                  <BrandButton variant="outline" size="sm" onClick={() => setEditMode(false)}>Avbryt</BrandButton>
                 </div>
               </div>
             ) : (
-              <DavosButton variant="outline" size="sm" onClick={() => { setEditName(u.full_name || ""); setEditNickname(u.nickname || ""); setEditMode(true); }}>
+              <BrandButton variant="outline" size="sm" onClick={() => { setEditName(u.full_name || ""); setEditNickname(u.nickname || ""); setEditMode(true); }}>
                 <Edit3 size={14} className="mr-1" /> Rediger profil
-              </DavosButton>
+              </BrandButton>
             )}
 
             {/* Actions */}
             <div className="grid grid-cols-2 gap-2">
               <div className="col-span-2 flex gap-2">
-                <DavosInput
+                <BrandInput
                   type="password"
                   placeholder="Nytt passord"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="flex-1 h-8 text-xs"
                 />
-                <DavosButton variant="outline" size="sm" onClick={sendPasswordReset} disabled={loading === "reset" || newPassword.length < 6}>
+                <BrandButton variant="outline" size="sm" onClick={sendPasswordReset} disabled={loading === "reset" || newPassword.length < 6}>
                   {loading === "reset" ? <Loader2 size={14} className="animate-spin" /> : <Key size={14} />}
-                </DavosButton>
+                </BrandButton>
               </div>
-              <DavosButton variant="outline" size="sm" onClick={sendPushNotification} disabled={loading === "push"}>
+              <BrandButton variant="outline" size="sm" onClick={sendPushNotification} disabled={loading === "push"}>
                 {loading === "push" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Bell size={14} className="mr-1" />}
                 Send push
-              </DavosButton>
-              <DavosButton variant="outline" size="sm" onClick={() => onAdjustTokens(u.id)}>
+              </BrandButton>
+              <BrandButton variant="outline" size="sm" onClick={() => onAdjustTokens(u.id)}>
                 <Coins size={14} className="mr-1" /> Juster tokens
-              </DavosButton>
-              <DavosButton variant="outline" size="sm" onClick={() => setShowPoints(!showPoints)}>
+              </BrandButton>
+              <BrandButton variant="outline" size="sm" onClick={() => setShowPoints(!showPoints)}>
                 <Star size={14} className="mr-1" /> Gi poeng
-              </DavosButton>
-              <DavosButton
+              </BrandButton>
+              <BrandButton
                 variant={u.is_active ? "outline" : "primary"}
                 size="sm"
                 onClick={toggleActive}
@@ -387,8 +387,8 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                   u.is_active ? <UserX size={14} className="mr-1 text-destructive" /> : <UserCheck size={14} className="mr-1" />
                 }
                 {u.is_active ? "Deaktiver" : "Aktiver"}
-              </DavosButton>
-              <DavosButton
+              </BrandButton>
+              <BrandButton
                 variant={u.is_banned ? "primary" : "outline"}
                 size="sm"
                 onClick={toggleBan}
@@ -398,13 +398,13 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                   u.is_banned ? <UserCheck size={14} className="mr-1" /> : <ShieldOff size={14} className="mr-1 text-destructive" />
                 }
                 {u.is_banned ? "Opphev ban" : "Utesteng"}
-              </DavosButton>
-              <DavosButton variant="outline" size="sm" onClick={() => setShowNotes(!showNotes)}>
+              </BrandButton>
+              <BrandButton variant="outline" size="sm" onClick={() => setShowNotes(!showNotes)}>
                 <StickyNote size={14} className="mr-1" /> Notater
-              </DavosButton>
+              </BrandButton>
 
               {/* Toggle admin role */}
-              <DavosButton
+              <BrandButton
                 variant="outline"
                 size="sm"
                 onClick={toggleAdminRole}
@@ -413,11 +413,11 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
               >
                 {loading === "role" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Crown size={14} className="mr-1" />}
                 {u.role === "admin" ? "Fjern admin" : "Gjør admin"}
-              </DavosButton>
+              </BrandButton>
 
               {/* Manual email verification */}
               {!u.email_verified && (
-                <DavosButton
+                <BrandButton
                   variant="outline"
                   size="sm"
                   onClick={async () => {
@@ -437,13 +437,13 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                 >
                   {loading === "verify" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Mail size={14} className="mr-1" />}
                   Verifiser e-post
-                </DavosButton>
+                </BrandButton>
               )}
 
               {/* Delete user – full removal */}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <DavosButton
+                  <BrandButton
                     variant="outline"
                     size="sm"
                     disabled={u.id === currentUserId || loading === "delete"}
@@ -451,7 +451,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                   >
                     {loading === "delete" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Trash2 size={14} className="mr-1" />}
                     Slett bruker
-                  </DavosButton>
+                  </BrandButton>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -480,17 +480,17 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
               <div className="space-y-2 border-t border-border pt-2">
                 <p className="text-xs font-medium text-foreground flex items-center gap-1"><Star size={12} /> Tildel poeng</p>
                 <div className="flex gap-2 items-center">
-                  <DavosButton variant="outline" size="sm" onClick={() => setPointsAmount(a => a - 1)}>−</DavosButton>
+                  <BrandButton variant="outline" size="sm" onClick={() => setPointsAmount(a => a - 1)}>−</BrandButton>
                   <span className="font-mono text-sm font-bold min-w-[40px] text-center text-foreground">
                     {pointsAmount > 0 ? "+" : ""}{pointsAmount}
                   </span>
-                  <DavosButton variant="outline" size="sm" onClick={() => setPointsAmount(a => a + 1)}>+</DavosButton>
+                  <BrandButton variant="outline" size="sm" onClick={() => setPointsAmount(a => a + 1)}>+</BrandButton>
                 </div>
-                <DavosInput placeholder="Grunn..." value={pointsReason} onChange={e => setPointsReason(e.target.value)} />
-                <DavosButton size="sm" onClick={awardPoints} disabled={!pointsReason.trim() || pointsAmount === 0 || loading === "points"} className="w-full">
+                <BrandInput placeholder="Grunn..." value={pointsReason} onChange={e => setPointsReason(e.target.value)} />
+                <BrandButton size="sm" onClick={awardPoints} disabled={!pointsReason.trim() || pointsAmount === 0 || loading === "points"} className="w-full">
                   {loading === "points" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Star size={14} className="mr-1" />}
                   Gi {pointsAmount > 0 ? "+" : ""}{pointsAmount} poeng
-                </DavosButton>
+                </BrandButton>
               </div>
             )}
 
@@ -498,10 +498,10 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
             {showNotes && (
               <div className="space-y-2 border-t border-border pt-2">
                 <div className="flex gap-2">
-                  <DavosInput placeholder="Legg til notat..." value={newNote} onChange={e => setNewNote(e.target.value)} className="flex-1" />
-                  <DavosButton size="sm" onClick={addNote} disabled={!newNote.trim() || loading === "note"}>
+                  <BrandInput placeholder="Legg til notat..." value={newNote} onChange={e => setNewNote(e.target.value)} className="flex-1" />
+                  <BrandButton size="sm" onClick={addNote} disabled={!newNote.trim() || loading === "note"}>
                     {loading === "note" ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  </DavosButton>
+                  </BrandButton>
                 </div>
                 {notes.map(n => (
                   <div key={n.id} className="bg-muted/50 rounded-lg p-2">
@@ -516,7 +516,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
             )}
           </div>
         )}
-      </DavosCardContent>
-    </DavosCard>
+      </BrandCardContent>
+    </BrandCard>
   );
 };

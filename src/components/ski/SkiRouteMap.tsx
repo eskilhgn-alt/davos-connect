@@ -6,8 +6,8 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { DavosEmptyState } from "@/components/ui/davos-empty-state";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
+import { BrandEmptyState } from "@/components/ui/brand-empty-state";
 import { Mountain, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { format, subDays, addDays } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -221,7 +221,7 @@ export const SkiRouteMap: React.FC = () => {
       <div className="rounded-xl overflow-hidden border border-border" style={{ height: 350 }}>
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">
-            <DavosSkeleton className="w-20 h-4" />
+            <BrandSkeleton className="w-20 h-4" />
           </div>
         )}
         <div ref={mapRef} className="w-full h-full" />

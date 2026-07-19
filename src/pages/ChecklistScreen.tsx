@@ -4,10 +4,10 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosInput } from "@/components/ui/davos-input";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosEmptyState } from "@/components/ui/davos-empty-state";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandInput } from "@/components/ui/brand-input";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandEmptyState } from "@/components/ui/brand-empty-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -92,16 +92,16 @@ export const ChecklistScreen: React.FC = () => {
         <div className="p-4 space-y-4 pb-10">
           {/* Add new item */}
           <div className="flex gap-2">
-            <DavosInput
+            <BrandInput
               placeholder="Legg til ting å huske..."
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               className="flex-1"
             />
-            <DavosButton onClick={handleAdd} disabled={adding || !newItem.trim()} size="sm" className="h-11 px-3">
+            <BrandButton onClick={handleAdd} disabled={adding || !newItem.trim()} size="sm" className="h-11 px-3">
               {adding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-            </DavosButton>
+            </BrandButton>
           </div>
 
           {loading ? (
@@ -109,14 +109,14 @@ export const ChecklistScreen: React.FC = () => {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : items.length === 0 ? (
-            <DavosEmptyState
+            <BrandEmptyState
               icon={ListChecks}
               title="Ingen ting på listen ennå"
               description="Legg til ting alle bør huske å ta med"
             />
           ) : (
-            <DavosCard>
-              <DavosCardContent className="p-2">
+            <BrandCard>
+              <BrandCardContent className="p-2">
                 {items.map((item) => (
                   <div
                     key={item.id}
@@ -145,8 +145,8 @@ export const ChecklistScreen: React.FC = () => {
                     )}
                   </div>
                 ))}
-              </DavosCardContent>
-            </DavosCard>
+              </BrandCardContent>
+            </BrandCard>
           )}
         </div>
       </div>

@@ -5,7 +5,7 @@
 import * as React from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { DavosInput } from "@/components/ui/davos-input";
+import { BrandInput } from "@/components/ui/brand-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Beer, Wine, Loader2, Minus, Plus, Camera, ImageIcon, X, Gift, UtensilsCrossed, ShoppingCart } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -236,7 +236,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
           {/* Cost */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <DavosInput label="Totalkostnad (kr)" type="number" inputMode="decimal" placeholder="0" value={totalCost} onChange={(e) => setTotalCost(e.target.value)} />
+              <BrandInput label="Totalkostnad (kr)" type="number" inputMode="decimal" placeholder="0" value={totalCost} onChange={(e) => setTotalCost(e.target.value)} />
             </div>
             <div className="flex flex-col justify-end">
               <div className="h-11 px-3 flex items-center rounded-lg bg-muted/50 border border-border">
@@ -246,7 +246,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
           </div>
 
           {/* Note */}
-          <DavosInput label="Notat (valgfritt)" placeholder="f.eks. Après-ski" value={note} onChange={(e) => setNote(e.target.value)} />
+          <BrandInput label="Notat (valgfritt)" placeholder="f.eks. Après-ski" value={note} onChange={(e) => setNote(e.target.value)} />
 
           {/* Receipt photo */}
           <div className="space-y-2">

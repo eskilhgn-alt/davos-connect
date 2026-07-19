@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-const DavosCard = React.forwardRef<
+const BrandCard = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
@@ -14,9 +14,9 @@ const DavosCard = React.forwardRef<
     {...props}
   />
 ));
-DavosCard.displayName = "DavosCard";
+BrandCard.displayName = "BrandCard";
 
-const DavosCardHeader = React.forwardRef<
+const BrandCardHeader = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
@@ -26,9 +26,9 @@ const DavosCardHeader = React.forwardRef<
     {...props}
   />
 ));
-DavosCardHeader.displayName = "DavosCardHeader";
+BrandCardHeader.displayName = "BrandCardHeader";
 
-const DavosCardTitle = React.forwardRef<
+const BrandCardTitle = React.forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
@@ -38,14 +38,14 @@ const DavosCardTitle = React.forwardRef<
     {...props}
   />
 ));
-DavosCardTitle.displayName = "DavosCardTitle";
+BrandCardTitle.displayName = "BrandCardTitle";
 
-const DavosCardContent = React.forwardRef<
+const BrandCardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
   <div ref={ref} className={cn("p-4 pt-0", className)} {...props} />
 ));
-DavosCardContent.displayName = "DavosCardContent";
+BrandCardContent.displayName = "BrandCardContent";
 
-export { DavosCard, DavosCardHeader, DavosCardTitle, DavosCardContent };
+export { BrandCard, BrandCardHeader, BrandCardTitle, BrandCardContent };

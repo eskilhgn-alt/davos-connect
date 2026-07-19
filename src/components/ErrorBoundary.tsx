@@ -3,7 +3,7 @@
  */
 
 import * as React from "react";
-import { DavosButton } from "@/components/ui/davos-button";
+import { BrandButton } from "@/components/ui/brand-button";
 import { AlertTriangle } from "lucide-react";
 
 interface Props {
@@ -46,9 +46,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
             <p className="text-sm text-muted-foreground">
               En uventet feil oppstod. Prøv å laste siden på nytt.
             </p>
-            <DavosButton onClick={this.handleReset} className="w-full">
+            <BrandButton onClick={this.handleReset} className="w-full">
               Tilbake til hjem
-            </DavosButton>
+            </BrandButton>
           </div>
         </div>
       );

@@ -5,8 +5,8 @@ import * as React from "react";
 import { usePoints } from "@/hooks/usePoints";
 import { useGlobalStreaks } from "@/hooks/useGlobalStreaks";
 import { useAuth } from "@/contexts/AuthContext";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { Trophy, Flame, Star, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -24,13 +24,13 @@ export const PointsLeaderboardWidget: React.FC = () => {
 
   if (loading) {
     return (
-      <DavosCard>
-        <DavosCardContent className="p-4">
-          <DavosSkeleton className="h-4 w-32 mb-3" />
-          <DavosSkeleton className="h-10 w-full mb-2" />
-          <DavosSkeleton className="h-10 w-full" />
-        </DavosCardContent>
-      </DavosCard>
+      <BrandCard>
+        <BrandCardContent className="p-4">
+          <BrandSkeleton className="h-4 w-32 mb-3" />
+          <BrandSkeleton className="h-10 w-full mb-2" />
+          <BrandSkeleton className="h-10 w-full" />
+        </BrandCardContent>
+      </BrandCard>
     );
   }
 
@@ -41,8 +41,8 @@ export const PointsLeaderboardWidget: React.FC = () => {
   if (topAll.length === 0 && topToday.length === 0 && topStreaks.length === 0) return null;
 
   return (
-    <DavosCard className="cursor-pointer active:scale-[0.98] transition-transform" onClick={() => navigate("/tokens")}>
-      <DavosCardContent className="p-4 space-y-4">
+    <BrandCard className="cursor-pointer active:scale-[0.98] transition-transform" onClick={() => navigate("/tokens")}>
+      <BrandCardContent className="p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Trophy className="h-4 w-4 text-primary" />
@@ -116,7 +116,7 @@ export const PointsLeaderboardWidget: React.FC = () => {
             </div>
           </div>
         )}
-      </DavosCardContent>
-    </DavosCard>
+      </BrandCardContent>
+    </BrandCard>
   );
 };

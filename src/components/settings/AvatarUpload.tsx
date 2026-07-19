@@ -6,7 +6,7 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { DavosAvatar } from "@/components/ui/davos-avatar";
+import { BrandAvatar } from "@/components/ui/brand-avatar";
 import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,7 +70,7 @@ export const AvatarUpload: React.FC = () => {
         disabled={uploading}
         className="relative group"
       >
-        <DavosAvatar
+        <BrandAvatar
           src={profile?.avatar_url || undefined}
           fallback={initials}
           size="lg"

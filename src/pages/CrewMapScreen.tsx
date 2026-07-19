@@ -6,8 +6,8 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { useUserLocations, UserLocation } from "@/hooks/useUserLocations";
 import { useAuth } from "@/contexts/AuthContext";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { DavosAvatar } from "@/components/ui/davos-avatar";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
+import { BrandAvatar } from "@/components/ui/brand-avatar";
 import { MapPin, Clock, Navigation, Search, Crosshair, X } from "lucide-react";
 import { SkiPerformanceTracker } from "@/components/ski/SkiPerformanceTracker";
 import { SkiUserList } from "@/components/ski/SkiUserList";
@@ -202,7 +202,7 @@ export const CrewMapScreen: React.FC = () => {
         <div className="relative" style={{ height: "55vh", minHeight: 300 }}>
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">
-              <DavosSkeleton className="w-20 h-4" />
+              <BrandSkeleton className="w-20 h-4" />
             </div>
           )}
           <div ref={mapRef} className="w-full h-full" />
@@ -267,7 +267,7 @@ export const CrewMapScreen: React.FC = () => {
 
               return (
                 <button key={loc.user_id} onClick={() => panTo(loc)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 active:bg-muted transition-colors">
-                  <DavosAvatar
+                  <BrandAvatar
                     src={loc.avatar_url}
                     size="sm"
                     fallback={loc.display_name}

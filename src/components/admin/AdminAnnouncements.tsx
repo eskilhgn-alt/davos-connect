@@ -3,9 +3,9 @@
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosInput } from "@/components/ui/davos-input";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandInput } from "@/components/ui/brand-input";
 import { Megaphone, Trash2, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
@@ -94,13 +94,13 @@ export const AdminAnnouncements: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2 mb-1">
             <Megaphone size={18} className="text-primary" />
             <h3 className="font-heading font-semibold text-sm">Nytt systemvarsel</h3>
           </div>
-          <DavosInput
+          <BrandInput
             placeholder="Melding til alle brukere..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -120,16 +120,16 @@ export const AdminAnnouncements: React.FC = () => {
               </button>
             ))}
           </div>
-          <DavosButton onClick={create} disabled={!message.trim() || loading} size="sm" className="w-full">
+          <BrandButton onClick={create} disabled={!message.trim() || loading} size="sm" className="w-full">
             {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : <Megaphone size={14} className="mr-1" />}
             Publiser varsel
-          </DavosButton>
-        </DavosCardContent>
-      </DavosCard>
+          </BrandButton>
+        </BrandCardContent>
+      </BrandCard>
 
       {/* Reinstall broadcast */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2 mb-1">
             <Send size={18} className="text-accent" />
             <h3 className="font-heading font-semibold text-sm">Reinstall-varsling</h3>
@@ -137,7 +137,7 @@ export const AdminAnnouncements: React.FC = () => {
           <p className="text-xs text-muted-foreground">
             Sender push-varsel, e-post og viser fullskjerm-popup til alle brukere med beskjed om å reinstallere appen.
           </p>
-          <DavosButton
+          <BrandButton
             onClick={sendReinstallBroadcast}
             disabled={reinstallLoading}
             variant="destructive"
@@ -146,13 +146,13 @@ export const AdminAnnouncements: React.FC = () => {
           >
             {reinstallLoading ? <Loader2 size={14} className="animate-spin mr-1" /> : <Send size={14} className="mr-1" />}
             Send reinstall-varsel til alle
-          </DavosButton>
-        </DavosCardContent>
-      </DavosCard>
+          </BrandButton>
+        </BrandCardContent>
+      </BrandCard>
 
       {announcements.filter(a => a.is_active).length > 0 && (
-        <DavosCard>
-          <DavosCardContent className="p-4 space-y-2">
+        <BrandCard>
+          <BrandCardContent className="p-4 space-y-2">
             <h4 className="text-xs text-muted-foreground font-medium">Aktive varsler</h4>
             {announcements.filter(a => a.is_active).map((a) => (
               <div key={a.id} className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg p-2">
@@ -163,8 +163,8 @@ export const AdminAnnouncements: React.FC = () => {
                 </button>
               </div>
             ))}
-          </DavosCardContent>
-        </DavosCard>
+          </BrandCardContent>
+        </BrandCard>
       )}
     </div>
   );

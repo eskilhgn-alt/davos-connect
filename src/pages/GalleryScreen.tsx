@@ -5,8 +5,8 @@ import { PullToRefreshWrapper } from '@/components/PullToRefreshWrapper';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { MediaViewer } from '@/components/ui/MediaViewer';
-import { DavosEmptyState } from '@/components/ui/davos-empty-state';
-import { DavosSkeleton } from '@/components/ui/davos-skeleton';
+import { BrandEmptyState } from '@/components/ui/brand-empty-state';
+import { BrandSkeleton } from '@/components/ui/brand-skeleton';
 import { Download, Play, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -148,12 +148,12 @@ export const GalleryScreen: React.FC = () => {
         {loading ? (
           <div className="grid grid-cols-3 gap-1">
             {Array.from({ length: 9 }).map((_, i) => (
-              <DavosSkeleton key={i} className="aspect-square rounded-sm" />
+              <BrandSkeleton key={i} className="aspect-square rounded-sm" />
             ))}
           </div>
         ) : items.length === 0 ? (
           <div className="flex-1 flex items-center justify-center min-h-[50vh]">
-            <DavosEmptyState
+            <BrandEmptyState
               icon={ImageIcon}
               title="Ingen media ennå"
               description="Bilder, videoer og stories vil vises her."

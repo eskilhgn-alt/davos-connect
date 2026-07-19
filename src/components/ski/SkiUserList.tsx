@@ -5,7 +5,7 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { DavosAvatar } from "@/components/ui/davos-avatar";
+import { BrandAvatar } from "@/components/ui/brand-avatar";
 import { Mountain, Gauge, Users, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SkiUserStatsSheet, type SkiUserData } from "./SkiUserStatsSheet";
@@ -168,7 +168,7 @@ export const SkiUserList: React.FC = () => {
                 isMe && "bg-muted/20"
               )}
             >
-              <DavosAvatar
+              <BrandAvatar
                 src={u.avatar_url || undefined}
                 fallback={u.display_name}
                 size="sm"

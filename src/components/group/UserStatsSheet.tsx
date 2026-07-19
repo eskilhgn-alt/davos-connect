@@ -3,8 +3,8 @@
  */
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { DavosAvatar } from "@/components/ui/davos-avatar";
-import { DavosBadge } from "@/components/ui/davos-badge";
+import { BrandAvatar } from "@/components/ui/brand-avatar";
+import { BrandBadge } from "@/components/ui/brand-badge";
 import {
   Drawer,
   DrawerContent,
@@ -117,7 +117,7 @@ export const UserStatsSheet: React.FC<Props> = ({
       <DrawerContent className="max-h-[85vh]">
         <DrawerHeader className="pb-2">
           <div className="flex items-center gap-3">
-            <DavosAvatar
+            <BrandAvatar
               src={avatarUrl || undefined}
               fallback={initials}
               size="lg"
@@ -126,10 +126,10 @@ export const UserStatsSheet: React.FC<Props> = ({
               <DrawerTitle className="text-left flex items-center gap-2">
                 {stats.display_name}
                 {isCreator && (
-                  <DavosBadge variant="accent" className="flex items-center gap-1">
+                  <BrandBadge variant="accent" className="flex items-center gap-1">
                     <Crown size={10} />
                     Grunnlegger
-                  </DavosBadge>
+                  </BrandBadge>
                 )}
               </DrawerTitle>
               {joinedDate && (

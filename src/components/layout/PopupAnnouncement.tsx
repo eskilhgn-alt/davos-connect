@@ -4,7 +4,7 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { X, AlertTriangle } from "lucide-react";
-import { DavosButton } from "@/components/ui/davos-button";
+import { BrandButton } from "@/components/ui/brand-button";
 
 interface PopupAnnouncement {
   id: string;
@@ -70,9 +70,9 @@ export const PopupAnnouncementOverlay: React.FC = () => {
           <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
             {popup.message}
           </p>
-          <DavosButton onClick={dismiss} className="w-full mt-2">
+          <BrandButton onClick={dismiss} className="w-full mt-2">
             Forstått
-          </DavosButton>
+          </BrandButton>
         </div>
       </div>
     </div>

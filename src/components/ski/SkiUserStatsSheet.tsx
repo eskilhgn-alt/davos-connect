@@ -8,7 +8,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { DavosAvatar } from "@/components/ui/davos-avatar";
+import { BrandAvatar } from "@/components/ui/brand-avatar";
 import { Mountain, Gauge, Calendar, Trophy } from "lucide-react";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -63,7 +63,7 @@ export const SkiUserStatsSheet: React.FC<Props> = ({ open, onClose, data }) => {
       <DrawerContent className="max-h-[80vh]">
         <DrawerHeader className="pb-2">
           <div className="flex items-center gap-3">
-            <DavosAvatar
+            <BrandAvatar
               src={data.avatar_url || undefined}
               fallback={initials}
               size="lg"

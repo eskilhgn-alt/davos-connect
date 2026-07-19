@@ -33,13 +33,13 @@ const davosButtonVariants = cva(
   }
 );
 
-export interface DavosButtonProps
+export interface BrandButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof davosButtonVariants> {
   asChild?: boolean;
 }
 
-const DavosButton = React.forwardRef<HTMLButtonElement, DavosButtonProps>(
+const BrandButton = React.forwardRef<HTMLButtonElement, BrandButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
     return (
@@ -51,6 +51,6 @@ const DavosButton = React.forwardRef<HTMLButtonElement, DavosButtonProps>(
     );
   }
 );
-DavosButton.displayName = "DavosButton";
+BrandButton.displayName = "BrandButton";
 
-export { DavosButton, davosButtonVariants };
+export { BrandButton, davosButtonVariants };

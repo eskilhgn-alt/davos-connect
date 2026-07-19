@@ -3,9 +3,9 @@
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosInput } from "@/components/ui/davos-input";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandInput } from "@/components/ui/brand-input";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { Coins, Search } from "lucide-react";
 import type { AdminUser } from "./useAdminData";
 
@@ -85,18 +85,18 @@ export const AdminTokenLedger: React.FC<Props> = ({ users }) => {
 
       <div className="relative">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <DavosInput type="search" placeholder="Søk grunn..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
+        <BrandInput type="search" placeholder="Søk grunn..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8" />
       </div>
 
       {loading ? (
-        Array.from({ length: 5 }).map((_, i) => <DavosSkeleton key={i} className="h-12 w-full" />)
+        Array.from({ length: 5 }).map((_, i) => <BrandSkeleton key={i} className="h-12 w-full" />)
       ) : filtered.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-6">Ingen oppføringer</p>
       ) : (
         <div className="space-y-1">
           {filtered.map(e => (
-            <DavosCard key={e.id}>
-              <DavosCardContent className="p-3 flex items-center justify-between">
+            <BrandCard key={e.id}>
+              <BrandCardContent className="p-3 flex items-center justify-between">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium text-foreground truncate">{getDisplayName(e.user_id)}</p>
                   <p className="text-[10px] text-muted-foreground truncate">{e.reason}{e.description ? ` – ${e.description}` : ""}</p>
@@ -107,8 +107,8 @@ export const AdminTokenLedger: React.FC<Props> = ({ users }) => {
                 <span className={`font-mono text-sm font-bold ${e.delta > 0 ? "text-success" : "text-destructive"}`}>
                   {e.delta > 0 ? "+" : ""}{e.delta}
                 </span>
-              </DavosCardContent>
-            </DavosCard>
+              </BrandCardContent>
+            </BrandCard>
           ))}
         </div>
       )}

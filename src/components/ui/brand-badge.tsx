@@ -26,14 +26,14 @@ const davosBadgeVariants = cva(
   }
 );
 
-export interface DavosBadgeProps
+export interface BrandBadgeProps
   extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof davosBadgeVariants> {
   count?: number;
   maxCount?: number;
 }
 
-const DavosBadge = React.forwardRef<HTMLSpanElement, DavosBadgeProps>(
+const BrandBadge = React.forwardRef<HTMLSpanElement, BrandBadgeProps>(
   ({ className, variant, size, count, maxCount = 99, children, ...props }, ref) => {
     const displayValue = count !== undefined
       ? count > maxCount
@@ -52,6 +52,6 @@ const DavosBadge = React.forwardRef<HTMLSpanElement, DavosBadgeProps>(
     );
   }
 );
-DavosBadge.displayName = "DavosBadge";
+BrandBadge.displayName = "BrandBadge";
 
-export { DavosBadge, davosBadgeVariants };
+export { BrandBadge, davosBadgeVariants };
