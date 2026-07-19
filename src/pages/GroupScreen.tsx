@@ -178,7 +178,7 @@ export const GroupScreen: React.FC = () => {
         avatarUrl={selectedProfile?.avatar_url}
         isCreator={profiles?.[0]?.id === selectedUserId}
         joinedDate={selectedProfile?.created_at}
-        topSpeed={selectedUserId ? topSpeedMap.get(selectedUserId) ?? null : null}
+        topSpeed={null}
       />
     </div>
   );
