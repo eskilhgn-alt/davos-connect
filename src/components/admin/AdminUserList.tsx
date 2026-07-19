@@ -60,29 +60,8 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
     onRefresh();
   };
 
-  const bulkPush = async () => {
-    if (selected.size === 0) return;
-    setBulkLoading(true);
-    try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) throw new Error("Ikke autentisert");
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          type: "admin_notification",
-          heading: "Melding fra admin 📢",
-          message: "Sjekk appen for oppdateringer.",
-          include_user_ids: Array.from(selected),
-        }),
-      });
-      toast.success(`Push sendt til ${selected.size} brukere`);
-    } catch {
-      errorToast("Kunne ikke sende push");
-    }
-    setBulkLoading(false);
-  };
+
+
 
   const bannedUsers = React.useMemo(() => users.filter(u => u.is_banned), [users]);
   const unverifiedUsers = React.useMemo(() => users.filter(u => !u.email_verified), [users]);
