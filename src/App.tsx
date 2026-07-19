@@ -135,8 +135,9 @@ const AppRoutes = () => (
       <Route path="/runder" element={<RoundsScreen />} />
       <Route path="/roomies" element={<RoomiesScreen />} />
       <Route path="/alle" element={<GroupScreen />} />
-      <Route path="/tokens" element={<TokensScreen />} />
-      <Route path="/regler" element={<Navigate to="/tokens" replace />} />
+      <Route path="/shot" element={<Navigate to="/hjem" replace />} />
+      <Route path="/tokens" element={<Navigate to="/hjem" replace />} />
+      <Route path="/regler" element={<Navigate to="/hjem" replace />} />
       <Route path="/nodinfo" element={<Navigate to="/hjem" replace />} />
       <Route path="/casino" element={<Navigate to="/hjem" replace />} />
       <Route path="/skred" element={<AvalancheScreen />} />
