@@ -127,7 +127,7 @@ const AppRoutes = () => (
       <Route path="/galleri" element={<GalleryScreen />} />
       <Route path="/innstillinger" element={<SettingsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
-      <Route path="/shot" element={<ShotScreen />} />
+      
       <Route path="/agenda" element={<AgendaScreen />} />
       <Route path="/faktasjekker" element={<FaktasjekkerScreen />} />
       <Route path="/historier" element={<StoriesScreen />} />
