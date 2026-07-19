@@ -1,78 +1,55 @@
-# Davos Ski App
+# GüttaHütte
 
-A mobile-first web app for Davos ski area with weather forecasting, chat, and more.
+Mobile-first PWA for private turer med et crew. Aktiv tur er **Val Thorens
+2027** (februar-datoer ikke bekreftet). All destinasjonslogikk styres fra én
+sentral konfig i `src/config/trip.ts` (`ACTIVE_TRIP`) – bytt destinasjon der,
+ikke i UI.
 
-## Weather Engine
+## Navigasjon (fire faner)
 
-The app uses a backend "Weather Engine" that:
-- Fetches forecasts from Open-Meteo for 5 mountains (Parsenn, Jakobshorn, Pischa, Rinerhorn, Madrisa)
-- Uses 4 weather models: ECMWF, GFS, ICON, GEM
-- Computes weighted consensus forecasts
-- Caches results in the database for fast loading
-- Includes AI-generated weather summaries
-- Selects Anchorman quotes based on weather conditions
+- **Hjem** – aktiv tur, nedtelling, neste aktivitet, kompakt vær og
+  liveforhold.
+- **Chat** – gruppechat med bilder og realtime.
+- **Kart** – offisielt Val Thorens-løypekart og (via egen inngang) frivillig
+  crew-posisjon på `/crew`.
+- **Mer** – agenda, roomies, avstemninger, runder, galleri, historier,
+  Gütta-oversikt, innstillinger, admin. En lavt prioritert seksjon "Fest og
+  spill" samler frivillige tilleggsfunksjoner (faktasjekker).
 
-### Setting up Cron (for Eskil)
+## Vær og skred
 
-The weather cache needs to be refreshed every 15 minutes. Set up a cron job in Lovable Cloud:
+- Vær kjører klient-side mot **Open-Meteo** (`src/services/tripWeather.ts`),
+  sentrert på `ACTIVE_TRIP.center` og `ACTIVE_TRIP.timezone`. Ingen API-nøkkel.
+- Offisielt fjellvær og skredvarsel lenker eksternt til **Meteo-France** via
+  `ACTIVE_TRIP.officialLinks.weather`. Vi presenterer ikke oppdiktet faregrad.
+- Webkameraer og løypekart lenker til `valthorens.com`.
 
-1. Go to **Cloud View → Database → SQL Editor** (or use Supabase dashboard)
-2. Enable the `pg_cron` and `pg_net` extensions if not already enabled:
+## Posisjon (crew)
 
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
+Deling av posisjon er **strengt frivillig**. Ingen global layout starter GPS.
+Fra `/crew` slår brukeren delingen på/av eksplisitt; når den slås av slettes
+egen rad i `user_locations` og andre klienter skjuler foreldede posisjoner
+(> 10 min). iOS PWA kan ikke garantere ekte bakgrunnssporing – det påstår vi
+heller ikke.
+
+## Auth, backend og MCP
+
+- Lovable Cloud (Supabase) for auth, database, storage, edge functions.
+- RLS på alle tabeller. Klientsidig login-throttle er en UX-hjelp, ikke en
+  sikkerhetskontroll – reell begrensning kommer fra Supabase Auth.
+- MCP-serveren (`src/lib/mcp/`) eksponerer nå: `get_my_profile`,
+  `list_recent_chat_messages`, `post_chat_message`. Shot-/token-/poeng-verktøy
+  er fjernet.
+
+## Historikk
+
+Historiske data (chat, bilder, shot-hendelser, ski-målinger, poeng, tokens)
+er bevart urørt. Se `docs/LEGACY.md` for hva som er tatt ut av aktiv bruk.
+
+## Utvikling
+
 ```
-
-3. Create the cron job:
-
-```sql
-SELECT cron.schedule(
-  'weather-engine-refresh-15min',
-  '*/15 * * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://psupgftxzyoyeyuhtqgw.supabase.co/functions/v1/weather-engine-refresh',
-    headers := '{"Content-Type": "application/json", "x-cron-secret": "YOUR_CRON_SECRET_HERE"}'::jsonb,
-    body := '{}'::jsonb
-  ) AS request_id;
-  $$
-);
+bun install
+bun run dev
+bunx vitest run
 ```
-
-**IMPORTANT:** Replace `YOUR_CRON_SECRET_HERE` with the actual CRON_SECRET value stored in Cloud secrets.
-
-4. Verify the cron job is running:
-
-```sql
-SELECT * FROM cron.job;
-```
-
-5. Check job execution history:
-
-```sql
-SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 10;
-```
-
-## Technologies
-
-- Vite + React + TypeScript
-- Tailwind CSS + shadcn/ui
-- Lovable Cloud (Supabase) for backend
-- Open-Meteo API for weather data
-- Lovable AI for weather summaries
-
-## Development
-
-```bash
-npm install
-npm run dev
-```
-
-## Project Structure
-
-- `src/pages/` - Page components
-- `src/components/` - Reusable UI components
-- `src/services/` - API and data services
-- `src/features/` - Feature-specific logic (weather quotes, etc.)
-- `supabase/functions/` - Edge Functions
