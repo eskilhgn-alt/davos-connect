@@ -3,7 +3,6 @@ import { Outlet, useLocation } from "react-router-dom";
 import { BottomNavigation } from "./BottomNavigation";
 
 import { PopupAnnouncementOverlay } from "./PopupAnnouncement";
-import { WebcamPreloadProvider } from "@/components/webcams";
 
 import { PermissionPrompt } from "@/components/onboarding/PermissionPrompt";
 import { useLocationTracker } from "@/hooks/useLocationTracker";
@@ -20,15 +19,14 @@ export const AppLayout: React.FC = () => {
   const hideNav = location.pathname.startsWith("/chat");
 
   return (
-    <WebcamPreloadProvider>
-      <div className="h-full overflow-hidden bg-background flex flex-col">
-        <main className="flex-1 min-h-0 overflow-hidden">
-          <Outlet />
-        </main>
-        {!hideNav && <BottomNavigation />}
-        <PermissionPrompt />
-        <PopupAnnouncementOverlay />
-      </div>
-    </WebcamPreloadProvider>
+    <div className="h-full overflow-hidden bg-background flex flex-col">
+      <main className="flex-1 min-h-0 overflow-hidden">
+        <Outlet />
+      </main>
+      {!hideNav && <BottomNavigation />}
+      <PermissionPrompt />
+      <PopupAnnouncementOverlay />
+    </div>
   );
 };
+

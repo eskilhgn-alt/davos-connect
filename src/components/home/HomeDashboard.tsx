@@ -13,11 +13,14 @@ import {
   CloudRain,
   CloudFog,
   CloudDrizzle,
+  CloudLightning,
   Droplets,
   MoveRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
+import { useTripWeather } from "@/hooks/useTripWeather";
+import { describeWeatherCode } from "@/services/tripWeather";
+import { ACTIVE_TRIP } from "@/config/trip";
 import { CurrencyCalculator } from "./CurrencyCalculator";
 
 interface NextEvent {
@@ -25,41 +28,35 @@ interface NextEvent {
   start_at: string;
 }
 
-// WMO weather codes → icon
-const WMO: Record<number, { icon: React.ElementType }> = {
-  0: { icon: Sun }, 1: { icon: Sun },
-  2: { icon: Cloud }, 3: { icon: Cloud },
-  45: { icon: CloudFog }, 48: { icon: CloudFog },
-  51: { icon: CloudDrizzle }, 53: { icon: CloudDrizzle }, 55: { icon: CloudDrizzle },
-  61: { icon: CloudRain }, 63: { icon: CloudRain }, 65: { icon: CloudRain },
-  71: { icon: CloudSnow }, 73: { icon: CloudSnow }, 75: { icon: CloudSnow },
-  85: { icon: CloudSnow }, 86: { icon: CloudSnow },
-};
+const ICON_MAP = {
+  sun: Sun,
+  cloud: Cloud,
+  "cloud-rain": CloudRain,
+  "cloud-snow": CloudSnow,
+  "cloud-drizzle": CloudDrizzle,
+  "cloud-fog": CloudFog,
+  "cloud-lightning": CloudLightning,
+} as const;
 
-function getWmoIcon(code: number) {
-  return WMO[code]?.icon ?? Cloud;
-}
-
-function windArrowRotation(deg: number) {
-  return { transform: `rotate(${deg}deg)` };
+function windArrowRotation(deg: number | null | undefined) {
+  return { transform: `rotate(${deg ?? 0}deg)` };
 }
 
 export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey }) => {
   const { user } = useAuth();
   const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
+  const [rateDate, setRateDate] = React.useState<string | null>(null);
+  const [rateFetchedAt, setRateFetchedAt] = React.useState<Date | null>(null);
   const [nextEvent, setNextEvent] = React.useState<NextEvent | null>(null);
   const [calcOpen, setCalcOpen] = React.useState(false);
 
-  // AI weather summary (includes structured weather numbers)
-  const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary();
-  const wx = aiSummary?.weather;
+  const { weather, loading: weatherLoading, refresh: refreshWeather } = useTripWeather();
+  const currency = ACTIVE_TRIP.currency;
 
-  // 1. NOK/CHF (ECB)
-  const [rateDate, setRateDate] = React.useState<string | null>(null);
-  const [rateFetchedAt, setRateFetchedAt] = React.useState<Date | null>(null);
+  // EUR → NOK via ECB (Frankfurter). Ingen CHF-kurs mer.
   React.useEffect(() => {
     let cancelled = false;
-    fetch("https://api.frankfurter.dev/v1/latest?base=CHF&symbols=NOK")
+    fetch(`https://api.frankfurter.dev/v1/latest?base=${currency}&symbols=NOK`)
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
@@ -67,11 +64,14 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
         setRateDate(d?.date ?? null);
         setRateFetchedAt(new Date());
       })
-      .catch(() => { if (!cancelled) setRate({ rate: null, loading: false }); });
-    return () => { cancelled = true; };
-  }, [refreshKey]);
+      .catch(() => {
+        if (!cancelled) setRate({ rate: null, loading: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey, currency]);
 
-  // 2. Next agenda event
   React.useEffect(() => {
     if (!user) return;
     supabase
@@ -86,25 +86,39 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
       });
   }, [user, refreshKey]);
 
-  const WeatherIcon = wx ? getWmoIcon(wx.weatherCode) : Cloud;
+  // Refresh weather when parent bumps refreshKey (pull-to-refresh).
+  React.useEffect(() => {
+    if (refreshKey && refreshKey > 0) refreshWeather();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  const current = weather?.current;
+  const today = weather?.daily?.[0];
+  const codeInfo = describeWeatherCode(current?.weatherCode ?? today?.weatherCode);
+  const WeatherIcon = ICON_MAP[codeInfo.icon] ?? Cloud;
+  const tempNow = current?.temperatureC != null ? Math.round(current.temperatureC) : null;
+  const tempMax = today?.tempMaxC != null ? Math.round(today.tempMaxC) : null;
+  const tempMin = today?.tempMinC != null ? Math.round(today.tempMinC) : null;
+  const wind = current?.windSpeedMs != null ? Math.round(current.windSpeedMs) : null;
+  const snow = today?.snowfallCm ?? current?.snowfallCm ?? 0;
 
   return (
     <section className="space-y-2">
       <div className="grid grid-cols-3 gap-2">
-        {/* CHF → NOK – opens calculator */}
+        {/* Valuta – EUR/NOK */}
         <button
           onClick={() => setCalcOpen(true)}
           className="rounded-xl bg-muted/50 border border-border p-3 flex flex-col items-center justify-center gap-1 text-left active:scale-[0.97] transition-transform"
         >
           <ArrowRightLeft size={14} className="text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">1 CHF</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">1 {currency}</span>
           <span className="font-heading text-sm font-bold text-foreground leading-none">
             {rate.loading ? "…" : rate.rate ? `${rate.rate.toFixed(2)} kr` : "–"}
           </span>
           <span className="text-[8px] text-muted-foreground/60 leading-none w-full text-center truncate">ECB</span>
         </button>
 
-        {/* Next event → agenda */}
+        {/* Neste event */}
         <Link
           to="/agenda"
           className="rounded-xl bg-muted/50 border border-border p-3 flex flex-col items-center justify-center gap-1 text-center"
@@ -125,39 +139,45 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
           )}
         </Link>
 
-        {/* Weather → vær */}
+        {/* Vær – Open-Meteo */}
         <Link
           to="/vaer"
           className="rounded-xl bg-muted/50 border border-border p-3 flex flex-col items-center justify-center gap-0.5 text-center"
         >
-          {wx && !aiLoading ? (
+          {current && !weatherLoading ? (
             <>
               <WeatherIcon size={20} className="text-foreground" />
               <span className="font-heading text-sm font-bold text-foreground leading-none">
-                {wx.tempMax != null ? `${wx.tempMax}°` : "–"} / {wx.tempMin != null ? `${wx.tempMin}°` : "–"}
+                {tempNow != null ? `${tempNow}°` : "–"}
+              </span>
+              <span className="text-[9px] text-muted-foreground leading-none">
+                {tempMax != null && tempMin != null ? `${tempMax}° / ${tempMin}°` : codeInfo.label}
               </span>
               <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
                 <Wind size={9} />
-                <span>{wx.wind ?? "–"} m/s</span>
-                <MoveRight size={8} style={windArrowRotation(wx.windDir)} />
+                <span>{wind ?? "–"} m/s</span>
+                {current.windDirectionDeg != null && (
+                  <MoveRight size={8} style={windArrowRotation(current.windDirectionDeg)} />
+                )}
               </div>
-              {wx.snow > 0 && (
+              {snow > 0 && (
                 <div className="flex items-center gap-0.5 text-[9px] text-primary font-medium">
                   <Droplets size={8} />
-                  <span>{wx.snow} cm</span>
+                  <span>{snow.toFixed(0)} cm</span>
                 </div>
               )}
             </>
           ) : (
             <>
               <Cloud size={16} className="text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground">Laster…</span>
+              <span className="text-[10px] text-muted-foreground">
+                {weatherLoading ? "Laster…" : "–"}
+              </span>
             </>
           )}
         </Link>
       </div>
 
-      {/* Currency calculator popup */}
       {rate.rate && (
         <CurrencyCalculator
           rate={rate.rate}

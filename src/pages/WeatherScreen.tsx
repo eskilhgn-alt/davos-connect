@@ -1,735 +1,228 @@
 /**
- * WeatherScreen — Dual-source (Yr + MeteoSwiss) with mountain cards + AI summary
- * Minimalist, mobile-first — supports GPS-based location
+ * WeatherScreen – kompakt Val Thorens-vær via Open-Meteo.
+ * Offisielt fjellvær og skredvarsel lenkes eksternt til Meteo-France.
  */
-
 import * as React from "react";
-import { AppHeader } from "@/components/layout";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
-import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { DavosSegmented, type SegmentOption } from "@/components/ui/davos-segmented";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { MOUNTAIN_AREAS } from "@/config/locations";
+import { useTripWeather } from "@/hooks/useTripWeather";
+import { describeWeatherCode, type TripDailyForecast } from "@/services/tripWeather";
+import { ACTIVE_TRIP } from "@/config/trip";
 import {
-  getDualWeather,
-  clearDualWeatherCache,
-  getWeatherIcon,
-  getWeatherDescription,
-  type FullWeatherData,
-  type SourceForecast,
-  type WeatherDaily,
-} from "@/services/weather-dual.service";
-import { useWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
-import { useGeolocation } from "@/hooks/useGeolocation";
-import { RefreshCw, Mountain, Snowflake, Droplets, Wind, MapPin, Navigation, Sparkles, Sun, CloudSun, Shield, ChevronRight, Search, X } from "lucide-react";
+  RefreshCw,
+  ExternalLink,
+  Wind,
+  Droplets,
+  Snowflake,
+  Sun,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  CloudDrizzle,
+  CloudFog,
+  CloudLightning,
+  AlertTriangle,
+  Loader2,
+} from "lucide-react";
+import { format } from "date-fns";
+import { nb } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { MountainDetailSheet } from "@/components/weather/MountainDetailSheet";
-import { WeatherForecastChart } from "@/components/weather/WeatherForecastChart";
-import { DavosInput } from "@/components/ui/davos-input";
-import { type LocationPoint } from "@/config/locations";
 
-type SourceTab = "yr" | "meteoswiss";
+const ICONS = {
+  sun: Sun,
+  cloud: Cloud,
+  "cloud-rain": CloudRain,
+  "cloud-snow": CloudSnow,
+  "cloud-drizzle": CloudDrizzle,
+  "cloud-fog": CloudFog,
+  "cloud-lightning": CloudLightning,
+} as const;
 
-const SOURCE_OPTIONS: SegmentOption[] = [
-  { value: "yr", label: "Yr" },
-  { value: "meteoswiss", label: "MeteoSwiss" },
-];
-
-// Day name helper
-function dayLabel(dateStr: string, index: number): string {
-  if (index === 0) return "I dag";
-  if (index === 1) return "I morgen";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", "");
+function WeatherIconFor({ code, size = 20 }: { code: number | null | undefined; size?: number }) {
+  const info = describeWeatherCode(code);
+  const Icon = ICONS[info.icon] ?? Cloud;
+  return <Icon size={size} strokeWidth={1.7} />;
 }
 
-const WeatherScreen: React.FC = () => {
-  const geo = useGeolocation();
-  const [customLocation, setCustomLocation] = React.useState<{ lat: number; lon: number; name: string } | null>(null);
-  const [locationName, setLocationName] = React.useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [searchResults, setSearchResults] = React.useState<any[]>([]);
-  const [searchOpen, setSearchOpen] = React.useState(false);
-  const [searching, setSearching] = React.useState(false);
-
-  // The effective position: custom search > GPS
-  const effectivePos = customLocation
-    ? { lat: customLocation.lat, lon: customLocation.lon }
-    : geo.position
-      ? { lat: geo.position.lat, lon: geo.position.lon }
-      : undefined;
-
-  const { summary: aiSummary, loading: aiLoading } = useWeatherAiSummary(effectivePos);
-  const [data, setData] = React.useState<FullWeatherData | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [source, setSource] = React.useState<SourceTab>("yr");
-  const [selectedMountain, setSelectedMountain] = React.useState<LocationPoint | null>(null);
-  const [selectedDayIndex, setSelectedDayIndex] = React.useState<number | null>(null);
-
-  // Reverse geocode GPS position to get place name
-  React.useEffect(() => {
-    if (customLocation) {
-      setLocationName(customLocation.name);
-      return;
-    }
-    if (!geo.position) { setLocationName(null); return; }
-    const { lat, lon } = geo.position;
-    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10&accept-language=no`)
-      .then(r => r.json())
-      .then(d => {
-        const name = d.address?.city || d.address?.town || d.address?.village || d.address?.municipality || d.display_name?.split(",")[0] || "Ukjent sted";
-        setLocationName(name);
-      })
-      .catch(() => setLocationName("Min posisjon"));
-  }, [geo.position, customLocation]);
-
-  // Search locations via Nominatim
-  const handleSearch = React.useCallback(async () => {
-    if (!searchQuery.trim()) return;
-    setSearching(true);
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=5&accept-language=no`);
-      const data = await res.json();
-      setSearchResults(data);
-    } catch {
-      setSearchResults([]);
-    }
-    setSearching(false);
-  }, [searchQuery]);
-
-  const selectSearchResult = (result: any) => {
-    setCustomLocation({
-      lat: parseFloat(result.lat),
-      lon: parseFloat(result.lon),
-      name: result.display_name.split(",")[0],
-    });
-    setSearchOpen(false);
-    setSearchQuery("");
-    setSearchResults([]);
-  };
-
-  const clearCustomLocation = () => {
-    setCustomLocation(null);
-    // Reload with GPS
-    if (geo.position) load(true);
-  };
-
-  const load = React.useCallback(async (force = false) => {
-    setLoading(true);
-    setError(null);
-    try {
-      if (force) clearDualWeatherCache();
-      const result = await getDualWeather(force, effectivePos);
-      setData(result);
-    } catch (err) {
-      console.error("Weather load failed:", err);
-      setError("Kunne ikke laste værdata.");
-    } finally {
-      setLoading(false);
-    }
-  }, [effectivePos]);
-
-  // Load once on mount
-  const hasLoaded = React.useRef(false);
-  React.useEffect(() => {
-    if (!hasLoaded.current) {
-      hasLoaded.current = true;
-      load();
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reload when effective position changes
-  const prevPosRef = React.useRef<{ lat: number; lon: number } | null>(null);
-  React.useEffect(() => {
-    if (!effectivePos) return;
-    const prev = prevPosRef.current;
-    if (!prev || Math.abs(prev.lat - effectivePos.lat) > 0.001 || Math.abs(prev.lon - effectivePos.lon) > 0.001) {
-      prevPosRef.current = { lat: effectivePos.lat, lon: effectivePos.lon };
-      if (hasLoaded.current) {
-        load(true);
-      }
-    }
-  }, [effectivePos, load]);
-
-  const getForecast = (d: FullWeatherData | null): SourceForecast | null => {
-    if (!d) return null;
-    return source === "yr" ? d.davos.yr : d.davos.meteoswiss;
-  };
-
-  const forecast = getForecast(data);
-  const today = forecast?.daily?.[0] || null;
-
-  return (
-    <div
-      className="flex flex-col overflow-hidden bg-background"
-      style={{ height: "var(--app-height)" }}
-    >
-      <AppHeader
-        title="Vær"
-        leftAction={<BackButton fallbackPath="/hjem" />}
-        rightAction={
-          loading ? <RefreshCw className="h-5 w-5 animate-spin text-primary-foreground/70" /> : null
-        }
-      />
-
-      <PullToRefreshWrapper
-        onRefresh={async () => { await load(true); }}
-        className="flex-1 overflow-y-auto overscroll-contain"
-        style={{
-          paddingBottom: "var(--bottom-nav-h-effective)",
-          WebkitOverflowScrolling: "touch",
-        }}
-      >
-        <div className="pb-6">
-          {/* Source toggle + location controls */}
-          <div className="px-4 pt-4 pb-2 space-y-2">
-            <DavosSegmented
-              options={SOURCE_OPTIONS}
-              value={source}
-              onChange={(v) => setSource(v as SourceTab)}
-            />
-            <div className="flex gap-2 items-center">
-              <button
-                onClick={() => {
-                  if (customLocation) {
-                    clearCustomLocation();
-                    return;
-                  }
-                  if (!geo.enabled) {
-                    geo.request();
-                  } else {
-                    load(true);
-                  }
-                }}
-                disabled={geo.loading}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0",
-                  geo.enabled && !customLocation
-                    ? "bg-primary/15 text-primary border border-primary/30"
-                    : "bg-muted text-muted-foreground border border-border"
-                )}
-              >
-                <Navigation size={13} className={cn(geo.loading && "animate-spin")} />
-                {geo.loading ? "Henter..." : "📍 Min posisjon"}
-              </button>
-              <button
-                onClick={() => setSearchOpen(!searchOpen)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0",
-                  searchOpen || customLocation
-                    ? "bg-primary/15 text-primary border border-primary/30"
-                    : "bg-muted text-muted-foreground border border-border"
-                )}
-              >
-                <Search size={13} />
-                Søk sted
-              </button>
-            </div>
-
-            {/* Current location indicator */}
-            {locationName && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MapPin size={12} className="text-primary shrink-0" />
-                <span className="truncate">{locationName}</span>
-                {customLocation && (
-                  <button onClick={clearCustomLocation} className="shrink-0 ml-1 text-muted-foreground hover:text-foreground">
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Search bar */}
-            {searchOpen && (
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <DavosInput
-                    type="search"
-                    placeholder="Søk etter sted..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                    className="flex-1"
-                    autoFocus
-                  />
-                  <button
-                    onClick={handleSearch}
-                    disabled={searching || !searchQuery.trim()}
-                    className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50"
-                  >
-                    {searching ? "..." : "Søk"}
-                  </button>
-                </div>
-                {searchResults.length > 0 && (
-                  <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
-                    {searchResults.map((r: any, i: number) => (
-                      <button
-                        key={i}
-                        onClick={() => selectSearchResult(r)}
-                        className="w-full text-left px-3 py-2.5 text-xs hover:bg-muted/50 active:bg-muted transition-colors"
-                      >
-                        <p className="font-medium text-foreground">{r.display_name.split(",")[0]}</p>
-                        <p className="text-muted-foreground truncate">{r.display_name}</p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {error ? (
-            <div className="px-4 py-12 text-center">
-              <p className="text-muted-foreground">{error}</p>
-              <button onClick={() => load(true)} className="mt-4 text-primary underline text-sm">
-                Prøv igjen
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* Hero card */}
-              <HeroCard today={today} loading={loading} source={source} updatedAt={forecast?.updatedAt} locationName={locationName || (effectivePos ? "Laster sted..." : "Standard")} />
-
-              {/* AI Summary Card */}
-              <AiSummaryCard summary={aiSummary} loading={aiLoading} />
-
-              {/* Forecast chart */}
-              <WeatherForecastChart
-                daily={forecast?.daily || []}
-                hourly={forecast?.hourly || []}
-                loading={loading}
-              />
-
-              {/* 7-day strip */}
-              <section className="mt-4">
-                <h2 className="px-4 font-heading text-sm font-medium text-muted-foreground mb-2">
-                  7-dagers varsel
-                </h2>
-                {loading ? (
-                  <div className="px-4 flex gap-2 overflow-hidden">
-                    {Array.from({ length: 7 }).map((_, i) => (
-                      <DavosSkeleton key={i} className="min-w-[72px] h-[100px] rounded-xl" />
-                    ))}
-                  </div>
-                ) : (
-                  <ScrollArea className="w-full">
-                    <div className="flex gap-2 px-4 py-1">
-                      {(forecast?.daily || []).map((day, i) => (
-                        <DayPill key={day.date} day={day} index={i} onTap={() => setSelectedDayIndex(i)} />
-                      ))}
-                    </div>
-                    <ScrollBar orientation="horizontal" />
-                  </ScrollArea>
-                )}
-              </section>
-
-              {/* Mountain areas */}
-              <section className="mt-6 px-4 space-y-3">
-                <h2 className="font-heading text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Mountain className="h-4 w-4 text-primary" />
-                  Fjellområder
-                </h2>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <DavosSkeleton key={i} className="h-16 rounded-card" />
-                  ))
-                ) : (
-                  MOUNTAIN_AREAS.map((mt) => {
-                    const mtData = data?.mountains.find((m) => m.mountain.id === mt.id);
-                    const mtForecast = source === "yr" ? mtData?.yr : mtData?.meteoswiss;
-                    const mtToday = mtForecast?.daily?.[0];
-
-                    return (
-                      <DavosCard
-                        key={mt.id}
-                        className="cursor-pointer active:scale-[0.98] transition-transform"
-                        onClick={() => setSelectedMountain(mt)}
-                      >
-                        <DavosCardContent className="p-3 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">
-                              {mtToday ? getWeatherIcon(mtToday.weatherCode) : "☁️"}
-                            </span>
-                            <div>
-                              <p className="font-heading text-sm font-semibold text-foreground">
-                                {mt.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {mt.elevation}m
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {mtToday ? (
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <span className="font-mono font-semibold text-foreground text-sm">
-                                  {mtToday.tempMax}° / {mtToday.tempMin}°
-                                </span>
-                                {mtToday.snow > 0 && (
-                                  <span className="flex items-center gap-0.5">
-                                    <Snowflake size={12} className="text-primary" />
-                                    {mtToday.snow}cm
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">–</span>
-                            )}
-                            <ChevronRight size={14} className="text-muted-foreground" />
-                          </div>
-                        </DavosCardContent>
-                      </DavosCard>
-                    );
-                  })
-                )}
-              </section>
-
-              {/* Refresh */}
-              <div className="px-4 mt-6 text-center">
-                <button
-                  onClick={() => load(true)}
-                  disabled={loading}
-                  className="text-xs text-primary hover:underline disabled:opacity-50"
-                >
-                  Oppdater data
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </PullToRefreshWrapper>
-
-      {/* Mountain detail sheet */}
-      <MountainDetailSheet
-        open={!!selectedMountain}
-        onOpenChange={(open) => !open && setSelectedMountain(null)}
-        mountain={selectedMountain}
-        forecast={
-          selectedMountain
-            ? (() => {
-                const mtData = data?.mountains.find((m) => m.mountain.id === selectedMountain.id);
-                return source === "yr" ? mtData?.yr ?? null : mtData?.meteoswiss ?? null;
-              })()
-            : null
-        }
-        sourceName={source === "yr" ? "Yr" : "MeteoSwiss"}
-      />
-
-      {/* Day detail sheet */}
-      <DayDetailSheet
-        day={selectedDayIndex !== null ? (forecast?.daily?.[selectedDayIndex] ?? null) : null}
-        index={selectedDayIndex}
-        open={selectedDayIndex !== null}
-        onClose={() => setSelectedDayIndex(null)}
-        source={source}
-      />
-    </div>
-  );
-};
-
-// ============================================
-// SUB-COMPONENTS
-// ============================================
-
-interface HeroCardProps {
-  today: WeatherDaily | null;
-  loading: boolean;
-  source: SourceTab;
-  updatedAt?: string;
-  locationName: string;
+function fmt(n: number | null | undefined, digits = 0, suffix = "") {
+  if (n == null) return "–";
+  return `${n.toFixed(digits)}${suffix}`;
 }
 
-const HeroCard: React.FC<HeroCardProps> = ({ today, loading, source, updatedAt, locationName }) => {
-  if (loading || !today) {
-    return (
-      <DavosCard className="mx-4 mt-2">
-        <DavosCardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <DavosSkeleton className="h-14 w-28" />
-              <DavosSkeleton className="h-4 w-20" />
-            </div>
-            <DavosSkeleton variant="circular" className="h-14 w-14" />
-          </div>
-          <div className="grid grid-cols-3 gap-4 mt-4">
-            <DavosSkeleton className="h-12" />
-            <DavosSkeleton className="h-12" />
-            <DavosSkeleton className="h-12" />
-          </div>
-        </DavosCardContent>
-      </DavosCard>
-    );
-  }
-
-  const sourceName = source === "yr" ? "Yr" : "MeteoSwiss";
-
+function DayRow({ day }: { day: TripDailyForecast }) {
+  const info = describeWeatherCode(day.weatherCode);
+  const date = new Date(day.date + "T00:00:00");
   return (
-    <DavosCard className="mx-4 mt-2">
-      <DavosCardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <MapPin size={14} className="text-primary" />
-              <span className="text-xs text-muted-foreground">
-                {locationName} · {sourceName}
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="font-heading text-5xl font-bold text-foreground">
-                {today.tempMax}°
-              </span>
-              <span className="font-mono text-sm text-muted-foreground">
-                / {today.tempMin}°
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              {getWeatherDescription(today.weatherCode)}
-            </p>
-          </div>
-          <span className="text-5xl">{getWeatherIcon(today.weatherCode)}</span>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4 mt-4 pt-3 border-t border-border">
-          <div className="text-center">
-            <Snowflake className="h-4 w-4 mx-auto text-primary mb-1" />
-            <p className="font-mono text-base font-semibold text-foreground">{today.snow} cm</p>
-            <p className="text-xs text-muted-foreground">Snø</p>
-          </div>
-          <div className="text-center">
-            <Droplets className="h-4 w-4 mx-auto text-primary mb-1" />
-            <p className="font-mono text-base font-semibold text-foreground">{today.precip} mm</p>
-            <p className="text-xs text-muted-foreground">Nedbør</p>
-          </div>
-          <div className="text-center">
-            <Wind className="h-4 w-4 mx-auto text-primary mb-1" />
-            <p className="font-mono text-base font-semibold text-foreground">{today.wind} m/s</p>
-            <p className="text-xs text-muted-foreground">Vind</p>
-          </div>
-        </div>
-
-        {updatedAt && (
-          <p className="text-[10px] text-muted-foreground mt-3 text-right">
-            Oppdatert: {new Date(updatedAt).toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" })}
-          </p>
+    <div className="flex items-center gap-3 py-2.5 border-b border-border last:border-none">
+      <div className="w-14 shrink-0">
+        <p className="font-heading text-xs font-semibold text-foreground uppercase leading-none">
+          {format(date, "EEE", { locale: nb })}
+        </p>
+        <p className="text-[10px] text-muted-foreground">{format(date, "dd.MM", { locale: nb })}</p>
+      </div>
+      <WeatherIconFor code={day.weatherCode} />
+      <p className="flex-1 text-xs text-muted-foreground truncate">{info.label}</p>
+      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+        {(day.snowfallCm ?? 0) > 0 && (
+          <span className="flex items-center gap-0.5 text-primary">
+            <Snowflake size={11} />
+            {fmt(day.snowfallCm, 0, " cm")}
+          </span>
         )}
-      </DavosCardContent>
-    </DavosCard>
-  );
-};
-
-interface DayPillProps {
-  day: WeatherDaily;
-  index: number;
-  onTap: () => void;
-}
-
-const DayPill: React.FC<DayPillProps> = ({ day, index, onTap }) => (
-  <button
-    type="button"
-    onClick={onTap}
-    className={cn(
-      "flex flex-col items-center gap-1 min-w-[68px] rounded-xl px-2 py-2.5",
-      "active:scale-95 transition-transform cursor-pointer",
-      index === 0 ? "bg-primary/10 border border-primary/20" : "bg-card border border-border"
-    )}
-  >
-    <span className="text-[10px] font-medium text-muted-foreground uppercase">
-      {dayLabel(day.date, index)}
-    </span>
-    <span className="text-xl">{getWeatherIcon(day.weatherCode)}</span>
-    <span className="font-mono text-xs font-semibold text-foreground">
-      {day.tempMax}° / {day.tempMin}°
-    </span>
-    {day.snow > 0 && (
-      <span className="text-[10px] text-primary font-medium">{day.snow}cm ❄️</span>
-    )}
-  </button>
-);
-
-// ============================================
-// DAY DETAIL SHEET
-// ============================================
-
-interface DayDetailSheetProps {
-  day: WeatherDaily | null;
-  index: number | null;
-  open: boolean;
-  onClose: () => void;
-  source: SourceTab;
-}
-
-const DayDetailSheet: React.FC<DayDetailSheetProps> = ({ day, index, open, onClose, source }) => {
-  if (!open || !day || index === null) return null;
-
-  const dateLabel2 = index === 0 ? "I dag" : index === 1 ? "I morgen" : new Date(day.date).toLocaleDateString("no-NO", { weekday: "long", day: "numeric", month: "long" });
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-    >
-      <div
-        className={cn(
-          "w-full max-w-lg bg-background rounded-t-2xl",
-          "animate-in slide-in-from-bottom duration-200"
+        {(day.precipitationMm ?? 0) > 0 && (day.snowfallCm ?? 0) === 0 && (
+          <span className="flex items-center gap-0.5">
+            <Droplets size={11} />
+            {fmt(day.precipitationMm, 1, " mm")}
+          </span>
         )}
-        onClick={(e) => e.stopPropagation()}
-        style={{ paddingBottom: "env(safe-area-inset-bottom)", maxHeight: "75vh" }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <div>
-            <h3 className="font-heading text-lg font-semibold capitalize">{dateLabel2}</h3>
-            <p className="text-sm text-muted-foreground">{getWeatherDescription(day.weatherCode)} · {source === "yr" ? "Yr" : "MeteoSwiss"}</p>
-          </div>
-          <span className="text-4xl">{getWeatherIcon(day.weatherCode)}</span>
-        </div>
-
-        {/* Temperature */}
-        <div className="px-5 pb-3">
-          <div className="flex items-baseline gap-3">
-            <span className="font-heading text-4xl font-bold text-foreground">{day.tempMax}°</span>
-            <span className="font-mono text-lg text-muted-foreground">/ {day.tempMin}°</span>
-          </div>
-        </div>
-
-        {/* Stats grid */}
-        <div className="grid grid-cols-4 gap-2 px-5 pb-4">
-          <div className="bg-muted/50 rounded-xl p-3 text-center">
-            <Snowflake className="h-5 w-5 mx-auto text-primary mb-1" />
-            <p className="font-mono text-lg font-bold">{day.snow}</p>
-            <p className="text-[10px] text-muted-foreground">cm snø</p>
-          </div>
-          <div className="bg-muted/50 rounded-xl p-3 text-center">
-            <Droplets className="h-5 w-5 mx-auto text-primary mb-1" />
-            <p className="font-mono text-lg font-bold">{day.precip}</p>
-            <p className="text-[10px] text-muted-foreground">mm nedbør</p>
-          </div>
-          <div className="bg-muted/50 rounded-xl p-3 text-center">
-            <Wind className="h-5 w-5 mx-auto text-primary mb-1" />
-            <p className="font-mono text-lg font-bold">{day.wind}</p>
-            <p className="text-[10px] text-muted-foreground">m/s vind</p>
-          </div>
-          {day.windGust && (
-            <div className="bg-muted/50 rounded-xl p-3 text-center">
-              <Wind className="h-5 w-5 mx-auto text-destructive mb-1" />
-              <p className="font-mono text-lg font-bold">{day.windGust}</p>
-              <p className="text-[10px] text-muted-foreground">m/s kast</p>
-            </div>
-          )}
-        </div>
-
-        {/* Close */}
-        <div className="flex justify-center pb-4">
-          <button type="button" onClick={onClose} className="px-6 py-1.5 rounded-full bg-muted text-sm text-muted-foreground">
-            Lukk
-          </button>
-        </div>
+        <span className="flex items-center gap-0.5">
+          <Wind size={11} />
+          {fmt(day.windMaxMs, 0, " m/s")}
+        </span>
+      </div>
+      <div className="w-20 text-right font-heading text-sm font-semibold text-foreground tabular-nums">
+        {day.tempMaxC != null ? `${Math.round(day.tempMaxC)}°` : "–"}
+        <span className="text-muted-foreground font-normal">
+          {" / "}
+          {day.tempMinC != null ? `${Math.round(day.tempMinC)}°` : "–"}
+        </span>
       </div>
     </div>
   );
-};
-
-// ============================================
-// AI SUMMARY CARD
-// ============================================
-
-interface AiSummaryCardProps {
-  summary: ReturnType<typeof useWeatherAiSummary>["summary"];
-  loading: boolean;
 }
 
-const AiSummaryCard: React.FC<AiSummaryCardProps> = ({ summary, loading }) => {
-  if (loading) {
-    return (
-      <DavosCard className="mx-4 mt-3">
-        <DavosCardContent className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <DavosSkeleton className="h-4 w-4" />
-            <DavosSkeleton className="h-4 w-32" />
-          </div>
-          <DavosSkeleton className="h-4 w-full mb-2" />
-          <DavosSkeleton className="h-4 w-3/4 mb-2" />
-          <DavosSkeleton className="h-3 w-40" />
-        </DavosCardContent>
-      </DavosCard>
-    );
-  }
+export const WeatherScreen: React.FC = () => {
+  const { weather, loading, error, refresh } = useTripWeather();
 
-  if (!summary) return null;
+  const current = weather?.current;
+  const today = weather?.daily?.[0];
+  const info = describeWeatherCode(current?.weatherCode ?? today?.weatherCode);
+  const trip = ACTIVE_TRIP;
 
-  const confidenceColor =
-    summary.confidence === "high"
-      ? "text-success"
-      : summary.confidence === "medium"
-        ? "text-warning"
-        : "text-destructive";
+  const updatedAt = weather?.fetchedAt ? new Date(weather.fetchedAt) : null;
 
   return (
-    <DavosCard className="mx-4 mt-3">
-      <DavosCardContent className="p-4">
-        <div className="space-y-3">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <Sparkles className="h-4 w-4 text-primary shrink-0" />
-              AI-vurdering (OpenAI)
-            </div>
-            <div className={cn("flex items-center gap-1 text-[10px] font-medium", confidenceColor)}>
-              <Shield className="h-3 w-3" />
-              {summary.confidence === "high" ? "Høy" : summary.confidence === "medium" ? "Middels" : "Lav"} sikkerhet
-            </div>
+    <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
+      <AppHeader
+        title="Vær"
+        subtitle={`${trip.destination}, ${trip.country}`}
+        leftAction={<BackButton fallbackPath="/hjem" />}
+        rightAction={
+          <button
+            onClick={refresh}
+            aria-label="Oppdater vær"
+            className="tap-target flex items-center justify-center text-muted-foreground"
+          >
+            <RefreshCw size={18} className={cn(loading && "animate-spin")} />
+          </button>
+        }
+      />
+
+      <div
+        className="flex-1 overflow-y-auto overscroll-contain"
+        style={{ paddingBottom: "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}
+      >
+        <div className="p-4 space-y-4">
+          {/* Hero */}
+          <div className="rounded-2xl bg-muted/50 border border-border p-5">
+            {loading && !weather ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="animate-spin" size={24} />
+              </div>
+            ) : error && !weather ? (
+              <div className="flex flex-col items-center text-center gap-2 py-4">
+                <AlertTriangle className="text-destructive" size={22} />
+                <p className="text-sm text-muted-foreground">{error}</p>
+                <button
+                  onClick={refresh}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Prøv igjen
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-5">
+                <div className="text-primary">
+                  <WeatherIconFor code={current?.weatherCode ?? today?.weatherCode} size={56} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-heading text-4xl font-semibold text-foreground leading-none">
+                    {current?.temperatureC != null ? `${Math.round(current.temperatureC)}°` : "–"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">{info.label}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Føles som {fmt(current?.apparentTemperatureC, 0, "°")}
+                  </p>
+                </div>
+                <div className="text-right space-y-1 text-[11px] text-muted-foreground">
+                  <div className="flex items-center justify-end gap-1">
+                    <Wind size={12} />
+                    <span>{fmt(current?.windSpeedMs, 0, " m/s")}</span>
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <Droplets size={12} />
+                    <span>{fmt(current?.precipitationMm, 1, " mm")}</span>
+                  </div>
+                  {(current?.snowfallCm ?? 0) > 0 && (
+                    <div className="flex items-center justify-end gap-1 text-primary">
+                      <Snowflake size={12} />
+                      <span>{fmt(current?.snowfallCm, 0, " cm")}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {updatedAt && (
+              <p className="text-[10px] text-muted-foreground/70 mt-3 text-center">
+                Oppdatert {format(updatedAt, "dd.MM 'kl' HH:mm", { locale: nb })} · Open-Meteo
+              </p>
+            )}
           </div>
 
-          {/* Ski conditions highlight */}
-          {summary.skiConditions && (
-            <div className="bg-primary/10 rounded-lg px-3 py-2">
-              <p className="text-sm font-medium text-foreground">{summary.skiConditions}</p>
+          {/* Prognose */}
+          {weather?.daily && weather.daily.length > 0 && (
+            <div className="rounded-2xl bg-muted/30 border border-border px-4">
+              {weather.daily.map((d) => (
+                <DayRow key={d.date} day={d} />
+              ))}
             </div>
           )}
 
-          {/* Today */}
-          {summary.todaySummary && (
-            <div className="flex items-start gap-2">
-              <Sun className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">I dag</p>
-                <p className="text-sm text-foreground">{summary.todaySummary}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Tomorrow */}
-          {summary.tomorrowSummary && (
-            <div className="flex items-start gap-2">
-              <CloudSun className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">I morgen</p>
-                <p className="text-sm text-foreground">{summary.tomorrowSummary}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Source comparison */}
-          {summary.sourceComparison && (
-            <p className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
-              {summary.sourceComparison}
+          {/* Offisielle lenker */}
+          <div className="rounded-2xl border border-border p-4 space-y-3">
+            <h3 className="font-heading text-sm font-semibold text-foreground">Offisielt fjellvær og skred</h3>
+            <p className="text-xs text-muted-foreground">
+              Bruk Meteo-France for offisielle fjellvarsler og skredfare i Val Thorens. Appens vær er
+              en generell prognose fra Open-Meteo og erstatter ikke offisielle kilder.
             </p>
-          )}
-
-          {/* Timestamp */}
-          {summary.generatedAt && (
-            <p className="text-[10px] text-muted-foreground text-right">
-              Generert: {new Date(summary.generatedAt).toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" })}
-            </p>
-          )}
+            <div className="flex flex-col gap-2">
+              {trip.officialLinks.weather && (
+                <a
+                  href={trip.officialLinks.weather.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-between gap-2 rounded-xl bg-muted/60 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                  <span>{trip.officialLinks.weather.title}</span>
+                  <ExternalLink size={14} />
+                </a>
+              )}
+              {trip.officialLinks.safety && (
+                <a
+                  href={trip.officialLinks.safety.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-between gap-2 rounded-xl bg-muted/40 px-4 py-3 text-sm text-muted-foreground hover:bg-muted/60 transition-colors"
+                >
+                  <span>{trip.officialLinks.safety.title}</span>
+                  <ExternalLink size={13} />
+                </a>
+              )}
+            </div>
+          </div>
         </div>
-      </DavosCardContent>
-    </DavosCard>
+      </div>
+    </div>
   );
 };
 

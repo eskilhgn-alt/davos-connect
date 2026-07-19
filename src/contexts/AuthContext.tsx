@@ -5,7 +5,6 @@
 
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { prefetchWeatherAiSummary } from "@/hooks/useWeatherAiSummary";
 import type { User, Session } from "@supabase/supabase-js";
 
 interface Profile {
@@ -133,7 +132,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (currentSession?.user) {
         // Prefetch weather on every auth event (login, token refresh, app wake)
-        prefetchWeatherAiSummary();
 
         const shouldBlockForProfile = event === "SIGNED_IN" || event === "USER_UPDATED" || event === "PASSWORD_RECOVERY";
         if (shouldBlockForProfile) setIsProfileLoading(true);
@@ -201,7 +199,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (initialSession?.user) {
         setIsProfileLoading(true);
-        prefetchWeatherAiSummary();
 
         const profileData = await fetchProfile(initialSession.user.id);
         if (!isMounted) return;
