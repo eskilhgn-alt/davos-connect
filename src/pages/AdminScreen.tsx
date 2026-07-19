@@ -8,7 +8,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
-import { DavosSegmented, type SegmentOption } from "@/components/ui/davos-segmented";
+import { BrandSegmented, type SegmentOption } from "@/components/ui/brand-segmented";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -85,7 +85,7 @@ export const AdminScreen: React.FC = () => {
       <div className="flex-1 overflow-y-auto overscroll-contain" style={{ paddingBottom: "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}>
         {/* Tab bar – scrollable for 6 tabs */}
         <div className="px-4 pt-3 pb-2 overflow-x-auto">
-          <DavosSegmented options={TAB_OPTIONS} value={tab} onChange={setTab} />
+          <BrandSegmented options={TAB_OPTIONS} value={tab} onChange={setTab} />
         </div>
 
         {tab === "overview" && (

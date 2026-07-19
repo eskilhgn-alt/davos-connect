@@ -1,6 +1,6 @@
 /**
  * LiveScreen – radar + lenke til offisielle Val Thorens webkameraer.
- * Vi henter ikke lenger Feratel-/Davos-snapshots eller proxykaller.
+ * Vi henter ikke lenger externe snapshots eller proxykaller.
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";

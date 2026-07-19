@@ -5,7 +5,7 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
 import {
   Star,
   Target,
@@ -125,12 +125,12 @@ export const RulesScreen: React.FC = () => {
             const isOpen = openIdx === sIdx;
             const Icon = section.icon;
             return (
-              <DavosCard key={sIdx}>
+              <BrandCard key={sIdx}>
                 <button
                   onClick={() => setOpenIdx(isOpen ? null : sIdx)}
                   className="w-full"
                 >
-                  <DavosCardContent className="p-4 flex items-center gap-3">
+                  <BrandCardContent className="p-4 flex items-center gap-3">
                     <Icon size={20} className="text-primary flex-shrink-0" />
                     <span className="font-heading text-sm font-semibold text-foreground flex-1 text-left">
                       {section.title}
@@ -142,7 +142,7 @@ export const RulesScreen: React.FC = () => {
                         isOpen && "rotate-180"
                       )}
                     />
-                  </DavosCardContent>
+                  </BrandCardContent>
                 </button>
                 {isOpen && (
                   <div className="px-4 pb-4 space-y-3">
@@ -166,7 +166,7 @@ export const RulesScreen: React.FC = () => {
                     ))}
                   </div>
                 )}
-              </DavosCard>
+              </BrandCard>
             );
           })}
         </div>

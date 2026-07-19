@@ -7,9 +7,9 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { DavosSegmented } from "@/components/ui/davos-segmented";
-import { DavosWebEmbed } from "@/components/live/DavosWebEmbed";
-import { DavosButton } from "@/components/ui/davos-button";
+import { BrandSegmented } from "@/components/ui/brand-segmented";
+import { BrandWebEmbed } from "@/components/live/BrandWebEmbed";
+import { BrandButton } from "@/components/ui/brand-button";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +47,7 @@ export const MapScreen: React.FC = () => {
         style={{ paddingBottom: "var(--bottom-nav-h-effective)" }}
       >
         <div className="mb-4 shrink-0">
-          <DavosSegmented
+          <BrandSegmented
             options={MAP_TABS}
             value={tab}
             onChange={(v) => setTab(v as MapSubTab)}
@@ -67,20 +67,20 @@ export const MapScreen: React.FC = () => {
                 </p>
               </div>
               {isEmbeddable && (
-                <DavosButton
+                <BrandButton
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsFullscreen(true)}
                   aria-label="Fullskjerm"
                 >
                   <Maximize2 size={20} />
-                </DavosButton>
+                </BrandButton>
               )}
             </div>
 
             <div className="flex-1 min-h-0">
               {isEmbeddable && trailMap ? (
-                <DavosWebEmbed
+                <BrandWebEmbed
                   title={trailMap.title}
                   url={trailMap.url}
                   embeddable={true}
@@ -118,7 +118,7 @@ export const MapScreen: React.FC = () => {
                 deling. Ingen blir sporet automatisk.
               </p>
             </div>
-            <DavosButton onClick={() => navigate("/crew")}>Åpne crew-kart</DavosButton>
+            <BrandButton onClick={() => navigate("/crew")}>Åpne crew-kart</BrandButton>
           </div>
         )}
       </div>

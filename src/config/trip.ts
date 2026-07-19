@@ -3,7 +3,7 @@
  *
  * GüttaHütte is a generic, reusable travel/crew app. All destination-dependent
  * surfaces (home, weather, maps, webcams, emergency info, agenda, etc.) should
- * read from this file — not from hard-coded Davos or Val Thorens references
+ * read from this file — not from hard-coded destination-specific references
  * scattered across the codebase.
  *
  * Active trip: Val Thorens 2027. Exact February 2027 dates are not confirmed;

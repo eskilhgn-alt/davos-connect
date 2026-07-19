@@ -5,8 +5,8 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosInput } from "@/components/ui/davos-input";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandInput } from "@/components/ui/brand-input";
 import { Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
@@ -77,7 +77,7 @@ export const ResetPasswordScreen: React.FC = () => {
                 </p>
               </div>
 
-              <DavosInput
+              <BrandInput
                 type="password"
                 placeholder="Nytt passord (minst 6 tegn)"
                 value={password}
@@ -86,7 +86,7 @@ export const ResetPasswordScreen: React.FC = () => {
                 minLength={6}
                 autoComplete="new-password"
               />
-              <DavosInput
+              <BrandInput
                 type="password"
                 placeholder="Bekreft passord"
                 value={confirmPassword}
@@ -96,13 +96,13 @@ export const ResetPasswordScreen: React.FC = () => {
                 autoComplete="new-password"
               />
 
-              <DavosButton type="submit" className="w-full" disabled={isSubmitting}>
+              <BrandButton type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   "Oppdater passord"
                 )}
-              </DavosButton>
+              </BrandButton>
             </form>
           )}
         </div>

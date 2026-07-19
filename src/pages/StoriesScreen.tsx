@@ -5,7 +5,7 @@
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
-import { DavosEmptyState } from "@/components/ui/davos-empty-state";
+import { BrandEmptyState } from "@/components/ui/brand-empty-state";
 import { StoryViewer } from "@/components/stories/StoryViewer";
 import { StoryCapture } from "@/components/stories/StoryCapture";
 import { StoryRing } from "@/components/stories/StoryRing";
@@ -66,7 +66,7 @@ export const StoriesScreen: React.FC = () => {
 
             {/* Stories grid – Snapchat Discover style */}
             {groups.length === 0 ? (
-              <DavosEmptyState
+              <BrandEmptyState
                 icon={Film}
                 title="Ingen historier ennå"
                 description="Trykk + for å dele din første story med Gütta!"

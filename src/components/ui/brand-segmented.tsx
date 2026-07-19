@@ -6,14 +6,14 @@ export interface SegmentOption {
   label: string;
 }
 
-export interface DavosSegmentedProps {
+export interface BrandSegmentedProps {
   options: SegmentOption[];
   value: string;
   onChange: (value: string) => void;
   className?: string;
 }
 
-export const DavosSegmented: React.FC<DavosSegmentedProps> = ({
+export const BrandSegmented: React.FC<BrandSegmentedProps> = ({
   options,
   value,
   onChange,

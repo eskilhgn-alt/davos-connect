@@ -9,9 +9,9 @@ import { BackButton } from "@/components/layout/BackButton";
 import { PushNotificationToggle } from "@/components/settings/PushNotificationToggle";
 import { GeolocationToggle } from "@/components/settings/GeolocationToggle";
 import { supabase } from "@/integrations/supabase/client";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosInput } from "@/components/ui/davos-input";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandInput } from "@/components/ui/brand-input";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
@@ -65,19 +65,19 @@ const ChangePasswordCard: React.FC = () => {
   };
 
   return (
-    <DavosCard>
-      <DavosCardContent className="p-4">
+    <BrandCard>
+      <BrandCardContent className="p-4">
         <div className="flex items-center gap-3 mb-3">
           <KeyRound className="h-5 w-5 text-primary" />
           <h2 className="font-heading font-semibold text-foreground">Passord</h2>
         </div>
         {!open ? (
-          <DavosButton variant="outline" size="sm" className="w-full" onClick={() => setOpen(true)}>
+          <BrandButton variant="outline" size="sm" className="w-full" onClick={() => setOpen(true)}>
             Endre passord
-          </DavosButton>
+          </BrandButton>
         ) : (
           <div className="space-y-3">
-            <DavosInput
+            <BrandInput
               type="password"
               placeholder="Nytt passord (minst 6 tegn)"
               value={newPw}
@@ -85,17 +85,17 @@ const ChangePasswordCard: React.FC = () => {
               autoComplete="new-password"
             />
             <div className="flex gap-2">
-              <DavosButton variant="outline" size="sm" className="flex-1" onClick={() => { setOpen(false); setNewPw(""); }}>
+              <BrandButton variant="outline" size="sm" className="flex-1" onClick={() => { setOpen(false); setNewPw(""); }}>
                 Avbryt
-              </DavosButton>
-              <DavosButton size="sm" className="flex-1" onClick={handleChange} disabled={saving || newPw.length < 6}>
+              </BrandButton>
+              <BrandButton size="sm" className="flex-1" onClick={handleChange} disabled={saving || newPw.length < 6}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Lagre"}
-              </DavosButton>
+              </BrandButton>
             </div>
           </div>
         )}
-      </DavosCardContent>
-    </DavosCard>
+      </BrandCardContent>
+    </BrandCard>
   );
 };
 
@@ -198,8 +198,8 @@ export const SettingsScreen: React.FC = () => {
       >
         <div className="p-4 space-y-4">
           {/* Profile */}
-          <DavosCard>
-            <DavosCardContent className="p-4">
+          <BrandCard>
+            <BrandCardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <User className="h-5 w-5 text-primary" />
                 <h2 className="font-heading font-semibold text-foreground">
@@ -210,7 +210,7 @@ export const SettingsScreen: React.FC = () => {
                 <AvatarUpload />
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Fullt navn</label>
-                  <DavosInput
+                  <BrandInput
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Fullt navn"
@@ -218,7 +218,7 @@ export const SettingsScreen: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Kallenavn</label>
-                  <DavosInput
+                  <BrandInput
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
                     placeholder="Kallenavn (vises i chat)"
@@ -230,7 +230,7 @@ export const SettingsScreen: React.FC = () => {
                   </p>
                 )}
                 {profileDirty && (
-                  <DavosButton
+                  <BrandButton
                     onClick={handleSaveProfile}
                     disabled={profileSaving}
                     className="w-full"
@@ -242,15 +242,15 @@ export const SettingsScreen: React.FC = () => {
                       <Check className="h-4 w-4 mr-2" />
                     )}
                     Lagre endringer
-                  </DavosButton>
+                  </BrandButton>
                 )}
               </div>
-            </DavosCardContent>
-          </DavosCard>
+            </BrandCardContent>
+          </BrandCard>
 
           {/* Dark mode */}
-          <DavosCard>
-            <DavosCardContent className="p-4">
+          <BrandCard>
+            <BrandCardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {isDark ? (
@@ -269,12 +269,12 @@ export const SettingsScreen: React.FC = () => {
                 </div>
                 <Switch checked={isDark} onCheckedChange={toggleDarkMode} />
               </div>
-            </DavosCardContent>
-          </DavosCard>
+            </BrandCardContent>
+          </BrandCard>
 
           {/* Push notifications */}
-          <DavosCard>
-            <DavosCardContent className="p-4">
+          <BrandCard>
+            <BrandCardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <Bell className="h-5 w-5 text-primary" />
                 <h2 className="font-heading font-semibold text-foreground">
@@ -282,12 +282,12 @@ export const SettingsScreen: React.FC = () => {
                 </h2>
               </div>
               <PushNotificationToggle />
-            </DavosCardContent>
-          </DavosCard>
+            </BrandCardContent>
+          </BrandCard>
 
           {/* Geolocation */}
-          <DavosCard>
-            <DavosCardContent className="p-4">
+          <BrandCard>
+            <BrandCardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <MapPin className="h-5 w-5 text-primary" />
                 <h2 className="font-heading font-semibold text-foreground">
@@ -295,12 +295,12 @@ export const SettingsScreen: React.FC = () => {
                 </h2>
               </div>
               <GeolocationToggle />
-            </DavosCardContent>
-          </DavosCard>
+            </BrandCardContent>
+          </BrandCard>
 
           {/* Tech stack */}
-          <DavosCard>
-            <DavosCardContent className="p-4">
+          <BrandCard>
+            <BrandCardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <Code2 className="h-5 w-5 text-primary" />
                 <h2 className="font-heading font-semibold text-foreground">
@@ -325,12 +325,12 @@ export const SettingsScreen: React.FC = () => {
                   <span><strong>AI:</strong> Gemini</span>
                 </li>
               </ul>
-            </DavosCardContent>
-          </DavosCard>
+            </BrandCardContent>
+          </BrandCard>
 
           {/* Security */}
-          <DavosCard>
-            <DavosCardContent className="p-4">
+          <BrandCard>
+            <BrandCardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <Shield className="h-5 w-5 text-secondary" />
                 <h2 className="font-heading font-semibold text-foreground">
@@ -351,12 +351,12 @@ export const SettingsScreen: React.FC = () => {
                   <span><strong>Rate limiting:</strong> Beskyttelse mot misbruk.</span>
                 </li>
               </ul>
-            </DavosCardContent>
-          </DavosCard>
+            </BrandCardContent>
+          </BrandCard>
 
           {/* Terms */}
-          <DavosCard>
-            <DavosCardContent className="p-4">
+          <BrandCard>
+            <BrandCardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <FileText className="h-5 w-5 text-accent" />
                 <h2 className="font-heading font-semibold text-foreground">
@@ -383,15 +383,15 @@ export const SettingsScreen: React.FC = () => {
                   <p><strong>Kontakt:</strong> Bruk «Rapporter feil»-funksjonen nedenfor, eller kontakt admin direkte.</p>
                 </div>
               </div>
-            </DavosCardContent>
-          </DavosCard>
+            </BrandCardContent>
+          </BrandCard>
 
           {/* Change password */}
           <ChangePasswordCard />
 
           {/* Bug report */}
-          <DavosCard>
-            <DavosCardContent className="p-4">
+          <BrandCard>
+            <BrandCardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <Bug className="h-5 w-5 text-primary" />
                 <h2 className="font-heading font-semibold text-foreground">
@@ -405,7 +405,7 @@ export const SettingsScreen: React.FC = () => {
                 value={bugText}
                 onChange={e => setBugText(e.target.value)}
               />
-              <DavosButton
+              <BrandButton
                 onClick={handleBugReport}
                 disabled={bugSending || !bugText.trim()}
                 size="sm"
@@ -413,19 +413,19 @@ export const SettingsScreen: React.FC = () => {
               >
                 {bugSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bug className="h-4 w-4 mr-2" />}
                 Send rapport
-              </DavosButton>
-            </DavosCardContent>
-          </DavosCard>
+              </BrandButton>
+            </BrandCardContent>
+          </BrandCard>
 
           {/* Sign out */}
-          <DavosButton
+          <BrandButton
             variant="outline"
             onClick={handleSignOut}
             className="w-full text-destructive border-destructive/30"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logg ut
-          </DavosButton>
+          </BrandButton>
 
           <p className="text-center text-xs text-muted-foreground py-4">
             GüttaHütte {APP_VERSION} · Bygget med ❤️ for Gütta

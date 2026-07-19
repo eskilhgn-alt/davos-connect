@@ -6,19 +6,14 @@ import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { DavosEmptyState } from "@/components/ui/davos-empty-state";
-import { DavosAvatar } from "@/components/ui/davos-avatar";
-import { DavosBadge } from "@/components/ui/davos-badge";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
+import { BrandEmptyState } from "@/components/ui/brand-empty-state";
+import { BrandAvatar } from "@/components/ui/brand-avatar";
+import { BrandBadge } from "@/components/ui/brand-badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, Crown, ChevronRight, Trophy, Target, Mountain } from "lucide-react";
 import { UserStatsSheet, type UserStats } from "@/components/group/UserStatsSheet";
-
-interface SpeedRecord {
-  user_id: string;
-  max_speed_kmh: number;
-}
 
 interface Profile {
   id: string;
@@ -44,26 +39,6 @@ export const GroupScreen: React.FC = () => {
       return data as Profile[];
     },
   });
-
-  const { data: speedRecords } = useQuery({
-    queryKey: ["all-speed-records"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("ski_speed_records")
-        .select("user_id, max_speed_kmh")
-        .order("max_speed_kmh", { ascending: false });
-      return (data ?? []) as SpeedRecord[];
-    },
-  });
-
-  const topSpeedMap = React.useMemo(() => {
-    const map = new Map<string, number>();
-    speedRecords?.forEach((r) => {
-      const cur = map.get(r.user_id) ?? 0;
-      if (r.max_speed_kmh > cur) map.set(r.user_id, r.max_speed_kmh);
-    });
-    return map;
-  }, [speedRecords]);
 
   const { data: allStats } = useQuery({
     queryKey: ["gamification-leaderboard"],
@@ -112,11 +87,11 @@ export const GroupScreen: React.FC = () => {
         <div className="p-4 space-y-2">
           {isLoading &&
             [...Array(5)].map((_, i) => (
-              <DavosSkeleton key={i} className="h-20 rounded-xl" />
+              <BrandSkeleton key={i} className="h-20 rounded-xl" />
             ))}
 
           {error && (
-            <DavosEmptyState
+            <BrandEmptyState
               icon={Users}
               title="Kunne ikke laste deltakere"
               description="Prøv å oppdatere siden"
@@ -124,7 +99,7 @@ export const GroupScreen: React.FC = () => {
           )}
 
           {!isLoading && !error && profiles?.length === 0 && (
-            <DavosEmptyState
+            <BrandEmptyState
               icon={Users}
               title="Ingen deltakere ennå"
               description="Inviter venner til GüttaHütte"
@@ -144,9 +119,9 @@ export const GroupScreen: React.FC = () => {
                   onClick={() => setSelectedUserId(profile.id)}
                   className="w-full text-left active:scale-[0.98] transition-transform"
                 >
-                  <DavosCard>
-                    <DavosCardContent className="flex items-center gap-3 p-4">
-                      <DavosAvatar
+                  <BrandCard>
+                    <BrandCardContent className="flex items-center gap-3 p-4">
+                      <BrandAvatar
                         src={profile.avatar_url || undefined}
                         fallback={getInitials(profile)}
                         size="md"
@@ -158,10 +133,10 @@ export const GroupScreen: React.FC = () => {
                             {getDisplayName(profile)}
                           </p>
                           {isCreator && (
-                            <DavosBadge variant="accent" className="flex items-center gap-1">
+                            <BrandBadge variant="accent" className="flex items-center gap-1">
                               <Crown size={10} />
                               Opprettet
-                            </DavosBadge>
+                            </BrandBadge>
                           )}
                         </div>
 
@@ -188,8 +163,8 @@ export const GroupScreen: React.FC = () => {
                       </div>
 
                       <ChevronRight size={16} className="text-muted-foreground shrink-0" />
-                    </DavosCardContent>
-                  </DavosCard>
+                    </BrandCardContent>
+                  </BrandCard>
                 </button>
               );
             })}
@@ -203,7 +178,7 @@ export const GroupScreen: React.FC = () => {
         avatarUrl={selectedProfile?.avatar_url}
         isCreator={profiles?.[0]?.id === selectedUserId}
         joinedDate={selectedProfile?.created_at}
-        topSpeed={selectedUserId ? topSpeedMap.get(selectedUserId) ?? null : null}
+        topSpeed={null}
       />
     </div>
   );

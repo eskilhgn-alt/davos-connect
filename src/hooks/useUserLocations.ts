@@ -1,6 +1,9 @@
 /**
- * useUserLocations — subscribes to all user positions in realtime
+ * useUserLocations — subscribes to all user positions in realtime.
+ * Filtrerer bort foreldede posisjoner (> STALE_MS) slik at inaktive
+ * brukere aldri fremstår som "her nå".
  */
+export const STALE_LOCATION_MS = 10 * 60 * 1000; // 10 min
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -36,12 +39,15 @@ export function useUserLocations() {
           (profiles || []).map((p) => [p.id, { name: p.nickname || p.full_name || "Ukjent", avatar: p.avatar_url }])
         );
 
+        const now = Date.now();
         setLocations(
-          data.map((d) => ({
-            ...d,
-            display_name: profileMap.get(d.user_id)?.name || "Ukjent",
-            avatar_url: profileMap.get(d.user_id)?.avatar || undefined,
-          }))
+          data
+            .filter((d) => now - new Date(d.updated_at).getTime() < STALE_LOCATION_MS)
+            .map((d) => ({
+              ...d,
+              display_name: profileMap.get(d.user_id)?.name || "Ukjent",
+              avatar_url: profileMap.get(d.user_id)?.avatar || undefined,
+            }))
         );
       }
       setLoading(false);

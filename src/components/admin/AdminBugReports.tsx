@@ -3,9 +3,9 @@
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { Bug, RefreshCw, Copy, Trash2, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { AdminUser } from "./useAdminData";
@@ -105,27 +105,27 @@ export const AdminBugReports = React.forwardRef<HTMLDivElement, Props>(({ users 
         </h3>
         <div className="flex items-center gap-2">
           {reports.length > 0 && (
-            <DavosButton variant="ghost" size="sm" onClick={deleteAll} className="text-destructive">
+            <BrandButton variant="ghost" size="sm" onClick={deleteAll} className="text-destructive">
               <Trash2 size={14} />
-            </DavosButton>
+            </BrandButton>
           )}
-          <DavosButton variant="ghost" size="sm" onClick={fetchReports}>
+          <BrandButton variant="ghost" size="sm" onClick={fetchReports}>
             <RefreshCw size={14} />
-          </DavosButton>
+          </BrandButton>
         </div>
       </div>
 
       {loading ? (
         <div className="space-y-2">
-          <DavosSkeleton className="h-16 w-full" />
-          <DavosSkeleton className="h-16 w-full" />
+          <BrandSkeleton className="h-16 w-full" />
+          <BrandSkeleton className="h-16 w-full" />
         </div>
       ) : reports.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">Ingen feilrapporter ennå 🎉</p>
       ) : (
         reports.map(r => (
-          <DavosCard key={r.id}>
-            <DavosCardContent className="p-3 space-y-1">
+          <BrandCard key={r.id}>
+            <BrandCardContent className="p-3 space-y-1">
               {/* Header row */}
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-foreground">{getDisplayName(r.user_id)}</span>
@@ -161,18 +161,18 @@ export const AdminBugReports = React.forwardRef<HTMLDivElement, Props>(({ users 
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-1">
-                    <DavosButton variant="outline" size="sm" onClick={() => copyReport(r)} className="flex-1">
+                    <BrandButton variant="outline" size="sm" onClick={() => copyReport(r)} className="flex-1">
                       {copiedId === r.id ? <Check size={14} className="mr-1 text-primary" /> : <Copy size={14} className="mr-1" />}
                       {copiedId === r.id ? "Kopiert!" : "Kopier"}
-                    </DavosButton>
-                    <DavosButton variant="outline" size="sm" onClick={() => deleteReport(r.id)} className="text-destructive">
+                    </BrandButton>
+                    <BrandButton variant="outline" size="sm" onClick={() => deleteReport(r.id)} className="text-destructive">
                       <Trash2 size={14} />
-                    </DavosButton>
+                    </BrandButton>
                   </div>
                 </div>
               )}
-            </DavosCardContent>
-          </DavosCard>
+            </BrandCardContent>
+          </BrandCard>
         ))
       )}
     </div>

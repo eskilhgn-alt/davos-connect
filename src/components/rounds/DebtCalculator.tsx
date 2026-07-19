@@ -6,7 +6,7 @@ import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowRight, Check, Wallet } from "lucide-react";
 import { toast } from "sonner";
@@ -155,7 +155,7 @@ export const DebtCalculator: React.FC<{ open: boolean; onOpenChange: (o: boolean
         <div className="py-4 space-y-5">
           {loading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => <DavosSkeleton key={i} className="h-14 rounded-xl" />)}
+              {[1, 2, 3].map((i) => <BrandSkeleton key={i} className="h-14 rounded-xl" />)}
             </div>
           ) : debts.length === 0 ? (
             <div className="text-center py-8">

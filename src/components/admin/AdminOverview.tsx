@@ -2,8 +2,8 @@
  * AdminOverview – Quick stats + action buttons + share link + recent signups
  */
 import * as React from "react";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosButton } from "@/components/ui/davos-button";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandButton } from "@/components/ui/brand-button";
 import {
   Users, Target, Bell, BellOff, Loader2, Zap, Link2, UserPlus, Check,
   MessageCircle, Star, Flame, BarChart3, Image,
@@ -149,31 +149,31 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-2">
-        <DavosButton variant="outline" onClick={sendTestPush} disabled={testPushLoading} className="h-12">
+        <BrandButton variant="outline" onClick={sendTestPush} disabled={testPushLoading} className="h-12">
           {testPushLoading ? <Loader2 size={16} className="animate-spin mr-2" /> : <Bell size={16} className="mr-2" />}
           Send test-push
-        </DavosButton>
-        <DavosButton variant="outline" onClick={() => onNavigate("shot")} className="h-12">
+        </BrandButton>
+        <BrandButton variant="outline" onClick={() => onNavigate("shot")} className="h-12">
           <Zap size={16} className="mr-2" /> Siste hendelser
-        </DavosButton>
-        <DavosButton variant="outline" onClick={() => onNavigate("moderate")} className="h-12">
+        </BrandButton>
+        <BrandButton variant="outline" onClick={() => onNavigate("moderate")} className="h-12">
           <BarChart3 size={16} className="mr-2" /> Moderering
-        </DavosButton>
-        <DavosButton variant="outline" onClick={() => onNavigate("bugs")} className="h-12">
+        </BrandButton>
+        <BrandButton variant="outline" onClick={() => onNavigate("bugs")} className="h-12">
           <MessageCircle size={16} className="mr-2" /> Feilrapporter
-        </DavosButton>
+        </BrandButton>
       </div>
 
       {/* Share links */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Link2 size={18} className="text-primary" />
             <h3 className="font-heading font-semibold text-foreground text-sm">Del lenke</h3>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {SHARE_LINKS.map((link, idx) => (
-              <DavosButton
+              <BrandButton
                 key={link.path}
                 variant="outline"
                 size="sm"
@@ -182,15 +182,15 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
               >
                 {copiedIdx === idx ? <Check size={14} className="text-success" /> : <Link2 size={14} />}
                 {link.label}
-              </DavosButton>
+              </BrandButton>
             ))}
           </div>
-        </DavosCardContent>
-      </DavosCard>
+        </BrandCardContent>
+      </BrandCard>
 
       {/* Recent signups */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <UserPlus size={18} className="text-primary" />
@@ -214,8 +214,8 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
               ))}
             </div>
           )}
-        </DavosCardContent>
-      </DavosCard>
+        </BrandCardContent>
+      </BrandCard>
     </div>
   );
 };
@@ -231,11 +231,11 @@ function formatRelative(dateStr: string): string {
 }
 
 const StatCard: React.FC<{ icon: any; value: string | number; label: string; accent?: boolean }> = ({ icon: Icon, value, label, accent }) => (
-  <DavosCard>
-    <DavosCardContent className="p-3 text-center">
+  <BrandCard>
+    <BrandCardContent className="p-3 text-center">
       <Icon size={14} className={`mx-auto mb-1 ${accent ? "text-success" : "text-muted-foreground"}`} />
       <p className="text-base font-bold font-mono text-foreground">{value}</p>
       <p className="text-[9px] text-muted-foreground leading-tight truncate">{label}</p>
-    </DavosCardContent>
-  </DavosCard>
+    </BrandCardContent>
+  </BrandCard>
 );

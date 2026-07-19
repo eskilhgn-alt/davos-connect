@@ -1,22 +1,22 @@
 /**
- * CrewMapScreen ("Magnus?") — full-screen map with avatar markers and user list
+ * CrewMapScreen — full-screen map med frivillig sanntidsposisjon.
+ * Deling er strengt opt-in via `useLocationTracker.startSharing()`.
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { useUserLocations, UserLocation } from "@/hooks/useUserLocations";
 import { useAuth } from "@/contexts/AuthContext";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { DavosAvatar } from "@/components/ui/davos-avatar";
-import { MapPin, Clock, Navigation, Search, Crosshair, X } from "lucide-react";
-import { SkiPerformanceTracker } from "@/components/ski/SkiPerformanceTracker";
-import { SkiUserList } from "@/components/ski/SkiUserList";
-import { SkiRouteMap } from "@/components/ski/SkiRouteMap";
-import { useSkiTracker } from "@/hooks/useSkiTracker";
+import { useLocationTracker } from "@/hooks/useLocationTracker";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
+import { BrandAvatar } from "@/components/ui/brand-avatar";
+import { BrandButton } from "@/components/ui/brand-button";
+import { MapPin, Clock, Navigation, Search, Crosshair, X, BatteryLow, Shield } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { nb } from "date-fns/locale";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { ACTIVE_TRIP } from "@/config/trip";
 
 const MARKER_COLORS = [
   "#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6",
@@ -45,7 +45,7 @@ function formatDist(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-const DAVOS_CENTER: [number, number] = [46.8, 9.84];
+const TRIP_CENTER: [number, number] = [ACTIVE_TRIP.center.lat, ACTIVE_TRIP.center.lon];
 
 interface SearchResult {
   display_name: string;
@@ -75,9 +75,7 @@ export const CrewMapScreen: React.FC = () => {
   const searchMarkerRef = React.useRef<L.Marker | null>(null);
   const { locations, loading } = useUserLocations();
   const { user } = useAuth();
-
-  // Activate ski tracker in background
-  useSkiTracker();
+  const { enabled: sharingEnabled, startSharing, stopSharing } = useLocationTracker();
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchResults, setSearchResults] = React.useState<SearchResult[]>([]);
@@ -113,7 +111,7 @@ export const CrewMapScreen: React.FC = () => {
   // Initialize map
   React.useEffect(() => {
     if (!mapRef.current || leafletMap.current) return;
-    const center: [number, number] = myLoc ? [myLoc.lat, myLoc.lon] : DAVOS_CENTER;
+    const center: [number, number] = myLoc ? [myLoc.lat, myLoc.lon] : TRIP_CENTER;
     const map = L.map(mapRef.current, { center, zoom: 14, zoomControl: false, attributionControl: false });
     L.control.zoom({ position: "topright" }).addTo(map);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
@@ -202,7 +200,7 @@ export const CrewMapScreen: React.FC = () => {
         <div className="relative" style={{ height: "55vh", minHeight: 300 }}>
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">
-              <DavosSkeleton className="w-20 h-4" />
+              <BrandSkeleton className="w-20 h-4" />
             </div>
           )}
           <div ref={mapRef} className="w-full h-full" />
@@ -267,7 +265,7 @@ export const CrewMapScreen: React.FC = () => {
 
               return (
                 <button key={loc.user_id} onClick={() => panTo(loc)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 active:bg-muted transition-colors">
-                  <DavosAvatar
+                  <BrandAvatar
                     src={loc.avatar_url}
                     size="sm"
                     fallback={loc.display_name}
@@ -291,19 +289,27 @@ export const CrewMapScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* GPS Route tracking */}
-        <div className="border-t border-border">
-          <SkiRouteMap />
-        </div>
-
-        {/* Ski performance tracker */}
-        <div className="border-t border-border">
-          <SkiPerformanceTracker />
-        </div>
-
-        {/* Per-user ski stats */}
-        <div className="border-t border-border">
-          <SkiUserList />
+        {/* Deling av posisjon (opt-in) */}
+        <div className="border-t border-border p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <Shield size={16} className="text-primary mt-0.5 shrink-0" />
+            <div className="text-xs text-muted-foreground leading-relaxed">
+              Posisjonsdeling er frivillig og av som standard. Når du slår det på deles din posisjon med resten av crewet ca. hvert 30. sekund så lenge appen er åpen. Slår du det av, fjernes din posisjon umiddelbart. Vi kan ikke garantere bakgrunnssporing i iOS PWA.
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <BatteryLow size={14} />
+            <span>Kontinuerlig GPS trekker batteri. Slå av når du ikke trenger å dele.</span>
+          </div>
+          {sharingEnabled ? (
+            <BrandButton onClick={stopSharing} variant="outline" className="w-full">
+              Stopp deling av posisjon
+            </BrandButton>
+          ) : (
+            <BrandButton onClick={startSharing} className="w-full">
+              Del min posisjon
+            </BrandButton>
+          )}
         </div>
       </div>
     </div>

@@ -3,10 +3,10 @@
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosInput } from "@/components/ui/davos-input";
-import { DavosBadge } from "@/components/ui/davos-badge";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandInput } from "@/components/ui/brand-input";
+import { BrandBadge } from "@/components/ui/brand-badge";
 import { Bell, Send, Loader2, Megaphone, User } from "lucide-react";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
@@ -97,24 +97,24 @@ export const AdminPushTools: React.FC<Props> = ({ users, currentUserId, onLogAct
   return (
     <div className="px-4 space-y-4 pb-6">
       {/* Broadcast */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Megaphone size={18} className="text-primary" />
             <h3 className="font-heading font-semibold text-foreground text-sm">Broadcast til alle</h3>
           </div>
-          <DavosInput placeholder="Overskrift (valgfritt)" value={broadcastHeading} onChange={e => setBroadcastHeading(e.target.value)} />
-          <DavosInput placeholder="Melding..." value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} />
-          <DavosButton onClick={() => sendPush("broadcast")} disabled={!broadcastMsg.trim() || loading === "broadcast"} className="w-full">
+          <BrandInput placeholder="Overskrift (valgfritt)" value={broadcastHeading} onChange={e => setBroadcastHeading(e.target.value)} />
+          <BrandInput placeholder="Melding..." value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} />
+          <BrandButton onClick={() => sendPush("broadcast")} disabled={!broadcastMsg.trim() || loading === "broadcast"} className="w-full">
             {loading === "broadcast" ? <Loader2 size={14} className="animate-spin mr-2" /> : <Send size={14} className="mr-2" />}
             Send til alle
-          </DavosButton>
-        </DavosCardContent>
-      </DavosCard>
+          </BrandButton>
+        </BrandCardContent>
+      </BrandCard>
 
       {/* Direct push */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <User size={18} className="text-primary" />
             <h3 className="font-heading font-semibold text-foreground text-sm">Direkte push</h3>
@@ -129,28 +129,28 @@ export const AdminPushTools: React.FC<Props> = ({ users, currentUserId, onLogAct
               <option key={u.id} value={u.id}>{u.nickname || u.full_name || u.email}</option>
             ))}
           </select>
-          <DavosInput placeholder="Melding..." value={directMsg} onChange={e => setDirectMsg(e.target.value)} />
-          <DavosButton onClick={() => sendPush("direct")} disabled={!targetUserId || !directMsg.trim() || loading === "direct"} className="w-full">
+          <BrandInput placeholder="Melding..." value={directMsg} onChange={e => setDirectMsg(e.target.value)} />
+          <BrandButton onClick={() => sendPush("direct")} disabled={!targetUserId || !directMsg.trim() || loading === "direct"} className="w-full">
             {loading === "direct" ? <Loader2 size={14} className="animate-spin mr-2" /> : <Bell size={14} className="mr-2" />}
             Send til bruker
-          </DavosButton>
-        </DavosCardContent>
-      </DavosCard>
+          </BrandButton>
+        </BrandCardContent>
+      </BrandCard>
 
       {/* Push status per user */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-2">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-2">
           <h3 className="font-heading font-semibold text-foreground text-sm">Push-status</h3>
           {userPushStatus.map(u => (
             <div key={u.id} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
               <span className="text-xs text-foreground truncate">{u.nickname || u.full_name || u.email}</span>
-              <DavosBadge variant={u.hasPush ? "accent" : "default"}>
+              <BrandBadge variant={u.hasPush ? "accent" : "default"}>
                 {u.hasPush ? "Aktiv" : "Ingen"}
-              </DavosBadge>
+              </BrandBadge>
             </div>
           ))}
-        </DavosCardContent>
-      </DavosCard>
+        </BrandCardContent>
+      </BrandCard>
     </div>
   );
 };

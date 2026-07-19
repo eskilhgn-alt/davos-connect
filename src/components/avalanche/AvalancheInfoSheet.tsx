@@ -108,7 +108,7 @@ const INFO: Record<InfoTopic, InfoEntry> = {
   elevation: {
     title: "Høydegrenser",
     emoji: "⛰️",
-    body: "Skredfaren kan variere med høyde over havet:\n\n• Over en viss høyde: Ofte kaldere, mer vind og nysnø → mer fokksnø og vedvarende svake lag.\n• Under en viss høyde: Ofte varmere → mer våtsnø- og glidesnøproblemer.\n\nTregrensen (~2000m i Davos-området) er en viktig referanse: Over tregrensen er terrenget mer utsatt for vind og skred.\n\n💡 Sjekk hvilke høydegrenser som gjelder i varselet, og tilpass rutevalget ditt deretter.",
+    body: "Skredfaren kan variere med høyde over havet:\n\n• Over en viss høyde: Ofte kaldere, mer vind og nysnø → mer fokksnø og vedvarende svake lag.\n• Under en viss høyde: Ofte varmere → mer våtsnø- og glidesnøproblemer.\n\nTregrensen (rundt tregrensen) er en viktig referanse: Over tregrensen er terrenget mer utsatt for vind og skred.\n\n💡 Sjekk hvilke høydegrenser som gjelder i varselet, og tilpass rutevalget ditt deretter.",
   },
   safety_tips: {
     title: "Sikkerhetstips",

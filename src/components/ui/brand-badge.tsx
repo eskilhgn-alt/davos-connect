@@ -2,7 +2,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const davosBadgeVariants = cva(
+const brandBadgeVariants = cva(
   "inline-flex items-center justify-center font-mono text-xs font-medium rounded-full",
   {
     variants: {
@@ -26,14 +26,14 @@ const davosBadgeVariants = cva(
   }
 );
 
-export interface DavosBadgeProps
+export interface BrandBadgeProps
   extends React.HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof davosBadgeVariants> {
+    VariantProps<typeof brandBadgeVariants> {
   count?: number;
   maxCount?: number;
 }
 
-const DavosBadge = React.forwardRef<HTMLSpanElement, DavosBadgeProps>(
+const BrandBadge = React.forwardRef<HTMLSpanElement, BrandBadgeProps>(
   ({ className, variant, size, count, maxCount = 99, children, ...props }, ref) => {
     const displayValue = count !== undefined
       ? count > maxCount
@@ -44,7 +44,7 @@ const DavosBadge = React.forwardRef<HTMLSpanElement, DavosBadgeProps>(
     return (
       <span
         ref={ref}
-        className={cn(davosBadgeVariants({ variant, size, className }))}
+        className={cn(brandBadgeVariants({ variant, size, className }))}
         {...props}
       >
         {displayValue}
@@ -52,6 +52,6 @@ const DavosBadge = React.forwardRef<HTMLSpanElement, DavosBadgeProps>(
     );
   }
 );
-DavosBadge.displayName = "DavosBadge";
+BrandBadge.displayName = "BrandBadge";
 
-export { DavosBadge, davosBadgeVariants };
+export { BrandBadge, brandBadgeVariants };

@@ -1,17 +1,17 @@
 /**
- * Davos Web Embed Component
+ * Generic web embed component (sandboxed iframe)
  * Generic iframe embed for external content with error handling
  * Used for webcam video players (feratel webtv) and other embeds
  */
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { DavosCard } from "@/components/ui/davos-card";
-import { DavosButton } from "@/components/ui/davos-button";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
+import { BrandCard } from "@/components/ui/brand-card";
+import { BrandButton } from "@/components/ui/brand-button";
 import { ExternalLink, Globe, Maximize2 } from "lucide-react";
 
-export interface DavosWebEmbedProps {
+export interface BrandWebEmbedProps {
   title: string;
   url: string;
   description?: string;
@@ -26,7 +26,7 @@ export interface DavosWebEmbedProps {
 
 type LoadState = "loading" | "loaded" | "error";
 
-export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
+export const BrandWebEmbed: React.FC<BrandWebEmbedProps> = ({
   title,
   url,
   description,
@@ -62,7 +62,7 @@ export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
   if (!embeddable) {
     return (
       <div className={cn("flex flex-col", className)}>
-        <DavosCard className="p-6 flex flex-col items-center text-center gap-4">
+        <BrandCard className="p-6 flex flex-col items-center text-center gap-4">
           <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
             <Globe size={24} className="text-muted-foreground" />
           </div>
@@ -75,11 +75,11 @@ export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
               Denne siden kan ikke vises inne i appen.
             </p>
           </div>
-          <DavosButton onClick={openInBrowser} className="gap-2">
+          <BrandButton onClick={openInBrowser} className="gap-2">
             <ExternalLink size={16} />
             Åpne i nettleser
-          </DavosButton>
-        </DavosCard>
+          </BrandButton>
+        </BrandCard>
       </div>
     );
   }
@@ -98,7 +98,7 @@ export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
         {loadState === "loading" && (
           <div className="absolute inset-0 flex items-center justify-center z-10 bg-muted">
             <div className="w-full h-full p-4">
-              <DavosSkeleton variant="rectangular" className="w-full h-full" />
+              <BrandSkeleton variant="rectangular" className="w-full h-full" />
             </div>
           </div>
         )}
@@ -106,7 +106,7 @@ export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
         {/* Error state */}
         {loadState === "error" && (
           <div className="absolute inset-0 flex items-center justify-center z-10 bg-background">
-            <DavosCard className="p-6 flex flex-col items-center text-center gap-4 max-w-xs">
+            <BrandCard className="p-6 flex flex-col items-center text-center gap-4 max-w-xs">
               <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                 <Globe size={24} className="text-muted-foreground" />
               </div>
@@ -116,11 +116,11 @@ export const DavosWebEmbed: React.FC<DavosWebEmbedProps> = ({
                   Innholdet kunne ikke vises her.
                 </p>
               </div>
-              <DavosButton onClick={openInBrowser} className="gap-2">
+              <BrandButton onClick={openInBrowser} className="gap-2">
                 <ExternalLink size={16} />
                 Åpne i nettleser
-              </DavosButton>
-            </DavosCard>
+              </BrandButton>
+            </BrandCard>
           </div>
         )}
 

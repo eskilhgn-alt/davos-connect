@@ -4,7 +4,7 @@
  */
 import * as React from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
 import { Phone, AlertTriangle } from "lucide-react";
 import { ACTIVE_TRIP } from "@/config/trip";
 
@@ -42,8 +42,8 @@ export const EmergencyInfoSheet: React.FC<EmergencyInfoSheetProps> = ({ open, on
           </div>
 
           {trip.emergency.map((group) => (
-            <DavosCard key={group.id}>
-              <DavosCardContent className="p-3 space-y-2">
+            <BrandCard key={group.id}>
+              <BrandCardContent className="p-3 space-y-2">
                 <h3 className="font-heading text-sm font-semibold text-foreground">{group.title}</h3>
                 <ul className="space-y-1.5">
                   {group.contacts.map((c, i) => (
@@ -64,8 +64,8 @@ export const EmergencyInfoSheet: React.FC<EmergencyInfoSheetProps> = ({ open, on
                     </li>
                   ))}
                 </ul>
-              </DavosCardContent>
-            </DavosCard>
+              </BrandCardContent>
+            </BrandCard>
           ))}
 
           {trip.officialLinks.safety && (

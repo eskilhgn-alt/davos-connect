@@ -2,7 +2,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const davosPillVariants = cva(
+const brandPillVariants = cva(
   "inline-flex items-center justify-center font-body text-sm font-medium transition-colors rounded-pill",
   {
     variants: {
@@ -25,19 +25,19 @@ const davosPillVariants = cva(
   }
 );
 
-export interface DavosPillProps
+export interface BrandPillProps
   extends React.HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof davosPillVariants> {}
+    VariantProps<typeof brandPillVariants> {}
 
-const DavosPill = React.forwardRef<HTMLSpanElement, DavosPillProps>(
+const BrandPill = React.forwardRef<HTMLSpanElement, BrandPillProps>(
   ({ className, variant, size, ...props }, ref) => (
     <span
       ref={ref}
-      className={cn(davosPillVariants({ variant, size, className }))}
+      className={cn(brandPillVariants({ variant, size, className }))}
       {...props}
     />
   )
 );
-DavosPill.displayName = "DavosPill";
+BrandPill.displayName = "BrandPill";
 
-export { DavosPill, davosPillVariants };
+export { BrandPill, brandPillVariants };

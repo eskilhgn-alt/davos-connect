@@ -22,7 +22,7 @@ const colorMap: Record<string, string> = {
   primary: "bg-primary/80 text-primary-foreground",
   destructive: "bg-destructive/80 text-destructive-foreground",
   accent: "bg-accent text-accent-foreground",
-  yellow: "bg-[hsl(var(--davos-yellow))]/80 text-foreground",
+  yellow: "bg-[hsl(var(--brand-yellow))]/80 text-foreground",
 };
 
 export const AgendaScreen: React.FC = () => {

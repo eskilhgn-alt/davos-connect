@@ -3,18 +3,18 @@ import { Outlet, useLocation } from "react-router-dom";
 import { BottomNavigation } from "./BottomNavigation";
 
 import { PopupAnnouncementOverlay } from "./PopupAnnouncement";
-
 import { PermissionPrompt } from "@/components/onboarding/PermissionPrompt";
-import { useLocationTracker } from "@/hooks/useLocationTracker";
-import { useAutoPush } from "@/hooks/useAutoPush";
 
 /**
  * AppLayout: App shell with 4-tab bottom nav (Hjem / Chat / Kart / Mer).
  * Chat has its own dedicated layout — nav is hidden there.
+ *
+ * MERK (step 3): Layoutet starter ikke lenger location-tracker eller
+ * automatiske pushjobber automatisk. Posisjonsdeling er strengt opt-in og
+ * aktiveres kun fra `/crew`. Push-registrering skjer via `PermissionPrompt`
+ * etter eksplisitt brukerhandling.
  */
 export const AppLayout: React.FC = () => {
-  useLocationTracker();
-  useAutoPush();
   const location = useLocation();
   const hideNav = location.pathname.startsWith("/chat");
 
@@ -29,4 +29,3 @@ export const AppLayout: React.FC = () => {
     </div>
   );
 };
-

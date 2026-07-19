@@ -3,10 +3,10 @@
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosInput } from "@/components/ui/davos-input";
-import { DavosBadge } from "@/components/ui/davos-badge";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandInput } from "@/components/ui/brand-input";
+import { BrandBadge } from "@/components/ui/brand-badge";
 import {
   Target, Coins, RefreshCw, RotateCcw, Loader2, Plus, Minus, Ticket,
   AlertTriangle, ShieldOff,
@@ -147,8 +147,8 @@ export const AdminShotControl: React.FC<Props> = ({
   return (
     <div className="px-4 space-y-4 pb-6">
       {/* Token adjustment */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Coins size={18} className="text-primary" />
             <h3 className="font-heading font-semibold text-foreground text-sm">Juster tokens</h3>
@@ -167,38 +167,38 @@ export const AdminShotControl: React.FC<Props> = ({
           </select>
 
           <div className="flex gap-2 items-center justify-center">
-            <DavosButton variant="outline" size="sm" onClick={() => setAdjustDelta(d => d - 1)}><Minus size={16} /></DavosButton>
+            <BrandButton variant="outline" size="sm" onClick={() => setAdjustDelta(d => d - 1)}><Minus size={16} /></BrandButton>
             <span className="font-mono text-lg font-bold text-foreground min-w-[48px] text-center">
               {adjustDelta > 0 ? "+" : ""}{adjustDelta}
             </span>
-            <DavosButton variant="outline" size="sm" onClick={() => setAdjustDelta(d => d + 1)}><Plus size={16} /></DavosButton>
+            <BrandButton variant="outline" size="sm" onClick={() => setAdjustDelta(d => d + 1)}><Plus size={16} /></BrandButton>
           </div>
 
-          <DavosInput placeholder="Grunn..." value={adjustReason} onChange={e => setAdjustReason(e.target.value)} />
+          <BrandInput placeholder="Grunn..." value={adjustReason} onChange={e => setAdjustReason(e.target.value)} />
 
-          <DavosButton onClick={adjustTokens} disabled={!adjustUserId || adjustDelta === 0 || !adjustReason.trim() || actionLoading === "adjust"} className="w-full">
+          <BrandButton onClick={adjustTokens} disabled={!adjustUserId || adjustDelta === 0 || !adjustReason.trim() || actionLoading === "adjust"} className="w-full">
             {actionLoading === "adjust" ? <Loader2 size={14} className="animate-spin mr-2" /> : <Coins size={14} className="mr-2" />}
             Juster tokens
-          </DavosButton>
+          </BrandButton>
 
           {adjustUserId && (
-            <DavosButton variant="outline" size="sm" onClick={() => giveFrikort(adjustUserId)} disabled={!!actionLoading} className="w-full">
+            <BrandButton variant="outline" size="sm" onClick={() => giveFrikort(adjustUserId)} disabled={!!actionLoading} className="w-full">
               {actionLoading === `frikort-${adjustUserId}` ? <Loader2 size={14} className="animate-spin mr-1" /> : <Ticket size={14} className="mr-1" />}
               Gi frikort
-            </DavosButton>
+            </BrandButton>
           )}
-        </DavosCardContent>
-      </DavosCard>
+        </BrandCardContent>
+      </BrandCard>
 
       {/* Active rounds */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Target size={18} className="text-primary" />
               <h3 className="font-heading font-semibold text-foreground text-sm">Aktive runder</h3>
             </div>
-            <DavosButton variant="ghost" size="sm" onClick={onRefreshShots}><RefreshCw size={14} /></DavosButton>
+            <BrandButton variant="ghost" size="sm" onClick={onRefreshShots}><RefreshCw size={14} /></BrandButton>
           </div>
 
           {activeShots.length === 0 ? (
@@ -208,9 +208,9 @@ export const AdminShotControl: React.FC<Props> = ({
               <div key={e.id} className="border border-border rounded-lg p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <DavosBadge variant={e.status === "disputed" ? "critical" : "default"}>
+                    <BrandBadge variant={e.status === "disputed" ? "critical" : "default"}>
                       {STATUS_LABELS[e.status] || e.status}
-                    </DavosBadge>
+                    </BrandBadge>
                     <p className="text-xs text-muted-foreground mt-1">
                       {e.selected_user_id ? getDisplayName(e.selected_user_id) : "Nedtelling..."}
                     </p>
@@ -220,30 +220,30 @@ export const AdminShotControl: React.FC<Props> = ({
                   </div>
                   <div className="flex gap-1">
                     {e.status === "punished" && (
-                      <DavosButton variant="outline" size="sm" onClick={() => removePenalty(e.id)}
+                      <BrandButton variant="outline" size="sm" onClick={() => removePenalty(e.id)}
                         disabled={actionLoading === `penalty-${e.id}`}
                         title="Fjern straff"
                       >
                         {actionLoading === `penalty-${e.id}` ? <Loader2 size={14} className="animate-spin" /> : <AlertTriangle size={14} />}
-                      </DavosButton>
+                      </BrandButton>
                     )}
-                    <DavosButton variant="outline" size="sm" onClick={() => resetShotEvent(e.id)}
+                    <BrandButton variant="outline" size="sm" onClick={() => resetShotEvent(e.id)}
                       disabled={actionLoading === e.id}
                       title="Reset runde"
                     >
                       {actionLoading === e.id ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                    </DavosButton>
+                    </BrandButton>
                   </div>
                 </div>
               </div>
             ))
           )}
-        </DavosCardContent>
-      </DavosCard>
+        </BrandCardContent>
+      </BrandCard>
 
       {/* History */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-2">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-2">
           <h3 className="font-heading font-semibold text-foreground text-sm">Historikk (24t)</h3>
           {shotHistory.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-3">Ingen runder siste 24t</p>
@@ -258,14 +258,14 @@ export const AdminShotControl: React.FC<Props> = ({
                     {e.selected_user_id ? getDisplayName(e.selected_user_id) : "—"}
                   </span>
                 </div>
-                <DavosBadge variant={e.status === "confirmed" ? "accent" : e.status === "punished" ? "critical" : "default"}>
+                <BrandBadge variant={e.status === "confirmed" ? "accent" : e.status === "punished" ? "critical" : "default"}>
                   {STATUS_LABELS[e.status] || e.status}
-                </DavosBadge>
+                </BrandBadge>
               </div>
             ))
           )}
-        </DavosCardContent>
-      </DavosCard>
+        </BrandCardContent>
+      </BrandCard>
     </div>
   );
 };

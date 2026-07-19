@@ -20,7 +20,7 @@ import CrewMapScreen from "./pages/CrewMapScreen";
 import LiveScreen from "./pages/LiveScreen";
 import GalleryScreen from "./pages/GalleryScreen";
 import WeatherScreen from "./pages/WeatherScreen";
-import ShotScreen from "./pages/ShotScreen";
+// ShotScreen fjernet fra aktiv navigasjon i step 3; ruter redirect til /hjem.
 import AgendaScreen from "./pages/AgendaScreen";
 
 import FaktasjekkerScreen from "./pages/FaktasjekkerScreen";
@@ -35,7 +35,7 @@ import WebcamsScreen from "./pages/WebcamsScreen";
 import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
-import TokensScreen from "./pages/TokensScreen";
+// TokensScreen fjernet fra aktiv navigasjon i step 3; ruter redirect til /hjem.
 // Casino-skjermen er avviklet i step 1 – ruter redirect til /hjem.
 import AvalancheScreen from "./pages/AvalancheScreen";
 
@@ -127,7 +127,7 @@ const AppRoutes = () => (
       <Route path="/galleri" element={<GalleryScreen />} />
       <Route path="/innstillinger" element={<SettingsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
-      <Route path="/shot" element={<ShotScreen />} />
+      
       <Route path="/agenda" element={<AgendaScreen />} />
       <Route path="/faktasjekker" element={<FaktasjekkerScreen />} />
       <Route path="/historier" element={<StoriesScreen />} />
@@ -135,8 +135,9 @@ const AppRoutes = () => (
       <Route path="/runder" element={<RoundsScreen />} />
       <Route path="/roomies" element={<RoomiesScreen />} />
       <Route path="/alle" element={<GroupScreen />} />
-      <Route path="/tokens" element={<TokensScreen />} />
-      <Route path="/regler" element={<Navigate to="/tokens" replace />} />
+      <Route path="/shot" element={<Navigate to="/hjem" replace />} />
+      <Route path="/tokens" element={<Navigate to="/hjem" replace />} />
+      <Route path="/regler" element={<Navigate to="/hjem" replace />} />
       <Route path="/nodinfo" element={<Navigate to="/hjem" replace />} />
       <Route path="/casino" element={<Navigate to="/hjem" replace />} />
       <Route path="/skred" element={<AvalancheScreen />} />

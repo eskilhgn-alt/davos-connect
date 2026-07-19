@@ -2,10 +2,10 @@
  * AdminAuditLog – Read-only audit log of all admin actions
  */
 import * as React from "react";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosBadge } from "@/components/ui/davos-badge";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandBadge } from "@/components/ui/brand-badge";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { ScrollText, RefreshCw } from "lucide-react";
 import type { AdminUser } from "./useAdminData";
 
@@ -48,26 +48,26 @@ export const AdminAuditLog = React.forwardRef<HTMLDivElement, Props>(({ auditLog
           <ScrollText size={18} className="text-primary" />
           <h3 className="font-heading font-semibold text-foreground text-sm">Audit-logg</h3>
         </div>
-        <DavosButton variant="ghost" size="sm" onClick={onRefresh}>
+        <BrandButton variant="ghost" size="sm" onClick={onRefresh}>
           <RefreshCw size={14} />
-        </DavosButton>
+        </BrandButton>
       </div>
 
       {loading ? (
-        Array.from({ length: 5 }).map((_, i) => <DavosSkeleton key={i} className="h-14 w-full" />)
+        Array.from({ length: 5 }).map((_, i) => <BrandSkeleton key={i} className="h-14 w-full" />)
       ) : auditLog.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-8">Ingen hendelser ennå</p>
       ) : (
         <div className="space-y-1">
           {auditLog.map(entry => (
-            <DavosCard key={entry.id}>
-              <DavosCardContent className="p-3">
+            <BrandCard key={entry.id}>
+              <BrandCardContent className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <DavosBadge variant="default">
+                      <BrandBadge variant="default">
                         {ACTION_LABELS[entry.action] || entry.action}
-                      </DavosBadge>
+                      </BrandBadge>
                     </div>
                     <p className="text-[10px] text-muted-foreground">
                       Admin: {getDisplayName(entry.admin_id)}
@@ -85,8 +85,8 @@ export const AdminAuditLog = React.forwardRef<HTMLDivElement, Props>(({ auditLog
                     })}
                   </span>
                 </div>
-              </DavosCardContent>
-            </DavosCard>
+              </BrandCardContent>
+            </BrandCard>
           ))}
         </div>
       )}

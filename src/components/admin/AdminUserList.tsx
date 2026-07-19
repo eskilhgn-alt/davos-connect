@@ -3,10 +3,10 @@
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DavosInput } from "@/components/ui/davos-input";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
-import { DavosBadge } from "@/components/ui/davos-badge";
+import { BrandInput } from "@/components/ui/brand-input";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
+import { BrandBadge } from "@/components/ui/brand-badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AdminUserDetail } from "./AdminUserDetail";
 import { RefreshCw, Search, ShieldOff, UserCheck, Loader2, CheckSquare, Bell, UserX, Trash2 } from "lucide-react";
@@ -149,7 +149,7 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
                   {u.banned_at && ` · ${new Date(u.banned_at).toLocaleDateString("nb-NO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`}
                 </p>
               </div>
-              <DavosButton
+              <BrandButton
                 variant="outline"
                 size="sm"
                 onClick={() => handleUnban(u.id)}
@@ -157,7 +157,7 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
               >
                 {unbanLoading === u.id ? <Loader2 size={14} className="animate-spin mr-1" /> : <UserCheck size={14} className="mr-1" />}
                 Opphev
-              </DavosButton>
+              </BrandButton>
             </div>
           ))}
         </div>
@@ -177,7 +177,7 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
                   Registrert {new Date(u.created_at).toLocaleDateString("nb-NO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>
-              <DavosButton
+              <BrandButton
                 variant="outline"
                 size="sm"
                 onClick={() => handleVerify(u.id)}
@@ -186,7 +186,7 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
               >
                 {verifyLoading === u.id ? <Loader2 size={14} className="animate-spin mr-1" /> : <UserCheck size={14} className="mr-1" />}
                 Verifiser
-              </DavosButton>
+              </BrandButton>
             </div>
           ))}
         </div>
@@ -196,7 +196,7 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <DavosInput
+          <BrandInput
             type="search"
             placeholder="Søk navn, e-post..."
             value={search}
@@ -204,40 +204,40 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
             className="pl-9"
           />
         </div>
-        <DavosButton
+        <BrandButton
           variant={bulkMode ? "primary" : "outline"}
           size="sm"
           onClick={() => { setBulkMode(!bulkMode); setSelected(new Set()); }}
         >
           <CheckSquare size={16} />
-        </DavosButton>
-        <DavosButton variant="outline" onClick={onRefresh} disabled={loading}>
+        </BrandButton>
+        <BrandButton variant="outline" onClick={onRefresh} disabled={loading}>
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-        </DavosButton>
+        </BrandButton>
       </div>
 
       {/* Bulk actions bar */}
       {bulkMode && (
         <div className="flex items-center gap-2 flex-wrap">
-          <DavosButton variant="outline" size="sm" onClick={selectAll}>
+          <BrandButton variant="outline" size="sm" onClick={selectAll}>
             {selected.size === filtered.length ? "Fjern alle" : "Velg alle"}
-          </DavosButton>
+          </BrandButton>
           <span className="text-xs text-muted-foreground">{selected.size} valgt</span>
           <div className="flex-1" />
-          <DavosButton variant="outline" size="sm" onClick={bulkPush} disabled={selected.size === 0 || bulkLoading}>
+          <BrandButton variant="outline" size="sm" onClick={bulkPush} disabled={selected.size === 0 || bulkLoading}>
             <Bell size={14} className="mr-1" /> Push
-          </DavosButton>
-          <DavosButton variant="outline" size="sm" onClick={bulkBan} disabled={selected.size === 0 || bulkLoading}
+          </BrandButton>
+          <BrandButton variant="outline" size="sm" onClick={bulkBan} disabled={selected.size === 0 || bulkLoading}
             className="border-destructive/30 text-destructive">
             <ShieldOff size={14} className="mr-1" /> Utesteng
-          </DavosButton>
+          </BrandButton>
         </div>
       )}
 
       <p className="text-xs text-muted-foreground">{filtered.length} brukere</p>
 
       {loading ? (
-        Array.from({ length: 4 }).map((_, i) => <DavosSkeleton key={i} className="h-20 w-full" />)
+        Array.from({ length: 4 }).map((_, i) => <BrandSkeleton key={i} className="h-20 w-full" />)
       ) : (
         filtered.map(u => (
           <div key={u.id} className="flex items-start gap-2">

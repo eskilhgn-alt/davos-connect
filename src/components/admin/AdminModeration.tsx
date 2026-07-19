@@ -3,10 +3,10 @@
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DavosCard, DavosCardContent } from "@/components/ui/davos-card";
-import { DavosButton } from "@/components/ui/davos-button";
-import { DavosBadge } from "@/components/ui/davos-badge";
-import { DavosSkeleton } from "@/components/ui/davos-skeleton";
+import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
+import { BrandButton } from "@/components/ui/brand-button";
+import { BrandBadge } from "@/components/ui/brand-badge";
+import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import {
   BarChart3, Image, Film, Calendar, Trash2, Loader2, RefreshCw,
   Lock, Pin, PinOff, CheckCircle,
@@ -183,7 +183,7 @@ export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users,
   if (loading) {
     return (
       <div className="px-4 space-y-3 pb-6">
-        {Array.from({ length: 4 }).map((_, i) => <DavosSkeleton key={i} className="h-20 w-full" />)}
+        {Array.from({ length: 4 }).map((_, i) => <BrandSkeleton key={i} className="h-20 w-full" />)}
       </div>
     );
   }
@@ -196,12 +196,12 @@ export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users,
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="font-heading font-semibold text-foreground text-sm">Innholdsmoderering</h3>
-        <DavosButton variant="ghost" size="sm" onClick={loadAll}><RefreshCw size={14} /></DavosButton>
+        <BrandButton variant="ghost" size="sm" onClick={loadAll}><RefreshCw size={14} /></BrandButton>
       </div>
 
       {/* Polls */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <BarChart3 size={16} className="text-primary" />
             <h4 className="font-heading font-semibold text-sm text-foreground">Polls ({activePolls.length} aktive)</h4>
@@ -216,31 +216,31 @@ export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users,
                   <p className="text-[10px] text-muted-foreground">
                     {getName(p.created_by)} · {p._voteCount} stemmer · {fmtDate(p.created_at)}
                   </p>
-                  {p.is_pinned && <DavosBadge variant="accent" className="text-[9px] mt-0.5">📌 Festet</DavosBadge>}
+                  {p.is_pinned && <BrandBadge variant="accent" className="text-[9px] mt-0.5">📌 Festet</BrandBadge>}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <DavosButton variant="ghost" size="sm" onClick={() => togglePinPoll(p.id, p.is_pinned)}
+                  <BrandButton variant="ghost" size="sm" onClick={() => togglePinPoll(p.id, p.is_pinned)}
                     disabled={actionLoading === `poll-pin-${p.id}`}>
                     {p.is_pinned ? <PinOff size={12} /> : <Pin size={12} />}
-                  </DavosButton>
-                  <DavosButton variant="ghost" size="sm" onClick={() => closePoll(p.id)}
+                  </BrandButton>
+                  <BrandButton variant="ghost" size="sm" onClick={() => closePoll(p.id)}
                     disabled={actionLoading === `poll-close-${p.id}`}>
                     {actionLoading === `poll-close-${p.id}` ? <Loader2 size={12} className="animate-spin" /> : <Lock size={12} />}
-                  </DavosButton>
-                  <DavosButton variant="ghost" size="sm" onClick={() => deletePoll(p.id)}
+                  </BrandButton>
+                  <BrandButton variant="ghost" size="sm" onClick={() => deletePoll(p.id)}
                     disabled={actionLoading === `poll-del-${p.id}`} className="text-destructive">
                     {actionLoading === `poll-del-${p.id}` ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                  </DavosButton>
+                  </BrandButton>
                 </div>
               </div>
             ))
           )}
-        </DavosCardContent>
-      </DavosCard>
+        </BrandCardContent>
+      </BrandCard>
 
       {/* Stories */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Film size={16} className="text-primary" />
             <h4 className="font-heading font-semibold text-sm text-foreground">Stories ({activeStories.length} aktive)</h4>
@@ -254,19 +254,19 @@ export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users,
                   <p className="text-xs font-medium text-foreground">{getName(s.user_id)}</p>
                   <p className="text-[10px] text-muted-foreground">{s.type} · {fmtDate(s.created_at)}</p>
                 </div>
-                <DavosButton variant="ghost" size="sm" onClick={() => deleteStory(s.id)}
+                <BrandButton variant="ghost" size="sm" onClick={() => deleteStory(s.id)}
                   disabled={actionLoading === `story-${s.id}`} className="text-destructive">
                   {actionLoading === `story-${s.id}` ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                </DavosButton>
+                </BrandButton>
               </div>
             ))
           )}
-        </DavosCardContent>
-      </DavosCard>
+        </BrandCardContent>
+      </BrandCard>
 
       {/* Gallery */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Image size={16} className="text-primary" />
             <h4 className="font-heading font-semibold text-sm text-foreground">Galleri ({gallery.length} nyeste)</h4>
@@ -280,19 +280,19 @@ export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users,
                   <p className="text-xs font-medium text-foreground">{getName(g.uploaded_by)}</p>
                   <p className="text-[10px] text-muted-foreground">{g.type} · {fmtDate(g.created_at)}</p>
                 </div>
-                <DavosButton variant="ghost" size="sm" onClick={() => deleteGalleryItem(g.id)}
+                <BrandButton variant="ghost" size="sm" onClick={() => deleteGalleryItem(g.id)}
                   disabled={actionLoading === `gallery-${g.id}`} className="text-destructive">
                   {actionLoading === `gallery-${g.id}` ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                </DavosButton>
+                </BrandButton>
               </div>
             ))
           )}
-        </DavosCardContent>
-      </DavosCard>
+        </BrandCardContent>
+      </BrandCard>
 
       {/* Agenda */}
-      <DavosCard>
-        <DavosCardContent className="p-4 space-y-3">
+      <BrandCard>
+        <BrandCardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-primary" />
             <h4 className="font-heading font-semibold text-sm text-foreground">Agenda ({agenda.length})</h4>
@@ -306,15 +306,15 @@ export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users,
                   <p className="text-xs font-medium text-foreground">{a.title}</p>
                   <p className="text-[10px] text-muted-foreground">{getName(a.created_by)} · {fmtDate(a.start_at)}</p>
                 </div>
-                <DavosButton variant="ghost" size="sm" onClick={() => deleteAgendaEvent(a.id)}
+                <BrandButton variant="ghost" size="sm" onClick={() => deleteAgendaEvent(a.id)}
                   disabled={actionLoading === `agenda-${a.id}`} className="text-destructive">
                   {actionLoading === `agenda-${a.id}` ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                </DavosButton>
+                </BrandButton>
               </div>
             ))
           )}
-        </DavosCardContent>
-      </DavosCard>
+        </BrandCardContent>
+      </BrandCard>
     </div>
   );
 });
