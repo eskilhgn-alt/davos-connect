@@ -11,7 +11,7 @@ import { useLocationTracker } from "@/hooks/useLocationTracker";
 import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { BrandAvatar } from "@/components/ui/brand-avatar";
 import { BrandButton } from "@/components/ui/brand-button";
-import { MapPin, Clock, Navigation, Search, Crosshair, X, BatteryLow, Shield } from "lucide-react";
+import { MapPin, Clock, Navigation, Search, Crosshair, X, BatteryLow, Shield, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { nb } from "date-fns/locale";
 import L from "leaflet";
