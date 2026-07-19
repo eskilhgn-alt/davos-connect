@@ -348,13 +348,44 @@ export const CrewMapScreen: React.FC = () => {
             <BatteryLow size={14} />
             <span>Kontinuerlig GPS trekker batteri. Slå av når du ikke trenger å dele.</span>
           </div>
+          {sharingError && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive"
+            >
+              <AlertCircle size={14} className="mt-0.5 shrink-0" />
+              <span>{sharingError}</span>
+            </div>
+          )}
+          {sharingEnabled && !sharingError && (
+            <div
+              role="status"
+              className="flex items-center gap-2 rounded-md border border-success/30 bg-success/10 p-2 text-xs text-success"
+            >
+              <CheckCircle2 size={14} className="shrink-0" />
+              <span>Posisjonsdeling er på</span>
+            </div>
+          )}
           {sharingEnabled ? (
-            <BrandButton onClick={stopSharing} variant="outline" className="w-full">
-              Stopp deling av posisjon
+            <BrandButton
+              onClick={handleStop}
+              variant="outline"
+              className="w-full"
+              disabled={shareBusy}
+              aria-busy={shareBusy}
+            >
+              {stopping ? <Loader2 size={14} className="animate-spin mr-2" /> : null}
+              {stopping ? "Stopper …" : "Stopp deling av posisjon"}
             </BrandButton>
           ) : (
-            <BrandButton onClick={startSharing} className="w-full">
-              Del min posisjon
+            <BrandButton
+              onClick={handleStart}
+              className="w-full"
+              disabled={shareBusy}
+              aria-busy={shareBusy}
+            >
+              {sharingBusy ? <Loader2 size={14} className="animate-spin mr-2" /> : null}
+              {sharingBusy ? "Henter posisjon …" : "Del min posisjon"}
             </BrandButton>
           )}
         </div>
