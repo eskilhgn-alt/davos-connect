@@ -1,10 +1,12 @@
 /**
- * HomeScreen – Tile-based navigation hub
- * Base functions only – gamification removed
+ * HomeScreen — aktiv tur, nedtelling, neste aktivitet og kompakte innganger.
+ * Detaljerte snarveier (agenda, avstemninger, admin, spill osv.) ligger i «Mer».
  */
 
 import * as React from "react";
 import { Link } from "react-router-dom";
+import { format } from "date-fns";
+import { nb } from "date-fns/locale";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { HomeDashboard } from "@/components/home/HomeDashboard";
 import { StoryRing } from "@/components/stories/StoryRing";
@@ -15,25 +17,17 @@ import { useStories } from "@/hooks/useStories";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppBadges } from "@/hooks/useAppBadges";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
+import { ACTIVE_TRIP, tripDaysUntilStart } from "@/config/trip";
 import {
   MessageCircle,
   CloudSun,
   Radio,
-  Map,
-  MapPin,
-  Target,
-  Settings,
-  ShieldCheck,
+  Map as MapIcon,
   CalendarDays,
-  Film,
-  Sparkles,
+  MoreHorizontal,
   LogOut,
-  Beer,
-  Vote,
-  Users,
-  Home,
-  Dice5,
   AlertTriangle,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +39,7 @@ interface TileItem {
 }
 
 export const HomeScreen: React.FC = () => {
-  const { profile, isAdmin, signOut } = useAuth();
+  const { signOut } = useAuth();
   const badges = useAppBadges();
   const { groups, loading: storiesLoading, refetch: refetchStories, markViewed } = useStories();
 
@@ -54,35 +48,34 @@ export const HomeScreen: React.FC = () => {
   const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
   const [captureOpen, setCaptureOpen] = React.useState(false);
   const [emergencyOpen, setEmergencyOpen] = React.useState(false);
+
   const openStory = (groupIndex: number) => {
     setViewerGroupIdx(groupIndex);
     setViewerOpen(true);
   };
 
-  const tiles: TileItem[] = React.useMemo(() => {
-    const base: TileItem[] = [
+  const trip = ACTIVE_TRIP;
+  const daysUntil = tripDaysUntilStart(trip);
+  const hasDates = trip.startDate && trip.endDate;
+  const dateLabel = hasDates
+    ? `${format(new Date(trip.startDate!), "d. MMM", { locale: nb })} – ${format(
+        new Date(trip.endDate!),
+        "d. MMM yyyy",
+        { locale: nb },
+      )}`
+    : "Datoer bekreftes";
+
+  const primaryTiles: TileItem[] = React.useMemo(
+    () => [
       { to: "/chat", label: "Chat", icon: MessageCircle, badge: badges.chat },
+      { to: "/kart", label: "Kart", icon: MapIcon },
       { to: "/vaer", label: "Vær", icon: CloudSun },
       { to: "/live", label: "Live", icon: Radio },
-      { to: "/kart", label: "Løypekart", icon: Map },
       { to: "/agenda", label: "Agenda", icon: CalendarDays, badge: badges.agenda },
-      { to: "/magnus", label: "Magnus?", icon: MapPin },
-      { to: "/shot", label: "Shoot", icon: Target, badge: badges.shot },
-      { to: "/poll", label: "Avstemming", icon: Vote, badge: badges.polls },
-      { to: "/runder", label: "Runder", icon: Beer, badge: badges.runder },
-      { to: "/roomies", label: "Roomies", icon: Home },
-      { to: "/galleri", label: "Galleri", icon: Film },
-      { to: "/alle", label: "Gütta", icon: Users },
-      { to: "/skred", label: "Skred", icon: AlertTriangle },
-      { to: "/casino", label: "Casino", icon: Dice5 },
-      { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
-      { to: "/innstillinger", label: "Innstillinger", icon: Settings },
-    ];
-    if (isAdmin) {
-      base.push({ to: "/admin", label: "Admin", icon: ShieldCheck });
-    }
-    return base;
-  }, [badges, isAdmin]);
+      { to: "/mer", label: "Mer", icon: MoreHorizontal },
+    ],
+    [badges],
+  );
 
   return (
     <div
@@ -103,12 +96,52 @@ export const HomeScreen: React.FC = () => {
       />
 
       <PullToRefreshWrapper
-        onRefresh={async () => { setRefreshKey((k) => k + 1); }}
+        onRefresh={async () => {
+          setRefreshKey((k) => k + 1);
+        }}
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
-        <div className="px-4 pt-4 pb-10 space-y-5">
-          {/* Stories widget */}
+        <div
+          className="px-4 pt-4 space-y-5"
+          style={{ paddingBottom: "calc(var(--bottom-nav-h-effective) + 24px)" }}
+        >
+          {/* Active trip card */}
+          <section
+            aria-label="Aktiv tur"
+            className="rounded-2xl border border-border bg-muted/40 p-4 flex items-center justify-between gap-3"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <MapPin size={11} />
+                <span>Aktiv tur</span>
+              </div>
+              <h2 className="font-heading text-lg font-bold text-foreground leading-tight mt-0.5 truncate">
+                {trip.label}
+              </h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                {trip.destination}, {trip.country} · {dateLabel}
+              </p>
+            </div>
+            <div className="shrink-0 text-right">
+              {daysUntil !== null && daysUntil >= 0 ? (
+                <>
+                  <div className="font-heading text-2xl font-bold text-foreground leading-none">
+                    {daysUntil}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">
+                    dager igjen
+                  </div>
+                </>
+              ) : (
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground max-w-[6rem]">
+                  Nedtelling starter når datoene er satt
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Stories */}
           <StoryRing
             groups={groups}
             loading={storiesLoading}
@@ -116,21 +149,19 @@ export const HomeScreen: React.FC = () => {
             onOpenStory={openStory}
           />
 
-          {/* Mini dashboard */}
+          {/* Mini dashboard: valuta, neste event, vær */}
           <HomeDashboard refreshKey={refreshKey} />
 
-          {/* Tile grid */}
+          {/* Kompakte innganger */}
           <nav className="grid grid-cols-3 gap-2.5">
-            {tiles.map((tile) => (
+            {primaryTiles.map((tile) => (
               <Link
                 key={tile.to}
                 to={tile.to}
                 className={cn(
                   "relative flex flex-col items-center justify-center gap-2",
-                  "aspect-square rounded-2xl",
-                  "bg-muted/50 border border-border",
-                  "active:scale-[0.97] transition-all duration-150",
-                  "hover:bg-muted"
+                  "aspect-square rounded-2xl bg-muted/50 border border-border",
+                  "active:scale-[0.97] transition-all duration-150 hover:bg-muted",
                 )}
               >
                 <tile.icon size={24} strokeWidth={1.6} className="text-foreground" />
@@ -146,17 +177,16 @@ export const HomeScreen: React.FC = () => {
             ))}
           </nav>
 
-          {/* Emergency info link – subtle at bottom */}
           <button
             onClick={() => setEmergencyOpen(true)}
             className="w-full flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
           >
             <AlertTriangle size={13} />
-            <span>Nødinfo & viktige numre (Davos)</span>
+            <span>Nødinfo & viktige numre</span>
           </button>
         </div>
       </PullToRefreshWrapper>
-      {/* Story Viewer */}
+
       {viewerOpen && groups.length > 0 && (
         <StoryViewer
           groups={groups}
@@ -169,7 +199,6 @@ export const HomeScreen: React.FC = () => {
         />
       )}
 
-      {/* Story Capture */}
       {captureOpen && (
         <StoryCapture
           onClose={() => setCaptureOpen(false)}
@@ -180,7 +209,6 @@ export const HomeScreen: React.FC = () => {
         />
       )}
 
-      {/* Emergency info sheet */}
       <EmergencyInfoSheet open={emergencyOpen} onOpenChange={setEmergencyOpen} />
     </div>
   );

@@ -1,7 +1,8 @@
 /**
- * Davos ski area mountains configuration
- * Used for weather aggregation across the region
+ * Mountain list for weather aggregation.
+ * Derived from the central trip config (`src/config/trip.ts`).
  */
+import { ACTIVE_TRIP } from "./trip";
 
 export interface Mountain {
   id: string;
@@ -11,15 +12,19 @@ export interface Mountain {
   elevation?: number;
 }
 
-export const MOUNTAINS: Mountain[] = [
-  { id: "parsenn", name: "Parsenn", lat: 46.83, lon: 9.80, elevation: 2844 },
-  { id: "jakobshorn", name: "Jakobshorn", lat: 46.77, lon: 9.85, elevation: 2590 },
-  { id: "pischa", name: "Pischa", lat: 46.85, lon: 9.90, elevation: 2483 },
-  { id: "rinerhorn", name: "Rinerhorn", lat: 46.74, lon: 9.77, elevation: 2490 },
-  { id: "madrisa", name: "Madrisa", lat: 46.93, lon: 9.86, elevation: 2602 }
-];
+export const MOUNTAINS: Mountain[] = ACTIVE_TRIP.peaks.map((p) => ({
+  id: p.id,
+  name: p.name,
+  lat: p.lat,
+  lon: p.lon,
+  elevation: p.elevation,
+}));
 
-export const DAVOS_CENTER = {
-  lat: 46.80,
-  lon: 9.84
+/** Map center for the active trip. */
+export const TRIP_CENTER = {
+  lat: ACTIVE_TRIP.center.lat,
+  lon: ACTIVE_TRIP.center.lon,
 };
+
+/** Backwards-compat alias. New code should use `TRIP_CENTER`. */
+export const DAVOS_CENTER = TRIP_CENTER;

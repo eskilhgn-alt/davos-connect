@@ -14,6 +14,7 @@ import { errorToast } from "@/utils/errorToast";
 
 import ChatScreen from "./pages/ChatScreen";
 import HomeScreen from "./pages/HomeScreen";
+import MoreScreen from "./pages/MoreScreen";
 import MapScreen from "./pages/MapScreen";
 import CrewMapScreen from "./pages/CrewMapScreen";
 import LiveScreen from "./pages/LiveScreen";
@@ -35,7 +36,7 @@ import AuthScreen from "./pages/AuthScreen";
 import AdminScreen from "./pages/AdminScreen";
 import GroupScreen from "./pages/GroupScreen";
 import TokensScreen from "./pages/TokensScreen";
-import CasinoScreen from "./pages/CasinoScreen";
+// Casino-skjermen er avviklet i step 1 – ruter redirect til /hjem.
 import AvalancheScreen from "./pages/AvalancheScreen";
 
 
@@ -119,7 +120,9 @@ const AppRoutes = () => (
       <Route path="/vaer" element={<WeatherScreen />} />
       <Route path="/live" element={<LiveScreen />} />
       <Route path="/kart" element={<MapScreen />} />
-      <Route path="/magnus" element={<CrewMapScreen />} />
+      <Route path="/crew" element={<CrewMapScreen />} />
+      <Route path="/magnus" element={<Navigate to="/crew" replace />} />
+      <Route path="/mer" element={<MoreScreen />} />
       <Route path="/webcams" element={<WebcamsScreen />} />
       <Route path="/galleri" element={<GalleryScreen />} />
       <Route path="/innstillinger" element={<SettingsScreen />} />
@@ -135,7 +138,7 @@ const AppRoutes = () => (
       <Route path="/tokens" element={<TokensScreen />} />
       <Route path="/regler" element={<Navigate to="/tokens" replace />} />
       <Route path="/nodinfo" element={<Navigate to="/hjem" replace />} />
-      <Route path="/casino" element={<CasinoScreen />} />
+      <Route path="/casino" element={<Navigate to="/hjem" replace />} />
       <Route path="/skred" element={<AvalancheScreen />} />
 
     </Route>

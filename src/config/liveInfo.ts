@@ -1,14 +1,18 @@
 /**
- * Live Info configuration for Davos Klosters
- * Embed-first approach - no scraping, just iframes with fallbacks
+ * Live info sources. Derived from the central trip config.
+ * Destination-dependent URLs live in `src/config/trip.ts` — edit them there.
+ *
+ * This file preserves the historical `MAPS` / `WEBCAMS_PAGE` / `FEATURED_WEBCAMS`
+ * exports so existing screens keep working while we migrate to the trip model.
  */
+import { ACTIVE_TRIP } from "./trip";
 
 export interface LiveInfoSource {
   id: string;
   title: string;
   url: string;
   description?: string;
-  embeddable?: boolean; // Default true if not specified
+  embeddable?: boolean;
 }
 
 export interface FeaturedWebcam {
@@ -19,75 +23,46 @@ export interface FeaturedWebcam {
   pageUrl: string;
 }
 
-// Map sources
+const trailMap = ACTIVE_TRIP.officialLinks.trailMap;
+const webcamsLink = ACTIVE_TRIP.officialLinks.webcams;
+
+/**
+ * Map sources. For the active trip we only expose the official trail-map link.
+ * Step-1 placeholder — richer map layers will be wired through the trip model
+ * in a later step.
+ */
 export const MAPS: Record<string, LiveInfoSource> = {
-  interaktiv: {
-    id: "interaktiv",
-    title: "Interaktivt kart",
-    url: "https://api.davos.ch/fileadmin/davos/various/interaktivekarte/?season=wi&lang=en",
-    description: "Full kartvisning med POI",
-    embeddable: true
-  },
-  nord: {
-    id: "nord",
-    title: "Kart Nord",
-    url: "https://www.siscontrol.ch/d001/sismap/davos-nord/2",
-    description: "Parsenn, Pischa, Madrisa",
-    embeddable: true
-  },
-  syd: {
-    id: "syd",
-    title: "Kart Sør",
-    url: "https://www.siscontrol.ch/d001/sismap/davos-sued/2",
-    description: "Jakobshorn, Rinerhorn",
-    embeddable: true
-  }
+  offisiell: trailMap
+    ? {
+        id: trailMap.id,
+        title: trailMap.title,
+        url: trailMap.url,
+        description: trailMap.description,
+        embeddable: trailMap.embeddable ?? false,
+      }
+    : {
+        id: "trail-map",
+        title: "Løypekart",
+        url: "about:blank",
+        description: "Ikke konfigurert for aktiv tur",
+        embeddable: false,
+      },
 };
 
-// Webcams page embed - may be blocked by X-Frame-Options
-export const WEBCAMS_PAGE: LiveInfoSource = {
-  id: "webcams",
-  title: "Alle webcams",
-  url: "https://www.davosklostersmountains.ch/en/mountains/winter/live-info/webcams",
-  description: "Live-bilder fra hele skiområdet",
-  embeddable: false // davosklostersmountains blocks iframes
-};
+export const WEBCAMS_PAGE: LiveInfoSource = webcamsLink
+  ? {
+      id: webcamsLink.id,
+      title: webcamsLink.title,
+      url: webcamsLink.url,
+      description: webcamsLink.description,
+      embeddable: false,
+    }
+  : {
+      id: "webcams",
+      title: "Webkameraer",
+      url: "about:blank",
+      embeddable: false,
+    };
 
-// Featured webcams - one per mountain area
-export const FEATURED_WEBCAMS: FeaturedWebcam[] = [
-  {
-    id: "parsenn",
-    name: "Weissfluhjoch",
-    area: "Parsenn",
-    imageUrl: "https://www.davosklostersmountains.ch/webcam/weissfluhjoch.jpg",
-    pageUrl: "https://www.davosklostersmountains.ch/en/mountains/winter/live-info/webcams"
-  },
-  {
-    id: "jakobshorn",
-    name: "Jakobshorn Gipfel",
-    area: "Jakobshorn",
-    imageUrl: "https://www.davosklostersmountains.ch/webcam/jakobshorn.jpg",
-    pageUrl: "https://www.davosklostersmountains.ch/en/mountains/winter/live-info/webcams"
-  },
-  {
-    id: "pischa",
-    name: "Pischa",
-    area: "Pischa",
-    imageUrl: "https://www.davosklostersmountains.ch/webcam/pischa.jpg",
-    pageUrl: "https://www.davosklostersmountains.ch/en/mountains/winter/live-info/webcams"
-  },
-  {
-    id: "rinerhorn",
-    name: "Rinerhorn",
-    area: "Rinerhorn",
-    imageUrl: "https://www.davosklostersmountains.ch/webcam/rinerhorn.jpg",
-    pageUrl: "https://www.davosklostersmountains.ch/en/mountains/winter/live-info/webcams"
-  },
-  {
-    id: "madrisa",
-    name: "Madrisa",
-    area: "Madrisa",
-    imageUrl: "https://www.davosklostersmountains.ch/webcam/madrisa.jpg",
-    pageUrl: "https://www.davosklostersmountains.ch/en/mountains/winter/live-info/webcams"
-  }
-];
+/** No featured webcam thumbnails wired up yet for the active trip. */
+export const FEATURED_WEBCAMS: FeaturedWebcam[] = [];
