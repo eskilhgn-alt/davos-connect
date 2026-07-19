@@ -113,7 +113,7 @@ export const CrewMapScreen: React.FC = () => {
   // Initialize map
   React.useEffect(() => {
     if (!mapRef.current || leafletMap.current) return;
-    const center: [number, number] = myLoc ? [myLoc.lat, myLoc.lon] : DAVOS_CENTER;
+    const center: [number, number] = myLoc ? [myLoc.lat, myLoc.lon] : TRIP_CENTER;
     const map = L.map(mapRef.current, { center, zoom: 14, zoomControl: false, attributionControl: false });
     L.control.zoom({ position: "topright" }).addTo(map);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
