@@ -1,22 +1,22 @@
 /**
- * CrewMapScreen ("Magnus?") — full-screen map with avatar markers and user list
+ * CrewMapScreen — full-screen map med frivillig sanntidsposisjon.
+ * Deling er strengt opt-in via `useLocationTracker.startSharing()`.
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { useUserLocations, UserLocation } from "@/hooks/useUserLocations";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocationTracker } from "@/hooks/useLocationTracker";
 import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { BrandAvatar } from "@/components/ui/brand-avatar";
-import { MapPin, Clock, Navigation, Search, Crosshair, X } from "lucide-react";
-import { SkiPerformanceTracker } from "@/components/ski/SkiPerformanceTracker";
-import { SkiUserList } from "@/components/ski/SkiUserList";
-import { SkiRouteMap } from "@/components/ski/SkiRouteMap";
-import { useSkiTracker } from "@/hooks/useSkiTracker";
+import { BrandButton } from "@/components/ui/brand-button";
+import { MapPin, Clock, Navigation, Search, Crosshair, X, BatteryLow, Shield } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { nb } from "date-fns/locale";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { ACTIVE_TRIP } from "@/config/trip";
 
 const MARKER_COLORS = [
   "#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6",
