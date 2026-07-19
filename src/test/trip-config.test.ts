@@ -27,7 +27,9 @@ describe("ACTIVE_TRIP config", () => {
   });
 
   it("eksponerer nødkontakter med franske numre", () => {
-    const numbers = ACTIVE_TRIP.emergency.map((e) => e.number).join(" ");
+    const numbers = ACTIVE_TRIP.emergency
+      .flatMap((g) => g.contacts.map((c) => c.number))
+      .join(" ");
     expect(numbers).toMatch(/112/);
   });
 
