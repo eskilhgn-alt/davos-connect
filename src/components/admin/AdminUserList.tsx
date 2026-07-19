@@ -229,7 +229,6 @@ export const AdminUserList: React.FC<Props> = ({ users, loading, currentUserId, 
                 user={u}
                 currentUserId={currentUserId}
                 onRefresh={onRefresh}
-                onAdjustTokens={onAdjustTokens}
                 onLogAction={onLogAction}
               />
             </div>
