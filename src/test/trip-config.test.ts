@@ -34,8 +34,8 @@ describe("ACTIVE_TRIP config", () => {
   });
 
   it("har offisielle Val Thorens-lenker", () => {
-    expect(ACTIVE_TRIP.officialLinks.trailMap).toMatch(/valthorens\.com/);
-    expect(ACTIVE_TRIP.officialLinks.webcams).toMatch(/valthorens\.com/);
-    expect(ACTIVE_TRIP.officialLinks.weather).toMatch(/meteofrance\.com/);
+    expect(ACTIVE_TRIP.officialLinks.trailMap?.url).toMatch(/valthorens\.com/);
+    expect(ACTIVE_TRIP.officialLinks.webcams?.url).toMatch(/valthorens\.com/);
+    expect(ACTIVE_TRIP.officialLinks.weather?.url).toMatch(/meteofrance\.com/);
   });
 });
