@@ -120,7 +120,9 @@ const AppRoutes = () => (
       <Route path="/vaer" element={<WeatherScreen />} />
       <Route path="/live" element={<LiveScreen />} />
       <Route path="/kart" element={<MapScreen />} />
-      <Route path="/magnus" element={<CrewMapScreen />} />
+      <Route path="/crew" element={<CrewMapScreen />} />
+      <Route path="/magnus" element={<Navigate to="/crew" replace />} />
+      <Route path="/mer" element={<MoreScreen />} />
       <Route path="/webcams" element={<WebcamsScreen />} />
       <Route path="/galleri" element={<GalleryScreen />} />
       <Route path="/innstillinger" element={<SettingsScreen />} />
@@ -136,7 +138,7 @@ const AppRoutes = () => (
       <Route path="/tokens" element={<TokensScreen />} />
       <Route path="/regler" element={<Navigate to="/tokens" replace />} />
       <Route path="/nodinfo" element={<Navigate to="/hjem" replace />} />
-      <Route path="/casino" element={<CasinoScreen />} />
+      <Route path="/casino" element={<Navigate to="/hjem" replace />} />
       <Route path="/skred" element={<AvalancheScreen />} />
 
     </Route>
