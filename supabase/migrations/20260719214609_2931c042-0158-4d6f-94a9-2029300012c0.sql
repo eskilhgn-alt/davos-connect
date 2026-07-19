@@ -1,0 +1,9 @@
+DO $$
+BEGIN
+  BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE public.shot_events; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE public.shot_event_log; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE public.ski_track_points; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE public.ski_daily_vertical; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE public.ski_daily_awards; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE public.ski_speed_records; EXCEPTION WHEN OTHERS THEN NULL; END;
+END $$;

@@ -34,7 +34,7 @@ type AuthMode = "login" | "signup" | "forgot" | "onboarding" | "verify-email" | 
 export const AuthScreen: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, profile, signIn, signUp, signOut, updateProfile, isLoading, isProfileLoading, refreshProfile } = useAuth();
+  const { user, profile, signIn, signUp, signOut, updateProfile, resetPassword, isLoading, isProfileLoading, refreshProfile } = useAuth();
   
   const [mode, setMode] = React.useState<AuthMode>(() => {
     if (searchParams.get("mode") === "signup") return "signup";
@@ -145,7 +145,22 @@ export const AuthScreen: React.FC = () => {
     setIsSubmitting(false);
   };
 
-  // handleResendVerification and handleForgotPassword removed – no email sending
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      errorToast("Skriv inn e-postadressen din");
+      return;
+    }
+    setIsSubmitting(true);
+    const { error } = await resetPassword(email);
+    setIsSubmitting(false);
+    if (error) {
+      errorToast("Kunne ikke sende e-post", { description: error.message });
+    } else {
+      toast.success("Sjekk e-posten din for lenke til å tilbakestille passord.");
+      setMode("login");
+    }
+  };
 
   const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,6 +249,13 @@ export const AuthScreen: React.FC = () => {
                     Opprett konto
                   </button>
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setMode("forgot")}
+                  className="text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
+                >
+                  Glemt passord?
+                </button>
               </div>
             </form>
           )}
@@ -276,7 +298,32 @@ export const AuthScreen: React.FC = () => {
             </form>
           )}
 
-          {/* Forgot password removed – password change is done in Settings or by admin */}
+          {mode === "forgot" && (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="mb-8">
+                <h2 className="font-heading text-xl font-semibold">Glemt passord</h2>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Skriv inn e-postadressen din, så sender vi deg en lenke for å velge nytt passord.
+                </p>
+              </div>
+              <BrandInput
+                type="email"
+                placeholder="E-post"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+              <BrandButton type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send tilbakestillings-lenke"}
+              </BrandButton>
+              <p className="text-center text-sm text-muted-foreground">
+                <button type="button" onClick={() => setMode("login")} className="text-foreground font-medium hover:underline">
+                  Tilbake til innlogging
+                </button>
+              </p>
+            </form>
+          )}
 
           {mode === "onboarding" && (
             <form onSubmit={handleOnboarding} className="space-y-4">

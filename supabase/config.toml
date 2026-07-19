@@ -6,19 +6,7 @@ verify_jwt = false
 [functions.giphy-proxy]
 verify_jwt = false
 
-[functions.shot-push]
-verify_jwt = false
-
-[functions.shot-fairness-check]
-verify_jwt = false
-
 [functions.faktasjekker]
-verify_jwt = false
-
-[functions.ski-daily-award]
-verify_jwt = false
-
-[functions.award-points]
 verify_jwt = false
 
 [functions.poll-push]
