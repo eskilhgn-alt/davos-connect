@@ -165,7 +165,7 @@ export const CrewMapScreen: React.FC = () => {
       const marker = L.marker([loc.lat, loc.lon], { icon }).addTo(map);
       const timeAgo = formatDistanceToNow(new Date(loc.updated_at), { addSuffix: true, locale: nb });
       marker.bindTooltip(
-        `<strong>${loc.display_name}</strong>${isMe ? " (deg)" : ""}<br/><span style="font-size:11px;opacity:.7">${timeAgo}</span>`,
+        `<strong>${escapeHtml(loc.display_name ?? "Ukjent")}</strong>${isMe ? " (deg)" : ""}<br/><span style="font-size:11px;opacity:.7">${escapeHtml(timeAgo)}</span>`,
         { permanent: false, direction: "top", offset: [0, -20] }
       );
       markersRef.current.push(marker);
