@@ -22,6 +22,8 @@ import {
   resolveMediaUrl,
   invalidateMediaUrl,
   isKnownBucket,
+  parsePublicStorageUrl,
+  PRIVATE_BUCKETS,
   __TEST__,
   type Bucket,
 } from '@/lib/mediaUrl';
@@ -39,6 +41,24 @@ export interface SignedMediaState {
 // Refresh a bit earlier than the cache's own threshold so mounted media
 // swaps its src before the URL is expired at the CDN.
 const REFRESH_LEAD_MS = 30_000;
+
+/**
+ * Derive the effective (bucket, path) for a mounted resource so we can
+ * schedule refresh even when only a legacy public/signed URL was supplied.
+ * External (Giphy/blob) URLs and empty inputs return null — no refresh.
+ */
+function effectiveCoords(
+  bucket?: Bucket | null | string,
+  path?: string | null,
+  url?: string | null,
+): { bucket: Bucket; path: string } | null {
+  if (bucket && path && isKnownBucket(bucket)) return { bucket, path };
+  if (url) {
+    const parsed = parsePublicStorageUrl(url);
+    if (parsed) return parsed;
+  }
+  return null;
+}
 
 /**
  * Stateful signed-URL hook. Auto-refreshes shortly before expiry and cleans
@@ -68,22 +88,25 @@ export function useSignedMedia(
 
     const startedAt = Date.now();
     const ttlSec = __TEST__.DEFAULT_TTL_SEC;
+    // Resolve refresh coordinates once. Legacy public/signed URLs count too;
+    // external URLs (Giphy/blob) and public buckets (avatars) do not.
+    const coords = effectiveCoords(bucket, path, url);
+    const shouldSchedule = coords !== null && PRIVATE_BUCKETS.has(coords.bucket);
+
     resolveMediaUrl({ bucket: bucket ?? null, path: path ?? null, url: url ?? null })
       .then((u) => {
         if (!live) return;
         const resolved = u || undefined;
         setState({ url: resolved, status: resolved ? 'ready' : 'idle', error: null });
 
-        // Schedule refresh only for signed URLs on known private buckets
-        // where we control the path. External passthroughs never refresh.
-        if (resolved && bucket && path && isKnownBucket(bucket)) {
+        if (resolved && shouldSchedule && coords) {
           const dueMs = Math.max(
             5_000,
             ttlSec * 1000 * 0.9 - (Date.now() - startedAt) - REFRESH_LEAD_MS,
           );
           refreshTimer = setTimeout(() => {
             if (!live) return;
-            invalidateMediaUrl(bucket, path);
+            invalidateMediaUrl(coords.bucket, coords.path);
             setNonce((n) => n + 1);
           }, dueMs);
         }
@@ -101,9 +124,10 @@ export function useSignedMedia(
   }, [bucket, path, url, hasAny, nonce]);
 
   const retry = React.useCallback(() => {
-    if (bucket && path && isKnownBucket(bucket)) invalidateMediaUrl(bucket, path);
+    const coords = effectiveCoords(bucket, path, url);
+    if (coords) invalidateMediaUrl(coords.bucket, coords.path);
     setNonce((n) => n + 1);
-  }, [bucket, path]);
+  }, [bucket, path, url]);
 
   return { url: state.url, status: state.status, error: state.error, retry };
 }
