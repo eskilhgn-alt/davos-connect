@@ -287,6 +287,17 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     else if (g === "tap-right" || g === "none") goNext();
   };
 
+  // pointercancel / lostpointercapture must clear pause+hold or the story stays frozen.
+  const handlePointerCancel = () => {
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = undefined; }
+    if (holdRef.current) {
+      setPaused(false);
+      if (videoRef.current) videoRef.current.play().catch(() => {});
+    }
+    holdRef.current = false;
+    gestureRef.current = null;
+  };
+
   const handleClose = React.useCallback((e: React.MouseEvent | React.PointerEvent | KeyboardEvent) => {
     if ("stopPropagation" in e) e.stopPropagation();
     if ("preventDefault" in e) e.preventDefault();
