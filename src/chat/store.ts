@@ -276,8 +276,23 @@ function applyUpdate(row: Record<string, unknown>) {
   const existing = state.byId.get(msg.id);
   if (existing?.replyTo) msg.replyTo = existing.replyTo;
   state.byId.set(msg.id, msg);
+  // Propagate edits / soft-deletes to any already-loaded replies quoting this
+  // source, so their reply preview does not stay stale.
+  const newPreview = mapReplyPreview(msg.id, {
+    id: msg.id,
+    text: msg.text,
+    senderName: msg.senderName,
+    deletedAt: msg.deletedAt ? new Date(msg.deletedAt).toISOString() : null,
+  });
+  for (const [otherId, other] of state.byId) {
+    if (otherId === msg.id) continue;
+    if (other.replyTo && other.replyTo.id === msg.id) {
+      state.byId.set(otherId, { ...other, replyTo: newPreview });
+    }
+  }
   notify();
 }
+
 function applyDelete(row: Record<string, unknown>) {
   const id = row.id as string;
   if (!id) return;
