@@ -258,17 +258,19 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
+                aria-label="Avbryt redigering"
                 onClick={handleCancelEdit}
                 className="w-8 h-8 rounded-full bg-muted flex items-center justify-center"
               >
-                <X size={16} />
+                <X size={16} aria-hidden="true" />
               </button>
               <button
                 type="button"
+                aria-label="Lagre redigering"
                 onClick={handleSaveEdit}
                 className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
               >
-                <Check size={16} />
+                <Check size={16} aria-hidden="true" />
               </button>
             </div>
           </div>
