@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { ArrowLeft, Home } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useVisualViewport } from './useVisualViewport';
 import { chatStore } from './store';
@@ -19,6 +19,8 @@ const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
 export const ChatScreen: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const deepLinkMessageId = searchParams.get('message');
   const { vvh, kb } = useVisualViewport();
   const { user, profile } = useAuth();
   const [messages, setMessages] = React.useState<Message[]>([]);
@@ -53,19 +55,8 @@ export const ChatScreen: React.FC = () => {
 
   const handleSend = React.useCallback(async (text: string, attachments: Attachment[]) => {
     if (!userId) return;
-
+    // store.sendMessage handles optimistic UI, upload, insert AND push after successful insert.
     await chatStore.sendMessage(text, attachments, userId, displayName);
-
-    const preview = attachments.length > 0 && !text
-      ? `📷 ${attachments.length === 1 ? 'Bilde' : `${attachments.length} bilder`}`
-      : text;
-
-    oneSignalService.triggerPushNotification(
-      DEFAULT_THREAD_ID,
-      userId,
-      displayName,
-      preview
-    );
   }, [userId, displayName]);
 
   const handleComposerHeight = React.useCallback((height: number) => {
@@ -110,7 +101,9 @@ export const ChatScreen: React.FC = () => {
         currentUserId={userId}
         composerHeight={composerHeight}
         isTyping={typingState.isTyping}
+        deepLinkMessageId={deepLinkMessageId}
       />
+
 
       <div
         className="fixed left-0 right-0 z-10"

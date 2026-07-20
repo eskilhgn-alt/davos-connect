@@ -24,6 +24,7 @@ interface MessageListProps {
   currentUserId: string;
   composerHeight: number;
   isTyping: boolean;
+  deepLinkMessageId?: string | null;
 }
 
 function formatDateSeparator(timestamp: number): string {
@@ -55,6 +56,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   currentUserId,
   composerHeight,
   isTyping,
+  deepLinkMessageId,
 }) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const bottomRef = React.useRef<HTMLDivElement>(null);
@@ -74,7 +76,10 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [emojiPickerMode, setEmojiPickerMode] = React.useState<'reaction' | 'compose'>('reaction');
   const [viewerMedia, setViewerMedia] = React.useState<{ src: string; type: 'image' | 'video' | 'gif' } | null>(null);
 
-  // Check if near bottom
+  const [loadingEarlier, setLoadingEarlier] = React.useState(false);
+  const [hasMoreEarlier, setHasMoreEarlier] = React.useState(true);
+
+  // Check if near bottom and trigger pagination on top
   const checkNearBottom = React.useCallback(() => {
     const el = scrollRef.current;
     if (!el) return true;
@@ -82,8 +87,25 @@ export const MessageList: React.FC<MessageListProps> = ({
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
     isNearBottomRef.current = nearBottom;
     setShowJump(!nearBottom);
+
+    // Load earlier when scrolled near top
+    if (el.scrollTop < 80 && !loadingEarlier && hasMoreEarlier) {
+      setLoadingEarlier(true);
+      const prevHeight = el.scrollHeight;
+      chatStore.loadEarlier()
+        .then(({ hasMore }) => {
+          setHasMoreEarlier(hasMore);
+          // Preserve scroll position
+          requestAnimationFrame(() => {
+            const newHeight = el.scrollHeight;
+            el.scrollTop = newHeight - prevHeight;
+          });
+        })
+        .finally(() => setLoadingEarlier(false));
+    }
+
     return nearBottom;
-  }, []);
+  }, [loadingEarlier, hasMoreEarlier]);
 
   // Scroll to bottom
   const scrollToBottom = React.useCallback((smooth = true) => {
@@ -123,6 +145,22 @@ export const MessageList: React.FC<MessageListProps> = ({
       requestAnimationFrame(() => scrollToBottom(true));
     }
   }, [messages.length, scrollToBottom]);
+
+  // Deep-link: scroll to specific message when it exists in state
+  React.useEffect(() => {
+    if (!deepLinkMessageId) return;
+    const attempts = [50, 250, 800];
+    attempts.forEach((delay) => {
+      setTimeout(() => {
+        const el = document.getElementById(`msg-${deepLinkMessageId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-2', 'ring-primary');
+          setTimeout(() => el.classList.remove('ring-2', 'ring-primary'), 1600);
+        }
+      }, delay);
+    });
+  }, [deepLinkMessageId, messages.length]);
 
   // Handle showing combined actions sheet (single tap)
   const handleShowActions = React.useCallback((message: Message) => {
@@ -182,7 +220,26 @@ export const MessageList: React.FC<MessageListProps> = ({
     const msgId = activeMessage?.id;
     setShowActionsSheet(false);
     setActiveMessage(null);
-    if (msgId) chatStore.deleteMessage(msgId);
+    if (msgId) {
+      chatStore.deleteMessage(msgId).catch((err) => {
+        console.error('[Chat] delete failed', err);
+        // Surface error visibly instead of just logging
+        window.alert(err?.message || 'Kunne ikke slette meldingen.');
+      });
+    }
+  }, [activeMessage]);
+
+  const handleReply = React.useCallback(() => {
+    if (activeMessage) {
+      chatStore.setReplyTo({
+        id: activeMessage.id,
+        text: activeMessage.text,
+        senderName: activeMessage.senderName,
+        deleted: !!activeMessage.deletedAt,
+      });
+    }
+    setShowActionsSheet(false);
+    setActiveMessage(null);
   }, [activeMessage]);
 
   const handleCopy = React.useCallback(async () => {
@@ -287,6 +344,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           isOwn={activeMessage.senderId === currentUserId}
           onEdit={activeMessage.senderId === currentUserId ? handleEdit : undefined}
           onDelete={activeMessage.senderId === currentUserId ? handleDelete : undefined}
+          onReply={activeMessage.deletedAt ? undefined : handleReply}
           onCopy={handleCopy}
           onReact={handleReact}
           onClose={() => {

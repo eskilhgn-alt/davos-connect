@@ -1,12 +1,20 @@
 /**
- * Chat Types - Extended for reactions, edit, delete, seen-by
- * Backward compatible with existing data
+ * Chat Types – reactions, reply, delivery state, files
  */
 
 export interface SeenByEntry {
   userId: string;
   name: string;
-  seenAt: string; // ISO timestamp
+  seenAt: string;
+}
+
+export type DeliveryState = 'sending' | 'sent' | 'failed';
+
+export interface ReplyPreview {
+  id: string;
+  text: string;
+  senderName: string;
+  deleted?: boolean;
 }
 
 export interface Message {
@@ -16,18 +24,29 @@ export interface Message {
   senderName: string;
   senderId: string;
   attachments: Attachment[];
-  // New fields (optional for backward compat)
   editedAt?: number;
   deletedAt?: number;
-  reactions?: Record<string, string[]>; // emoji -> array of senderIds
-  seenBy?: SeenByEntry[]; // List of users who have seen this message
+  reactions?: Record<string, string[]>; // emoji -> array of userIds (from message_reactions table)
+  seenBy?: SeenByEntry[];
+  replyTo?: ReplyPreview | null;
+  // Client-side only
+  clientId?: string;
+  deliveryState?: DeliveryState;
+  errorMessage?: string;
 }
 
 export interface Attachment {
   id: string;
-  kind: 'image' | 'video' | 'gif';
-  objectUrl: string; // For immediate preview (or gif URL)
-  file?: File; // For pending uploads to storage
+  kind: 'image' | 'video' | 'gif' | 'file';
+  objectUrl: string;
+  file?: File;
+  thumbUrl?: string;
+  filename?: string;
+  mime?: string;
+  size?: number;
+  // For poll cards (existing behavior)
+  poll_id?: string;
+  poll_event?: string;
 }
 
 export interface User {
@@ -38,4 +57,5 @@ export interface User {
 export interface TypingState {
   isTyping: boolean;
   lastTypedAt: number;
+  users?: { id: string; name: string }[];
 }
