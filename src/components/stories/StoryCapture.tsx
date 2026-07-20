@@ -62,6 +62,11 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const chunksRef = React.useRef<Blob[]>([]);
   const holdTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
   const recordTimerRef = React.useRef<ReturnType<typeof setInterval>>();
+  const hardStopTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
+  const recordStartedAtRef = React.useRef<number>(0);
+  const finalDurationRef = React.useRef<number>(0);
+  const capturedUrlRef = React.useRef<string | null>(null);
+  const pendingMetadataUrlRef = React.useRef<string | null>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const drawContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -74,6 +79,8 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     blob: Blob;
     type: "image" | "video";
     url: string;
+    /** Bounded real duration in seconds for videos (1..60). */
+    durationSec?: number;
   } | null>(null);
   const [uploading, setUploading] = React.useState(false);
   const [facingMode, setFacingMode] = React.useState<"user" | "environment">("environment");
@@ -101,6 +108,12 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const dragStartRef = React.useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
 
   const MAX_RECORD_SECS = MAX_STORY_VIDEO_SEC;
+
+  /** Clamp to [1, MAX_RECORD_SECS] and reject non-finite values. */
+  const boundDurationSec = React.useCallback((raw: number): number | null => {
+    if (!Number.isFinite(raw) || raw <= 0) return null;
+    return Math.min(MAX_RECORD_SECS, Math.max(1, Math.ceil(raw)));
+  }, [MAX_RECORD_SECS]);
 
   // ─── Capture mode: photo vs video (declared before camera effect so it
   // can drive whether we request mic permission). ───
