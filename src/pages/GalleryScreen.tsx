@@ -414,7 +414,7 @@ const ViewerSheet: React.FC<{
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const item = items.find((i) => i.id === currentId) ?? null;
 
-  const url = useSignedUrl(item?.storage_bucket ?? "chat-media", item?.storage_path ?? "", null);
+  const { url } = useSignedMedia(item?.storage_bucket ?? "chat-media", item?.storage_path ?? "", null);
 
   // Prefetch neighbours through the shared signed resolver.
   React.useEffect(() => {
