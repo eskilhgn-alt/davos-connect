@@ -349,6 +349,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onLostPointerCapture={handlePointerCancel}
       onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
     >
       <div
