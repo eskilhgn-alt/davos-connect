@@ -213,7 +213,9 @@ export async function resolveMediaUrl(input: {
 /**
  * Batch-sign many paths within the same bucket. Returns map: path → signed URL.
  * Cache hits are returned directly; only missing paths are sent to the signer.
- * Per-file failures are isolated — a bad path never poisons the batch.
+ * Concurrent inflight promises (e.g. from a prior getMediaUrl or overlapping
+ * signBatch) are awaited rather than duplicated. Per-file failures are
+ * isolated — a bad path never poisons the batch.
  */
 export async function signBatch(
   bucket: Bucket,
@@ -223,6 +225,7 @@ export async function signBatch(
   const out = new Map<string, string>();
   if (!isKnownBucket(bucket)) return out;
   const uniq = Array.from(new Set(paths.filter(Boolean)));
+
   const missing: string[] = [];
   for (const p of uniq) {
     const cached = cache.get(keyFor(bucket, p));
@@ -234,15 +237,45 @@ export async function signBatch(
     return out;
   }
   if (missing.length === 0) return out;
-  const rows = await signer(bucket, missing, ttlSec);
-  for (const row of rows) {
-    if (!row.url || row.error) {
-      if (row.error) console.warn('[mediaUrl] sign failed for', bucket, row.path, row.error);
-      continue;
+
+  // Dedupe against existing inflight promises. Only truly-new paths get sent
+  // to the signer; keys already being resolved are reused.
+  const toSign: string[] = [];
+  const awaits: Array<{ p: string; pr: Promise<string> }> = [];
+  for (const p of missing) {
+    const k = keyFor(bucket, p);
+    const existing = inflight.get(k);
+    if (existing) {
+      awaits.push({ p, pr: existing });
+    } else {
+      toSign.push(p);
     }
-    cache.set(keyFor(bucket, row.path), { url: row.url, signedAt: Date.now(), ttlMs: ttlSec * 1000 });
-    out.set(row.path, row.url);
   }
+
+  if (toSign.length > 0) {
+    const batch = signer(bucket, toSign, ttlSec);
+    for (const p of toSign) {
+      const k = keyFor(bucket, p);
+      const per = batch.then((rows) => {
+        const row = rows.find((r) => r.path === p);
+        if (!row || !row.url) throw new Error(row?.error || 'sign failed');
+        cache.set(k, { url: row.url, signedAt: Date.now(), ttlMs: ttlSec * 1000 });
+        return row.url;
+      }).finally(() => {
+        // Only clear our own registration; a later ensureSigned may reset it.
+        if (inflight.get(k) === per) inflight.delete(k);
+      });
+      inflight.set(k, per);
+      awaits.push({ p, pr: per });
+    }
+  }
+
+  const settled = await Promise.allSettled(awaits.map((a) => a.pr));
+  awaits.forEach((a, i) => {
+    const r = settled[i];
+    if (r.status === 'fulfilled') out.set(a.p, r.value);
+    else console.warn('[mediaUrl] sign failed for', bucket, a.p, (r.reason as Error)?.message);
+  });
   return out;
 }
 
