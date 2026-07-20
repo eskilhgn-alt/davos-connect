@@ -14,6 +14,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
+import { reencodeImage } from "@/lib/imageOptimize";
+import { ACTIVE_TRIP } from "@/config/trip";
+import type { CreateRoundInput, CreateRoundResult } from "@/hooks/useRounds";
 
 interface Profile {
   id: string;
@@ -34,17 +37,7 @@ export type DrinkQuantities = Record<string, number>;
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (
-    buyerId: string,
-    drinkType: string,
-    totalCost: number,
-    costPerPerson: number,
-    participantIds: string[],
-    note?: string,
-    drinkQuantities?: DrinkQuantities,
-    receiptImageUrl?: string,
-    isTreated?: boolean
-  ) => Promise<{ error: any }>;
+  onSubmit: (input: CreateRoundInput) => Promise<CreateRoundResult>;
 }
 
 export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit }) => {
@@ -58,12 +51,25 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
   const [receiptFile, setReceiptFile] = React.useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [submitPhase, setSubmitPhase] = React.useState<"idle" | "preparing" | "uploading" | "saving">("idle");
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [profilesError, setProfilesError] = React.useState<string | null>(null);
   const receiptRef = React.useRef<HTMLInputElement>(null);
+  const clientIdRef = React.useRef(crypto.randomUUID());
+  const uploadedReceiptPathRef = React.useRef<string | null>(null);
+
+  const formatMoney = React.useCallback((value: number) => new Intl.NumberFormat("nb-NO", {
+    style: "currency",
+    currency: ACTIVE_TRIP.currency,
+    maximumFractionDigits: 2,
+  }).format(value), []);
 
   React.useEffect(() => {
     if (!open) return;
-    supabase.from("profiles").select("id, full_name, nickname, avatar_url").eq("is_active", true).then(({ data }) => {
-      if (data) setAllProfiles(data);
+    setProfilesError(null);
+    supabase.from("profiles").select("id, full_name, nickname, avatar_url").eq("is_active", true).then(({ data, error }) => {
+      if (error) setProfilesError("Kunne ikke laste deltakere");
+      else if (data) setAllProfiles(data);
     });
     setSelectedUsers(new Set());
     setQuantities({ beer: 0, drink: 0 });
@@ -72,21 +78,41 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
     setNote("");
     setReceiptFile(null);
     setReceiptPreview(null);
+    setSubmitPhase("idle");
+    setSubmitError(null);
+    clientIdRef.current = crypto.randomUUID();
+    uploadedReceiptPathRef.current = null;
   }, [open]);
+
+  React.useEffect(() => {
+    if (!receiptFile) { setReceiptPreview(null); return; }
+    const url = URL.createObjectURL(receiptFile);
+    setReceiptPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [receiptFile]);
+
+  const cleanupUploadedReceipt = React.useCallback(async () => {
+    const path = uploadedReceiptPathRef.current;
+    if (!path) return;
+    uploadedReceiptPathRef.current = null;
+    const { error } = await supabase.storage.from("round-receipts").remove([path]);
+    if (error) console.warn("[rounds] receipt cleanup failed", path, error);
+  }, []);
 
   const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) { errorToast("Kun bilder er tillatt"); return; }
     if (file.size > 10 * 1024 * 1024) { errorToast("Maks 10 MB"); return; }
+    void cleanupUploadedReceipt();
     setReceiptFile(file);
-    setReceiptPreview(URL.createObjectURL(file));
+    setSubmitError(null);
+    e.target.value = "";
   };
 
   const clearReceipt = () => {
     setReceiptFile(null);
-    if (receiptPreview) URL.revokeObjectURL(receiptPreview);
-    setReceiptPreview(null);
+    void cleanupUploadedReceipt();
     if (receiptRef.current) receiptRef.current.value = "";
   };
 
@@ -124,53 +150,65 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
       return;
     }
     setSubmitting(true);
-
-    // Upload receipt if present — new receipts go under <userId>/... so they
-    // match the owner-scoped storage policies.
-    let receiptUrl: string | undefined;
-    if (receiptFile) {
-      const rawExt = (receiptFile.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) || "bin";
-      const path = `${user.id}/${crypto.randomUUID()}.${rawExt}`;
-      const { error: upErr } = await supabase.storage.from("round-receipts").upload(path, receiptFile, {
-        contentType: receiptFile.type || undefined,
-      });
-      if (upErr) {
-        console.warn("Receipt upload failed:", upErr);
-      } else {
-        // Store the storage path (bucket-relative). Consumers resolve via signed URLs.
-        receiptUrl = path;
-      }
-    }
+    setSubmitError(null);
 
     try {
-      const { error } = await onSubmit(
-        user.id,
-        activeDrinkType(),
-        total,
-        perPerson,
-        Array.from(selectedUsers),
-        note || undefined,
-        quantities,
-        receiptUrl,
-        isTreated
-      );
-      setSubmitting(false);
-      if (error) {
-        console.error("Round submit error:", error);
-        errorToast("Kunne ikke registrere runde", { description: error?.message || String(error) });
-      } else {
-        toast.success("Runde registrert! 🍻");
-        onOpenChange(false);
+      let receiptPath = uploadedReceiptPathRef.current || undefined;
+      if (receiptFile && !receiptPath) {
+        setSubmitPhase("preparing");
+        const processed = await reencodeImage(receiptFile, { maxDim: 1800, quality: 0.86, mimeType: "image/jpeg" });
+        if (processed.type !== "image/jpeg" || processed.size === 0 || processed.size > 10 * 1024 * 1024) {
+          throw new Error("Kvitteringen kunne ikke behandles trygt");
+        }
+        const attemptId = crypto.randomUUID();
+        receiptPath = `${user.id}/${attemptId}/receipt.jpg`;
+        setSubmitPhase("uploading");
+        const { error: uploadError } = await supabase.storage.from("round-receipts").upload(receiptPath, processed, {
+          contentType: "image/jpeg",
+        });
+        if (uploadError) throw new Error(`Kvitteringen kunne ikke lastes opp: ${uploadError.message}`);
+        uploadedReceiptPathRef.current = receiptPath;
       }
-    } catch (e: any) {
+
+      setSubmitPhase("saving");
+      const result = await onSubmit({
+        clientId: clientIdRef.current,
+        drinkType: activeDrinkType(),
+        totalCost: total,
+        participantIds: Array.from(selectedUsers),
+        note: note || undefined,
+        drinkQuantities: quantities,
+        receiptPath,
+        isTreated,
+        currency: ACTIVE_TRIP.currency,
+      });
+      if (result.error) {
+        if (result.canCleanupReceipt) await cleanupUploadedReceipt();
+        throw new Error(result.error.message || "Kunne ikke registrere runden");
+      }
+
+      uploadedReceiptPathRef.current = null;
+      toast.success("Runde registrert! 🍻");
+      onOpenChange(false);
+    } catch (e: unknown) {
       console.error("Round submit exception:", e);
-      errorToast("Feil ved registrering", { description: e?.message || "Ukjent feil" });
+      const message = e instanceof Error ? e.message : "Ukjent feil";
+      setSubmitError(message);
+      errorToast("Feil ved registrering", { description: message });
+    } finally {
       setSubmitting(false);
+      setSubmitPhase("idle");
     }
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && submitting) return;
+    if (!nextOpen) void cleanupUploadedReceipt();
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
         <SheetHeader>
           <SheetTitle className="font-heading">Legg til runde</SheetTitle>
@@ -239,11 +277,11 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
           {/* Cost */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <BrandInput label="Totalkostnad (kr)" type="number" inputMode="decimal" placeholder="0" value={totalCost} onChange={(e) => setTotalCost(e.target.value)} />
+              <BrandInput label={`Totalkostnad (${ACTIVE_TRIP.currency})`} type="number" inputMode="decimal" placeholder="0" value={totalCost} onChange={(e) => setTotalCost(e.target.value)} />
             </div>
             <div className="flex flex-col justify-end">
               <div className="h-11 px-3 flex items-center rounded-lg bg-muted/50 border border-border">
-                <span className="text-sm font-heading font-bold text-foreground whitespace-nowrap">{perPerson} kr/pers</span>
+                <span className="text-sm font-heading font-bold text-foreground whitespace-nowrap">{formatMoney(perPerson)}/pers</span>
               </div>
             </div>
           </div>
@@ -315,6 +353,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
               </button>
             </div>
             <div className="space-y-0.5 max-h-[200px] overflow-y-auto rounded-xl border border-border bg-muted/10 p-1.5" style={{ WebkitOverflowScrolling: "touch" }}>
+              {profilesError && <p role="alert" className="p-3 text-sm text-destructive">{profilesError}</p>}
               {allProfiles.map((p) => {
                 const checked = selectedUsers.has(p.id);
                 const name = p.nickname || p.full_name || "Ukjent";
@@ -340,6 +379,11 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
           </div>
 
           {/* Submit */}
+          {submitError && (
+            <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              {submitError}. Opplysningene dine er bevart – prøv igjen.
+            </div>
+          )}
           <button
             onClick={handleSubmit}
             disabled={submitting || selectedUsers.size === 0 || total <= 0 || totalDrinks === 0}
@@ -351,7 +395,12 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
             )}
             style={{ WebkitTapHighlightColor: "transparent" }}
           >
-            {submitting ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "Registrer runde 🍻"}
+            {submitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                {submitPhase === "preparing" ? "Behandler kvittering…" : submitPhase === "uploading" ? "Laster opp…" : "Lagrer…"}
+              </span>
+            ) : "Registrer runde 🍻"}
           </button>
         </div>
       </SheetContent>

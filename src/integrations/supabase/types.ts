@@ -276,7 +276,9 @@ export type Database = {
       debt_settlements: {
         Row: {
           amount: number
+          client_id: string | null
           created_by: string
+          currency: string
           from_user_id: string
           id: string
           note: string | null
@@ -285,7 +287,9 @@ export type Database = {
         }
         Insert: {
           amount: number
+          client_id?: string | null
           created_by: string
+          currency?: string
           from_user_id: string
           id?: string
           note?: string | null
@@ -294,7 +298,9 @@ export type Database = {
         }
         Update: {
           amount?: number
+          client_id?: string | null
           created_by?: string
+          currency?: string
           from_user_id?: string
           id?: string
           note?: string | null
@@ -1081,39 +1087,51 @@ export type Database = {
       rounds: {
         Row: {
           buyer_id: string
+          client_id: string | null
           cost_per_person: number
           created_at: string
+          currency: string
           drink_quantities: Json
           drink_type: string
           id: string
           is_treated: boolean
           note: string | null
+          push_claimed_at: string | null
+          push_sent_at: string | null
           receipt_image_url: string | null
           receipt_uploaded_by: string | null
           total_cost: number
         }
         Insert: {
           buyer_id: string
+          client_id?: string | null
           cost_per_person?: number
           created_at?: string
+          currency?: string
           drink_quantities?: Json
           drink_type: string
           id?: string
           is_treated?: boolean
           note?: string | null
+          push_claimed_at?: string | null
+          push_sent_at?: string | null
           receipt_image_url?: string | null
           receipt_uploaded_by?: string | null
           total_cost?: number
         }
         Update: {
           buyer_id?: string
+          client_id?: string | null
           cost_per_person?: number
           created_at?: string
+          currency?: string
           drink_quantities?: Json
           drink_type?: string
           id?: string
           is_treated?: boolean
           note?: string | null
+          push_claimed_at?: string | null
+          push_sent_at?: string | null
           receipt_image_url?: string | null
           receipt_uploaded_by?: string | null
           total_cost?: number
@@ -2050,6 +2068,20 @@ export type Database = {
       }
     }
     Functions: {
+      create_round_with_participants: {
+        Args: {
+          p_client_id: string
+          p_currency?: string
+          p_drink_quantities?: Json
+          p_drink_type: string
+          p_is_treated?: boolean
+          p_note?: string | null
+          p_participant_ids: string[]
+          p_receipt_path?: string | null
+          p_total_cost: number
+        }
+        Returns: Database["public"]["Tables"]["rounds"]["Row"]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
