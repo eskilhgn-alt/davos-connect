@@ -120,6 +120,8 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const [captureMode, setCaptureMode] = React.useState<"photo" | "video">("photo");
 
   // ─── Camera ───
+  const unmountedRef = React.useRef(false);
+
   const startCamera = React.useCallback(async () => {
     try {
       setCameraError(false);
@@ -134,6 +136,11 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         },
         audio: captureMode === "video",
       });
+      // If the component unmounted between the await and here, drop the stream.
+      if (unmountedRef.current) {
+        stream.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+        return;
+      }
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
 
@@ -144,14 +151,13 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
           await track.applyConstraints({ advanced: [{ zoom: caps.zoom.min } as any] });
         } catch {}
       }
-      setZoomLevel(1);
+      if (!unmountedRef.current) setZoomLevel(1);
     } catch (err) {
+      if (unmountedRef.current) return;
       console.error("[StoryCapture] Camera error:", err);
       setCameraError(true);
     }
   }, [facingMode, captureMode]);
-
-  const unmountedRef = React.useRef(false);
 
   React.useEffect(() => {
     if (mode === "camera") startCamera();
@@ -160,19 +166,36 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     };
   }, [mode, startCamera]);
 
-  // Full component cleanup: stop recorder, tracks, timers; revoke captured URL.
+  // Full component cleanup: stop recorder, tracks, timers; revoke object URLs
+  // (both captured and pending metadata) exactly once via refs so the effect
+  // always sees the latest value.
   React.useEffect(() => {
     return () => {
       unmountedRef.current = true;
-      try { if (recorderRef.current?.state === "recording") recorderRef.current.stop(); } catch { /* ignore */ }
+      try {
+        const r = recorderRef.current;
+        if (r) {
+          r.ondataavailable = null;
+          r.onstop = null;
+          r.onerror = null;
+          if (r.state === "recording") r.stop();
+        }
+      } catch { /* ignore */ }
       streamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
       if (recordTimerRef.current) clearInterval(recordTimerRef.current);
-      if (capturedMedia?.url) { try { URL.revokeObjectURL(capturedMedia.url); } catch { /* ignore */ } }
+      if (hardStopTimerRef.current) clearTimeout(hardStopTimerRef.current);
+      revokeCapturedUrl();
+      const pm = pendingMetadataUrlRef.current;
+      if (pm) {
+        pendingMetadataUrlRef.current = null;
+        try { URL.revokeObjectURL(pm); } catch { /* ignore */ }
+      }
     };
-    // Intentionally run only on unmount.
+    // Intentionally run only on unmount; refs guarantee latest values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   // Apply zoom via video track constraints
   React.useEffect(() => {
