@@ -138,12 +138,28 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     }
   }, [facingMode, captureMode]);
 
+  const unmountedRef = React.useRef(false);
+
   React.useEffect(() => {
     if (mode === "camera") startCamera();
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, [mode, startCamera]);
+
+  // Full component cleanup: stop recorder, tracks, timers; revoke captured URL.
+  React.useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+      try { if (recorderRef.current?.state === "recording") recorderRef.current.stop(); } catch { /* ignore */ }
+      streamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+      if (capturedMedia?.url) { try { URL.revokeObjectURL(capturedMedia.url); } catch { /* ignore */ } }
+    };
+    // Intentionally run only on unmount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Apply zoom via video track constraints
   React.useEffect(() => {
