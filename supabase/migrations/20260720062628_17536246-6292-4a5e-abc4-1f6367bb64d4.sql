@@ -1,0 +1,1 @@
+ALTER TABLE public.message_reactions REPLICA IDENTITY FULL;
