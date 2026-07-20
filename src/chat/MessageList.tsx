@@ -146,21 +146,33 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages.length, scrollToBottom]);
 
-  // Deep-link: scroll to specific message when it exists in state
+  // Deep-link: bounded load-earlier loop until the message is present,
+  // then scroll and briefly highlight.
   React.useEffect(() => {
     if (!deepLinkMessageId) return;
-    const attempts = [50, 250, 800];
-    attempts.forEach((delay) => {
-      setTimeout(() => {
-        const el = document.getElementById(`msg-${deepLinkMessageId}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          el.classList.add('ring-2', 'ring-primary');
-          setTimeout(() => el.classList.remove('ring-2', 'ring-primary'), 1600);
-        }
-      }, delay);
-    });
+    let cancelled = false;
+    (async () => {
+      await chatStore.ensureMessageLoaded(deepLinkMessageId);
+      if (cancelled) return;
+      const attempts = [50, 250, 800];
+      attempts.forEach((delay) => {
+        setTimeout(() => {
+          const el = document.getElementById(`msg-${deepLinkMessageId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-primary');
+            setTimeout(() => el.classList.remove('ring-2', 'ring-primary'), 1600);
+          }
+        }, delay);
+      });
+    })();
+    return () => { cancelled = true; };
   }, [deepLinkMessageId, messages.length]);
+
+  // Channel status for a small, unobtrusive banner
+  const [channelStatus, setChannelStatus] = React.useState<'idle' | 'connecting' | 'connected' | 'reconnecting' | 'offline'>('idle');
+  React.useEffect(() => chatStore.subscribeToChannelStatus(setChannelStatus), []);
+
 
   // Handle showing combined actions sheet (single tap)
   const handleShowActions = React.useCallback((message: Message) => {
