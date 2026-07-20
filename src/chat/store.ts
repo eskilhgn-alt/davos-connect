@@ -597,6 +597,28 @@ async function performSend(clientId: string): Promise<Message | null> {
     pendingByClientId.delete(clientId);
     notify();
 
+    // Mirror media attachments into the normalized attachments table so gallery
+    // sync runs and future consumers can query by (bucket, path). Non-fatal.
+    try {
+      const rows = (uploaded || [])
+        .filter((a) => (a.kind === 'image' || a.kind === 'video' || a.kind === 'gif') && a.storageBucket && a.storagePath)
+        .map((a) => ({
+          message_id: msg.id,
+          type: a.kind,
+          storage_bucket: a.storageBucket!,
+          storage_path: a.storagePath!,
+          thumbnail_path: a.thumbnailPath ?? null,
+          filename: a.filename ?? null,
+          mime_type: a.mime ?? null,
+          file_size: a.size ?? null,
+        }));
+      if (rows.length > 0) {
+        await supabase.from('attachments').insert(rows as never);
+      }
+    } catch (e) {
+      console.warn('[chat] attachments mirror failed', e);
+    }
+
     // Fire push after successful insert (skip on recovered dup, still safe).
     try {
       const { oneSignalService } = await import('@/services/onesignal');
