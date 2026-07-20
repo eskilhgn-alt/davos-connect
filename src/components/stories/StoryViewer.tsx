@@ -198,15 +198,40 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
 
   const holdTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
   const holdRef = React.useRef(false);
+  const gestureRef = React.useRef<{ x: number; y: number; t: number } | null>(null);
 
-  const handlePointerDown = () => {
+  const goNextGroup = React.useCallback(() => {
+    if (groupIdx < groups.length - 1) {
+      setGroupIdx((i) => i + 1);
+      setStoryIdx(0);
+    }
+  }, [groupIdx, groups.length]);
+  const goPrevGroup = React.useCallback(() => {
+    if (groupIdx > 0) {
+      setGroupIdx((i) => i - 1);
+      setStoryIdx(0);
+    }
+  }, [groupIdx]);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
     if (menuOpen || confirmDelete) return;
+    gestureRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
     holdRef.current = false;
     holdTimerRef.current = setTimeout(() => {
       holdRef.current = true;
       setPaused(true);
       if (videoRef.current) videoRef.current.pause();
-    }, 200);
+    }, 220);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!gestureRef.current) return;
+    const dx = e.clientX - gestureRef.current.x;
+    const dy = e.clientY - gestureRef.current.y;
+    // Any real movement cancels the hold timer.
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = undefined; }
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -217,14 +242,26 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     if (menuOpen || confirmDelete) return;
     if (holdRef.current) {
       setPaused(false);
-      if (videoRef.current) videoRef.current.play();
+      if (videoRef.current) videoRef.current.play().catch(() => {});
       holdRef.current = false;
+      gestureRef.current = null;
       return;
     }
-    holdRef.current = false;
+    const start = gestureRef.current;
+    gestureRef.current = null;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    if (x < rect.width / 3) goPrev(); else goNext();
+    const dx = start ? e.clientX - start.x : 0;
+    const dy = start ? e.clientY - start.y : 0;
+    const durationMs = start ? Date.now() - start.t : 0;
+    const g = classifyGesture({
+      dx, dy, durationMs,
+      width: rect.width,
+      startX: (start?.x ?? e.clientX) - rect.left,
+    });
+    if (g === "swipe-left") goNextGroup();
+    else if (g === "swipe-right") goPrevGroup();
+    else if (g === "tap-left") goPrev();
+    else if (g === "tap-right" || g === "none") goNext();
   };
 
   const handleClose = React.useCallback((e: React.MouseEvent | React.PointerEvent | KeyboardEvent) => {
