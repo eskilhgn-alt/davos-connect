@@ -184,19 +184,18 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
   state.loading = true;
   const limit = beforeCursor ? PAGE_SIZE : INITIAL_PAGE;
 
-  // Deterministic (created_at DESC, id DESC) ordering with (created_at,id) cursor.
-  // We select limit+1 candidates and drop entries not strictly before the cursor
-  // client-side, because PostgREST does not support composite tuple comparison.
+  // Deterministic (created_at DESC, id DESC) ordering.
+  // Composite cursor is expressed server-side via a PostgREST .or() filter so
+  // rows sharing the same created_at cannot cause skips or repeats.
   let q = supabase
     .from('messages')
     .select('*')
     .eq('thread_id', DEFAULT_THREAD_ID)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
-    .limit(limit + (beforeCursor ? 5 : 0));
+    .limit(limit);
   if (beforeCursor) {
-    // Loose filter (<=) then strict filter client-side.
-    q = q.lte('created_at', new Date(beforeCursor.createdAt).toISOString());
+    q = q.or(buildBeforeCursorOrFilter(beforeCursor));
   }
   const { data, error } = await q;
   state.loading = false;
@@ -206,7 +205,8 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
   }
   const rows = (data || []) as unknown as Record<string, unknown>[];
   const messages = rows.map(dbToMessage);
-  // Apply strict cursor filter client-side.
+  // Belt-and-suspenders: enforce strict-before-cursor on the client too, in
+  // case some future proxy relaxes the predicate.
   let filtered = messages;
   let filteredRows = rows;
   if (beforeCursor) {
@@ -221,21 +221,20 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
     filtered = keep;
     filteredRows = keepRows;
   }
-  const pageSlice = filtered.slice(0, limit);
-  const pageRowsSlice = filteredRows.slice(0, limit);
-  await fetchReplyPreviews(pageSlice, pageRowsSlice);
-  for (const m of pageSlice) state.byId.set(m.id, m);
-  const newCursor = oldestCursor(pageSlice.length ? pageSlice : []);
+  await fetchReplyPreviews(filtered, filteredRows);
+  for (const m of filtered) state.byId.set(m.id, m);
+  const newCursor = oldestCursor(filtered.length ? filtered : []);
   if (newCursor) {
     if (!state.cursor || isBeforeCursor(newCursor, state.cursor)) {
       state.cursor = newCursor;
     }
   }
-  // If the raw query already returned fewer rows than the limit, there is nothing older.
+  // If the query returned fewer rows than the limit, there is nothing older.
   state.hasMore = messages.length >= limit;
-  await fetchReactionsFor(pageSlice.map((m) => m.id));
-  return pageSlice.length;
+  await fetchReactionsFor(filtered.map((m) => m.id));
+  return filtered.length;
 }
+
 
 export async function loadEarlier(): Promise<{ loaded: number; hasMore: boolean }> {
   if (state.loading || !state.hasMore || state.cursor == null) {
