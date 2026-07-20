@@ -708,11 +708,16 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       if (uploadErr) throw uploadErr;
       uploadedPath = path;
 
+      // Persist the bounded real duration (never the counter).
+      const persistDuration = capturedMedia.type === "video"
+        ? (capturedMedia.durationSec ?? boundDurationSec(finalDurationRef.current) ?? 1)
+        : 0;
+
       const { data: inserted, error: insertErr } = await supabase.from("stories").insert({
         user_id: user.id,
         storage_path: path,
         type: capturedMedia.type,
-        duration_sec: capturedMedia.type === "video" ? recordTime : 0,
+        duration_sec: persistDuration,
       }).select("id").maybeSingle();
       if (insertErr) throw insertErr;
 
@@ -738,7 +743,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       }
 
       toast.success("Story publisert! 🎉");
-      URL.revokeObjectURL(capturedMedia.url);
+      revokeCapturedUrl();
       onPublished();
     } catch (err: any) {
       console.error("Publish error:", err);
