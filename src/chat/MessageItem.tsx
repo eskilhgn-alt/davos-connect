@@ -87,6 +87,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   if (message.deletedAt) {
     return (
       <div
+        id={`msg-${message.id}`}
         className={cn(
           'flex flex-col gap-1 px-4 py-1',
           isOwn ? 'items-end' : 'items-start'
@@ -110,11 +111,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
   return (
     <div
+      id={`msg-${message.id}`}
       className={cn(
         'flex flex-col gap-1 px-4 py-1',
         isOwn ? 'items-end' : 'items-start'
       )}
     >
+
       {/* Sender name - show for all messages */}
       {showSender && (
         <span className={cn(
