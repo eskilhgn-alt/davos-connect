@@ -226,8 +226,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           return (
             <div className={cn('px-1', isOwn ? 'flex justify-end' : '')}>
               <ChatPollCard
-                pollId={(pollAtt as any).poll_id}
-                pollEvent={(pollAtt as any).poll_event}
+                pollId={(pollAtt as { poll_id?: string }).poll_id}
+                pollEvent={(pollAtt as { poll_event?: string }).poll_event}
                 messageText={message.text}
               />
             </div>
