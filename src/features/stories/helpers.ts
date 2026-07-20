@@ -224,4 +224,45 @@ export function nextGroupTarget(
   return { groupIndex: nextIdx, storyIndex: firstUnviewedIndex(groups[nextIdx]) };
 }
 
+// ---- Pointer release ordering ------------------------------------------------
+export type PointerReleasePhase = "up" | "cancel" | "lost";
+export interface PointerReleaseInput {
+  phase: PointerReleasePhase;
+  /** true when we ourselves called releasePointerCapture (up-driven). */
+  isExplicitRelease: boolean;
+  hasHold: boolean;
+}
+export interface PointerReleaseDecision {
+  classify: boolean;
+  clearGesture: boolean;
+  resumeVideo: boolean;
+  releaseCapture: boolean;
+}
+/**
+ * Deterministic decision for what pointer-release should do. `up` classifies
+ * the gesture and resumes video only if a hold was active. `cancel` / `lost`
+ * caused by our own explicit release (during up) must be no-ops — the up-path
+ * already handled state. Real cancel/lost from the browser always cleans up.
+ */
+export function resolvePointerRelease(i: PointerReleaseInput): PointerReleaseDecision {
+  if (i.phase === "up") {
+    return {
+      classify: !i.hasHold,
+      clearGesture: true,
+      resumeVideo: i.hasHold,
+      releaseCapture: true,
+    };
+  }
+  if (i.isExplicitRelease) {
+    return { classify: false, clearGesture: false, resumeVideo: false, releaseCapture: false };
+  }
+  return {
+    classify: false,
+    clearGesture: true,
+    resumeVideo: i.hasHold,
+    releaseCapture: true,
+  };
+}
+
+
 

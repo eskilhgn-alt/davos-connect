@@ -1,162 +1,161 @@
-# GüttaHütte – teknisk revisjon (read-only)
+# Gallery Slice 4 + StoryViewer pointer regression
 
-Kilder: 3 parallelle utforskninger av hovedgrenens siste commit. Bygg/lint/tester kjørt read-only. Ingen filer, DB eller publisering endret. Klassifisering: **A** verifisert i kode, **B** implementert men skjør/ufullstendig, **C** legacy tilstede men uten UI, **D** mangler.
+Two independent workstreams. No production publish. No bucket privacy flip. No changes to existing rows/objects. Migrations only if a genuinely absent column is required for feature parity.
 
-`bunx tsgo --noEmit` ✅ 0 feil. `bunx vitest run` ✅ 5 filer / 20 tester. `bunx eslint` ❌ **175 errors + 21 warnings** (mest `no-explicit-any` og auto-generert `mcp/index.ts`). Vite-build ikke kjørt (unngår `dist/`-mutasjon).
+## A) StoryViewer pointer-release ordering (small, first)
 
----
+`handlePointerUp` currently calls `releasePointer(e)` before consuming `gestureRef.current`. Explicit release synchronously fires `onLostPointerCapture` → `handlePointerCancel` clears `gestureRef` and hold — so the up-classifier sees empty state and swipe/tap can misfire.
 
-## 1. Auth
+Fix in `src/components/stories/StoryViewer.tsx`:
+1. Snapshot `gestureRef.current` and `holdRef.current` at the top of `handlePointerUp`.
+2. Set a `suppressCancelRef` flag while releasing; `handlePointerCancel` early-returns when set (still handles real cancel/lost).
+3. Release pointer AFTER computing gesture and dispatching nav.
+4. `pointercancel`/`lostpointercapture` (real, not our own release) must still clear hold, resume video, reset refs — as today.
+5. Controls remain excluded via `data-story-control`.
 
-| Område | Klasse | Kilde |
-|---|---|---|
-| Login (`signInWithPassword`) | A | `AuthContext.tsx`, `AuthScreen.tsx:106` |
-| Session-stabilitet (retry, ingen auto-logout) | A | `AuthContext.tsx:129-224` |
-| Logout | A | `HomeScreen.tsx:88` |
-| Passordreset – rute+handler | B | `/reset-password` finnes (`App.tsx:113`, `ResetPasswordScreen.tsx`), men `handleForgotPassword` er fjernet fra `AuthScreen.tsx` → **ingen UI-inngang** til å bestille reset |
-| E-postverifisering | **C dobbel-system** | `send-verification-email` + `verify-email` + `VerifyEmailScreen` finnes, men aldri kalt fra signup. Reell gate er manuell admin (`profiles.email_verified` flippes i `AdminUserList.tsx:67`). `SECURITY.md:25` beskriver Resend-flyt som ikke lenger er aktiv |
-| Obligatorisk profilbilde | A | `ProtectedRoute` i `App.tsx:80` + submit-gate |
-| Ansvarsfraskrivelse-checkbox | B | Render bekreftet; håndhevelse i `handleSignup` ikke bekreftet (åpent) |
-| Ban-gate | A | `App.tsx:88-96` |
-| Rate limiting | B | `useAuthRateLimit.ts` er klient-only (15/2 min), `SECURITY.md` sier 5/5 min → doc-drift, og ingen serversidebeskyttelse |
+New pure helper in `src/features/stories/helpers.ts`: `resolvePointerRelease({phase, isExplicitRelease, hasHold})` returning `{ resumeVideo, clearGesture, releaseCapture }`. Regression tests in `src/features/stories/__tests__/qa-regressions.test.ts`:
+- explicit-release-during-up preserves gesture for classification
+- real pointercancel always clears+resumes
+- lost-capture during move (no up) clears+resumes
 
-## 2. Ruting og PWA-skall
+## B) Gallery Slice 4
 
-- 4-fanet `BottomNavigation` (Hjem/Chat/Kart/Mer): **A**.
-- `/magnus` fortsatt tilstede som `<Navigate to="/crew">` – **C** (skulle vært helt fjernet per prosjektkunnskap).
-- `/shot`, `/tokens`, `/regler`, `/casino`, `/nodinfo` redirect → `/hjem` (A, som forventet), men underliggende sider (`ShotScreen.tsx`, `TokensScreen.tsx`, `ShotStatusCard`, `ShotTransparency`, `RulesScreen.tsx`, `ChecklistScreen.tsx`) kompilerer fortsatt og bidrar til lint/bundle: **C**.
-- `BackButton.tsx:25` bruker alltid `navigate(fallback, {replace:true})` – riktig oppførsel, men filens egen JSDoc påstår `history.back()` (doc-mismatch, **B**).
-- `FloatingHomeButton.tsx`: **null bruksteder** – **C dead**.
-- OAuth-consent-rute (`/.lovable/oauth/consent`) bruker beta-API via `unknown`-cast: **B**, funksjonell men utypede kall.
-- Manifest: én 512×512-ikon, ingen maskable/192px – **B minimalt**.
-- Service worker: kun OneSignal SW; ingen app-cache – offline er **D** utover `OfflineIndicator`-banner.
-- iOS-keyboard: `useVisualViewport` mounter kun i `ChatScreen.tsx:22` og setter `--vvh/--vvo/--kb`. `--app-height` er statisk `100dvh` i CSS og oppdateres aldri. Resten av appen bruker `var(--app-height)` og faller ned til `100dvh` – funker, men matcher ikke `docs/UX.md`/mem-beskrivelsen: **B doc-drift**.
-- Head-metadata i `index.html`: riktig tittel/description/OG, ikke maldefaults – **A**. CSP/Permissions-Policy er *ikke* satt som meta (kommentaren i filen sier de må være HTTP-headere) → avhengig av vertens headere; ikke verifisert.
-- Pull-to-refresh, ErrorBoundary, OfflineIndicator, `useGlobalPwaHardening`: **A**.
+### Architecture split
 
-## 3. Chat
+Current `src/pages/GalleryScreen.tsx` (~537 lines, monolithic) becomes:
 
-| Aspekt | Klasse | Bevis |
-|---|---|---|
-| Realtime | B | `chat/store.ts:108-127` gjør full `fetchMessages()` (limit 500) ved hvert `*`-event, ingen inkrementell patch, ingen egen reconnect/backoff |
-| Optimistisk send | **D** | `store.ts:137-256` awaiter insert; UI oppdateres kun etter refetch |
-| Offline-kø / retry | **D** | Ikke funnet |
-| Paginering | **D** | Hardcoded `.limit(500)` uten cursor/«last mer» |
-| Uleste + `chat_reads` | A | `useMarkAsRead.ts` (debounced upsert) |
-| Sett-av / read-receipts | A | `MessageActionsSheet.tsx:43-85` |
-| Typing indicator | **C misledende** | `store.ts:319-351` sender **lokalt CustomEvent** – aldri broadcastet til andre klienter, men UI (`TypingBubble`) later som det er delt |
-| Reaksjoner | A | `store.ts:281-317` (optimistisk lock, 3 retries) |
-| Reply (parent/thread) | **D** | Ingen kolonne/UI |
-| Edit / soft delete | A | `edited_at` / `deleted_at` |
-| Vedlegg image/GIF/emoji | A | `chat-media`, `GiphyPicker`+`giphy-proxy`, `EmojiPicker` |
-| PDF / vilkårlig fil | **D** | `types.ts` støtter kun `image\|video\|gif` |
-| Push-deep-link | B | `send-push-notification/index.ts:136` → `/chat` uten `message_id` |
-| iOS-keyboard scroll-lock | A | `useVisualViewport` + `chat-lock` klasse |
-| Moderasjon / RLS | **B kritisk** | `messages` DELETE-policy krever kun `auth.uid() IS NOT NULL` – enhver autentisert bruker kan slette hvilken som helst melding (`20260206103419...sql:23-43`). Samme for UPDATE. |
+```text
+src/features/gallery/
+  types.ts                    GalleryRow, ProfileLite, CommentRow, CursorKey
+  helpers.ts                  pure logic (cursor merge, optimistic like/comment, delete-decision, poster-fallback)
+  useGalleryFeed.ts           cursor pagination + incremental realtime + errors
+  useGalleryLikes.ts          optimistic like/unlike w/ request identity
+  useGalleryComments.ts       paginated + optimistic + retry per item
+  useGalleryUpload.ts         phased upload w/ per-attempt path ownership + cleanup
+  components/
+    GridThumb.tsx
+    UploadSheet.tsx           preview + caption + phases
+    ViewerSheet.tsx           fullscreen with swipe/keys/prefetch
+    CommentSheet.tsx
+    DeleteDialog.tsx
+  __tests__/
+    helpers.test.ts           (regressions)
+src/pages/GalleryScreen.tsx   thin composition, keeps route
+```
 
-## 4. Media (galleri + stories)
+No parallel gallery implementation — the page still lives at `/galleri` and reuses the same DB schema.
 
-- `gallery_items` sync fra chat: **A** insert; men `GalleryScreen.tsx:74-91` **gjetter bucket** basert på `source_message_id` → **B skjør**.
-- Chat lager `_thumb.jpg` og lagrer bare i `attachments.thumbUrl` – ikke i `gallery_items` schema, så galleri-feed rendrer alltid full-res: **B**.
-- Captions: **D**.
-- Delete/download/lightbox/realtime: **A**.
-- Stories: capture, viewer, ring, likes (`story_likes`), 24h expiry (`expires_at DEFAULT now()+24h`), viewer-liste: **A**.
-- Vidvinkel-linsevalg + prefetch (per mem-note): **D** – kun `facingMode`-toggle.
-- EXIF-scrubbing: ikke funnet eksplisitt (canvas-reencode via `imageThumb` fjerner det de-facto): åpent.
+### Fetch/list (cursor pagination)
 
-## 5. Push
+- Order: `created_at desc, id desc`. Initial page 30, "Last inn mer" fetches next 30 using composite cursor via `.or("created_at.lt.<t>,and(created_at.eq.<t>,id.lt.<uuid>)")`.
+- Realtime: `gallery_items` INSERT prepends; UPDATE merges by id; DELETE removes by id. `gallery_likes`/`gallery_comments` update only affected item state (like set add/remove; comment count / list append).
+- Errors on gallery/profile/like batch queries → visible retry state (Norwegian: "Kunne ikke laste galleri" + "Prøv igjen"), no silent empty grid.
+- 14 existing rows unchanged.
 
-- OneSignal-init: App ID **hardkodet** i `src/services/onesignal.ts:8`; `VITE_ONESIGNAL_APP_ID` refereres kun i feilmelding → **B doc/env-drift**.
-- SW-filer i `public/push/onesignal/`, `scope: /push/onesignal/`: A.
-- Token-lagring: dobbeltskriving til `members.push_token` (legacy) og `push_tokens` (`onesignal.ts:194-299`); `send-push-notification` slår sammen begge → **B to sannheter**.
-- Kanaler: `send-push-notification` (chat), `poll-push`, `round-push`, `shot-push`, `roomie-draw`, `broadcast-reinstall`, `notify-admin-new-user`. Alle verifisert kaller `api.onesignal.com/notifications`.
-- **Ingen proximity/«dawg»-push** funnet i src eller edge functions – **fjernet, A**.
-- Deep-links: alle rute-nivå, aldri item/message-nivå – **B**.
-- Duplikatundertrykkelse: kun chat bruker `collapse_id: thread_${thread_id}`. Poll/round/shot har ingen cooldown/collapse → potensielt spam-vindu, **B**.
-- Admin-verktøy `AdminPushTools`: **A**, men in-code-kommentar er utdatert (RLS ble senere åpnet for admin).
+### Upload UX
 
-## 6. E-post
+`UploadSheet` opens on `+`:
+- Choose image or video via one input.
+- Preview (image `<img>`, video `<video playsInline muted>`).
+- Caption textarea (max 500, char counter).
+- Cancel / Del.
+- Phases: `Forbereder… → Laster opp… → Publiserer…`.
 
-- Kun én funksjon bruker Resend: `send-verification-email`. Avsender = **Resend sandbox `onboarding@resend.dev`** (`:112`) → leveranse-risiko på ekte konto, **B**.
-- Ingen egendefinert domene, ingen `email_events`/webhook-logg – **D**.
-- `broadcast-reinstall/index.ts:105` har kommentar `// Email sending removed` og returnerer *ikke* `emails_sent`, men UI-toasten `AdminAnnouncements.tsx:77` skriver `E-post: ${result.emails_sent}` → vises som `E-post: undefined`. **C legacy + UI-mismatch**.
-- Supabase-native auth-e-poster: ingen `[auth.email]`-blokk i `config.toml`; må verifiseres i prosjektinnstillinger.
+Validation:
+- size > 0 and ≤ 20 MB after re-encode.
+- MIME allowlist for images (`image/jpeg|png|webp|heic|heif|gif`) and video (`video/mp4|webm|quicktime`).
+- After re-encode revalidate blob size/type.
+- Images: `reencodeImage` → JPEG max 2000px q0.9 (strips EXIF via canvas). Thumbnail via `createThumbnail`.
+- Video: read metadata; try poster from seeked frame; on failure store `thumbnail_path=null` and rely on `posterFallback` helper (Play icon on gradient tile) — never `<img src="">`.
 
-## 7. Sekundærfunksjoner
+Path ownership: track `uploadedPaths: string[]` in an attempt-scoped ref. On any failure, `supabase.storage.from(bucket).remove(paths)` only those paths. Never touch historical objects. Cleanup errors → toast warning, still surface original failure.
 
-Agenda, polls, roomies, rounds, gruppe/profil, admin, faktasjekker, kart+lokasjons-opt-in, vær (Open-Meteo + Meteo-France-link), webcams, MCP: alle rutet og har relevante RPC-er/edge functions → **A** for grunnfunksjonalitet (proven end-to-end krever manuell test).
+Insert into `gallery_items` with `caption, uploaded_by, storage_bucket='chat-media', storage_path, thumbnail_path, type, mime_type, size_bytes, width, height`. All columns exist — no migration needed.
 
-## 8. Datalag
+### Viewer
 
-- Edge functions (17 stk, alle `verify_jwt=false` per `supabase/config.toml`): admin-delete-user, admin-reset-password, notify-admin-new-user, broadcast-reinstall, award-points, ski-daily-award, shot-push, shot-fairness-check, poll-push, round-push, roomie-draw, send-push-notification, faktasjekker, giphy-proxy, send-verification-email, verify-email, mcp. Fire av dem (**`award-points`, `shot-push`, `shot-fairness-check`, `ski-daily-award`**) betjener fjernet gamification-UI, men er fortsatt deployert og eksternt kallbare – **C legacy angrepsflate**. Intern JWT-validering per funksjon er ikke individuelt gjennomgått.
-- Migrasjoner: 75 filer, ingen destruktive fanget, men grep var ikke uttømmende (åpent).
-- RLS: bekreftet enabled på ~25+ tabeller via migrasjonstekst. `poll_options`, `round_participants`, `bug_reports` og storage-bucket-policies dukket **ikke** opp i grep – trenger live `pg_policies`-query for å lukke.
-- **GRANT-statements**: 0 treff for `GRANT ... TO authenticated` i migrasjoner. Trolig avhengig av Supabase default-grants, men bør verifiseres live.
-- Realtime-publikasjon inkluderer fortsatt `shot_events`, `shot_event_log`, `ski_daily_vertical/awards`, `ski_speed_records`, `ski_track_points` – legacy-kanaler live selv om UI-en er dødredirigert: **C**.
-- **SECURITY DEFINER uten `SET search_path`**: én migrasjon uten den (`20260206103453_...sql`) – **kritisk** å inspisere; ellers privilege-eskalering via search_path-hijack.
-- **RLS på `messages`**: UPDATE og DELETE tillater enhver autentisert bruker mot enhver rad – **kritisk misconfig** (se §3).
+`ViewerSheet` (fullscreen dialog):
+- Prev/next arrows (desktop), horizontal swipe (mobile) — reuse `classifyGesture`.
+- Keyboard: `ArrowLeft`/`ArrowRight`/`Escape`.
+- Loading skeleton until signed URL resolves; error → visible retry.
+- Prefetch neighbors via `signBatch([prev, next])`.
+- Videos: `<video controls playsInline preload="metadata">`; images: `<img>` `object-contain`.
+- No `publicUrl` fallback when `storage_path` exists.
+- Single close (top-right X). 44px targets. `aria-*` labels.
+- Bottom panel: avatar + name, timestamp, caption, like heart + count, comment icon opening `CommentSheet`.
 
-## 9. Bygg / lint / tester
+### Likes
 
-- `tsgo --noEmit`: 0 feil ✅
-- `vitest run`: 20/20 ✅
-- `eslint`: 175 errors + 21 warnings – 6× `no-var` i auto-generert `supabase/functions/mcp/index.ts` (ikke actionable), resten dominert av `no-explicit-any` i edge functions (`award-points` 8×, `shot-fairness-check` 9×, `roomie-draw`, `round-push`, `send-verification-email`, `broadcast-reinstall`) og døde sider (`ShotScreen`, `TokensScreen`, `RoundsScreen:106`, `onesignal.ts:79,111,125`), `tailwind.config.ts:151` `no-require-imports`.
-- 0 TODO/FIXME i src/ og edge functions.
+`useGalleryLikes`:
+- Optimistic toggle updates `Set<userId>` immediately.
+- Track `requestId` per item; only apply server result if request is latest.
+- Unique-constraint violation on insert (duplicate like) treated as success.
+- On network error → rollback + toast.
+- Realtime INSERT/DELETE merges into set (idempotent).
 
-## 10. Davos-/legacy-strenger
+### Comments
 
-- `DAVOS_CENTER`/`DAVOS`-aliaser i `config/mountains.ts:30`, `config/locations.ts:27`, `SkiRouteMap.tsx:36,82` – kosmetisk **C**.
-- `/* === DAVOS PRIMARY COLORS === */`-kommentar i `index.css:29`.
-- Migrasjon: seed-rad `('davos_agg', ...)` – historisk, harmløs.
-- `docs/SECURITY.md` og `docs/UX.md` refererer stale komponenter (`DavosWebEmbed`, Resend-verifisering, keyboard-hook-navn) som ikke matcher kode – **doc-drift**.
-- Ingen treff på `siscontrol`, `meteoswiss`, `slf`, `chf`, `casino` som aktiv kode.
-- Fortsatt tilstede men uten UI: `Monsterrunde`-strenger i `ShotScreen`/`ShotStatusCard`/`ShotTransparency`.
+`CommentSheet`:
+- Sheet from bottom, textarea + send button.
+- Paginated: initial 30, "Last inn eldre" upward using created_at asc cursor.
+- Optimistic append with `client_id` (uuid, generated locally). No schema change — client_id lives in local state only, matched to server row by (user_id, body, created_at±) or replaced when realtime INSERT arrives (dedupe helper).
+- Failed comment stays with `state: 'failed'` + Retry button; input NOT cleared until an optimistic row visibly owns the draft.
+- Max 500 chars, honest counter.
+- Realtime INSERT/DELETE incremental.
 
----
+### Delete
 
-## Prioritert opprydding
+`DeleteDialog` (AlertDialog):
+- Only owner or admin sees delete button.
+- If `source_message_id || source_story_id`: title "Fjern fra galleri" + body "Original i chat/stories forblir." Deletes only DB row.
+- Else (direct upload): "Slett fra galleri" + body "Bildet fjernes permanent." Deletes DB row, then `storage.remove([storage_path, thumbnail_path].filter)`. Best-effort; cleanup error → warn toast, DB delete already succeeded.
+- Never `window.confirm`.
+- On success: if the deleted item was open in viewer, close viewer; realtime DELETE will remove from grid.
 
-### Kritisk (sikkerhet/data-integritet)
-1. **Stram `messages` RLS**: UPDATE/DELETE må kreve `sender_id = auth.uid()` (evt. `OR is_admin(auth.uid())`). I dag kan enhver innlogget bruker slette/endre alles meldinger.
-2. **Verifiser `SECURITY DEFINER`-funksjon uten `SET search_path`** i `20260206103453_...sql` – legg til `SET search_path = public` hvis den mangler.
-3. **JWT-validering i edge functions**: bekreft at hver `verify_jwt=false`-funksjon (spesielt `admin-delete-user`, `admin-reset-password`, `broadcast-reinstall`, `notify-admin-new-user`) selv validerer caller og admin-rolle.
-4. **Live RLS/GRANT-audit** via `supabase--read_query` mot `pg_policies` og `information_schema.role_table_grants` for `poll_options`, `round_participants`, `bug_reports`, `storage.objects`. Bekreft at ingen tabell er «lockdown by mistake» eller «wide open by mistake».
-5. **Riv ned legacy gamification-flate**: enten slett eller lås ned `award-points`, `shot-push`, `shot-fairness-check`, `ski-daily-award` (eksternt kallbare i dag); fjern `shot_events`, `shot_event_log`, `ski_*` fra `supabase_realtime`-publikasjonen.
+### Helpers (pure, tested)
 
-### Høyt (kjernefunksjonalitet)
-6. **Chat-refetch → inkrementell**: håndter INSERT/UPDATE/DELETE-events direkte mot lokal state i stedet for `.limit(500)` refetch. Legg til cursor-paginering.
-7. **Chat: optimistic send + retry-kø** slik at meldinger ikke føles trege og overlever midlertidig nettbrudd.
-8. **Typing indicator**: enten broadcast reelt (Supabase `presence`/`broadcast`) eller fjern `TypingBubble`-illusjonen.
-9. **E-postverifisering**: velg én sannhet. Enten koble `send-verification-email`/`verify-email` inn i signup, eller slett dem sammen med `VerifyEmailScreen.tsx` og oppdater `SECURITY.md`.
-10. **Passord-glemt-inngang**: legg tilbake UI-trigger i `AuthScreen` som kaller eksisterende `resetPassword()` (rute + handler finnes allerede).
-11. **`AdminAnnouncements.tsx:77`**: fjern `E-post: ${result.emails_sent}` eller gjenopprett e-post-branch i `broadcast-reinstall`.
-12. **Resend-avsender**: bytt fra `onboarding@resend.dev` til verifisert domene før noe transaksjons-mail sendes ut i produksjon.
+`mergeCursorPage(existing, incoming)` — dedupe by id, keep desc order.
+`applyOptimisticLike(state, itemId, userId, action)` + `shouldApplyLikeResult(currentReq, resultReq)`.
+`applyOptimisticComment(list, draft)` + `replaceOptimisticWithServer(list, serverRow)`.
+`decideDeleteMode(item)` → `'direct' | 'derived'`.
+`videoPosterFallback(item)` → `{ useFallback: boolean }`.
+`nextViewerIndex(list, currentId, dir)`.
 
-### Middels (opprydding og drift)
-13. Slett død UI-kode: `ShotScreen.tsx`, `TokensScreen.tsx`, `ShotStatusCard.tsx`, `ShotTransparency.tsx`, `RulesScreen.tsx`, `ChecklistScreen.tsx`, `FloatingHomeButton.tsx` (0 kallere).
-14. Fjern `/magnus`-ruten – prosjektkunnskapen sier den skal vekk.
-15. Rens `DAVOS_CENTER`/`DAVOS`-aliaser og kommentar i `index.css:29`.
-16. Konsolider push-token-lagring til `push_tokens` alene; deprecate `members.push_token`.
-17. Les OneSignal App ID fra `VITE_ONESIGNAL_APP_ID` (fjern hardkodet konstant).
-18. Legg til `collapse_id`/cooldown i `poll-push`, `round-push`, `shot-push`(hvis den fortsatt lever) for å hindre spam.
-19. Push-deep-links: inkluder `?message_id`/`?poll_id` og scroll-til-mål ved åpning.
-20. `BackButton.tsx` JSDoc: rett kommentaren så den matcher `replace:true`-oppførselen.
-21. `useAuthRateLimit.ts` vs `SECURITY.md`: bring i overensstemmelse (5/5 eller 15/2 – ta et valg) og vurder server-side kontroll.
-22. Manifest: legg til 192px + maskable ikon.
+### Tests
 
-### Lav (dokumentasjon / kosmetisk)
-23. Oppdater `docs/SECURITY.md`, `docs/UX.md`, `docs/LEGACY.md` til å matche implementasjon (verifiseringsflyt, keyboard-hooks, `DavosWebEmbed`-referanse).
-24. Rydd `no-explicit-any` i edge functions (typesnitt fra Supabase-payloads); ekskluder `supabase/functions/mcp/index.ts` fra ESLint (auto-generert).
-25. Kaptions-felt på `gallery_items` + gjenbruk thumbnail fra chat i galleri-feed.
-26. Vurder `PDF/fil`-vedleggstype hvis det faktisk er ønsket – i dag mangler det helt.
+Add `src/features/gallery/__tests__/helpers.test.ts` covering:
+- cursor merge dedupe and ordering
+- optimistic like rollback + stale-result guard
+- comment optimistic → server replace, failed retry preserves draft
+- upload cleanup path ownership (only attempt-owned paths removed)
+- direct vs derived delete decision
+- video poster fallback when metadata errors
+- viewer nav prev/next wrap behavior
 
----
+Plus StoryViewer helper tests noted above.
 
-## Åpne spørsmål før implementasjon
+Target: total tests **> 123**.
 
-- Skal legacy shot/token/ski-tabeller og edge functions **slettes** eller **arkiveres i live-DB men fjernes fra publikasjon+deploy**? Prosjektkunnskap sier «arkiver, ikke drop».
-- E-postverifisering: manuell admin-godkjenning (som i dag) beholdes som eneste sannhet, eller skal Resend/token-flyten reaktiveres?
-- Er `LocationSharingProvider` med vilje kun mountet i `AppLayout` (ikke `ChatLayout`)?
-- CSP/Permissions-Policy: settes disse som HTTP-headere hos hosten? Hvis ikke, må vi legge dem inn.
+### Verification commands
 
-Ved godkjenning starter jeg med kritisk-listen (§1-5) i én PR-serie før jeg tar høyt/middels.
+```
+bunx vitest run
+tsgo --noEmit
+bun run build
+```
+
+Lint only changed files.
+
+### Data safety
+
+Before/after `SELECT count(*)` from `profiles, messages, attachments, gallery_items, gallery_likes, gallery_comments, stories`; and storage object counts via API. All must match. Bucket flags unchanged. No migrations executed unless a required column proves genuinely missing (spoiler: schema already supports caption/uploader/type/mime/size/thumbnail — none needed).
+
+### Out of scope
+
+Chat, auth, push, AI, rounds, location, bucket privacy flip, production publish.
+
+## Deliverable order
+
+1. StoryViewer pointer fix + helper + tests.
+2. Gallery helpers + hooks + component split + tests.
+3. Run full suite / typecheck / build. Report exact counts and DB baselines.
