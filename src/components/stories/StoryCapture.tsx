@@ -100,29 +100,30 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const dragStartRef = React.useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
 
-  const MAX_RECORD_SECS = 60;
+  const MAX_RECORD_SECS = MAX_STORY_VIDEO_SEC;
+
+  // ─── Capture mode: photo vs video (declared before camera effect so it
+  // can drive whether we request mic permission). ───
+  const [captureMode, setCaptureMode] = React.useState<"photo" | "video">("photo");
 
   // ─── Camera ───
   const startCamera = React.useCallback(async () => {
     try {
       setCameraError(false);
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      // Only request microphone in video mode — photo mode must never surprise-prompt.
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode,
           width: { ideal: 1920 },
           height: { ideal: 1080 },
-          // Request widest possible field of view
-          ...(typeof MediaStreamTrack !== 'undefined' && {
-            resizeMode: 'none',
-          }),
+          ...(typeof MediaStreamTrack !== 'undefined' && { resizeMode: 'none' }),
         },
-        audio: true,
+        audio: captureMode === "video",
       });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
 
-      // Force widest angle: set zoom to minimum
       const track = stream.getVideoTracks()[0];
       const caps = track?.getCapabilities?.() as any;
       if (caps?.zoom) {
@@ -135,7 +136,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       console.error("[StoryCapture] Camera error:", err);
       setCameraError(true);
     }
-  }, [facingMode]);
+  }, [facingMode, captureMode]);
 
   React.useEffect(() => {
     if (mode === "camera") startCamera();
