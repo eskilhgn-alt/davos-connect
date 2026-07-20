@@ -280,28 +280,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       {message.attachments?.some((a) => a.kind === 'file') && (
         <div className={cn('flex flex-col gap-1 max-w-[75%]', isOwn ? 'items-end' : 'items-start')}>
           {message.attachments.filter((a) => a.kind === 'file').map((att) => (
-            <a
-              key={att.id}
-              href={att.objectUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              download={att.filename || ''}
-              onClick={(e) => e.stopPropagation()}
-              className={cn(
-                'flex items-center gap-2 rounded-2xl px-3 py-2 border',
-                isOwn ? 'bg-primary text-primary-foreground border-primary/40' : 'bg-muted border-border'
-              )}
-              aria-label={`Last ned ${att.filename || 'fil'}`}
-            >
-              <FileText size={20} className="flex-none" />
-              <div className="min-w-0">
-                <p className="text-sm truncate">{att.filename || 'Fil'}</p>
-                {att.size !== undefined && (
-                  <p className="text-[11px] opacity-75">{Math.ceil((att.size || 0) / 1024)} kB</p>
-                )}
-              </div>
-              <Download size={14} className="flex-none opacity-70" />
-            </a>
+            <FileAttachmentItem key={att.id} att={att} isOwn={isOwn} />
           ))}
         </div>
       )}
