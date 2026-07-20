@@ -17,8 +17,11 @@ import {
   attachmentsNeedingUpload,
   isDuplicateKeyError,
   mapReplyPreview,
+  sanitizeExtension,
+  buildBeforeCursorOrFilter,
   type Cursor,
 } from './logic';
+
 
 const DEFAULT_THREAD_ID = '00000000-0000-0000-0000-000000000001';
 const INITIAL_PAGE = 50;
@@ -135,6 +138,10 @@ async function fetchReactionsFor(messageIds: string[]) {
     console.warn('[chat] fetchReactionsFor failed:', error);
     return;
   }
+  // Mark every requested message as normalized-source-resolved, even if zero
+  // rows came back. This makes the normalized table durably authoritative and
+  // prevents legacy JSONB from reviving on reload once it has been superseded.
+  for (const mid of messageIds) state.everHadNormalized.add(mid);
   for (const r of data || []) {
     let map = state.reactionsByMessage.get(r.message_id);
     if (!map) {
@@ -142,9 +149,9 @@ async function fetchReactionsFor(messageIds: string[]) {
       state.reactionsByMessage.set(r.message_id, map);
     }
     map.set(r.user_id, r.emoji);
-    state.everHadNormalized.add(r.message_id);
   }
 }
+
 
 // ============ Reply expansion ============
 async function fetchReplyPreviews(messages: Message[], rows: Record<string, unknown>[]) {
@@ -177,19 +184,18 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
   state.loading = true;
   const limit = beforeCursor ? PAGE_SIZE : INITIAL_PAGE;
 
-  // Deterministic (created_at DESC, id DESC) ordering with (created_at,id) cursor.
-  // We select limit+1 candidates and drop entries not strictly before the cursor
-  // client-side, because PostgREST does not support composite tuple comparison.
+  // Deterministic (created_at DESC, id DESC) ordering.
+  // Composite cursor is expressed server-side via a PostgREST .or() filter so
+  // rows sharing the same created_at cannot cause skips or repeats.
   let q = supabase
     .from('messages')
     .select('*')
     .eq('thread_id', DEFAULT_THREAD_ID)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
-    .limit(limit + (beforeCursor ? 5 : 0));
+    .limit(limit);
   if (beforeCursor) {
-    // Loose filter (<=) then strict filter client-side.
-    q = q.lte('created_at', new Date(beforeCursor.createdAt).toISOString());
+    q = q.or(buildBeforeCursorOrFilter(beforeCursor));
   }
   const { data, error } = await q;
   state.loading = false;
@@ -199,7 +205,8 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
   }
   const rows = (data || []) as unknown as Record<string, unknown>[];
   const messages = rows.map(dbToMessage);
-  // Apply strict cursor filter client-side.
+  // Belt-and-suspenders: enforce strict-before-cursor on the client too, in
+  // case some future proxy relaxes the predicate.
   let filtered = messages;
   let filteredRows = rows;
   if (beforeCursor) {
@@ -214,21 +221,20 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
     filtered = keep;
     filteredRows = keepRows;
   }
-  const pageSlice = filtered.slice(0, limit);
-  const pageRowsSlice = filteredRows.slice(0, limit);
-  await fetchReplyPreviews(pageSlice, pageRowsSlice);
-  for (const m of pageSlice) state.byId.set(m.id, m);
-  const newCursor = oldestCursor(pageSlice.length ? pageSlice : []);
+  await fetchReplyPreviews(filtered, filteredRows);
+  for (const m of filtered) state.byId.set(m.id, m);
+  const newCursor = oldestCursor(filtered.length ? filtered : []);
   if (newCursor) {
     if (!state.cursor || isBeforeCursor(newCursor, state.cursor)) {
       state.cursor = newCursor;
     }
   }
-  // If the raw query already returned fewer rows than the limit, there is nothing older.
+  // If the query returned fewer rows than the limit, there is nothing older.
   state.hasMore = messages.length >= limit;
-  await fetchReactionsFor(pageSlice.map((m) => m.id));
-  return pageSlice.length;
+  await fetchReactionsFor(filtered.map((m) => m.id));
+  return filtered.length;
 }
+
 
 export async function loadEarlier(): Promise<{ loaded: number; hasMore: boolean }> {
   if (state.loading || !state.hasMore || state.cursor == null) {
@@ -270,8 +276,23 @@ function applyUpdate(row: Record<string, unknown>) {
   const existing = state.byId.get(msg.id);
   if (existing?.replyTo) msg.replyTo = existing.replyTo;
   state.byId.set(msg.id, msg);
+  // Propagate edits / soft-deletes to any already-loaded replies quoting this
+  // source, so their reply preview does not stay stale.
+  const newPreview = mapReplyPreview(msg.id, {
+    id: msg.id,
+    text: msg.text,
+    senderName: msg.senderName,
+    deletedAt: msg.deletedAt ? new Date(msg.deletedAt).toISOString() : null,
+  });
+  for (const [otherId, other] of state.byId) {
+    if (otherId === msg.id) continue;
+    if (other.replyTo && other.replyTo.id === msg.id) {
+      state.byId.set(otherId, { ...other, replyTo: newPreview });
+    }
+  }
   notify();
 }
+
 function applyDelete(row: Record<string, unknown>) {
   const id = row.id as string;
   if (!id) return;
@@ -385,9 +406,10 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
     return { ...att, file: undefined };
   }
   const file = att.file;
-  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const ext = sanitizeExtension(file.name);
   const fileId = crypto.randomUUID();
   const path = `${senderId}/${fileId}.${ext}`;
+
 
   let thumbUrl: string | undefined;
   if (att.kind === 'image' && file.type.startsWith('image/')) {
@@ -419,21 +441,30 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
 }
 
 /**
- * Upload only what still needs uploading. Mutates the pending item in place so
- * subsequent retries never re-upload already-persisted attachments.
+ * Upload only what still needs uploading. Persists each individual success
+ * back to the pending item immediately, so a later retry never re-uploads
+ * something that already succeeded on a previous attempt.
  */
 async function uploadAttachmentsForPending(p: PendingSend): Promise<Attachment[]> {
-  const needsUpload = attachmentsNeedingUpload(p.attachments);
-  const alreadyDone = attachmentsAlreadyUploaded(p.attachments);
-  const uploaded = await Promise.all(needsUpload.map((a) => uploadOne(a, p.senderId)));
-  // Merge back preserving original order by id.
+  // Snapshot original order.
+  const originalOrder = p.attachments.map((a) => a.id);
+  // Work sequentially so per-item persistence is trivially correct.
+  for (const att of [...p.attachments]) {
+    const stillPending = attachmentsNeedingUpload([att]).length > 0;
+    if (!stillPending) continue;
+    const uploaded = await uploadOne(att, p.senderId);
+    // Rewrite the single entry in place, preserving order.
+    p.attachments = p.attachments.map((a) => (a.id === att.id ? uploaded : a));
+  }
+  const done = attachmentsAlreadyUploaded(p.attachments);
   const byId = new Map<string, Attachment>();
-  [...alreadyDone, ...uploaded].forEach((a) => byId.set(a.id, a));
-  const merged = p.attachments.map((a) => byId.get(a.id) || a);
-  // Persist metadata so future retries skip these uploads.
+  done.forEach((a) => byId.set(a.id, a));
+  // Reconstruct in original order.
+  const merged = originalOrder.map((id) => byId.get(id) || p.attachments.find((a) => a.id === id)!);
   p.attachments = merged;
   return merged;
 }
+
 
 export async function sendMessage(
   text: string,
@@ -600,17 +631,41 @@ export async function deleteMessage(messageId: string): Promise<void> {
 // ============ Reactions (table-backed) ============
 export async function toggleReaction(messageId: string, emoji: string): Promise<void> {
   const uid = await getCurrentUserId();
-  const current = state.reactionsByMessage.get(messageId)?.get(uid);
+  let map = state.reactionsByMessage.get(messageId);
+  const current = map?.get(uid);
   if (current === emoji) {
+    // Optimistic remove.
+    if (map) {
+      map.delete(uid);
+      state.everHadNormalized.add(messageId);
+      notify();
+    }
     const { error } = await supabase.from('message_reactions').delete().eq('message_id', messageId).eq('user_id', uid);
-    if (error) throw error;
+    if (error) {
+      // Roll back on failure.
+      if (map && current) map.set(uid, current);
+      notify();
+      throw error;
+    }
     return;
   }
+  // Optimistic upsert.
+  if (!map) { map = new Map(); state.reactionsByMessage.set(messageId, map); }
+  const prev = map.get(uid);
+  map.set(uid, emoji);
+  state.everHadNormalized.add(messageId);
+  notify();
   const { error } = await supabase
     .from('message_reactions')
     .upsert({ message_id: messageId, user_id: uid, emoji }, { onConflict: 'message_id,user_id' });
-  if (error) throw error;
+  if (error) {
+    if (prev === undefined) map.delete(uid);
+    else map.set(uid, prev);
+    notify();
+    throw error;
+  }
 }
+
 
 // ============ Reply state ============
 export function setReplyTo(preview: ReplyPreview | null) {

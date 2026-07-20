@@ -12,8 +12,11 @@ import {
   attachmentsNeedingUpload,
   attachmentsAlreadyUploaded,
   isSorted,
+  sanitizeExtension,
+  buildBeforeCursorOrFilter,
 } from '@/chat/logic';
 import type { Attachment } from '@/chat/types';
+
 
 describe('chat/logic — pagination cursor & merge/order', () => {
   it('is strictly before by (createdAt, id) tiebreaker', () => {
@@ -146,5 +149,77 @@ describe('chat/logic — idempotent retry helpers', () => {
     ];
     expect(attachmentsNeedingUpload(atts).map((a) => a.id)).toEqual(['a', 'c']);
     expect(attachmentsAlreadyUploaded(atts).map((a) => a.id)).toEqual(['b']);
+  });
+});
+
+describe('chat/logic — composite server-side cursor predicate', () => {
+  it('builds a PostgREST .or() expression with a strict-before-tiebreaker AND clause', () => {
+    const iso = '2026-07-20T06:00:00.000Z';
+    const expr = buildBeforeCursorOrFilter({ createdAt: Date.parse(iso), id: 'mid-42' });
+    expect(expr).toBe(`created_at.lt.${iso},and(created_at.eq.${iso},id.lt.mid-42)`);
+  });
+
+  it('paginating a collision set larger than a page produces neither skips nor repeats', () => {
+    // Simulate 12 messages all sharing the same created_at, ids sortable descending.
+    const sharedTs = Date.parse('2026-07-20T06:00:00.000Z');
+    const ids = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'];
+    const rows = ids.map((id) => ({ id, createdAt: sharedTs }));
+    const pageSize = 4;
+
+    // Emulate server behavior: for each cursor, return rows strictly-before-cursor
+    // ordered by (createdAt desc, id desc), limited to pageSize.
+    const pageBefore = (cursor: { createdAt: number; id: string } | null) => {
+      const candidates = rows
+        .filter((r) => (cursor ? isBeforeCursor(r, cursor) : true))
+        .sort((a, b) => (a.createdAt !== b.createdAt ? b.createdAt - a.createdAt : (a.id < b.id ? 1 : -1)));
+      return candidates.slice(0, pageSize);
+    };
+
+    // Page 1 = newest window
+    const p1 = pageBefore(null);
+    expect(p1.map((r) => r.id)).toEqual(['l', 'k', 'j', 'i']);
+    const c1 = oldestCursor(p1)!;
+    const p2 = pageBefore(c1);
+    expect(p2.map((r) => r.id)).toEqual(['h', 'g', 'f', 'e']);
+    const c2 = oldestCursor(p2)!;
+    const p3 = pageBefore(c2);
+    expect(p3.map((r) => r.id)).toEqual(['d', 'c', 'b', 'a']);
+    const c3 = oldestCursor(p3)!;
+    const p4 = pageBefore(c3);
+    expect(p4).toEqual([]);
+
+    const allSeen = [...p1, ...p2, ...p3].map((r) => r.id).sort();
+    expect(allSeen).toEqual([...ids].sort());
+    // No repeats.
+    expect(new Set(allSeen).size).toBe(ids.length);
+  });
+});
+
+describe('chat/logic — extension sanitization', () => {
+  it('lowercases and strips non-alphanumerics, caps length, falls back to bin', () => {
+    expect(sanitizeExtension('foo.PNG')).toBe('png');
+    expect(sanitizeExtension('foo.jp-eg')).toBe('jpeg');
+    expect(sanitizeExtension('foo.longerthan8ext')).toBe('longerth');
+    expect(sanitizeExtension('noext')).toBe('bin');
+    expect(sanitizeExtension('foo.')).toBe('bin');
+    expect(sanitizeExtension('foo.!@#')).toBe('bin');
+    expect(sanitizeExtension(undefined)).toBe('bin');
+  });
+});
+
+describe('chat/logic — reaction fallback durability semantics', () => {
+  // Simulate the store rule: a successful normalized fetch (even with zero rows)
+  // must mark the message as normalized-resolved forever after.
+  it('after a normalized fetch returns zero rows, legacy JSONB never revives', () => {
+    // Before any fetch — legacy is visible.
+    let hasEver = false;
+    const legacy = { '🔥': ['u1'] };
+    expect(resolveReactions(legacy, undefined, hasEver)).toEqual(legacy);
+
+    // Simulate the store marking hasEver=true after a successful (zero-row) fetch.
+    hasEver = true;
+    expect(resolveReactions(legacy, undefined, hasEver)).toBeUndefined();
+    // And a reload that returns zero rows again does not revive it.
+    expect(resolveReactions(legacy, new Map(), hasEver)).toBeUndefined();
   });
 });

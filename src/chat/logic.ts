@@ -145,6 +145,32 @@ export function attachmentsAlreadyUploaded(atts: Attachment[]): Attachment[] {
   return atts.filter((a) => !a.file && a.objectUrl && !a.objectUrl.startsWith('blob:'));
 }
 
+/**
+ * Sanitize a filename extension to a short alphanumeric allowlist so it is
+ * always safe to embed in a storage path. Falls back to "bin".
+ */
+export function sanitizeExtension(filename: string | undefined | null): string {
+  if (!filename) return 'bin';
+  const dot = filename.lastIndexOf('.');
+  if (dot < 0 || dot === filename.length - 1) return 'bin';
+  const raw = filename.slice(dot + 1).toLowerCase();
+  const clean = raw.replace(/[^a-z0-9]/g, '');
+  if (!clean) return 'bin';
+  return clean.slice(0, 8);
+}
+
+/**
+ * Build a PostgREST .or() filter string that expresses:
+ *   created_at < cursor.created_at
+ *   OR (created_at = cursor.created_at AND id < cursor.id)
+ */
+export function buildBeforeCursorOrFilter(cursor: Cursor): string {
+  const iso = new Date(cursor.createdAt).toISOString();
+  // PostgREST .or() takes a comma-separated expression list. The and(...) group
+  // is composite. Values do not need URL encoding here — supabase-js encodes them.
+  return `created_at.lt.${iso},and(created_at.eq.${iso},id.lt.${cursor.id})`;
+}
+
 // ---------- Fake ordering property tests ----------
 /** Convenience for tests: check that a list is sorted ascending by (createdAt,id). */
 export function isSorted(list: Array<{ createdAt: number; id: string }>): boolean {
@@ -153,3 +179,4 @@ export function isSorted(list: Array<{ createdAt: number; id: string }>): boolea
   }
   return true;
 }
+
