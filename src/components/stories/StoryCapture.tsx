@@ -792,7 +792,12 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   );
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={mode === "camera" ? "Ta ny story" : "Forhåndsvisning av story"}
+      className="fixed inset-0 z-50 bg-black flex flex-col"
+    >
       {/* Hidden file input fallback */}
       <input
         ref={fileInputRef}
