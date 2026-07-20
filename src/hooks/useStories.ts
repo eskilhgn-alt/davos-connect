@@ -144,33 +144,46 @@ export function useStories() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchStories]);
 
+  // Ref mirror of `groups` so markViewed can read a deterministic snapshot
+  // without relying on in-updater mutation (which is not concurrent-safe).
+  const groupsRef = React.useRef<StoryGroup[]>([]);
+  React.useEffect(() => { groupsRef.current = groups; }, [groups]);
+
   /**
    * Mark a story as viewed. Optimistically flips local `viewed`/`hasUnviewed`;
-   * rolls back on a non-duplicate error.
+   * rolls back on non-duplicate errors and returns { ok, error } so callers
+   * can show a non-disruptive warning.
    */
-  const markViewed = React.useCallback(async (storyId: string) => {
-    if (!user) return;
-    // Snapshot previous state for rollback.
-    let prevViewed: boolean | null = null;
+  const markViewed = React.useCallback(async (
+    storyId: string,
+  ): Promise<{ ok: boolean; error?: string }> => {
+    if (!user) return { ok: false, error: "no_user" };
+
+    // Deterministic pre-state lookup from the ref snapshot.
+    let alreadyViewed = false;
+    let found = false;
+    for (const g of groupsRef.current) {
+      const s = g.stories.find((x) => x.id === storyId);
+      if (s) { found = true; alreadyViewed = s.viewed; break; }
+    }
+    if (!found) return { ok: false, error: "not_found" };
+    if (alreadyViewed) return { ok: true };
+
+    // Optimistic flip.
     setGroups((prev) => prev.map((g) => {
       const idx = g.stories.findIndex((s) => s.id === storyId);
       if (idx < 0) return g;
-      const story = g.stories[idx];
-      if (story.viewed) { prevViewed = true; return g; }
-      prevViewed = false;
       const nextStories = g.stories.slice();
-      nextStories[idx] = { ...story, viewed: true };
+      nextStories[idx] = { ...nextStories[idx], viewed: true };
       return { ...g, stories: nextStories, hasUnviewed: nextStories.some((s) => !s.viewed) };
     }));
-    if (prevViewed) return; // already viewed
 
     const { error: err } = await supabase
       .from("story_views")
       .insert({ story_id: storyId, user_id: user.id });
-    // 23505 = duplicate → treat as success.
     if (err && (err as { code?: string }).code !== "23505") {
       console.warn("[stories] markViewed failed:", err);
-      // Rollback optimistic flip.
+      // Rollback only stories we actually flipped.
       setGroups((prev) => prev.map((g) => {
         const idx = g.stories.findIndex((s) => s.id === storyId);
         if (idx < 0) return g;
@@ -178,7 +191,9 @@ export function useStories() {
         nextStories[idx] = { ...nextStories[idx], viewed: false };
         return { ...g, stories: nextStories, hasUnviewed: true };
       }));
+      return { ok: false, error: err.message };
     }
+    return { ok: true };
   }, [user]);
 
   /**
