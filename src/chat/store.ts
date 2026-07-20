@@ -397,36 +397,66 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
     return { ...att, file: undefined };
   }
   const file = att.file;
-  const ext = sanitizeExtension(file.name);
+  const rawExt = sanitizeExtension(file.name);
   const fileId = crypto.randomUUID();
-  const path = `${senderId}/${fileId}.${ext}`;
+  const bucket: 'chat-media' = 'chat-media';
 
-
-  let thumbUrl: string | undefined;
-  if (att.kind === 'image' && file.type.startsWith('image/')) {
+  // Re-encode images through canvas to strip EXIF; keep videos/gifs as-is.
+  let uploadBlob: Blob = file;
+  let uploadMime = file.type;
+  let ext = rawExt;
+  if (att.kind === 'image' && file.type.startsWith('image/') && file.type !== 'image/gif') {
     try {
-      const { createThumbnail } = await import('@/utils/imageThumb');
-      const result = await createThumbnail(file);
-      const thumbPath = `${senderId}/${fileId}_thumb.jpg`;
-      await supabase.storage.from('chat-media').upload(thumbPath, result.thumbBlob, { contentType: 'image/jpeg' });
-      const { data: thumbData } = supabase.storage.from('chat-media').getPublicUrl(thumbPath);
-      thumbUrl = thumbData.publicUrl;
+      const { reencodeImage } = await import('@/lib/imageOptimize');
+      uploadBlob = await reencodeImage(file, { maxDim: 2000, quality: 0.9, mimeType: 'image/jpeg' });
+      uploadMime = 'image/jpeg';
+      ext = 'jpg';
     } catch (e) {
-      console.warn('[chat] thumb failed', e);
+      console.warn('[chat] image re-encode failed, falling back to original', e);
     }
   }
 
-  const { error } = await supabase.storage.from('chat-media').upload(path, file, { contentType: file.type });
+  const path = `${senderId}/${fileId}.${ext}`;
+  let thumbUrl: string | undefined;
+  let thumbnailPath: string | undefined;
+
+  // Thumbnail for images and videos. Failure is non-fatal — a proper fallback
+  // renders in MessageItem when a thumbnail path/url isn't available.
+  try {
+    const { createThumbnail, createVideoThumbnail } = await import('@/utils/imageThumb');
+    let thumbBlob: Blob | null = null;
+    if (att.kind === 'image' && file.type.startsWith('image/')) {
+      thumbBlob = (await createThumbnail(file)).thumbBlob;
+    } else if (att.kind === 'video' && file.type.startsWith('video/')) {
+      try { thumbBlob = (await createVideoThumbnail(file)).thumbBlob; } catch { /* codec/CORS — fallback UI covers this */ }
+    }
+    if (thumbBlob) {
+      thumbnailPath = `${senderId}/${fileId}_thumb.jpg`;
+      const { error: thumbErr } = await supabase.storage.from(bucket).upload(thumbnailPath, thumbBlob, { contentType: 'image/jpeg' });
+      if (thumbErr) { thumbnailPath = undefined; }
+      else {
+        const { data: thumbData } = supabase.storage.from(bucket).getPublicUrl(thumbnailPath);
+        thumbUrl = thumbData.publicUrl;
+      }
+    }
+  } catch (e) {
+    console.warn('[chat] thumb failed', e);
+  }
+
+  const { error } = await supabase.storage.from(bucket).upload(path, uploadBlob, { contentType: uploadMime });
   if (error) throw new Error(`Opplasting feilet: ${error.message}`);
-  const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
+  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
   return {
     id: att.id,
     kind: att.kind,
     objectUrl: urlData.publicUrl,
     thumbUrl,
     filename: file.name,
-    mime: file.type,
-    size: file.size,
+    mime: uploadMime,
+    size: uploadBlob.size,
+    storageBucket: bucket,
+    storagePath: path,
+    thumbnailPath,
     // file is intentionally omitted so retries do not re-upload.
   };
 }
