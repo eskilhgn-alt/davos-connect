@@ -115,6 +115,15 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     return Math.min(MAX_RECORD_SECS, Math.max(1, Math.ceil(raw)));
   }, [MAX_RECORD_SECS]);
 
+  /** Revoke the latest captured object URL exactly once. */
+  const revokeCapturedUrl = React.useCallback(() => {
+    const u = capturedUrlRef.current;
+    if (!u) return;
+    capturedUrlRef.current = null;
+    try { URL.revokeObjectURL(u); } catch { /* ignore */ }
+  }, []);
+
+
   // ─── Capture mode: photo vs video (declared before camera effect so it
   // can drive whether we request mic permission). ───
   const [captureMode, setCaptureMode] = React.useState<"photo" | "video">("photo");
