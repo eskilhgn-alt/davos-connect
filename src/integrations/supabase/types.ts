@@ -359,6 +359,7 @@ export type Database = {
       gallery_comments: {
         Row: {
           body: string
+          client_id: string | null
           created_at: string
           id: string
           item_id: string
@@ -367,6 +368,7 @@ export type Database = {
         }
         Insert: {
           body: string
+          client_id?: string | null
           created_at?: string
           id?: string
           item_id: string
@@ -375,6 +377,7 @@ export type Database = {
         }
         Update: {
           body?: string
+          client_id?: string | null
           created_at?: string
           id?: string
           item_id?: string
