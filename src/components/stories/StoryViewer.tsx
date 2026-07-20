@@ -499,11 +499,19 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           </div>
         )}
 
-        {story.type === "video" ? (
+        {/* Only render media once the signed resolver has produced a URL.
+            We must NOT fall back to story.publicUrl while a storagePath exists —
+            that would leak the private object through a stale public URL. */}
+        {!media.url && !mediaError && (
+          <div className="absolute inset-0 flex items-center justify-center text-white/60 text-sm">
+            Laster…
+          </div>
+        )}
+        {media.url && (story.type === "video" ? (
           <video
             ref={videoRef}
-            key={story.id}
-            src={media.url || story.publicUrl}
+            key={story.id + ":" + media.url}
+            src={media.url}
             autoPlay
             playsInline
             muted
@@ -531,8 +539,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           />
         ) : (
           <img
-            key={story.id}
-            src={media.url || story.publicUrl}
+            key={story.id + ":" + media.url}
+            src={media.url}
             alt=""
             className={cn("w-full h-full object-cover transition-opacity", mediaLoaded ? "opacity-100" : "opacity-0")}
             draggable={false}
@@ -546,7 +554,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
               }
             }}
           />
-        )}
+        ))}
       </div>
 
       <div
