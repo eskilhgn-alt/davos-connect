@@ -47,6 +47,8 @@ export const StoriesScreen: React.FC = () => {
     const target = searchParams.get("story");
     if (!target || loading) return;
     if (deepLinkOpenedRef.current === target) return;
+    // Do not clear if the fetch failed — user can retry.
+    if (error) return;
 
     const loc = findStoryLocation(groups, target);
     if (loc) {
@@ -57,15 +59,16 @@ export const StoriesScreen: React.FC = () => {
       const next = new URLSearchParams(searchParams);
       next.delete("story");
       setSearchParams(next, { replace: true });
-    } else if (groups.length > 0) {
-      // Groups loaded but target not present — expired or invalid.
+    } else {
+      // Loaded successfully but target absent (expired/invalid or empty feed).
       deepLinkOpenedRef.current = target;
       toast.info("Denne storyen er ikke lenger tilgjengelig");
       const next = new URLSearchParams(searchParams);
       next.delete("story");
       setSearchParams(next, { replace: true });
     }
-  }, [groups, loading, searchParams, setSearchParams]);
+  }, [groups, loading, error, searchParams, setSearchParams]);
+
 
   const getThumbUrl = (story: { publicUrl: string }) => story.publicUrl;
 
