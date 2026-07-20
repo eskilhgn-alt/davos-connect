@@ -1,10 +1,9 @@
 /**
- * MessageItem - Single message bubble with reactions, edit, actions
- * Tap for actions, double-tap for seen-by (PWA-friendly, no long-press)
+ * MessageItem - Single message bubble with reply, delivery state, reactions.
  */
 
 import * as React from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, AlertCircle, RotateCw, FileText, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Message } from './types';
 import { ReactionsRow } from './ReactionsRow';
