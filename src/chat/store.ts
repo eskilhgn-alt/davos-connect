@@ -631,17 +631,41 @@ export async function deleteMessage(messageId: string): Promise<void> {
 // ============ Reactions (table-backed) ============
 export async function toggleReaction(messageId: string, emoji: string): Promise<void> {
   const uid = await getCurrentUserId();
-  const current = state.reactionsByMessage.get(messageId)?.get(uid);
+  let map = state.reactionsByMessage.get(messageId);
+  const current = map?.get(uid);
   if (current === emoji) {
+    // Optimistic remove.
+    if (map) {
+      map.delete(uid);
+      state.everHadNormalized.add(messageId);
+      notify();
+    }
     const { error } = await supabase.from('message_reactions').delete().eq('message_id', messageId).eq('user_id', uid);
-    if (error) throw error;
+    if (error) {
+      // Roll back on failure.
+      if (map && current) map.set(uid, current);
+      notify();
+      throw error;
+    }
     return;
   }
+  // Optimistic upsert.
+  if (!map) { map = new Map(); state.reactionsByMessage.set(messageId, map); }
+  const prev = map.get(uid);
+  map.set(uid, emoji);
+  state.everHadNormalized.add(messageId);
+  notify();
   const { error } = await supabase
     .from('message_reactions')
     .upsert({ message_id: messageId, user_id: uid, emoji }, { onConflict: 'message_id,user_id' });
-  if (error) throw error;
+  if (error) {
+    if (prev === undefined) map.delete(uid);
+    else map.set(uid, prev);
+    notify();
+    throw error;
+  }
 }
+
 
 // ============ Reply state ============
 export function setReplyTo(preview: ReplyPreview | null) {
