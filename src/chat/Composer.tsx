@@ -65,30 +65,32 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
     adjustHeight();
   }, [text, adjustHeight]);
 
-  // Typing indicator
+  // Typing indicator via realtime broadcast
   const handleTextChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
-    chatStore.setTyping(true);
-  }, []);
+    if (user) {
+      const name = profile?.nickname || profile?.full_name || 'Noen';
+      chatStore.setTyping(true, { id: user.id, name });
+    }
+  }, [user, profile]);
 
-  // Handle send
+  // Handle send – idempotent, non-blocking after enqueue
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed && attachments.length === 0) return;
+    if (sending) return;
+    setSending(true);
 
-    Promise.resolve(onSend(trimmed, attachments)).catch((err) => {
-      console.error("[Composer] Send failed:", err);
-    });
+    Promise.resolve(onSend(trimmed, attachments))
+      .catch((err) => { console.error('[Composer] Send failed:', err); })
+      .finally(() => setSending(false));
+
+    // Clear immediately so user can keep typing the next message.
     setText('');
     setAttachments([]);
-    chatStore.setTyping(false);
-    
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
-  // Handle key press
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -96,27 +98,50 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
     }
   };
 
-  // Handle file selection
+  // Handle media selection (images/video)
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
-
     const newAttachments: Attachment[] = [];
-    
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      if (file.size > MAX_FILE_SIZE) {
+        errorToast(new Error('Filen er for stor (maks 20 MB).'), { title: 'Vedlegg' });
+        continue;
+      }
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
-
-      const objectUrl = URL.createObjectURL(file);
       newAttachments.push({
         id: crypto.randomUUID(),
         kind: file.type.startsWith('video/') ? 'video' : 'image',
-        objectUrl,
+        objectUrl: URL.createObjectURL(file),
         file,
       });
     }
-
     setAttachments((prev) => [...prev, ...newAttachments]);
   };
+
+  // Handle generic file/PDF selection
+  const handleDocs = (files: FileList | null) => {
+    if (!files) return;
+    const newAttachments: Attachment[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > MAX_FILE_SIZE) {
+        errorToast(new Error('Filen er for stor (maks 20 MB).'), { title: 'Vedlegg' });
+        continue;
+      }
+      newAttachments.push({
+        id: crypto.randomUUID(),
+        kind: 'file',
+        objectUrl: URL.createObjectURL(file),
+        file,
+        filename: file.name,
+        mime: file.type,
+        size: file.size,
+      });
+    }
+    setAttachments((prev) => [...prev, ...newAttachments]);
+  };
+
 
   // Remove attachment
   const removeAttachment = (id: string) => {
