@@ -80,11 +80,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     const targets: Array<{ path: string; type: "image" | "video" }> = [];
     if (storyIdx < group.stories.length - 1) {
       const s = group.stories[storyIdx + 1];
-      targets.push({ path: s.storagePath, type: s.mediaType === "video" ? "video" : "image" });
+      targets.push({ path: s.storagePath, type: s.type === "video" ? "video" : "image" });
     }
     if (groupIdx < groups.length - 1) {
       const s = groups[groupIdx + 1].stories[0];
-      targets.push({ path: s.storagePath, type: s.mediaType === "video" ? "video" : "image" });
+      targets.push({ path: s.storagePath, type: s.type === "video" ? "video" : "image" });
     }
     if (targets.length === 0) return;
     signBatch("stories", targets.map((t) => t.path)).then((map) => {
