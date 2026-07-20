@@ -115,8 +115,9 @@ export const StoriesScreen: React.FC = () => {
               groups={groups}
               loading={loading}
               onAddStory={() => setCaptureOpen(true)}
-              onOpenStory={(idx) => openStory(idx, 0)}
+              onOpenStory={(idx) => openStory(idx)}
             />
+
 
             {groups.length === 0 ? (
               <BrandEmptyState
