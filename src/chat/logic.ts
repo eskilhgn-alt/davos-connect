@@ -4,6 +4,47 @@
  */
 
 import type { Attachment, Message, ReplyPreview } from './types';
+import { parsePublicStorageUrl, type Bucket } from '@/lib/mediaUrl';
+
+/**
+ * Given an incoming attachment payload (from messages.attachments JSONB),
+ * derive stable (storageBucket, storagePath, thumbnailPath) fields. If the
+ * payload already has stable fields we keep them; otherwise we try to parse
+ * them from the legacy public objectUrl/thumbUrl. Never throws — legacy
+ * attachments without a parseable URL simply keep their fallback URLs.
+ */
+export function normalizeAttachment(a: Record<string, unknown>): Attachment {
+  const kind = (a.kind as Attachment['kind']) || 'image';
+  const objectUrl = (a.objectUrl as string) || (a.url as string) || '';
+  const thumbUrl = a.thumbUrl as string | undefined;
+  let storageBucket = a.storageBucket as Attachment['storageBucket'] | undefined;
+  let storagePath = a.storagePath as string | undefined;
+  let thumbnailPath = a.thumbnailPath as string | undefined;
+  if ((!storageBucket || !storagePath) && objectUrl) {
+    const parsed = parsePublicStorageUrl(objectUrl);
+    if (parsed) { storageBucket = parsed.bucket as Attachment['storageBucket']; storagePath = parsed.path; }
+  }
+  if (!thumbnailPath && thumbUrl) {
+    const parsed = parsePublicStorageUrl(thumbUrl);
+    if (parsed) thumbnailPath = parsed.path;
+  }
+  return {
+    id: (a.id as string) || (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Math.random())),
+    kind,
+    objectUrl,
+    thumbUrl,
+    filename: a.filename as string | undefined,
+    mime: a.mime as string | undefined,
+    size: a.size as number | undefined,
+    storageBucket,
+    storagePath,
+    thumbnailPath,
+    poll_id: a.poll_id as string | undefined,
+    poll_event: a.poll_event as string | undefined,
+  };
+}
+
+export type { Bucket };
 
 // ---------- Cursor: (created_at, id) deterministic pagination ----------
 export interface Cursor {

@@ -19,6 +19,7 @@ import {
   mapReplyPreview,
   sanitizeExtension,
   buildBeforeCursorOrFilter,
+  normalizeAttachment,
   type Cursor,
 } from './logic';
 
@@ -40,17 +41,7 @@ async function getCurrentUserId(): Promise<string> {
 // ============ Mapping ============
 function dbToMessage(row: Record<string, unknown>): Message {
   const attsRaw = Array.isArray(row.attachments) ? row.attachments : [];
-  const attachments: Attachment[] = attsRaw.map((a: Record<string, unknown>) => ({
-    id: (a.id as string) || crypto.randomUUID(),
-    kind: (a.kind as Attachment['kind']) || 'image',
-    objectUrl: (a.objectUrl as string) || (a.url as string) || '',
-    thumbUrl: a.thumbUrl as string | undefined,
-    filename: a.filename as string | undefined,
-    mime: a.mime as string | undefined,
-    size: a.size as number | undefined,
-    poll_id: a.poll_id as string | undefined,
-    poll_event: a.poll_event as string | undefined,
-  }));
+  const attachments: Attachment[] = attsRaw.map((a: Record<string, unknown>) => normalizeAttachment(a));
 
   // Legacy JSONB reactions — only used until a normalized row appears.
   let legacyReactions: Record<string, string[]> | undefined;
@@ -406,36 +397,66 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
     return { ...att, file: undefined };
   }
   const file = att.file;
-  const ext = sanitizeExtension(file.name);
+  const rawExt = sanitizeExtension(file.name);
   const fileId = crypto.randomUUID();
-  const path = `${senderId}/${fileId}.${ext}`;
+  const bucket: 'chat-media' = 'chat-media';
 
-
-  let thumbUrl: string | undefined;
-  if (att.kind === 'image' && file.type.startsWith('image/')) {
+  // Re-encode images through canvas to strip EXIF; keep videos/gifs as-is.
+  let uploadBlob: Blob = file;
+  let uploadMime = file.type;
+  let ext = rawExt;
+  if (att.kind === 'image' && file.type.startsWith('image/') && file.type !== 'image/gif') {
     try {
-      const { createThumbnail } = await import('@/utils/imageThumb');
-      const result = await createThumbnail(file);
-      const thumbPath = `${senderId}/${fileId}_thumb.jpg`;
-      await supabase.storage.from('chat-media').upload(thumbPath, result.thumbBlob, { contentType: 'image/jpeg' });
-      const { data: thumbData } = supabase.storage.from('chat-media').getPublicUrl(thumbPath);
-      thumbUrl = thumbData.publicUrl;
+      const { reencodeImage } = await import('@/lib/imageOptimize');
+      uploadBlob = await reencodeImage(file, { maxDim: 2000, quality: 0.9, mimeType: 'image/jpeg' });
+      uploadMime = 'image/jpeg';
+      ext = 'jpg';
     } catch (e) {
-      console.warn('[chat] thumb failed', e);
+      console.warn('[chat] image re-encode failed, falling back to original', e);
     }
   }
 
-  const { error } = await supabase.storage.from('chat-media').upload(path, file, { contentType: file.type });
+  const path = `${senderId}/${fileId}.${ext}`;
+  let thumbUrl: string | undefined;
+  let thumbnailPath: string | undefined;
+
+  // Thumbnail for images and videos. Failure is non-fatal — a proper fallback
+  // renders in MessageItem when a thumbnail path/url isn't available.
+  try {
+    const { createThumbnail, createVideoThumbnail } = await import('@/utils/imageThumb');
+    let thumbBlob: Blob | null = null;
+    if (att.kind === 'image' && file.type.startsWith('image/')) {
+      thumbBlob = (await createThumbnail(file)).thumbBlob;
+    } else if (att.kind === 'video' && file.type.startsWith('video/')) {
+      try { thumbBlob = (await createVideoThumbnail(file)).thumbBlob; } catch { /* codec/CORS — fallback UI covers this */ }
+    }
+    if (thumbBlob) {
+      thumbnailPath = `${senderId}/${fileId}_thumb.jpg`;
+      const { error: thumbErr } = await supabase.storage.from(bucket).upload(thumbnailPath, thumbBlob, { contentType: 'image/jpeg' });
+      if (thumbErr) { thumbnailPath = undefined; }
+      else {
+        const { data: thumbData } = supabase.storage.from(bucket).getPublicUrl(thumbnailPath);
+        thumbUrl = thumbData.publicUrl;
+      }
+    }
+  } catch (e) {
+    console.warn('[chat] thumb failed', e);
+  }
+
+  const { error } = await supabase.storage.from(bucket).upload(path, uploadBlob, { contentType: uploadMime });
   if (error) throw new Error(`Opplasting feilet: ${error.message}`);
-  const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
+  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
   return {
     id: att.id,
     kind: att.kind,
     objectUrl: urlData.publicUrl,
     thumbUrl,
     filename: file.name,
-    mime: file.type,
-    size: file.size,
+    mime: uploadMime,
+    size: uploadBlob.size,
+    storageBucket: bucket,
+    storagePath: path,
+    thumbnailPath,
     // file is intentionally omitted so retries do not re-upload.
   };
 }
@@ -575,6 +596,28 @@ async function performSend(clientId: string): Promise<Message | null> {
     state.optimistic.delete(clientId);
     pendingByClientId.delete(clientId);
     notify();
+
+    // Mirror media attachments into the normalized attachments table so gallery
+    // sync runs and future consumers can query by (bucket, path). Non-fatal.
+    try {
+      const rows = (uploaded || [])
+        .filter((a) => (a.kind === 'image' || a.kind === 'video' || a.kind === 'gif') && a.storageBucket && a.storagePath)
+        .map((a) => ({
+          message_id: msg.id,
+          type: a.kind,
+          storage_bucket: a.storageBucket!,
+          storage_path: a.storagePath!,
+          thumbnail_path: a.thumbnailPath ?? null,
+          filename: a.filename ?? null,
+          mime_type: a.mime ?? null,
+          file_size: a.size ?? null,
+        }));
+      if (rows.length > 0) {
+        await supabase.from('attachments').insert(rows as never);
+      }
+    } catch (e) {
+      console.warn('[chat] attachments mirror failed', e);
+    }
 
     // Fire push after successful insert (skip on recovered dup, still safe).
     try {
