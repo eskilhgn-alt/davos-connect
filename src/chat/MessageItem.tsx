@@ -21,22 +21,39 @@ import { useSignedUrl } from '@/components/ui/SignedMedia';
  */
 const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void }> = ({ att, onTap }) => {
   const bucket = att.storageBucket ?? null;
-  // Full-size resolved URL — used for onTap and as an image fallback.
   const fullUrl = useSignedUrl(bucket, att.storagePath ?? null, att.objectUrl || null);
-  // Thumbnail resolved URL — may be undefined when unavailable.
   const thumbUrl = useSignedUrl(bucket, att.thumbnailPath ?? null, att.thumbUrl ?? null);
+
+  const activate = React.useCallback(() => {
+    if (fullUrl) onTap(fullUrl);
+  }, [fullUrl, onTap]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (fullUrl) onTap(fullUrl);
+    activate();
   };
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      activate();
+    }
+  };
+
+  const label = att.kind === 'video' ? 'Spill av video' : att.kind === 'gif' ? 'Vis GIF' : 'Vis bilde';
+  const disabled = !fullUrl;
 
   if (att.kind === 'image' || att.kind === 'gif') {
     const src = thumbUrl || fullUrl;
     return (
       <div
-        className="rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity"
+        role="button"
+        tabIndex={0}
+        aria-label={label}
+        aria-disabled={disabled || undefined}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        className="rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         {src ? (
           <img src={src} alt={att.kind === 'gif' ? 'GIF' : 'Vedlegg'} className="max-w-full h-auto" loading="lazy" decoding="async" />
@@ -50,10 +67,13 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
   // Video
   return (
     <div
-      className="relative rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity bg-muted"
-      onClick={handleClick}
       role="button"
-      aria-label="Spill av video"
+      tabIndex={0}
+      aria-label={label}
+      aria-disabled={disabled || undefined}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      className="relative rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       {thumbUrl ? (
         <img src={thumbUrl} alt="Videoforhåndsvisning" className="max-w-full h-auto block" loading="lazy" decoding="async" />
@@ -74,6 +94,50 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
         </div>
       </div>
     </div>
+  );
+};
+
+/**
+ * File/PDF attachment renderer. Routes through the signed resolver using
+ * stable (bucket, path) when present, falling back to legacy public URL or
+ * external URL passthrough. Shows a loading state until the URL is resolved
+ * and disables the link (prevents empty-href navigation) when resolution
+ * hasn't completed or has failed. Full status UI (retry, error banner) lives
+ * in Slice 2; here we only guarantee that the private-media switch does not
+ * break downloads.
+ */
+const FileAttachmentItem: React.FC<{ att: Attachment; isOwn: boolean }> = ({ att, isOwn }) => {
+  const bucket = att.storageBucket ?? null;
+  const resolved = useSignedUrl(bucket, att.storagePath ?? null, att.objectUrl || null);
+  const href = resolved || '';
+  const disabled = !href;
+  return (
+    <a
+      href={href || undefined}
+      target={disabled ? undefined : '_blank'}
+      rel="noopener noreferrer"
+      download={att.filename || ''}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (disabled) e.preventDefault();
+      }}
+      aria-disabled={disabled || undefined}
+      aria-label={disabled ? `Laster ${att.filename || 'fil'}…` : `Last ned ${att.filename || 'fil'}`}
+      className={cn(
+        'flex items-center gap-2 rounded-2xl px-3 py-2 border',
+        isOwn ? 'bg-primary text-primary-foreground border-primary/40' : 'bg-muted border-border',
+        disabled && 'opacity-70 cursor-progress',
+      )}
+    >
+      <FileText size={20} className="flex-none" aria-hidden="true" />
+      <div className="min-w-0">
+        <p className="text-sm truncate">{att.filename || 'Fil'}</p>
+        {att.size !== undefined && (
+          <p className="text-[11px] opacity-75">{Math.ceil((att.size || 0) / 1024)} kB</p>
+        )}
+      </div>
+      <Download size={14} className="flex-none opacity-70" aria-hidden="true" />
+    </a>
   );
 };
 
