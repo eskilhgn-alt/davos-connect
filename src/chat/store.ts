@@ -247,7 +247,6 @@ export async function ensureMessageLoaded(messageId: string): Promise<boolean> {
   if (state.byId.has(messageId)) return true;
   let pages = 0;
   while (!state.byId.has(messageId) && state.hasMore && pages < MAX_DEEP_LINK_PAGES) {
-    // eslint-disable-next-line no-await-in-loop
     const { loaded } = await loadEarlier();
     pages++;
     if (loaded === 0) break;
