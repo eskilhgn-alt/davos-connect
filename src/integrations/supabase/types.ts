@@ -420,6 +420,41 @@ export type Database = {
           },
         ]
       }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           attachments: Json | null
@@ -428,6 +463,7 @@ export type Database = {
           edited_at: string | null
           id: string
           reactions: Json | null
+          reply_to_id: string | null
           sender_id: string
           sender_name: string
           text: string
@@ -440,6 +476,7 @@ export type Database = {
           edited_at?: string | null
           id?: string
           reactions?: Json | null
+          reply_to_id?: string | null
           sender_id: string
           sender_name: string
           text?: string
@@ -452,12 +489,20 @@ export type Database = {
           edited_at?: string | null
           id?: string
           reactions?: Json | null
+          reply_to_id?: string | null
           sender_id?: string
           sender_name?: string
           text?: string
           thread_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_thread_id_fkey"
             columns: ["thread_id"]
