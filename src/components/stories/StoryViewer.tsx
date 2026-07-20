@@ -11,7 +11,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { StoryViewers } from "@/components/stories/StoryViewers";
 import type { Story, StoryGroup, DeleteResult } from "@/hooks/useStories";
-import { applyOptimisticLike, computeNextAfterDelete } from "@/features/stories/helpers";
+import { applyOptimisticLike, computeNextAfterDelete, classifyGesture } from "@/features/stories/helpers";
+import { useSignedMedia } from "@/components/ui/SignedMedia";
+import { signBatch } from "@/lib/mediaUrl";
 import { toast } from "sonner";
 
 interface StoryViewerProps {
