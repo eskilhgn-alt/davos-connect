@@ -53,19 +53,8 @@ export const ChatScreen: React.FC = () => {
 
   const handleSend = React.useCallback(async (text: string, attachments: Attachment[]) => {
     if (!userId) return;
-
+    // store.sendMessage handles optimistic UI, upload, insert AND push after successful insert.
     await chatStore.sendMessage(text, attachments, userId, displayName);
-
-    const preview = attachments.length > 0 && !text
-      ? `📷 ${attachments.length === 1 ? 'Bilde' : `${attachments.length} bilder`}`
-      : text;
-
-    oneSignalService.triggerPushNotification(
-      DEFAULT_THREAD_ID,
-      userId,
-      displayName,
-      preview
-    );
   }, [userId, displayName]);
 
   const handleComposerHeight = React.useCallback((height: number) => {
