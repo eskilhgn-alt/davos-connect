@@ -17,8 +17,11 @@ import {
   attachmentsNeedingUpload,
   isDuplicateKeyError,
   mapReplyPreview,
+  sanitizeExtension,
+  buildBeforeCursorOrFilter,
   type Cursor,
 } from './logic';
+
 
 const DEFAULT_THREAD_ID = '00000000-0000-0000-0000-000000000001';
 const INITIAL_PAGE = 50;
