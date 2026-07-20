@@ -440,7 +440,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           </div>
         )}
 
-        {mediaError && (
+        {(mediaError || media.status === "error") && (
           <div className="absolute inset-0 flex flex-col items-center justify-center z-[1] gap-3" role="alert">
             <AlertTriangle size={32} className="text-white/60" aria-hidden />
             <p className="text-white/60 text-sm">Kunne ikke laste innhold</p>
@@ -448,7 +448,13 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
               type="button"
               onPointerDown={stop}
               onPointerUp={(e) => { stop(e); e.preventDefault(); }}
-              onClick={(e) => { stop(e); setMediaError(false); setMediaLoaded(false); }}
+              onClick={(e) => {
+                stop(e);
+                setMediaError(false);
+                setMediaLoaded(false);
+                mediaLoadRetriedRef.current = false;
+                media.retry();
+              }}
               aria-label="Prøv å laste på nytt"
               className="px-4 py-2 min-h-[44px] rounded-full bg-white/20 text-white text-sm backdrop-blur-sm"
             >
@@ -460,8 +466,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         {story.type === "video" ? (
           <video
             ref={videoRef}
-            key={story.id + (mediaError ? "" : "-v")}
-            src={story.publicUrl}
+            key={story.id}
+            src={media.url || story.publicUrl}
             autoPlay
             playsInline
             muted
@@ -473,7 +479,14 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
               const v = e.currentTarget;
               v.play().then(() => { v.muted = false; }).catch(() => {});
             }}
-            onError={() => setMediaError(true)}
+            onError={() => {
+              if (!mediaLoadRetriedRef.current) {
+                mediaLoadRetriedRef.current = true;
+                media.retry();
+              } else {
+                setMediaError(true);
+              }
+            }}
             onStalled={() => {
               setTimeout(() => {
                 if (videoRef.current && videoRef.current.readyState < 3) videoRef.current.load();
@@ -482,13 +495,20 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           />
         ) : (
           <img
-            key={story.id + (mediaError ? "" : "-i")}
-            src={story.publicUrl}
+            key={story.id}
+            src={media.url || story.publicUrl}
             alt=""
             className={cn("w-full h-full object-cover transition-opacity", mediaLoaded ? "opacity-100" : "opacity-0")}
             draggable={false}
             onLoad={() => setMediaLoaded(true)}
-            onError={() => setMediaError(true)}
+            onError={() => {
+              if (!mediaLoadRetriedRef.current) {
+                mediaLoadRetriedRef.current = true;
+                media.retry();
+              } else {
+                setMediaError(true);
+              }
+            }}
           />
         )}
       </div>
