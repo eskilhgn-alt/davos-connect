@@ -265,7 +265,13 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
     recorder.onstop = () => {
+      if (unmountedRef.current) return;
       const blob = new Blob(chunksRef.current, { type: actualMime });
+      if (blob.size > 100 * 1024 * 1024) {
+        errorToast("Videoen er for stor (maks 100 MB)");
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        return;
+      }
       setCapturedMedia({ blob, type: "video", url: URL.createObjectURL(blob) });
       setMode("preview");
       streamRef.current?.getTracks().forEach((t) => t.stop());
