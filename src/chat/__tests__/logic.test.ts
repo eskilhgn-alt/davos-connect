@@ -223,3 +223,46 @@ describe('chat/logic — reaction fallback durability semantics', () => {
     expect(resolveReactions(legacy, new Map(), hasEver)).toBeUndefined();
   });
 });
+
+import { normalizeAttachment } from '@/chat/logic';
+
+describe('chat/logic — normalizeAttachment (Slice 1 backfill parser)', () => {
+  const PREFIX = 'https://psupgftxzyoyeyuhtqgw.supabase.co/storage/v1/object/public/chat-media/';
+
+  it('derives stable bucket/path from legacy public objectUrl and thumbUrl', () => {
+    const legacy = {
+      id: 'a1',
+      kind: 'image',
+      objectUrl: `${PREFIX}user1/pic.jpg`,
+      thumbUrl: `${PREFIX}user1/pic_thumb.jpg`,
+    };
+    const n = normalizeAttachment(legacy);
+    expect(n.storageBucket).toBe('chat-media');
+    expect(n.storagePath).toBe('user1/pic.jpg');
+    expect(n.thumbnailPath).toBe('user1/pic_thumb.jpg');
+    // Legacy URLs preserved for fallback / rollback.
+    expect(n.objectUrl).toBe(legacy.objectUrl);
+    expect(n.thumbUrl).toBe(legacy.thumbUrl);
+  });
+
+  it('prefers explicit stable fields over parsed URL fields', () => {
+    const n = normalizeAttachment({
+      id: 'a2', kind: 'video',
+      objectUrl: `${PREFIX}old/path.mov`,
+      storageBucket: 'chat-media',
+      storagePath: 'new/path.mp4',
+    });
+    expect(n.storagePath).toBe('new/path.mp4');
+    expect(n.storageBucket).toBe('chat-media');
+  });
+
+  it('does not crash on non-storage URLs (e.g. Giphy) — keeps legacy fields', () => {
+    const n = normalizeAttachment({
+      id: 'a3', kind: 'gif',
+      objectUrl: 'https://media.giphy.com/media/xyz/giphy.gif',
+    });
+    expect(n.storagePath).toBeUndefined();
+    expect(n.storageBucket).toBeUndefined();
+    expect(n.objectUrl).toContain('giphy');
+  });
+});
