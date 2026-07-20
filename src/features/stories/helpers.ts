@@ -107,3 +107,50 @@ export function mapStoryPushRecipients(
   }
   return Array.from(seen);
 }
+
+/**
+ * First unviewed story index for a group. Returns 0 when all viewed (or empty).
+ */
+export function firstUnviewedIndex(group: StoryGroup | undefined | null): number {
+  if (!group || group.stories.length === 0) return 0;
+  const idx = group.stories.findIndex((s) => !s.viewed);
+  return idx < 0 ? 0 : idx;
+}
+
+export type Gesture = "tap-left" | "tap-right" | "swipe-left" | "swipe-right" | "hold" | "none";
+
+/**
+ * Pure gesture classifier for the story viewer.
+ * - Horizontal delta above swipeThreshold and dominant over vertical → swipe (between users).
+ * - Otherwise a short tap: left third → previous, else next.
+ * - Held longer than holdMs with minimal movement → hold (pause).
+ * - Movement above moveTolerance cancels hold.
+ */
+export function classifyGesture(input: {
+  dx: number;
+  dy: number;
+  durationMs: number;
+  width: number;
+  startX: number;
+  swipeThreshold?: number;
+  holdMs?: number;
+  moveTolerance?: number;
+}): Gesture {
+  const {
+    dx, dy, durationMs, width, startX,
+    swipeThreshold = 60, holdMs = 220, moveTolerance = 10,
+  } = input;
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+  if (absX >= swipeThreshold && absX > absY * 1.2) {
+    return dx < 0 ? "swipe-left" : "swipe-right";
+  }
+  if (absX < moveTolerance && absY < moveTolerance && durationMs >= holdMs) {
+    return "hold";
+  }
+  if (absX < moveTolerance && absY < moveTolerance) {
+    return startX < width / 3 ? "tap-left" : "tap-right";
+  }
+  return "none";
+}
+
