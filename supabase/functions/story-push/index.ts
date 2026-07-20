@@ -76,10 +76,10 @@ Deno.serve(async (req) => {
     const message = `${name} har lagt ut en ${story.type === 'video' ? 'video' : 'bilde'}-story`;
     const url = `${APP_URL}/historier?story=${storyId}`;
 
-    const res = await fetch('https://onesignal.com/api/v1/notifications', {
+    const res = await fetch('https://api.onesignal.com/notifications', {
       method: 'POST',
       headers: {
-        Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
+        Authorization: `Key ${ONESIGNAL_REST_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

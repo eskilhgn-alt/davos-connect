@@ -138,12 +138,28 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     }
   }, [facingMode, captureMode]);
 
+  const unmountedRef = React.useRef(false);
+
   React.useEffect(() => {
     if (mode === "camera") startCamera();
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, [mode, startCamera]);
+
+  // Full component cleanup: stop recorder, tracks, timers; revoke captured URL.
+  React.useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+      try { if (recorderRef.current?.state === "recording") recorderRef.current.stop(); } catch { /* ignore */ }
+      streamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+      if (capturedMedia?.url) { try { URL.revokeObjectURL(capturedMedia.url); } catch { /* ignore */ } }
+    };
+    // Intentionally run only on unmount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Apply zoom via video track constraints
   React.useEffect(() => {
@@ -249,7 +265,13 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
     recorder.onstop = () => {
+      if (unmountedRef.current) return;
       const blob = new Blob(chunksRef.current, { type: actualMime });
+      if (blob.size > 100 * 1024 * 1024) {
+        errorToast("Videoen er for stor (maks 100 MB)");
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        return;
+      }
       setCapturedMedia({ blob, type: "video", url: URL.createObjectURL(blob) });
       setMode("preview");
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -300,7 +322,18 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   };
 
   // ─── File input fallback ───
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const readVideoDuration = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(v.duration || 0); };
+      v.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
+      v.src = url;
+    });
+  };
+
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const check = validateStoryFile({ size: file.size, type: file.type });
@@ -312,11 +345,23 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       return;
     }
     const type = file.type.startsWith("video") ? "video" as const : "image" as const;
+    let durationSec = 0;
+    if (type === "video") {
+      durationSec = await readVideoDuration(file);
+      if (durationSec > MAX_RECORD_SECS + 0.5) {
+        errorToast(`Video er lengre enn ${MAX_RECORD_SECS}s`);
+        e.target.value = "";
+        return;
+      }
+    }
     const url = URL.createObjectURL(file);
     setCapturedMedia({ blob: file, type, url });
+    if (type === "video") setRecordTime(Math.round(durationSec));
     setMode("preview");
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    e.target.value = "";
   };
+
 
 
   // ─── Drawing ───
@@ -421,13 +466,14 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const renderFinalImage = async (): Promise<Blob> => {
     if (capturedMedia?.type === "video" || !capturedMedia) return capturedMedia!.blob;
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext("2d")!;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("canvas ctx unavailable")); return; }
         ctx.drawImage(img, 0, 0);
 
         const scaleX = img.width / 100;
@@ -488,8 +534,12 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
           }
         }
 
-        canvas.toBlob((blob) => resolve(blob!), "image/jpeg", 0.9);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("toBlob returned null"));
+        }, "image/jpeg", 0.9);
       };
+      img.onerror = () => reject(new Error("image load failed"));
       img.src = capturedMedia.url;
     });
   };

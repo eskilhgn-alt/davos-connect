@@ -14,7 +14,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Film, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
-import { findStoryLocation } from "@/features/stories/helpers";
+import { findStoryLocation, firstUnviewedIndex } from "@/features/stories/helpers";
+import { SignedImg, SignedVideo } from "@/components/ui/SignedMedia";
 import { toast } from "sonner";
 
 export const StoriesScreen: React.FC = () => {
@@ -27,9 +28,11 @@ export const StoriesScreen: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkOpenedRef = React.useRef<string | null>(null);
 
-  const openStory = (groupIndex: number, storyIndex: number = 0) => {
+  const openStory = (groupIndex: number, storyIndex?: number) => {
+    const g = groups[groupIndex];
+    const idx = storyIndex ?? firstUnviewedIndex(g);
     setViewerGroupIdx(groupIndex);
-    setViewerStoryIdx(storyIndex);
+    setViewerStoryIdx(idx);
     setViewerOpen(true);
   };
 
@@ -44,6 +47,8 @@ export const StoriesScreen: React.FC = () => {
     const target = searchParams.get("story");
     if (!target || loading) return;
     if (deepLinkOpenedRef.current === target) return;
+    // Do not clear if the fetch failed — user can retry.
+    if (error) return;
 
     const loc = findStoryLocation(groups, target);
     if (loc) {
@@ -54,15 +59,16 @@ export const StoriesScreen: React.FC = () => {
       const next = new URLSearchParams(searchParams);
       next.delete("story");
       setSearchParams(next, { replace: true });
-    } else if (groups.length > 0) {
-      // Groups loaded but target not present — expired or invalid.
+    } else {
+      // Loaded successfully but target absent (expired/invalid or empty feed).
       deepLinkOpenedRef.current = target;
       toast.info("Denne storyen er ikke lenger tilgjengelig");
       const next = new URLSearchParams(searchParams);
       next.delete("story");
       setSearchParams(next, { replace: true });
     }
-  }, [groups, loading, searchParams, setSearchParams]);
+  }, [groups, loading, error, searchParams, setSearchParams]);
+
 
   const getThumbUrl = (story: { publicUrl: string }) => story.publicUrl;
 
@@ -109,8 +115,9 @@ export const StoriesScreen: React.FC = () => {
               groups={groups}
               loading={loading}
               onAddStory={() => setCaptureOpen(true)}
-              onOpenStory={(idx) => openStory(idx, 0)}
+              onOpenStory={(idx) => openStory(idx)}
             />
+
 
             {groups.length === 0 ? (
               <BrandEmptyState
@@ -122,7 +129,6 @@ export const StoriesScreen: React.FC = () => {
               <div className="grid grid-cols-2 gap-2">
                 {groups.map((group, idx) => {
                   const latestStory = group.stories[group.stories.length - 1];
-                  const thumbUrl = getThumbUrl(latestStory);
                   const diff = Date.now() - new Date(latestStory.createdAt).getTime();
                   const mins = Math.floor(diff / 60000);
                   const timeAgo = mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}t`;
@@ -131,39 +137,33 @@ export const StoriesScreen: React.FC = () => {
                     <button
                       key={group.userId}
                       type="button"
-                      onClick={() => openStory(idx, 0)}
+                      onClick={() => openStory(idx)}
                       aria-label={`Åpne historier fra ${group.displayName}`}
                       className={cn(
-                        "relative aspect-[3/4] rounded-xl overflow-hidden",
+                        "relative aspect-[3/4] rounded-xl overflow-hidden bg-muted",
                         "active:scale-[0.97] transition-transform"
                       )}
                     >
-                      {latestStory.signError ? (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-muted text-muted-foreground p-2">
-                          <AlertTriangle size={18} aria-hidden />
-                          <span className="text-[11px]">Kunne ikke laste</span>
-                        </div>
-                      ) : latestStory.type === "image" ? (
-                        <img
-                          src={thumbUrl}
+                      {latestStory.type === "image" ? (
+                        <SignedImg
+                          bucket="stories"
+                          path={latestStory.storagePath}
+                          url={latestStory.publicUrl || undefined}
                           alt=""
                           className="w-full h-full object-cover"
-                          loading="lazy"
-                          decoding="async"
-                          onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                       ) : (
-                        <video
-                          src={thumbUrl + "#t=0.5"}
+                        <SignedVideo
+                          bucket="stories"
+                          path={latestStory.storagePath}
+                          url={latestStory.publicUrl || undefined}
                           className="w-full h-full object-cover"
                           muted
                           playsInline
-                          preload="metadata"
-                          onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                       )}
 
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
 
                       {group.hasUnviewed && (
                         <div

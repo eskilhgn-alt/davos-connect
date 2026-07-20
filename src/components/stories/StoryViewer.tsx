@@ -11,7 +11,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { StoryViewers } from "@/components/stories/StoryViewers";
 import type { Story, StoryGroup, DeleteResult } from "@/hooks/useStories";
-import { applyOptimisticLike, computeNextAfterDelete } from "@/features/stories/helpers";
+import { applyOptimisticLike, computeNextAfterDelete, classifyGesture } from "@/features/stories/helpers";
+import { useSignedMedia } from "@/components/ui/SignedMedia";
+import { signBatch } from "@/lib/mediaUrl";
 import { toast } from "sonner";
 
 interface StoryViewerProps {
@@ -59,27 +61,36 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   const isOwnStory = !!story && !!user && story.userId === user.id;
   const DISPLAY_MS = story?.type === "video" ? (story.durationSec || 10) * 1000 : 5000;
 
+  // Resolver-backed URL: auto-refreshes shortly before expiry.
+  const media = useSignedMedia("stories", story?.storagePath, story?.publicUrl || undefined);
+  const mediaLoadRetriedRef = React.useRef(false);
+
   React.useEffect(() => {
     setMediaError(false);
     setMediaLoaded(false);
     setMenuOpen(false);
     setConfirmDelete(false);
+    mediaLoadRetriedRef.current = false;
   }, [groupIdx, storyIdx]);
 
+  // Prefetch next stories via signBatch (fresh signed URLs, not stale ones).
   React.useEffect(() => {
     if (!group) return;
-    const nextStories: string[] = [];
-    if (storyIdx < group.stories.length - 1) nextStories.push(group.stories[storyIdx + 1].publicUrl);
-    if (groupIdx < groups.length - 1) nextStories.push(groups[groupIdx + 1].stories[0].publicUrl);
-    for (const url of nextStories) {
-      if (!url) continue;
-      const link = document.createElement("link");
-      link.rel = "prefetch";
-      link.href = url;
-      link.as = url.match(/\.(mp4|webm|mov)/) ? "video" : "image";
-      document.head.appendChild(link);
-      setTimeout(() => link.remove(), 30000);
-    }
+    const paths: string[] = [];
+    if (storyIdx < group.stories.length - 1) paths.push(group.stories[storyIdx + 1].storagePath);
+    if (groupIdx < groups.length - 1) paths.push(groups[groupIdx + 1].stories[0].storagePath);
+    if (paths.length === 0) return;
+    signBatch("stories", paths).then((map) => {
+      map.forEach((url) => {
+        if (!url) return;
+        const link = document.createElement("link");
+        link.rel = "prefetch";
+        link.href = url;
+        link.as = url.match(/\.(mp4|webm|mov)/i) ? "video" : "image";
+        document.head.appendChild(link);
+        setTimeout(() => link.remove(), 30000);
+      });
+    }).catch(() => { /* prefetch is best-effort */ });
   }, [groupIdx, storyIdx, group, groups]);
 
   React.useEffect(() => {
@@ -187,15 +198,40 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
 
   const holdTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
   const holdRef = React.useRef(false);
+  const gestureRef = React.useRef<{ x: number; y: number; t: number } | null>(null);
 
-  const handlePointerDown = () => {
+  const goNextGroup = React.useCallback(() => {
+    if (groupIdx < groups.length - 1) {
+      setGroupIdx((i) => i + 1);
+      setStoryIdx(0);
+    }
+  }, [groupIdx, groups.length]);
+  const goPrevGroup = React.useCallback(() => {
+    if (groupIdx > 0) {
+      setGroupIdx((i) => i - 1);
+      setStoryIdx(0);
+    }
+  }, [groupIdx]);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
     if (menuOpen || confirmDelete) return;
+    gestureRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
     holdRef.current = false;
     holdTimerRef.current = setTimeout(() => {
       holdRef.current = true;
       setPaused(true);
       if (videoRef.current) videoRef.current.pause();
-    }, 200);
+    }, 220);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!gestureRef.current) return;
+    const dx = e.clientX - gestureRef.current.x;
+    const dy = e.clientY - gestureRef.current.y;
+    // Any real movement cancels the hold timer.
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = undefined; }
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -206,14 +242,26 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     if (menuOpen || confirmDelete) return;
     if (holdRef.current) {
       setPaused(false);
-      if (videoRef.current) videoRef.current.play();
+      if (videoRef.current) videoRef.current.play().catch(() => {});
       holdRef.current = false;
+      gestureRef.current = null;
       return;
     }
-    holdRef.current = false;
+    const start = gestureRef.current;
+    gestureRef.current = null;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    if (x < rect.width / 3) goPrev(); else goNext();
+    const dx = start ? e.clientX - start.x : 0;
+    const dy = start ? e.clientY - start.y : 0;
+    const durationMs = start ? Date.now() - start.t : 0;
+    const g = classifyGesture({
+      dx, dy, durationMs,
+      width: rect.width,
+      startX: (start?.x ?? e.clientX) - rect.left,
+    });
+    if (g === "swipe-left") goNextGroup();
+    else if (g === "swipe-right") goPrevGroup();
+    else if (g === "tap-left") goPrev();
+    else if (g === "tap-right" || g === "none") goNext();
   };
 
   const handleClose = React.useCallback((e: React.MouseEvent | React.PointerEvent | KeyboardEvent) => {
@@ -265,6 +313,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       aria-label={`Historie fra ${group.displayName}`}
       className="fixed inset-0 z-50 bg-black flex flex-col touch-none select-none"
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
     >
@@ -391,7 +440,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           </div>
         )}
 
-        {mediaError && (
+        {(mediaError || media.status === "error") && (
           <div className="absolute inset-0 flex flex-col items-center justify-center z-[1] gap-3" role="alert">
             <AlertTriangle size={32} className="text-white/60" aria-hidden />
             <p className="text-white/60 text-sm">Kunne ikke laste innhold</p>
@@ -399,7 +448,13 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
               type="button"
               onPointerDown={stop}
               onPointerUp={(e) => { stop(e); e.preventDefault(); }}
-              onClick={(e) => { stop(e); setMediaError(false); setMediaLoaded(false); }}
+              onClick={(e) => {
+                stop(e);
+                setMediaError(false);
+                setMediaLoaded(false);
+                mediaLoadRetriedRef.current = false;
+                media.retry();
+              }}
               aria-label="Prøv å laste på nytt"
               className="px-4 py-2 min-h-[44px] rounded-full bg-white/20 text-white text-sm backdrop-blur-sm"
             >
@@ -411,8 +466,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         {story.type === "video" ? (
           <video
             ref={videoRef}
-            key={story.id + (mediaError ? "" : "-v")}
-            src={story.publicUrl}
+            key={story.id}
+            src={media.url || story.publicUrl}
             autoPlay
             playsInline
             muted
@@ -424,7 +479,14 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
               const v = e.currentTarget;
               v.play().then(() => { v.muted = false; }).catch(() => {});
             }}
-            onError={() => setMediaError(true)}
+            onError={() => {
+              if (!mediaLoadRetriedRef.current) {
+                mediaLoadRetriedRef.current = true;
+                media.retry();
+              } else {
+                setMediaError(true);
+              }
+            }}
             onStalled={() => {
               setTimeout(() => {
                 if (videoRef.current && videoRef.current.readyState < 3) videoRef.current.load();
@@ -433,13 +495,20 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           />
         ) : (
           <img
-            key={story.id + (mediaError ? "" : "-i")}
-            src={story.publicUrl}
+            key={story.id}
+            src={media.url || story.publicUrl}
             alt=""
             className={cn("w-full h-full object-cover transition-opacity", mediaLoaded ? "opacity-100" : "opacity-0")}
             draggable={false}
             onLoad={() => setMediaLoaded(true)}
-            onError={() => setMediaError(true)}
+            onError={() => {
+              if (!mediaLoadRetriedRef.current) {
+                mediaLoadRetriedRef.current = true;
+                media.retry();
+              } else {
+                setMediaError(true);
+              }
+            }}
           />
         )}
       </div>
