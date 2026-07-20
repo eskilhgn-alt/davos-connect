@@ -129,7 +129,6 @@ export const StoriesScreen: React.FC = () => {
               <div className="grid grid-cols-2 gap-2">
                 {groups.map((group, idx) => {
                   const latestStory = group.stories[group.stories.length - 1];
-                  const thumbUrl = getThumbUrl(latestStory);
                   const diff = Date.now() - new Date(latestStory.createdAt).getTime();
                   const mins = Math.floor(diff / 60000);
                   const timeAgo = mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}t`;
@@ -138,39 +137,33 @@ export const StoriesScreen: React.FC = () => {
                     <button
                       key={group.userId}
                       type="button"
-                      onClick={() => openStory(idx, 0)}
+                      onClick={() => openStory(idx)}
                       aria-label={`Åpne historier fra ${group.displayName}`}
                       className={cn(
-                        "relative aspect-[3/4] rounded-xl overflow-hidden",
+                        "relative aspect-[3/4] rounded-xl overflow-hidden bg-muted",
                         "active:scale-[0.97] transition-transform"
                       )}
                     >
-                      {latestStory.signError ? (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-muted text-muted-foreground p-2">
-                          <AlertTriangle size={18} aria-hidden />
-                          <span className="text-[11px]">Kunne ikke laste</span>
-                        </div>
-                      ) : latestStory.type === "image" ? (
-                        <img
-                          src={thumbUrl}
+                      {latestStory.type === "image" ? (
+                        <SignedImg
+                          bucket="stories"
+                          path={latestStory.storagePath}
+                          url={latestStory.publicUrl || undefined}
                           alt=""
                           className="w-full h-full object-cover"
-                          loading="lazy"
-                          decoding="async"
-                          onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                       ) : (
-                        <video
-                          src={thumbUrl + "#t=0.5"}
+                        <SignedVideo
+                          bucket="stories"
+                          path={latestStory.storagePath}
+                          url={latestStory.publicUrl || undefined}
                           className="w-full h-full object-cover"
                           muted
                           playsInline
-                          preload="metadata"
-                          onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                       )}
 
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
 
                       {group.hasUnviewed && (
                         <div
