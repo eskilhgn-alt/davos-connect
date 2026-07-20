@@ -125,6 +125,54 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         </span>
       )}
 
+      {/* Reply quote */}
+      {message.replyTo && (
+        <div
+          className={cn(
+            'max-w-[75%] rounded-lg px-3 py-1.5 mb-0.5 border-l-2',
+            isOwn ? 'bg-primary/10 border-primary/60' : 'bg-muted/50 border-muted-foreground/40'
+          )}
+        >
+          <p className="text-[11px] font-medium text-muted-foreground truncate">
+            {message.replyTo.senderName || 'Ukjent'}
+          </p>
+          <p className="text-[12px] text-muted-foreground truncate italic">
+            {message.replyTo.deleted ? 'Slettet melding' : (message.replyTo.text || 'Vedlegg')}
+          </p>
+        </div>
+      )}
+
+      {/* File attachments (non-media) */}
+      {message.attachments?.some((a) => a.kind === 'file') && (
+        <div className={cn('flex flex-col gap-1 max-w-[75%]', isOwn ? 'items-end' : 'items-start')}>
+          {message.attachments.filter((a) => a.kind === 'file').map((att) => (
+            <a
+              key={att.id}
+              href={att.objectUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              download={att.filename || ''}
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                'flex items-center gap-2 rounded-2xl px-3 py-2 border',
+                isOwn ? 'bg-primary text-primary-foreground border-primary/40' : 'bg-muted border-border'
+              )}
+              aria-label={`Last ned ${att.filename || 'fil'}`}
+            >
+              <FileText size={20} className="flex-none" />
+              <div className="min-w-0">
+                <p className="text-sm truncate">{att.filename || 'Fil'}</p>
+                {att.size !== undefined && (
+                  <p className="text-[11px] opacity-75">{Math.ceil((att.size || 0) / 1024)} kB</p>
+                )}
+              </div>
+              <Download size={14} className="flex-none opacity-70" />
+            </a>
+          ))}
+        </div>
+      )}
+
+
       {/* Attachments */}
       {message.attachments && message.attachments.length > 0 && (
         <div className={cn('flex flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
@@ -247,7 +295,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         />
       )}
 
-      {/* Timestamp + edited indicator */}
+      {/* Timestamp + edited indicator + delivery state */}
       <div className="flex items-center gap-2 mx-3">
         <span className="text-[11px] text-muted-foreground">
           {time}
@@ -257,7 +305,21 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             (redigert)
           </span>
         )}
-        {/* Tap on bubble to see who has read the message */}
+        {isOwn && message.deliveryState === 'sending' && (
+          <span className="text-[11px] text-muted-foreground italic" aria-live="polite">Sender…</span>
+        )}
+        {isOwn && message.deliveryState === 'failed' && message.clientId && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); chatStore.retrySend(message.clientId!); }}
+            className="flex items-center gap-1 text-[11px] text-destructive"
+            aria-label="Prøv å sende meldingen på nytt"
+          >
+            <AlertCircle size={12} />
+            <RotateCw size={12} />
+            <span>Prøv igjen</span>
+          </button>
+        )}
       </div>
     </div>
   );
