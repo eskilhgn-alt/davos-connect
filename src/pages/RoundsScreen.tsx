@@ -257,13 +257,11 @@ const RoundDetailSheet: React.FC<{
             </div>
           )}
 
-          {/* Receipt */}
+          {/* Receipt — resolve via signed URL (works for legacy full URLs and new storage paths). */}
           {round.receipt_image_url && (
             <div className="space-y-1.5">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-1">Kvittering</p>
-              <a href={round.receipt_image_url} target="_blank" rel="noopener noreferrer">
-                <img src={round.receipt_image_url} alt="Kvittering" className="w-full max-h-64 object-contain rounded-xl border border-border bg-muted/10" />
-              </a>
+              <ReceiptImage value={round.receipt_image_url} />
             </div>
           )}
 
