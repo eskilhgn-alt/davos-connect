@@ -124,7 +124,7 @@ export const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',
           maxHeight: '70vh',
-          touchAction: 'none',
+          touchAction: 'pan-y',
           WebkitTapHighlightColor: 'transparent',
         }}
       >
@@ -210,7 +210,7 @@ export const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
               aria-label="Slett melding"
               onClick={(e) => {
                 e.stopPropagation();
-                if (window.confirm('Slett denne meldingen?')) onDelete();
+                onDelete();
               }}
               className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted active:bg-muted/80 transition-colors text-destructive"
             >
