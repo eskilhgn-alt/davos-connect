@@ -97,18 +97,32 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     if (story) onViewed(story.id);
   }, [story?.id]); // eslint-disable-line
 
+  const likeReqIdRef = React.useRef(0);
+  const [likeError, setLikeError] = React.useState<string | null>(null);
   React.useEffect(() => {
     if (!story || !user) return;
+    setLikeError(null);
+    const myReq = ++likeReqIdRef.current;
+    let cancelled = false;
     const fetchLikes = async () => {
-      const [{ count }, { data: myLike }] = await Promise.all([
+      const [countRes, myLikeRes] = await Promise.all([
         supabase.from("story_likes").select("*", { count: "exact", head: true }).eq("story_id", story.id),
         supabase.from("story_likes").select("story_id").eq("story_id", story.id).eq("user_id", user.id).maybeSingle(),
       ]);
-      setLikeCount(count || 0);
-      setLiked(!!myLike);
+      // Discard if a newer request has started, the story changed, or unmount.
+      if (cancelled || likeReqIdRef.current !== myReq) return;
+      if (countRes.error || myLikeRes.error) {
+        console.warn("[StoryViewer] like fetch failed:", countRes.error || myLikeRes.error);
+        setLikeError((countRes.error || myLikeRes.error)?.message || "Kunne ikke laste hjerter");
+        return;
+      }
+      setLikeCount(countRes.count || 0);
+      setLiked(!!myLikeRes.data);
     };
     fetchLikes();
+    return () => { cancelled = true; };
   }, [story?.id, user]); // eslint-disable-line
+
 
   React.useEffect(() => {
     if (!story || paused || mediaError || !mediaLoaded || deleting) {
