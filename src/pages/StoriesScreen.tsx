@@ -11,39 +11,59 @@ import { StoryCapture } from "@/components/stories/StoryCapture";
 import { StoryRing } from "@/components/stories/StoryRing";
 import { useStories } from "@/hooks/useStories";
 import { useAuth } from "@/contexts/AuthContext";
-import { Film, Loader2 } from "lucide-react";
+import { Film, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
+import { findStoryLocation } from "@/features/stories/helpers";
+import { toast } from "sonner";
 
 export const StoriesScreen: React.FC = () => {
   const { user } = useAuth();
-  const { groups, loading, refetch, markViewed } = useStories();
+  const { groups, loading, error, refetch, markViewed, deleteStory, setRefetchPaused } = useStories();
   const [viewerOpen, setViewerOpen] = React.useState(false);
   const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
+  const [viewerStoryIdx, setViewerStoryIdx] = React.useState(0);
   const [captureOpen, setCaptureOpen] = React.useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkOpenedRef = React.useRef<string | null>(null);
 
-  const openStory = (groupIndex: number) => {
+  const openStory = (groupIndex: number, storyIndex: number = 0) => {
     setViewerGroupIdx(groupIndex);
+    setViewerStoryIdx(storyIndex);
     setViewerOpen(true);
   };
 
-  // Deep-link: /historier?story=<id> opens the correct group
+  // Pause background refetches while the viewer is open so playback isn't reset.
+  React.useEffect(() => {
+    setRefetchPaused(viewerOpen);
+    return () => setRefetchPaused(false);
+  }, [viewerOpen, setRefetchPaused]);
+
+  // Deep-link: /historier?story=<id> opens the exact story
   React.useEffect(() => {
     const target = searchParams.get("story");
-    if (!target || groups.length === 0) return;
-    const idx = groups.findIndex((g) => g.stories.some((s) => s.id === target));
-    if (idx >= 0) {
-      setViewerGroupIdx(idx);
+    if (!target || loading) return;
+    if (deepLinkOpenedRef.current === target) return;
+
+    const loc = findStoryLocation(groups, target);
+    if (loc) {
+      deepLinkOpenedRef.current = target;
+      setViewerGroupIdx(loc.groupIndex);
+      setViewerStoryIdx(loc.storyIndex);
       setViewerOpen(true);
-      // Clear the param so refresh doesn't re-open
+      const next = new URLSearchParams(searchParams);
+      next.delete("story");
+      setSearchParams(next, { replace: true });
+    } else if (groups.length > 0) {
+      // Groups loaded but target not present — expired or invalid.
+      deepLinkOpenedRef.current = target;
+      toast.info("Denne storyen er ikke lenger tilgjengelig");
       const next = new URLSearchParams(searchParams);
       next.delete("story");
       setSearchParams(next, { replace: true });
     }
-  }, [groups, searchParams, setSearchParams]);
+  }, [groups, loading, searchParams, setSearchParams]);
 
-  // Signed URL is already resolved in useStories via signBatch
   const getThumbUrl = (story: { publicUrl: string }) => story.publicUrl;
 
   return (
@@ -69,15 +89,29 @@ export const StoriesScreen: React.FC = () => {
           </div>
         ) : (
           <div className="p-4 space-y-5">
-            {/* Story rings */}
+            {error && (
+              <div
+                role="alert"
+                className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm"
+              >
+                <AlertTriangle size={16} aria-hidden />
+                <span className="flex-1">Kunne ikke laste historier</span>
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  className="underline underline-offset-2 font-medium"
+                >
+                  Prøv igjen
+                </button>
+              </div>
+            )}
             <StoryRing
               groups={groups}
               loading={loading}
               onAddStory={() => setCaptureOpen(true)}
-              onOpenStory={openStory}
+              onOpenStory={(idx) => openStory(idx, 0)}
             />
 
-            {/* Stories grid – Snapchat Discover style */}
             {groups.length === 0 ? (
               <BrandEmptyState
                 icon={Film}
@@ -97,24 +131,26 @@ export const StoriesScreen: React.FC = () => {
                     <button
                       key={group.userId}
                       type="button"
-                      onClick={() => openStory(idx)}
+                      onClick={() => openStory(idx, 0)}
+                      aria-label={`Åpne historier fra ${group.displayName}`}
                       className={cn(
                         "relative aspect-[3/4] rounded-xl overflow-hidden",
                         "active:scale-[0.97] transition-transform"
                       )}
                     >
-                      {/* Thumbnail */}
-                      {latestStory.type === "image" ? (
+                      {latestStory.signError ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-muted text-muted-foreground p-2">
+                          <AlertTriangle size={18} aria-hidden />
+                          <span className="text-[11px]">Kunne ikke laste</span>
+                        </div>
+                      ) : latestStory.type === "image" ? (
                         <img
                           src={thumbUrl}
                           alt=""
                           className="w-full h-full object-cover"
                           loading="lazy"
                           decoding="async"
-                          onError={(e) => {
-                            // Hide broken image, show placeholder
-                            e.currentTarget.style.display = "none";
-                          }}
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                       ) : (
                         <video
@@ -123,16 +159,12 @@ export const StoriesScreen: React.FC = () => {
                           muted
                           playsInline
                           preload="metadata"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                          }}
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                       )}
 
-                      {/* Gradient overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-                      {/* Unviewed indicator */}
                       {group.hasUnviewed && (
                         <div
                           className="absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
@@ -142,7 +174,6 @@ export const StoriesScreen: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Name + time */}
                       <div className="absolute bottom-0 left-0 right-0 p-2.5">
                         <p className="text-white text-sm font-semibold truncate">
                           {group.userId === user?.id ? "Din story" : group.displayName.split(" ")[0]}
@@ -160,20 +191,20 @@ export const StoriesScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Story Viewer */}
       {viewerOpen && groups.length > 0 && (
         <StoryViewer
           groups={groups}
           initialGroupIndex={viewerGroupIdx}
+          initialStoryIndex={viewerStoryIdx}
           onClose={() => {
             setViewerOpen(false);
             refetch();
           }}
           onViewed={markViewed}
+          onDelete={deleteStory}
         />
       )}
 
-      {/* Story Capture */}
       {captureOpen && (
         <StoryCapture
           onClose={() => setCaptureOpen(false)}
