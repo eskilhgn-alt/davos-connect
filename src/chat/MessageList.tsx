@@ -24,6 +24,7 @@ interface MessageListProps {
   currentUserId: string;
   composerHeight: number;
   isTyping: boolean;
+  deepLinkMessageId?: string | null;
 }
 
 function formatDateSeparator(timestamp: number): string {
@@ -55,6 +56,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   currentUserId,
   composerHeight,
   isTyping,
+  deepLinkMessageId,
 }) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const bottomRef = React.useRef<HTMLDivElement>(null);
