@@ -61,27 +61,36 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   const isOwnStory = !!story && !!user && story.userId === user.id;
   const DISPLAY_MS = story?.type === "video" ? (story.durationSec || 10) * 1000 : 5000;
 
+  // Resolver-backed URL: auto-refreshes shortly before expiry.
+  const media = useSignedMedia("stories", story?.storagePath, story?.publicUrl || undefined);
+  const mediaLoadRetriedRef = React.useRef(false);
+
   React.useEffect(() => {
     setMediaError(false);
     setMediaLoaded(false);
     setMenuOpen(false);
     setConfirmDelete(false);
+    mediaLoadRetriedRef.current = false;
   }, [groupIdx, storyIdx]);
 
+  // Prefetch next stories via signBatch (fresh signed URLs, not stale ones).
   React.useEffect(() => {
     if (!group) return;
-    const nextStories: string[] = [];
-    if (storyIdx < group.stories.length - 1) nextStories.push(group.stories[storyIdx + 1].publicUrl);
-    if (groupIdx < groups.length - 1) nextStories.push(groups[groupIdx + 1].stories[0].publicUrl);
-    for (const url of nextStories) {
-      if (!url) continue;
-      const link = document.createElement("link");
-      link.rel = "prefetch";
-      link.href = url;
-      link.as = url.match(/\.(mp4|webm|mov)/) ? "video" : "image";
-      document.head.appendChild(link);
-      setTimeout(() => link.remove(), 30000);
-    }
+    const paths: string[] = [];
+    if (storyIdx < group.stories.length - 1) paths.push(group.stories[storyIdx + 1].storagePath);
+    if (groupIdx < groups.length - 1) paths.push(groups[groupIdx + 1].stories[0].storagePath);
+    if (paths.length === 0) return;
+    signBatch("stories", paths).then((map) => {
+      map.forEach((url) => {
+        if (!url) return;
+        const link = document.createElement("link");
+        link.rel = "prefetch";
+        link.href = url;
+        link.as = url.match(/\.(mp4|webm|mov)/i) ? "video" : "image";
+        document.head.appendChild(link);
+        setTimeout(() => link.remove(), 30000);
+      });
+    }).catch(() => { /* prefetch is best-effort */ });
   }, [groupIdx, storyIdx, group, groups]);
 
   React.useEffect(() => {
