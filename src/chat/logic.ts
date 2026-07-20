@@ -176,14 +176,58 @@ export function isDuplicateKeyError(err: unknown): boolean {
 
 /**
  * Filter attachments to those that still need to be uploaded on a retry.
- * An attachment is considered already uploaded when it has no local File
- * handle and its objectUrl points at a persistent URL (not a blob:).
+ * An attachment is considered already uploaded when either:
+ *   - it has stable (storageBucket + storagePath), OR
+ *   - it has no local File handle and its objectUrl is a persistent (non-blob) URL.
+ * The stable-path branch is what lets NEW uploads persist without any
+ * expiring/public URL — see attachmentsAlreadyUploaded below.
  */
 export function attachmentsNeedingUpload(atts: Attachment[]): Attachment[] {
-  return atts.filter((a) => !!a.file || (a.objectUrl && a.objectUrl.startsWith('blob:')));
+  return atts.filter((a) => {
+    if (a.storageBucket && a.storagePath) return false;
+    if (a.file) return true;
+    return !!(a.objectUrl && a.objectUrl.startsWith('blob:'));
+  });
 }
 export function attachmentsAlreadyUploaded(atts: Attachment[]): Attachment[] {
-  return atts.filter((a) => !a.file && a.objectUrl && !a.objectUrl.startsWith('blob:'));
+  return atts.filter((a) => {
+    if (a.storageBucket && a.storagePath) return true;
+    return !a.file && !!a.objectUrl && !a.objectUrl.startsWith('blob:');
+  });
+}
+
+/**
+ * Serialize an attachment for persistence into messages.attachments JSONB.
+ *
+ * Rule of the private-media switch: for NEW Supabase-storage attachments we
+ * must NEVER write an expiring signed URL, a public storage URL, a blob: URL,
+ * or a raw File handle. Only stable (storageBucket, storagePath[, thumbnailPath])
+ * plus filename/mime/size/kind may be persisted. Historical JSONB rows with
+ * legacy `objectUrl`/`thumbUrl`, or external URLs (e.g. Giphy), are preserved
+ * unchanged so historical media keeps rendering via the resolver fallback.
+ */
+export function serializeAttachmentForPersist(a: Attachment): Record<string, unknown> {
+  const base: Record<string, unknown> = { id: a.id, kind: a.kind };
+  if (a.filename !== undefined) base.filename = a.filename;
+  if (a.mime !== undefined) base.mime = a.mime;
+  if (a.size !== undefined) base.size = a.size;
+  if (a.poll_id !== undefined) base.poll_id = a.poll_id;
+  if (a.poll_event !== undefined) base.poll_event = a.poll_event;
+
+  // Stable Supabase-storage attachment — persist ONLY the stable coordinates.
+  if (a.storageBucket && a.storagePath) {
+    base.storageBucket = a.storageBucket;
+    base.storagePath = a.storagePath;
+    if (a.thumbnailPath) base.thumbnailPath = a.thumbnailPath;
+    return base;
+  }
+
+  // Historical / external attachment (e.g. legacy public URL, Giphy). Keep the
+  // legacy URLs so the resolver can render them, but never emit a blob: URL —
+  // that would be a bug (unuploaded local handle serialized as "done").
+  if (a.objectUrl && !a.objectUrl.startsWith('blob:')) base.objectUrl = a.objectUrl;
+  if (a.thumbUrl && !a.thumbUrl.startsWith('blob:')) base.thumbUrl = a.thumbUrl;
+  return base;
 }
 
 /**

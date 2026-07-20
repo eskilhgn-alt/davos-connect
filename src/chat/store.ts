@@ -20,6 +20,7 @@ import {
   sanitizeExtension,
   buildBeforeCursorOrFilter,
   normalizeAttachment,
+  serializeAttachmentForPersist,
   type Cursor,
 } from './logic';
 
@@ -392,36 +393,46 @@ interface PendingSend {
 const pendingByClientId = new Map<string, PendingSend>();
 
 async function uploadOne(att: Attachment, senderId: string): Promise<Attachment> {
-  // Already uploaded on a previous attempt — nothing to do.
-  if (!att.file || !att.objectUrl.startsWith('blob:')) {
+  // Already uploaded on a previous attempt — nothing to do. A stable
+  // (storageBucket, storagePath) is the source of truth for "uploaded"; a
+  // non-blob objectUrl is the legacy/external case.
+  if ((att.storageBucket && att.storagePath) || (!att.file && att.objectUrl && !att.objectUrl.startsWith('blob:'))) {
     return { ...att, file: undefined };
   }
   const file = att.file;
+  if (!file) {
+    // Nothing to upload and no stable path — treat as passthrough (should
+    // not happen in practice; guarded so retries don't loop).
+    return { ...att, file: undefined };
+  }
   const rawExt = sanitizeExtension(file.name);
   const fileId = crypto.randomUUID();
-  const bucket: 'chat-media' = 'chat-media';
+  const bucket = 'chat-media' as const;
 
   // Re-encode images through canvas to strip EXIF; keep videos/gifs as-is.
+  // A re-encode failure MUST surface — silently uploading the original file
+  // would ship EXIF (GPS, device, timestamp) to storage.
   let uploadBlob: Blob = file;
   let uploadMime = file.type;
   let ext = rawExt;
   if (att.kind === 'image' && file.type.startsWith('image/') && file.type !== 'image/gif') {
+    const { reencodeImage } = await import('@/lib/imageOptimize');
     try {
-      const { reencodeImage } = await import('@/lib/imageOptimize');
       uploadBlob = await reencodeImage(file, { maxDim: 2000, quality: 0.9, mimeType: 'image/jpeg' });
       uploadMime = 'image/jpeg';
       ext = 'jpg';
     } catch (e) {
-      console.warn('[chat] image re-encode failed, falling back to original', e);
+      const detail = e instanceof Error ? e.message : String(e);
+      throw new Error(`Bildet kunne ikke prosesseres trygt (EXIF-fjerning feilet): ${detail}`);
     }
   }
 
   const path = `${senderId}/${fileId}.${ext}`;
-  let thumbUrl: string | undefined;
   let thumbnailPath: string | undefined;
 
-  // Thumbnail for images and videos. Failure is non-fatal — a proper fallback
-  // renders in MessageItem when a thumbnail path/url isn't available.
+  // Thumbnail for images and videos. Thumbnail failure is non-fatal — the
+  // renderer has a fallback. Success uploads to storage BEFORE the main file
+  // so we can clean it up if the main upload later fails.
   try {
     const { createThumbnail, createVideoThumbnail } = await import('@/utils/imageThumb');
     let thumbBlob: Blob | null = null;
@@ -431,26 +442,40 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
       try { thumbBlob = (await createVideoThumbnail(file)).thumbBlob; } catch { /* codec/CORS — fallback UI covers this */ }
     }
     if (thumbBlob) {
-      thumbnailPath = `${senderId}/${fileId}_thumb.jpg`;
-      const { error: thumbErr } = await supabase.storage.from(bucket).upload(thumbnailPath, thumbBlob, { contentType: 'image/jpeg' });
-      if (thumbErr) { thumbnailPath = undefined; }
-      else {
-        const { data: thumbData } = supabase.storage.from(bucket).getPublicUrl(thumbnailPath);
-        thumbUrl = thumbData.publicUrl;
+      const candidatePath = `${senderId}/${fileId}_thumb.jpg`;
+      const { error: thumbErr } = await supabase.storage.from(bucket).upload(candidatePath, thumbBlob, { contentType: 'image/jpeg' });
+      if (thumbErr) {
+        console.warn('[chat] thumbnail upload failed (non-fatal)', thumbErr);
+      } else {
+        thumbnailPath = candidatePath;
       }
     }
   } catch (e) {
-    console.warn('[chat] thumb failed', e);
+    console.warn('[chat] thumb generation failed (non-fatal)', e);
   }
 
   const { error } = await supabase.storage.from(bucket).upload(path, uploadBlob, { contentType: uploadMime });
-  if (error) throw new Error(`Opplasting feilet: ${error.message}`);
-  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+  if (error) {
+    // Main upload failed — if we uploaded a thumbnail moments ago, remove it
+    // so we do not leak orphaned storage objects. Surface any cleanup failure
+    // so the developer can see it, but do not swallow the original error.
+    if (thumbnailPath) {
+      try {
+        const { error: rmErr } = await supabase.storage.from(bucket).remove([thumbnailPath]);
+        if (rmErr) console.error('[chat] orphan thumbnail cleanup failed', thumbnailPath, rmErr);
+      } catch (rmErr) {
+        console.error('[chat] orphan thumbnail cleanup threw', thumbnailPath, rmErr);
+      }
+    }
+    throw new Error(`Opplasting feilet: ${error.message}`);
+  }
+
+  // NEW stored attachment — persist ONLY stable coordinates. No public URL,
+  // no signed URL, no blob URL. Renderers resolve via SignedMedia.
   return {
     id: att.id,
     kind: att.kind,
-    objectUrl: urlData.publicUrl,
-    thumbUrl,
+    objectUrl: '',
     filename: file.name,
     mime: uploadMime,
     size: uploadBlob.size,
@@ -543,6 +568,9 @@ async function performSend(clientId: string): Promise<Message | null> {
     const insertId = clientId; // reuse client id as row id for idempotency
 
     let data: Record<string, unknown> | null = null;
+    // Serialize attachments: NEW stored attachments are persisted with stable
+    // coordinates only; historical/external attachments preserve legacy URLs.
+    const serializedAtts = uploaded.map(serializeAttachmentForPersist);
     const insertRes = await supabase
       .from('messages')
       .insert({
@@ -551,7 +579,7 @@ async function performSend(clientId: string): Promise<Message | null> {
         thread_id: DEFAULT_THREAD_ID,
         sender_id: p.senderId,
         sender_name: p.senderName,
-        attachments: uploaded as unknown as never,
+        attachments: serializedAtts as unknown as never,
         reply_to_id: p.replyToId,
       } as never)
       .select()
@@ -560,6 +588,8 @@ async function performSend(clientId: string): Promise<Message | null> {
     if (insertRes.error) {
       // Idempotent recovery: if the row already exists with our client id and
       // is owned by this sender, treat as success (the previous response was lost).
+      // The uploaded stable objects are preserved — they'll be found by the
+      // existing row and remain valid. We intentionally do NOT delete them.
       if (isDuplicateKeyError(insertRes.error)) {
         const existing = await supabase
           .from('messages')
@@ -598,7 +628,10 @@ async function performSend(clientId: string): Promise<Message | null> {
     notify();
 
     // Mirror media attachments into the normalized attachments table so gallery
-    // sync runs and future consumers can query by (bucket, path). Non-fatal.
+    // sync runs and future consumers can query by (bucket, path). We upsert on
+    // (message_id, storage_path) so a recovered duplicate send does not create
+    // duplicate mirror rows. Mirror failure must NOT turn the message failed —
+    // the message insert already succeeded and it's the source of truth.
     try {
       const rows = (uploaded || [])
         .filter((a) => (a.kind === 'image' || a.kind === 'video' || a.kind === 'gif') && a.storageBucket && a.storagePath)
@@ -613,7 +646,12 @@ async function performSend(clientId: string): Promise<Message | null> {
           file_size: a.size ?? null,
         }));
       if (rows.length > 0) {
-        await supabase.from('attachments').insert(rows as never);
+        const { error: mirrorErr } = await supabase
+          .from('attachments')
+          .upsert(rows as never, { onConflict: 'message_id,storage_path', ignoreDuplicates: true });
+        if (mirrorErr) {
+          console.warn('[chat] attachments mirror upsert error', mirrorErr);
+        }
       }
     } catch (e) {
       console.warn('[chat] attachments mirror failed', e);
@@ -649,6 +687,23 @@ export async function retrySend(clientId: string): Promise<void> {
 }
 
 export function discardFailed(clientId: string): void {
+  // Explicit user-initiated discard of a failed pending message. This is the
+  // only path where it is safe to clean up uploaded storage objects, because
+  // the user has decided this message will never be retried. Duplicate-key
+  // recovery inside performSend takes a different path and preserves objects.
+  const pending = pendingByClientId.get(clientId);
+  if (pending) {
+    const paths: string[] = [];
+    for (const a of pending.attachments) {
+      if (a.storageBucket === 'chat-media' && a.storagePath) paths.push(a.storagePath);
+      if (a.storageBucket === 'chat-media' && a.thumbnailPath) paths.push(a.thumbnailPath);
+    }
+    if (paths.length > 0) {
+      supabase.storage.from('chat-media').remove(paths).then(({ error }) => {
+        if (error) console.error('[chat] discard cleanup failed', paths, error);
+      });
+    }
+  }
   state.optimistic.delete(clientId);
   pendingByClientId.delete(clientId);
   notify();
