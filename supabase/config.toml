@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.admin-reset-password]
 verify_jwt = false
+
+[functions.story-push]
+verify_jwt = true
