@@ -74,7 +74,10 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [emojiPickerMode, setEmojiPickerMode] = React.useState<'reaction' | 'compose'>('reaction');
   const [viewerMedia, setViewerMedia] = React.useState<{ src: string; type: 'image' | 'video' | 'gif' } | null>(null);
 
-  // Check if near bottom
+  const [loadingEarlier, setLoadingEarlier] = React.useState(false);
+  const [hasMoreEarlier, setHasMoreEarlier] = React.useState(true);
+
+  // Check if near bottom and trigger pagination on top
   const checkNearBottom = React.useCallback(() => {
     const el = scrollRef.current;
     if (!el) return true;
@@ -82,8 +85,25 @@ export const MessageList: React.FC<MessageListProps> = ({
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
     isNearBottomRef.current = nearBottom;
     setShowJump(!nearBottom);
+
+    // Load earlier when scrolled near top
+    if (el.scrollTop < 80 && !loadingEarlier && hasMoreEarlier) {
+      setLoadingEarlier(true);
+      const prevHeight = el.scrollHeight;
+      chatStore.loadEarlier()
+        .then(({ hasMore }) => {
+          setHasMoreEarlier(hasMore);
+          // Preserve scroll position
+          requestAnimationFrame(() => {
+            const newHeight = el.scrollHeight;
+            el.scrollTop = newHeight - prevHeight;
+          });
+        })
+        .finally(() => setLoadingEarlier(false));
+    }
+
     return nearBottom;
-  }, []);
+  }, [loadingEarlier, hasMoreEarlier]);
 
   // Scroll to bottom
   const scrollToBottom = React.useCallback((smooth = true) => {
