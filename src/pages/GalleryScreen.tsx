@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
-import { useSignedUrl } from "@/components/ui/SignedMedia";
+import { SignedImg, SignedVideo, useSignedMedia } from "@/components/ui/SignedMedia";
 import { signBatch, type Bucket } from "@/lib/mediaUrl";
 import { reencodeImage } from "@/lib/imageOptimize";
 import { createThumbnail } from "@/utils/imageThumb";
