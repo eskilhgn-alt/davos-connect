@@ -284,6 +284,15 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   return (
     <div className="relative flex-1 min-h-0">
+      {(channelStatus === 'reconnecting' || channelStatus === 'offline') && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-10 text-[11px] px-2 py-1 rounded-full bg-muted text-muted-foreground shadow-sm"
+        >
+          {channelStatus === 'reconnecting' ? 'Kobler til på nytt…' : 'Frakoblet'}
+        </div>
+      )}
       <div
         ref={scrollRef}
         onScroll={checkNearBottom}
