@@ -19,6 +19,8 @@ export interface Story {
   /** Signed URL — refreshed automatically by the resolver cache. */
   publicUrl: string;
   viewed: boolean;
+  /** True when the batch signer failed to produce a URL for this path. */
+  signError?: boolean;
 }
 
 export interface StoryGroup {
@@ -28,91 +30,105 @@ export interface StoryGroup {
   hasUnviewed: boolean;
 }
 
+export interface DeleteResult {
+  ok: boolean;
+  /** Set when the DB row was removed but the storage object could not be cleaned up. */
+  storageCleanupWarning?: string;
+}
+
 export function useStories() {
   const { user } = useAuth();
   const [groups, setGroups] = React.useState<StoryGroup[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  /** Refetch is paused while the viewer is actively open, to avoid resetting playback. */
+  const pauseRefetchRef = React.useRef(false);
 
   const fetchStories = React.useCallback(async () => {
     if (!user) return;
+    try {
+      const { data: storiesData, error: fetchErr } = await supabase
+        .from("stories")
+        .select("id, user_id, storage_path, type, duration_sec, created_at, expires_at")
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: true });
 
-    const { data: storiesData, error } = await supabase
-      .from("stories")
-      .select("id, user_id, storage_path, type, duration_sec, created_at, expires_at")
-      .gt("expires_at", new Date().toISOString())
-      .order("created_at", { ascending: true });
+      if (fetchErr) throw fetchErr;
 
-    if (error) {
-      console.error("Stories fetch error:", error);
-      setLoading(false);
-      return;
-    }
-
-    if (!storiesData || storiesData.length === 0) {
-      setGroups([]);
-      setLoading(false);
-      return;
-    }
-
-    const userIds = [...new Set(storiesData.map((s: any) => s.user_id))];
-    const storyIds = storiesData.map((s: any) => s.id);
-    const paths = [...new Set(storiesData.map((s: any) => s.storage_path))];
-
-    const [profilesRes, viewsRes, signedMap] = await Promise.all([
-      userIds.length > 0
-        ? supabase.from("profiles").select("id, nickname, full_name").in("id", userIds)
-        : Promise.resolve({ data: [] }),
-      storyIds.length > 0
-        ? supabase.from("story_views").select("story_id").eq("user_id", user.id).in("story_id", storyIds)
-        : Promise.resolve({ data: [] }),
-      signBatch("stories", paths),
-    ]);
-
-    const profileMap = new Map<string, { nickname: string | null; full_name: string | null }>();
-    for (const p of (profilesRes.data || []) as any[]) {
-      profileMap.set(p.id, { nickname: p.nickname, full_name: p.full_name });
-    }
-    const viewedIds = new Set((viewsRes.data || []).map((v: any) => v.story_id));
-
-    const groupMap = new Map<string, StoryGroup>();
-    for (const row of storiesData as any[]) {
-      const story: Story = {
-        id: row.id,
-        userId: row.user_id,
-        storagePath: row.storage_path,
-        type: row.type,
-        durationSec: row.duration_sec || 0,
-        createdAt: row.created_at,
-        expiresAt: row.expires_at,
-        publicUrl: signedMap.get(row.storage_path) || "",
-        viewed: viewedIds.has(row.id),
-      };
-
-      if (!groupMap.has(row.user_id)) {
-        const profile = profileMap.get(row.user_id);
-        groupMap.set(row.user_id, {
-          userId: row.user_id,
-          displayName: profile?.nickname || profile?.full_name || "Ukjent",
-          stories: [],
-          hasUnviewed: false,
-        });
+      if (!storiesData || storiesData.length === 0) {
+        setGroups([]);
+        setError(null);
+        setLoading(false);
+        return;
       }
-      const group = groupMap.get(row.user_id)!;
-      group.stories.push(story);
-      if (!story.viewed) group.hasUnviewed = true;
+
+      const userIds = [...new Set(storiesData.map((s: any) => s.user_id))];
+      const storyIds = storiesData.map((s: any) => s.id);
+      const paths = [...new Set(storiesData.map((s: any) => s.storage_path))];
+
+      const [profilesRes, viewsRes, signedMap] = await Promise.all([
+        userIds.length > 0
+          ? supabase.from("profiles").select("id, nickname, full_name").in("id", userIds)
+          : Promise.resolve({ data: [] }),
+        storyIds.length > 0
+          ? supabase.from("story_views").select("story_id").eq("user_id", user.id).in("story_id", storyIds)
+          : Promise.resolve({ data: [] }),
+        signBatch("stories", paths),
+      ]);
+
+      const profileMap = new Map<string, { nickname: string | null; full_name: string | null }>();
+      for (const p of (profilesRes.data || []) as any[]) {
+        profileMap.set(p.id, { nickname: p.nickname, full_name: p.full_name });
+      }
+      const viewedIds = new Set((viewsRes.data || []).map((v: any) => v.story_id));
+
+      const groupMap = new Map<string, StoryGroup>();
+      for (const row of storiesData as any[]) {
+        const signed = signedMap.get(row.storage_path);
+        const story: Story = {
+          id: row.id,
+          userId: row.user_id,
+          storagePath: row.storage_path,
+          type: row.type,
+          durationSec: row.duration_sec || 0,
+          createdAt: row.created_at,
+          expiresAt: row.expires_at,
+          publicUrl: signed || "",
+          viewed: viewedIds.has(row.id),
+          signError: !signed,
+        };
+
+        if (!groupMap.has(row.user_id)) {
+          const profile = profileMap.get(row.user_id);
+          groupMap.set(row.user_id, {
+            userId: row.user_id,
+            displayName: profile?.nickname || profile?.full_name || "Ukjent",
+            stories: [],
+            hasUnviewed: false,
+          });
+        }
+        const group = groupMap.get(row.user_id)!;
+        group.stories.push(story);
+        if (!story.viewed) group.hasUnviewed = true;
+      }
+
+      const allGroups = Array.from(groupMap.values());
+      allGroups.sort((a, b) => {
+        if (a.userId === user.id) return -1;
+        if (b.userId === user.id) return 1;
+        const aTime = new Date(a.stories[a.stories.length - 1].createdAt).getTime();
+        const bTime = new Date(b.stories[b.stories.length - 1].createdAt).getTime();
+        return bTime - aTime;
+      });
+
+      setGroups(allGroups);
+      setError(null);
+    } catch (err) {
+      console.error("[stories] fetch error:", err);
+      setError((err as Error)?.message || "Kunne ikke laste historier");
+    } finally {
+      setLoading(false);
     }
-
-    const allGroups = Array.from(groupMap.values());
-    allGroups.sort((a, b) => {
-      if (a.userId === user.id) return -1;
-      if (b.userId === user.id) return 1;
-      const aTime = new Date(a.stories[a.stories.length - 1].createdAt).getTime();
-      const bTime = new Date(b.stories[b.stories.length - 1].createdAt).getTime();
-      return bTime - aTime;
-    });
-
-    setGroups(allGroups);
-    setLoading(false);
   }, [user]);
 
   React.useEffect(() => { fetchStories(); }, [fetchStories]);
@@ -121,6 +137,7 @@ export function useStories() {
     const channel = supabase
       .channel("stories-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
+        if (pauseRefetchRef.current) return; // avoid resetting an open viewer
         fetchStories();
       })
       .subscribe();
@@ -128,30 +145,75 @@ export function useStories() {
   }, [fetchStories]);
 
   /**
-   * Mark a story as viewed for the current user.
-   * Uses insert with duplicate-key ignore so re-viewing doesn't error.
-   * Surfaces failure via console (caller may retry).
+   * Mark a story as viewed. Optimistically flips local `viewed`/`hasUnviewed`;
+   * rolls back on a non-duplicate error.
    */
   const markViewed = React.useCallback(async (storyId: string) => {
     if (!user) return;
-    const { error } = await supabase
+    // Snapshot previous state for rollback.
+    let prevViewed: boolean | null = null;
+    setGroups((prev) => prev.map((g) => {
+      const idx = g.stories.findIndex((s) => s.id === storyId);
+      if (idx < 0) return g;
+      const story = g.stories[idx];
+      if (story.viewed) { prevViewed = true; return g; }
+      prevViewed = false;
+      const nextStories = g.stories.slice();
+      nextStories[idx] = { ...story, viewed: true };
+      return { ...g, stories: nextStories, hasUnviewed: nextStories.some((s) => !s.viewed) };
+    }));
+    if (prevViewed) return; // already viewed
+
+    const { error: err } = await supabase
       .from("story_views")
       .insert({ story_id: storyId, user_id: user.id });
-    // 23505 = unique_violation → the row already exists, which is fine.
-    if (error && (error as { code?: string }).code !== "23505") {
-      console.warn("[stories] markViewed failed:", error);
+    // 23505 = duplicate → treat as success.
+    if (err && (err as { code?: string }).code !== "23505") {
+      console.warn("[stories] markViewed failed:", err);
+      // Rollback optimistic flip.
+      setGroups((prev) => prev.map((g) => {
+        const idx = g.stories.findIndex((s) => s.id === storyId);
+        if (idx < 0) return g;
+        const nextStories = g.stories.slice();
+        nextStories[idx] = { ...nextStories[idx], viewed: false };
+        return { ...g, stories: nextStories, hasUnviewed: true };
+      }));
     }
   }, [user]);
 
-  /** Delete own story: removes the DB row and the storage object. Cascades to gallery. */
-  const deleteStory = React.useCallback(async (story: Story): Promise<void> => {
+  /**
+   * Delete own story.
+   * Ordering: DB row first (RLS-scoped to owner); storage cleanup after.
+   * A storage failure does NOT undo the DB delete — it surfaces a warning.
+   */
+  const deleteStory = React.useCallback(async (story: Story): Promise<DeleteResult> => {
     if (!user || story.userId !== user.id) throw new Error("Ikke din story");
     const { error: dbErr } = await supabase.from("stories").delete().eq("id", story.id);
     if (dbErr) throw dbErr;
-    // Best-effort storage cleanup — a failure here doesn't undo the DB delete.
-    supabase.storage.from("stories").remove([story.storagePath]).catch(() => {});
-    await fetchStories();
-  }, [user, fetchStories]);
+    // Optimistically drop from local groups (also removes the row for the current viewer).
+    setGroups((prev) => prev
+      .map((g) => ({ ...g, stories: g.stories.filter((s) => s.id !== story.id) }))
+      .filter((g) => g.stories.length > 0),
+    );
+    const { error: storageErr } = await supabase.storage.from("stories").remove([story.storagePath]);
+    if (storageErr) {
+      console.warn("[stories] storage cleanup failed:", storageErr);
+      return { ok: true, storageCleanupWarning: storageErr.message || "Filen ble ikke fjernet" };
+    }
+    return { ok: true };
+  }, [user]);
 
-  return { groups, loading, refetch: fetchStories, markViewed, deleteStory };
+  const setRefetchPaused = React.useCallback((paused: boolean) => {
+    pauseRefetchRef.current = paused;
+  }, []);
+
+  return {
+    groups,
+    loading,
+    error,
+    refetch: fetchStories,
+    markViewed,
+    deleteStory,
+    setRefetchPaused,
+  };
 }

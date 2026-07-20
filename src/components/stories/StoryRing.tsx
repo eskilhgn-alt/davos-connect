@@ -30,16 +30,16 @@ export const StoryRing: React.FC<StoryRingProps> = ({
 
   return (
     <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4">
-      {/* Add / My story button */}
-      <button
-        type="button"
-        onClick={hasMyStory ? () => onOpenStory(myGroupIdx) : onAddStory}
-        className="flex flex-col items-center gap-1 flex-shrink-0 w-[68px]"
-      >
+      {/* Din story: primary + add are SIBLING controls (no nested buttons). */}
+      <div className="flex flex-col items-center gap-1 flex-shrink-0 w-[68px]">
         <div className="relative">
-          <div
+          <button
+            type="button"
+            onClick={hasMyStory ? () => onOpenStory(myGroupIdx) : onAddStory}
+            aria-label={hasMyStory ? "Åpne din story" : "Legg til story"}
             className={cn(
-              "w-[60px] h-[60px] rounded-full flex items-center justify-center",
+              "w-[60px] h-[60px] min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center",
+              "active:scale-95 transition-transform",
               hasMyStory
                 ? groups[myGroupIdx].hasUnviewed
                   ? "ring-[2.5px] ring-primary ring-offset-2 ring-offset-background"
@@ -52,25 +52,24 @@ export const StoryRing: React.FC<StoryRingProps> = ({
                 {groups[myGroupIdx].displayName[0]?.toUpperCase()}
               </span>
             ) : (
-              <Plus size={22} className="text-muted-foreground" />
+              <Plus size={22} className="text-muted-foreground" aria-hidden />
             )}
-          </div>
-          {/* Always show + overlay on bottom-right for adding */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddStory();
-            }}
-            className="absolute -bottom-0.5 -right-0.5 w-[22px] h-[22px] rounded-full bg-primary flex items-center justify-center border-2 border-background"
-          >
-            <Plus size={12} className="text-primary-foreground" strokeWidth={3} />
           </button>
+          {hasMyStory && (
+            <button
+              type="button"
+              onClick={onAddStory}
+              aria-label="Legg til ny story"
+              className="absolute -bottom-0.5 -right-0.5 w-[22px] h-[22px] rounded-full bg-primary flex items-center justify-center border-2 border-background active:scale-90 transition-transform"
+            >
+              <Plus size={12} className="text-primary-foreground" strokeWidth={3} aria-hidden />
+            </button>
+          )}
         </div>
         <span className="text-[11px] text-muted-foreground font-medium truncate w-full text-center">
           Din story
         </span>
-      </button>
+      </div>
 
       {/* Other users' stories */}
       {groups
@@ -82,7 +81,8 @@ export const StoryRing: React.FC<StoryRingProps> = ({
               key={group.userId}
               type="button"
               onClick={() => onOpenStory(originalIdx)}
-              className="flex flex-col items-center gap-1 flex-shrink-0 w-[68px] active:scale-95 transition-transform"
+              aria-label={`Åpne historier fra ${group.displayName}`}
+              className="flex flex-col items-center gap-1 flex-shrink-0 w-[68px] min-h-[44px] active:scale-95 transition-transform"
             >
               <div
                 className={cn(

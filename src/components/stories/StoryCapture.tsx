@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
+import { validateStoryFile, MAX_STORY_VIDEO_SEC } from "@/features/stories/helpers";
 
 interface StoryCaptureProps {
   onClose: () => void;
@@ -99,29 +100,30 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const dragStartRef = React.useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
 
-  const MAX_RECORD_SECS = 60;
+  const MAX_RECORD_SECS = MAX_STORY_VIDEO_SEC;
+
+  // ─── Capture mode: photo vs video (declared before camera effect so it
+  // can drive whether we request mic permission). ───
+  const [captureMode, setCaptureMode] = React.useState<"photo" | "video">("photo");
 
   // ─── Camera ───
   const startCamera = React.useCallback(async () => {
     try {
       setCameraError(false);
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      // Only request microphone in video mode — photo mode must never surprise-prompt.
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode,
           width: { ideal: 1920 },
           height: { ideal: 1080 },
-          // Request widest possible field of view
-          ...(typeof MediaStreamTrack !== 'undefined' && {
-            resizeMode: 'none',
-          }),
+          ...(typeof MediaStreamTrack !== 'undefined' && { resizeMode: 'none' }),
         },
-        audio: true,
+        audio: captureMode === "video",
       });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
 
-      // Force widest angle: set zoom to minimum
       const track = stream.getVideoTracks()[0];
       const caps = track?.getCapabilities?.() as any;
       if (caps?.zoom) {
@@ -134,7 +136,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       console.error("[StoryCapture] Camera error:", err);
       setCameraError(true);
     }
-  }, [facingMode]);
+  }, [facingMode, captureMode]);
 
   React.useEffect(() => {
     if (mode === "camera") startCamera();
@@ -273,9 +275,6 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     if (recordTimerRef.current) clearInterval(recordTimerRef.current);
   };
 
-  // ─── Capture: single tap for photo, toggle mode for video ───
-  const [captureMode, setCaptureMode] = React.useState<"photo" | "video">("photo");
-
   const handleCaptureButtonTap = () => {
     if (mode !== "camera") return;
     if (captureMode === "photo") {
@@ -304,12 +303,21 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const check = validateStoryFile({ size: file.size, type: file.type });
+    if (!check.ok) {
+      if (check.reason === "unsupported_type") errorToast("Ikke støttet filtype");
+      else if (check.reason === "too_large") errorToast("Filen er for stor (maks 100 MB)");
+      else errorToast("Kan ikke bruke denne filen");
+      e.target.value = "";
+      return;
+    }
     const type = file.type.startsWith("video") ? "video" as const : "image" as const;
     const url = URL.createObjectURL(file);
     setCapturedMedia({ blob: file, type, url });
     setMode("preview");
     streamRef.current?.getTracks().forEach((t) => t.stop());
   };
+
 
   // ─── Drawing ───
   const getRelativePos = (e: React.TouchEvent | React.PointerEvent) => {
@@ -491,6 +499,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     if (!capturedMedia || !user) return;
     setUploading(true);
 
+    let uploadedPath: string | null = null;
     try {
       // Render edits onto final image (photos) — this canvas pass also strips EXIF.
       let finalBlob: Blob;
@@ -504,6 +513,14 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         }
       } else {
         finalBlob = capturedMedia.blob;
+      }
+
+      // Validate final blob size/MIME before upload.
+      const check = validateStoryFile({ size: finalBlob.size, type: finalBlob.type });
+      if (!check.ok) {
+        if (check.reason === "too_large") throw new Error("Filen er for stor (maks 100 MB)");
+        if (check.reason === "unsupported_type") throw new Error("Ikke støttet filtype");
+        throw new Error("Kan ikke publisere denne filen");
       }
 
       const isVideo = capturedMedia.type === "video";
@@ -520,6 +537,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
           cacheControl: "3600",
         });
       if (uploadErr) throw uploadErr;
+      uploadedPath = path;
 
       const { data: inserted, error: insertErr } = await supabase.from("stories").insert({
         user_id: user.id,
@@ -529,12 +547,25 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       }).select("id").maybeSingle();
       if (insertErr) throw insertErr;
 
+      // DB insert succeeded — object is now "owned" and must not be cleaned up.
+      uploadedPath = null;
+
       // Gallery sync handled by database trigger (sync_story_to_gallery)
 
-      // Send story push (dedicated function, JWT-verified server-side).
+      // Send story push (best effort — inspect resolved error).
       if (inserted?.id) {
-        supabase.functions.invoke("story-push", { body: { story_id: inserted.id } })
-          .catch((e) => console.warn("[story-push] failed:", e));
+        try {
+          const { error: pushErr } = await supabase.functions.invoke("story-push", {
+            body: { story_id: inserted.id },
+          });
+          if (pushErr) {
+            console.warn("[story-push] failed:", pushErr);
+            toast.warning("Story publisert, men varsel ble ikke sendt");
+          }
+        } catch (e) {
+          console.warn("[story-push] failed:", e);
+          toast.warning("Story publisert, men varsel ble ikke sendt");
+        }
       }
 
       toast.success("Story publisert! 🎉");
@@ -542,11 +573,20 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       onPublished();
     } catch (err: any) {
       console.error("Publish error:", err);
-      errorToast("Kunne ikke publisere story");
+      // Cleanup orphan storage object if insert failed after upload.
+      if (uploadedPath) {
+        const { error: cleanupErr } = await supabase.storage.from("stories").remove([uploadedPath]);
+        if (cleanupErr) {
+          console.warn("[StoryCapture] Orphan cleanup failed:", cleanupErr);
+          toast.warning("Publisering feilet – midlertidig fil kunne ikke fjernes");
+        }
+      }
+      errorToast(err?.message || "Kunne ikke publisere story");
     } finally {
       setUploading(false);
     }
   };
+
 
   // ─── Progress ring ───
   const ringProgress = recordTime / MAX_RECORD_SECS;

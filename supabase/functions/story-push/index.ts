@@ -55,14 +55,17 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const name = profile?.nickname || profile?.full_name || 'Noen';
 
-    // Recipients = all push tokens except sender
+    // Recipients: distinct user_id from push_tokens excluding the sender.
+    // Client calls OneSignal.login(user.id), so external_id === user_id.
     const { data: tokens } = await admin
       .from('push_tokens')
-      .select('external_id')
+      .select('user_id, player_id')
       .neq('user_id', callerId);
-    const externalIds = Array.from(new Set((tokens ?? [])
-      .map((t: any) => t.external_id)
-      .filter(Boolean)));
+    const externalIds = Array.from(new Set(
+      (tokens ?? [])
+        .filter((t: any) => t.player_id && t.user_id)
+        .map((t: any) => String(t.user_id))
+    ));
     if (externalIds.length === 0) return j({ sent: 0 });
 
     if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
