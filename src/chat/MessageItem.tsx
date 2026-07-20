@@ -3,12 +3,13 @@
  */
 
 import * as React from 'react';
-import { Check, X, AlertCircle, RotateCw, FileText, Download } from 'lucide-react';
+import { Check, X, AlertCircle, RotateCw, FileText, Download, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Message } from './types';
+import type { Message, Attachment } from './types';
 import { ReactionsRow } from './ReactionsRow';
 import { chatStore } from './store';
 import { ChatPollCard } from '@/components/poll/ChatPollCard';
+import { useSignedUrl } from '@/components/ui/SignedMedia';
 
 interface MessageItemProps {
   message: Message;
