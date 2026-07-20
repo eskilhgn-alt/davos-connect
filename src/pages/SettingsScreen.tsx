@@ -322,7 +322,7 @@ export const SettingsScreen: React.FC = () => {
                 </li>
                 <li className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4" />
-                  <span><strong>AI:</strong> Gemini</span>
+                  <span><strong>AI:</strong> OpenAI GPT-5.2 via Lovable AI</span>
                 </li>
               </ul>
             </BrandCardContent>

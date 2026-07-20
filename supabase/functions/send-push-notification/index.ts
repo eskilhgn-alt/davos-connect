@@ -117,6 +117,20 @@ serve(async (req) => {
       });
     }
 
+    const dedupeKey = `chat:${message_id}`;
+    const { error: claimError } = await supabase.from("notification_dispatches").insert({
+      dedupe_key: dedupeKey,
+      kind: "chat",
+      source_id: message_id,
+      event_type: "created",
+    });
+    if (claimError?.code === "23505") {
+      return new Response(JSON.stringify({ success: true, sent: 0, reason: "already_dispatched" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (claimError) throw claimError;
+
     const notificationPayload = {
       app_id: ONESIGNAL_APP_ID,
       include_aliases: { external_id: externalUserIds },
@@ -141,8 +155,14 @@ serve(async (req) => {
     const result = await response.json();
     if (!response.ok) {
       console.error("OneSignal API error:", result);
+      await supabase.from("notification_dispatches").delete().eq("dedupe_key", dedupeKey);
       throw new Error(`OneSignal API error: ${JSON.stringify(result)}`);
     }
+
+    await supabase
+      .from("notification_dispatches")
+      .update({ sent_at: new Date().toISOString(), last_error: null })
+      .eq("dedupe_key", dedupeKey);
 
     return new Response(
       JSON.stringify({ success: true, sent: externalUserIds.length, result }),

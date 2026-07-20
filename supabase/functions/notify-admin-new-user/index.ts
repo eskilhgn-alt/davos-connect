@@ -6,6 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const APP_URL = Deno.env.get("APP_URL") || "https://guttahutte.lovable.app";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -62,13 +64,27 @@ Deno.serve(async (req) => {
       });
     }
 
+    const dedupeKey = `new-user:${userData.user.id}`;
+    const { error: claimError } = await supabaseAdmin.from("notification_dispatches").insert({
+      dedupe_key: dedupeKey,
+      kind: "admin_new_user",
+      source_id: userData.user.id,
+      event_type: "registered",
+    });
+    if (claimError?.code === "23505") {
+      return new Response(JSON.stringify({ sent: false, reason: "already_dispatched" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (claimError) throw claimError;
+
     const notificationPayload = {
       app_id: ONESIGNAL_APP_ID,
       include_aliases: { external_id: adminIds },
       target_channel: "push",
       headings: { en: "Ny bruker registrert 🆕" },
       contents: { en: `${newUserEmail} venter på e-postverifisering. Gå til Admin → Brukere for å verifisere.` },
-      url: "https://guttahutte.lovable.app/admin",
+      url: `${APP_URL}/admin`,
       ios_badgeType: "Increase",
       ios_badgeCount: 1,
     };
@@ -85,7 +101,17 @@ Deno.serve(async (req) => {
     const result = await response.json();
     if (!response.ok) {
       console.error("OneSignal error:", result);
+      await supabaseAdmin.from("notification_dispatches").delete().eq("dedupe_key", dedupeKey);
+      return new Response(JSON.stringify({ sent: false, reason: "onesignal_failed" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
+    await supabaseAdmin
+      .from("notification_dispatches")
+      .update({ sent_at: new Date().toISOString(), last_error: null })
+      .eq("dedupe_key", dedupeKey);
 
     return new Response(JSON.stringify({ sent: true, admins: adminIds.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
