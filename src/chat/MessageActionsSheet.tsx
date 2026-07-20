@@ -2,11 +2,11 @@
  * MessageActionsSheet - Combined bottom sheet with:
  * 1. Quick reactions at top
  * 2. Seen-by list
- * 3. Actions (Copy, Edit, Delete)
+ * 3. Actions (Copy, Reply, Edit, Delete)
  */
 
 import * as React from 'react';
-import { Pencil, Trash2, Copy, Eye, X, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, Copy, Eye, Loader2, Reply } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { QUICK_REACTIONS } from './emojiBank';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +23,7 @@ interface MessageActionsSheetProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onCopy: () => void;
+  onReply?: () => void;
   onReact: (emoji: string) => void;
   onClose: () => void;
 }
@@ -33,6 +34,7 @@ export const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
   onEdit,
   onDelete,
   onCopy,
+  onReply,
   onReact,
   onClose,
 }) => {
@@ -170,6 +172,7 @@ export const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
         <div className="py-1">
           <button
             type="button"
+            aria-label="Kopier melding"
             onClick={(e) => { e.stopPropagation(); onCopy(); onClose(); }}
             className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted active:bg-muted/80 transition-colors"
           >
@@ -177,9 +180,22 @@ export const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
             <span className="text-base">Kopier</span>
           </button>
 
+          {onReply && (
+            <button
+              type="button"
+              aria-label="Svar på melding"
+              onClick={(e) => { e.stopPropagation(); onReply(); onClose(); }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted active:bg-muted/80 transition-colors"
+            >
+              <Reply size={20} />
+              <span className="text-base">Svar</span>
+            </button>
+          )}
+
           {isOwn && onEdit && (
             <button
               type="button"
+              aria-label="Rediger melding"
               onClick={(e) => { e.stopPropagation(); onEdit(); }}
               className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted active:bg-muted/80 transition-colors"
             >
@@ -191,7 +207,11 @@ export const MessageActionsSheet: React.FC<MessageActionsSheetProps> = ({
           {isOwn && onDelete && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              aria-label="Slett melding"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.confirm('Slett denne meldingen?')) onDelete();
+              }}
               className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted active:bg-muted/80 transition-colors text-destructive"
             >
               <Trash2 size={20} />
