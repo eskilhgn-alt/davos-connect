@@ -41,17 +41,7 @@ async function getCurrentUserId(): Promise<string> {
 // ============ Mapping ============
 function dbToMessage(row: Record<string, unknown>): Message {
   const attsRaw = Array.isArray(row.attachments) ? row.attachments : [];
-  const attachments: Attachment[] = attsRaw.map((a: Record<string, unknown>) => ({
-    id: (a.id as string) || crypto.randomUUID(),
-    kind: (a.kind as Attachment['kind']) || 'image',
-    objectUrl: (a.objectUrl as string) || (a.url as string) || '',
-    thumbUrl: a.thumbUrl as string | undefined,
-    filename: a.filename as string | undefined,
-    mime: a.mime as string | undefined,
-    size: a.size as number | undefined,
-    poll_id: a.poll_id as string | undefined,
-    poll_event: a.poll_event as string | undefined,
-  }));
+  const attachments: Attachment[] = attsRaw.map((a: Record<string, unknown>) => normalizeAttachment(a));
 
   // Legacy JSONB reactions — only used until a normalized row appears.
   let legacyReactions: Record<string, string[]> | undefined;
