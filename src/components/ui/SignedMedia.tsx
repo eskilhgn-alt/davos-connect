@@ -165,7 +165,9 @@ export const SignedImg: React.FC<Base> = ({ bucket, path, url, alt = '', classNa
   const { url: resolved, status, error, retry } = useSignedMedia(bucket, path, url);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const retryOnceRef = React.useRef(false);
-  React.useEffect(() => { setLoadFailed(false); retryOnceRef.current = false; }, [resolved]);
+  // Reset the one-shot retry gate only when the caller's identity changes,
+  // NOT when an internal re-sign produces a fresh URL for the same path.
+  React.useEffect(() => { setLoadFailed(false); retryOnceRef.current = false; }, [bucket, path, url]);
 
   if (status === 'error' || loadFailed) {
     return <ErrorBox className={className} onRetry={() => { setLoadFailed(false); retry(); }} message={error} />;
