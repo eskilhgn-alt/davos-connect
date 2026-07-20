@@ -441,21 +441,30 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
 }
 
 /**
- * Upload only what still needs uploading. Mutates the pending item in place so
- * subsequent retries never re-upload already-persisted attachments.
+ * Upload only what still needs uploading. Persists each individual success
+ * back to the pending item immediately, so a later retry never re-uploads
+ * something that already succeeded on a previous attempt.
  */
 async function uploadAttachmentsForPending(p: PendingSend): Promise<Attachment[]> {
-  const needsUpload = attachmentsNeedingUpload(p.attachments);
-  const alreadyDone = attachmentsAlreadyUploaded(p.attachments);
-  const uploaded = await Promise.all(needsUpload.map((a) => uploadOne(a, p.senderId)));
-  // Merge back preserving original order by id.
+  // Snapshot original order.
+  const originalOrder = p.attachments.map((a) => a.id);
+  // Work sequentially so per-item persistence is trivially correct.
+  for (const att of [...p.attachments]) {
+    const stillPending = attachmentsNeedingUpload([att]).length > 0;
+    if (!stillPending) continue;
+    const uploaded = await uploadOne(att, p.senderId);
+    // Rewrite the single entry in place, preserving order.
+    p.attachments = p.attachments.map((a) => (a.id === att.id ? uploaded : a));
+  }
+  const done = attachmentsAlreadyUploaded(p.attachments);
   const byId = new Map<string, Attachment>();
-  [...alreadyDone, ...uploaded].forEach((a) => byId.set(a.id, a));
-  const merged = p.attachments.map((a) => byId.get(a.id) || a);
-  // Persist metadata so future retries skip these uploads.
+  done.forEach((a) => byId.set(a.id, a));
+  // Reconstruct in original order.
+  const merged = originalOrder.map((id) => byId.get(id) || p.attachments.find((a) => a.id === id)!);
   p.attachments = merged;
   return merged;
 }
+
 
 export async function sendMessage(
   text: string,
