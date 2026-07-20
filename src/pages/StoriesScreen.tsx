@@ -28,9 +28,11 @@ export const StoriesScreen: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkOpenedRef = React.useRef<string | null>(null);
 
-  const openStory = (groupIndex: number, storyIndex: number = 0) => {
+  const openStory = (groupIndex: number, storyIndex?: number) => {
+    const g = groups[groupIndex];
+    const idx = storyIndex ?? firstUnviewedIndex(g);
     setViewerGroupIdx(groupIndex);
-    setViewerStoryIdx(storyIndex);
+    setViewerStoryIdx(idx);
     setViewerOpen(true);
   };
 
