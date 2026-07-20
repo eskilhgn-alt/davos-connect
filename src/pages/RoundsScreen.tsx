@@ -21,6 +21,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
 import type { Round, DrinkQuantities } from "@/hooks/useRounds";
+import { useSignedUrl } from "@/components/ui/SignedMedia";
+
+const ReceiptImage: React.FC<{ value: string }> = ({ value }) => {
+  // If value looks like a full URL, the resolver parses it and re-signs.
+  // Otherwise, it's a bucket-relative storage path in round-receipts.
+  const isUrl = /^https?:\/\//.test(value);
+  const url = useSignedUrl(isUrl ? null : 'round-receipts', isUrl ? null : value, isUrl ? value : null);
+  if (!url) return <div className="w-full h-32 rounded-xl border border-border bg-muted/10 animate-pulse" />;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      <img src={url} alt="Kvittering" className="w-full max-h-64 object-contain rounded-xl border border-border bg-muted/10" />
+    </a>
+  );
+};
 
 const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
   beer: { icon: Beer, label: "Øl" },
