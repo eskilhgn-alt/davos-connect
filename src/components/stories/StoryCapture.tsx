@@ -275,9 +275,6 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     if (recordTimerRef.current) clearInterval(recordTimerRef.current);
   };
 
-  // ─── Capture: single tap for photo, toggle mode for video ───
-  const [captureMode, setCaptureMode] = React.useState<"photo" | "video">("photo");
-
   const handleCaptureButtonTap = () => {
     if (mode !== "camera") return;
     if (captureMode === "photo") {
@@ -306,12 +303,21 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const check = validateStoryFile({ size: file.size, type: file.type });
+    if (!check.ok) {
+      if (check.reason === "unsupported_type") errorToast("Ikke støttet filtype");
+      else if (check.reason === "too_large") errorToast("Filen er for stor (maks 100 MB)");
+      else errorToast("Kan ikke bruke denne filen");
+      e.target.value = "";
+      return;
+    }
     const type = file.type.startsWith("video") ? "video" as const : "image" as const;
     const url = URL.createObjectURL(file);
     setCapturedMedia({ blob: file, type, url });
     setMode("preview");
     streamRef.current?.getTracks().forEach((t) => t.stop());
   };
+
 
   // ─── Drawing ───
   const getRelativePos = (e: React.TouchEvent | React.PointerEvent) => {
