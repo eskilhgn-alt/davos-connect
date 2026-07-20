@@ -1139,6 +1139,12 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               <button
                 type="button"
                 onClick={handleCaptureButtonTap}
+                aria-label={
+                  captureMode === "video"
+                    ? isRecording ? "Stopp opptak" : "Start opptak"
+                    : "Ta bilde"
+                }
+                aria-pressed={isRecording}
                 className={cn(
                   "w-[72px] h-[72px] rounded-full border-[4px]",
                   "flex items-center justify-center",
