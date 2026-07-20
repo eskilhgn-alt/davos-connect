@@ -14,7 +14,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Film, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
-import { findStoryLocation } from "@/features/stories/helpers";
+import { findStoryLocation, firstUnviewedIndex } from "@/features/stories/helpers";
+import { SignedImg, SignedVideo } from "@/components/ui/SignedMedia";
 import { toast } from "sonner";
 
 export const StoriesScreen: React.FC = () => {
