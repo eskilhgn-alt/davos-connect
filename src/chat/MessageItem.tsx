@@ -183,39 +183,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           {message.attachments
             .filter((a) => a.kind === 'image' || a.kind === 'video' || a.kind === 'gif')
             .map((att) => (
-            <div
-              key={att.id}
-              className="rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onMediaTap && att.objectUrl) {
-                  onMediaTap(att.objectUrl, att.kind === 'video' ? 'video' : att.kind === 'gif' ? 'gif' : 'image');
-                }
-              }}
-            >
-              {att.kind === 'video' ? (
-                <video
-                  src={att.objectUrl}
-                  playsInline
-                  muted
-                  className="max-w-full h-auto"
-                />
-              ) : att.kind === 'gif' ? (
-                <img
-                  src={att.objectUrl}
-                  alt="GIF"
-                  className="max-w-full h-auto"
-                />
-              ) : (
-                <img
-                  src={(att as { thumbUrl?: string }).thumbUrl || att.objectUrl}
-                  alt="Vedlegg"
-                  className="max-w-full h-auto"
-                  loading="lazy"
-                />
-              )}
-            </div>
-          ))}
+              <MediaAttachment
+                key={att.id}
+                att={att}
+                onTap={(src) => onMediaTap?.(src, att.kind === 'video' ? 'video' : att.kind === 'gif' ? 'gif' : 'image')}
+              />
+            ))}
         </div>
       )}
 
