@@ -218,9 +218,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         </div>
       )}
 
-
+      {/* Text bubble or edit mode */}
+      {message.text && (() => {
         // Check if this is a poll system message
-        const pollAtt = message.attachments?.find((a: any) => a.kind === 'poll');
+        const pollAtt = message.attachments?.find((a: { kind: string }) => a.kind === 'poll');
         if (pollAtt) {
           return (
             <div className={cn('px-1', isOwn ? 'flex justify-end' : '')}>
