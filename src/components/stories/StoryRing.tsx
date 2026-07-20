@@ -81,7 +81,8 @@ export const StoryRing: React.FC<StoryRingProps> = ({
               key={group.userId}
               type="button"
               onClick={() => onOpenStory(originalIdx)}
-              className="flex flex-col items-center gap-1 flex-shrink-0 w-[68px] active:scale-95 transition-transform"
+              aria-label={`Åpne historier fra ${group.displayName}`}
+              className="flex flex-col items-center gap-1 flex-shrink-0 w-[68px] min-h-[44px] active:scale-95 transition-transform"
             >
               <div
                 className={cn(
