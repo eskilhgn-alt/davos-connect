@@ -7,7 +7,7 @@ import { BrandBadge } from "@/components/ui/brand-badge";
 import { BrandButton } from "@/components/ui/brand-button";
 import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { ScrollText, RefreshCw } from "lucide-react";
-import type { AdminUser } from "./useAdminData";
+import type { AdminAuditEntry, AdminUser } from "./useAdminData";
 
 const ACTION_LABELS: Record<string, string> = {
   token_adjust: "Token-justering",
@@ -29,7 +29,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 interface Props {
-  auditLog: any[];
+  auditLog: AdminAuditEntry[];
   users: AdminUser[];
   loading: boolean;
   onRefresh: () => void;

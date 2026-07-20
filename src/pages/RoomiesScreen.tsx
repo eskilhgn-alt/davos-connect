@@ -59,7 +59,7 @@ export const RoomiesScreen: React.FC = () => {
     const { data } = await supabase.from("roomie_rooms").select("user_id, room_label");
     if (data) {
       const map: Record<string, string> = {};
-      data.forEach((r: any) => { if (r.room_label) map[r.user_id] = r.room_label; });
+      data.forEach((room) => { if (room.room_label) map[room.user_id] = room.room_label; });
       setRoomLabels(map);
     }
   }, []);
@@ -127,8 +127,8 @@ export const RoomiesScreen: React.FC = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-    } catch (err: any) {
-      errorToast(err.message || "Kunne ikke starte trekning");
+    } catch (error: unknown) {
+      errorToast(error instanceof Error ? error.message : "Kunne ikke starte trekning");
     } finally {
       setDrawing(false);
     }
@@ -151,7 +151,7 @@ export const RoomiesScreen: React.FC = () => {
     try {
       const { error } = await supabase
         .from("roomie_draws")
-        .update({ pairs: editingPairs as any })
+        .update({ pairs: editingPairs as unknown as import("@/integrations/supabase/types").Json })
         .eq("id", draw.id);
       if (error) throw error;
       toast.success("Romfordeling oppdatert!");
@@ -183,7 +183,7 @@ export const RoomiesScreen: React.FC = () => {
     try {
       const { error } = await supabase
         .from("roomie_rooms")
-        .upsert({ user_id: user.id, room_label: myRoomLabel.trim(), updated_at: new Date().toISOString() } as any, { onConflict: "user_id" });
+        .upsert({ user_id: user.id, room_label: myRoomLabel.trim(), updated_at: new Date().toISOString() }, { onConflict: "user_id" });
       if (error) throw error;
       toast.success("Hotellrom lagret!");
       setEditingMyRoom(false);

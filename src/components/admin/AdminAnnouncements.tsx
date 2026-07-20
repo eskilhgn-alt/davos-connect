@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
 import { BrandButton } from "@/components/ui/brand-button";
 import { BrandInput } from "@/components/ui/brand-input";
-import { Megaphone, Trash2, Loader2, Send } from "lucide-react";
+import { Megaphone, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,7 +25,6 @@ export const AdminAnnouncements: React.FC = () => {
   const [message, setMessage] = React.useState("");
   const [type, setType] = React.useState("info");
   const [loading, setLoading] = React.useState(false);
-  const [reinstallLoading, setReinstallLoading] = React.useState(false);
 
   const loadAnnouncements = React.useCallback(async () => {
     const { data } = await supabase
@@ -57,33 +56,6 @@ export const AdminAnnouncements: React.FC = () => {
     await supabase.from("system_announcements").update({ is_active: false }).eq("id", id);
     toast.success("Fjernet");
     loadAnnouncements();
-  };
-
-  const sendReinstallBroadcast = async () => {
-    if (!user) return;
-    setReinstallLoading(true);
-    try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) throw new Error("Ikke autentisert");
-
-      const res = await globalThis.fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/broadcast-reinstall`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          heading: "🏔️ GüttaHütte – Ny versjon!",
-          message: "Ny utgave av appen er rullet ut. Du må dessverre slette den gamle fra hjemskjermen din og installere på nytt. Dette for at du skal få med alt av feilretting og nye funksjoner!",
-        }),
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Feil");
-      toast.success(`Sendt! Push: ${result.push_sent}`);
-      loadAnnouncements();
-    } catch (e: any) {
-      errorToast("Broadcast feilet", { description: e.message });
-    } finally {
-      setReinstallLoading(false);
-    }
   };
 
   const typeLabels: Record<string, string> = {
@@ -123,29 +95,6 @@ export const AdminAnnouncements: React.FC = () => {
           <BrandButton onClick={create} disabled={!message.trim() || loading} size="sm" className="w-full">
             {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : <Megaphone size={14} className="mr-1" />}
             Publiser varsel
-          </BrandButton>
-        </BrandCardContent>
-      </BrandCard>
-
-      {/* Reinstall broadcast */}
-      <BrandCard>
-        <BrandCardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Send size={18} className="text-accent" />
-            <h3 className="font-heading font-semibold text-sm">Reinstall-varsling</h3>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Sender push-varsel, e-post og viser fullskjerm-popup til alle brukere med beskjed om å reinstallere appen.
-          </p>
-          <BrandButton
-            onClick={sendReinstallBroadcast}
-            disabled={reinstallLoading}
-            variant="destructive"
-            size="sm"
-            className="w-full"
-          >
-            {reinstallLoading ? <Loader2 size={14} className="animate-spin mr-1" /> : <Send size={14} className="mr-1" />}
-            Send reinstall-varsel til alle
           </BrandButton>
         </BrandCardContent>
       </BrandCard>

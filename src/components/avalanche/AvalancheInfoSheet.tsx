@@ -113,7 +113,7 @@ const INFO: Record<InfoTopic, InfoEntry> = {
   safety_tips: {
     title: "Sikkerhetstips",
     emoji: "🛡️",
-    body: "Grunnleggende skredsikkerhet:\n\n1️⃣ Sjekk skredvarselet FØR du drar ut\n2️⃣ Ha alltid med skredutstyr utenfor løypene: sender/mottaker, spade, søkestang\n3️⃣ Gå aldri alene i skredterreng\n4️⃣ Lær å bruke skredutstyret – øv jevnlig!\n5️⃣ Unngå terreng brattere enn 30° ved faregrad 3+\n6️⃣ Kjør/gå én og én over bratte partier\n7️⃣ Hold avstand mellom hverandre i oppstigninger\n8️⃣ Vurder lokale tegn: fersk snøskredaktivitet, «wumpf»-lyder, skytende sprekker\n9️⃣ Når du er i tvil – snu!\n\n📞 Nødnummer i Sveits: 144 (ambulanse) / 1414 (REGA helikopter)",
+    body: "Grunnleggende skredsikkerhet:\n\n1️⃣ Sjekk skredvarselet FØR du drar ut\n2️⃣ Ha alltid med skredutstyr utenfor løypene: sender/mottaker, spade, søkestang\n3️⃣ Gå aldri alene i skredterreng\n4️⃣ Lær å bruke skredutstyret – øv jevnlig!\n5️⃣ Unngå terreng brattere enn 30° ved faregrad 3+\n6️⃣ Kjør/gå én og én over bratte partier\n7️⃣ Hold avstand mellom hverandre i oppstigninger\n8️⃣ Vurder lokale tegn: fersk snøskredaktivitet, «wumpf»-lyder, skytende sprekker\n9️⃣ Når du er i tvil – snu!\n\n📞 I Frankrike: ring 112 ved akutt fare. I Val Thorens kan skipatruljen nås på +33 4 79 00 01 80.",
   },
 };
 

@@ -2068,6 +2068,18 @@ export type Database = {
       }
     }
     Functions: {
+      create_poll_with_options: {
+        Args: {
+          p_deadline_at?: string | null
+          p_min_votes?: number | null
+          p_options: string[]
+          p_question: string
+          p_require_all?: boolean
+          p_send_push_on_create?: boolean
+          p_send_push_on_resolved?: boolean
+        }
+        Returns: string
+      }
       create_round_with_participants: {
         Args: {
           p_client_id: string

@@ -20,6 +20,7 @@ import {
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AgendaEvent } from "@/hooks/useAgenda";
+import { errorToast } from "@/utils/errorToast";
 
 const COLORS = [
   { value: "primary", label: "Blå", css: "bg-primary" },
@@ -79,14 +80,53 @@ export const AgendaEventDialog: React.FC<Props> = ({
 
   const handleSave = async () => {
     if (!title.trim()) return;
-    setSaving(true);
-    const startAt = setMinutes(setHours(new Date(selectedDate), parseInt(startHour)), parseInt(startMin));
-    const endAt = setMinutes(setHours(new Date(selectedDate), parseInt(endHour)), parseInt(endMin));
+    const startHourNumber = Number(startHour);
+    const startMinuteNumber = Number(startMin);
+    const endHourNumber = Number(endHour);
+    const endMinuteNumber = Number(endMin);
+    if (
+      !Number.isInteger(startHourNumber) || startHourNumber < 0 || startHourNumber > 23
+      || !Number.isInteger(endHourNumber) || endHourNumber < 0 || endHourNumber > 23
+      || !Number.isInteger(startMinuteNumber) || startMinuteNumber < 0 || startMinuteNumber > 59
+      || !Number.isInteger(endMinuteNumber) || endMinuteNumber < 0 || endMinuteNumber > 59
+    ) {
+      errorToast("Sjekk klokkeslettet");
+      return;
+    }
+    const startAt = setMinutes(setHours(new Date(selectedDate), startHourNumber), startMinuteNumber);
+    const endAt = setMinutes(setHours(new Date(selectedDate), endHourNumber), endMinuteNumber);
     startAt.setSeconds(0, 0);
     endAt.setSeconds(0, 0);
-    await onSave(title.trim(), description.trim(), startAt, endAt, color);
-    setSaving(false);
-    onClose();
+    if (endAt <= startAt) {
+      errorToast("Sluttid må være etter starttid");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(title.trim().slice(0, 120), description.trim().slice(0, 1000), startAt, endAt, color);
+      onClose();
+    } catch (error) {
+      errorToast("Kunne ikke lagre hendelsen", {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete || saving) return;
+    setSaving(true);
+    try {
+      await onDelete();
+      onClose();
+    } catch (error) {
+      errorToast("Kunne ikke slette hendelsen", {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -168,7 +208,7 @@ export const AgendaEventDialog: React.FC<Props> = ({
 
         <DialogFooter className="flex-row gap-2">
           {editEvent && onDelete && (
-            <Button variant="ghost" size="sm" className="text-destructive mr-auto" onClick={async () => { await onDelete(); onClose(); }}>
+            <Button variant="ghost" size="sm" className="text-destructive mr-auto" onClick={() => void handleDelete()} disabled={saving}>
               Slett
             </Button>
           )}

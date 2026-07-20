@@ -12,7 +12,7 @@
 @tailwind utilities;
 
 /* 
- * LIFT & LAGER – Minimal Design System
+ * GÜTTAHÜTTE – Minimal Design System
  * Kinfolk / Apple inspired · iPhone-first PWA
  */
 
@@ -26,7 +26,7 @@
     --bottom-nav-h-effective: var(--bottom-nav-h);
     --composer-h: 56px;
 
-    /* === DAVOS PRIMARY COLORS (HSL) === */
+    /* === BRAND COLORS (HSL) === */
     --brand-blue: 206 71% 21%;          /* #103A5D */
     --brand-yellow: 44 88% 60%;          /* #F4CD3C */
     --grey-900: 0 0% 15%;                /* Near black for text */

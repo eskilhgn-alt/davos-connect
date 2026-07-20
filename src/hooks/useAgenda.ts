@@ -19,22 +19,34 @@ export function useAgenda() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const weekStart = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
+  const weekStart = React.useMemo(
+    () => startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 }),
+    [weekOffset],
+  );
+  const weekEnd = React.useMemo(
+    () => endOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 }),
+    [weekOffset],
+  );
 
   const fetchEvents = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, error: fetchError } = await supabase
       .from("agenda_events")
       .select("*")
       .gte("start_at", weekStart.toISOString())
       .lte("start_at", weekEnd.toISOString())
       .order("start_at");
-    setEvents((data as AgendaEvent[]) ?? []);
+    if (fetchError) {
+      setError("Kunne ikke laste agendaen");
+    } else {
+      setEvents((data as AgendaEvent[]) ?? []);
+      setError(null);
+    }
     setLoading(false);
-  }, [user, weekOffset]);
+  }, [user, weekStart, weekEnd]);
 
   useEffect(() => {
     fetchEvents();
@@ -53,7 +65,7 @@ export function useAgenda() {
 
   const createEvent = async (title: string, description: string, startAt: Date, endAt: Date, color: string) => {
     if (!user) return;
-    await supabase.from("agenda_events").insert({
+    const { error: createError } = await supabase.from("agenda_events").insert({
       title,
       description: description || null,
       start_at: startAt.toISOString(),
@@ -61,19 +73,23 @@ export function useAgenda() {
       color,
       created_by: user.id,
     });
+    if (createError) throw createError;
   };
 
   const updateEvent = async (id: string, updates: Partial<{ title: string; description: string; start_at: string; end_at: string; color: string }>) => {
-    await supabase.from("agenda_events").update(updates).eq("id", id);
+    const { error: updateError } = await supabase.from("agenda_events").update(updates).eq("id", id);
+    if (updateError) throw updateError;
   };
 
   const deleteEvent = async (id: string) => {
-    await supabase.from("agenda_events").delete().eq("id", id);
+    const { error: deleteError } = await supabase.from("agenda_events").delete().eq("id", id);
+    if (deleteError) throw deleteError;
   };
 
   return {
     events,
     loading,
+    error,
     weekStart,
     weekEnd,
     weekOffset,

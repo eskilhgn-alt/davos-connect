@@ -286,7 +286,7 @@ async function removePushToken(userId: string): Promise<void> {
 }
 
 /**
- * Save push token to push_tokens table (used by shot-push, poll-push)
+ * Save push token to the canonical push registry used by server notifications.
  */
 async function savePushTokenRecord(userId: string, playerId: string): Promise<void> {
   const { error } = await supabase

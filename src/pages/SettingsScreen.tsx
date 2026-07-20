@@ -379,7 +379,7 @@ export const SettingsScreen: React.FC = () => {
                 </ul>
                 <div className="border-t border-border pt-3 mt-3 space-y-1">
                   <p><strong>Tilgang:</strong> Kun ved invitasjon.</p>
-                  <p><strong>Personvern:</strong> Data lagres i Europa (EU/Sveits). Du kan be om sletting når som helst.</p>
+                  <p><strong>Personvern:</strong> Data lagres i appens sikrede backend. Du kan be om sletting når som helst.</p>
                   <p><strong>Kontakt:</strong> Bruk «Rapporter feil»-funksjonen nedenfor, eller kontakt admin direkte.</p>
                 </div>
               </div>
