@@ -299,21 +299,21 @@ async function removePushTokenRecord(userId: string): Promise<void> {
 }
 
 /**
- * Send push notification when a message is sent
+ * Send push notification after a message insert succeeds.
+ * The edge function loads the message/profile server-side using message_id
+ * and enforces caller identity, so no preview/sender_name from the client is trusted.
  */
 export async function triggerPushNotification(
   threadId: string,
   senderId: string,
-  senderName: string,
-  messagePreview: string
+  messageId: string,
 ): Promise<void> {
   try {
     const { error } = await supabase.functions.invoke("send-push-notification", {
       body: {
         thread_id: threadId,
         sender_id: senderId,
-        sender_name: senderName,
-        message_preview: messagePreview,
+        message_id: messageId,
       },
     });
 

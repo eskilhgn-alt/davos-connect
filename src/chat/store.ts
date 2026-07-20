@@ -403,9 +403,9 @@ async function performSend(clientId: string): Promise<Message | null> {
         thread_id: DEFAULT_THREAD_ID,
         sender_id: p.senderId,
         sender_name: p.senderName,
-        attachments: uploaded,
+        attachments: uploaded as unknown as never,
         reply_to_id: p.replyToId,
-      })
+      } as never)
       .select()
       .single();
     if (error) throw error;
