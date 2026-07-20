@@ -1,14 +1,22 @@
 /**
  * Gallery hooks: feed (cursor paginated + incremental realtime), likes
- * (optimistic + request identity), comments (optimistic + retry).
+ * (optimistic + per-item request identity), comments (client_id idempotency
+ * + pagination + retry).
  *
- * All heavy logic lives in ./helpers.ts and is unit-tested there. These hooks
- * are the thin Supabase / React glue.
+ * Slice 4B: stable dependencies, per-item like reconciliation, comment
+ * pagination.
  */
 
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { AnyComment, CommentRow, GalleryRow, OptimisticComment, ProfileLite } from "./types";
+import type {
+  AnyComment,
+  CommentCursor,
+  CommentRow,
+  GalleryRow,
+  OptimisticComment,
+  ProfileLite,
+} from "./types";
 import {
   applyDelete,
   applyInsert,
@@ -17,14 +25,18 @@ import {
   applyUpdate,
   cursorFromLast,
   cursorPredicate,
+  isUniqueViolation,
   markCommentFailed,
   markCommentRetrying,
   mergeCursorPage,
+  mergeOlderCommentPage,
+  reconcileLikeOverride,
   replaceOptimisticWithServer,
-  shouldApplyLikeResult,
+  type LikeAction,
 } from "./helpers";
 
 const PAGE_SIZE = 30;
+const COMMENT_PAGE_SIZE = 30;
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
@@ -50,22 +62,37 @@ export function useGalleryFeed(): UseGalleryFeed {
   const [state, setState] = React.useState<LoadState>("idle");
   const [error, setError] = React.useState<string | null>(null);
   const [hasMore, setHasMore] = React.useState(true);
+
+  // Refs mirror current state for use inside stable callbacks so we don't
+  // recreate loadPage/refresh on every profiles update — that was the source
+  // of the mount-time refresh loop.
   const itemsRef = React.useRef(items);
   itemsRef.current = items;
+  const profilesRef = React.useRef(profiles);
+  profilesRef.current = profiles;
+  const pendingProfileFetchRef = React.useRef<Set<string>>(new Set());
 
-  const loadProfiles = React.useCallback(async (userIds: string[]) => {
+  // Stable — never recreated after mount. Reads from refs, writes via setter.
+  const loadProfiles = React.useCallback(async (userIds: readonly string[]) => {
     if (userIds.length === 0) return;
-    const missing = userIds.filter((id) => !profiles[id]);
+    const missing = userIds.filter(
+      (id) => id && !profilesRef.current[id] && !pendingProfileFetchRef.current.has(id),
+    );
     if (missing.length === 0) return;
-    const { data, error: err } = await supabase
-      .from("profiles").select("id, nickname, full_name, avatar_url").in("id", missing);
-    if (err) throw err;
-    setProfiles((p) => {
-      const next = { ...p };
-      for (const row of (data || []) as ProfileLite[]) next[row.id] = row;
-      return next;
-    });
-  }, [profiles]);
+    for (const id of missing) pendingProfileFetchRef.current.add(id);
+    try {
+      const { data, error: err } = await supabase
+        .from("profiles").select("id, nickname, full_name, avatar_url").in("id", missing);
+      if (err) throw err;
+      setProfiles((p) => {
+        const next = { ...p };
+        for (const row of (data || []) as ProfileLite[]) next[row.id] = row;
+        return next;
+      });
+    } finally {
+      for (const id of missing) pendingProfileFetchRef.current.delete(id);
+    }
+  }, []);
 
   const loadPage = React.useCallback(async (opts: { reset: boolean }) => {
     const cursor = opts.reset ? null : cursorFromLast(itemsRef.current);
@@ -77,8 +104,7 @@ export function useGalleryFeed(): UseGalleryFeed {
     const { data, error: err } = await q;
     if (err) throw err;
     const rows = (data as unknown as GalleryRow[]) || [];
-    if (rows.length < PAGE_SIZE) setHasMore(false);
-    else setHasMore(true);
+    setHasMore(rows.length >= PAGE_SIZE);
 
     const merged = opts.reset ? rows : mergeCursorPage(itemsRef.current, rows);
     setItems(merged);
@@ -95,11 +121,14 @@ export function useGalleryFeed(): UseGalleryFeed {
     ]);
     if (likeRes.error) throw likeRes.error;
     if (cntRes.error) throw cntRes.error;
+
+    // Replace only the entries for the refreshed IDs; preserve older items.
     setLikes((prev) => {
       const next = new Map<string, Set<string>>();
       for (const [k, v] of prev) next.set(k, new Set(v));
+      for (const id of itemIds) next.set(id, new Set());
       for (const l of likeRes.data as { item_id: string; user_id: string }[]) {
-        (next.get(l.item_id) ?? next.set(l.item_id, new Set()).get(l.item_id)!).add(l.user_id);
+        next.get(l.item_id)!.add(l.user_id);
       }
       return next;
     });
@@ -111,13 +140,17 @@ export function useGalleryFeed(): UseGalleryFeed {
       }
       return next;
     });
-    await loadProfiles(userIds);
+    void loadProfiles(userIds);
   }, [loadProfiles]);
 
   const refresh = React.useCallback(async () => {
     setState("loading"); setError(null);
     try { await loadPage({ reset: true }); setState("loaded"); }
-    catch (e) { console.error(e); setError((e as Error).message || "Kunne ikke laste galleri"); setState("error"); }
+    catch (e) {
+      console.error(e);
+      setError((e as Error).message || "Kunne ikke laste galleri");
+      setState("error");
+    }
   }, [loadPage]);
 
   const loadMore = React.useCallback(async () => {
@@ -126,7 +159,15 @@ export function useGalleryFeed(): UseGalleryFeed {
     catch (e) { console.error(e); setError((e as Error).message || "Kunne ikke laste flere"); }
   }, [hasMore, state, loadPage]);
 
-  React.useEffect(() => { void refresh(); }, [refresh]);
+  // Run the initial fetch exactly once per mount — never chained to
+  // profiles/state changes.
+  const didInitRef = React.useRef(false);
+  React.useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Incremental realtime.
   React.useEffect(() => {
@@ -171,42 +212,57 @@ export function useGalleryFeed(): UseGalleryFeed {
   return { items, profiles, likes, commentCounts, state, error, hasMore, loadMore, refresh, applyLocalDelete };
 }
 
-// ─── Likes with request identity ──────────────────────────────────────────
+// ─── Likes with per-item request identity ─────────────────────────────────
 export function useGalleryLikes(
   likes: ReadonlyMap<string, ReadonlySet<string>>,
   userId: string | undefined,
 ) {
-  const [local, setLocal] = React.useState<Map<string, Set<string>>>(new Map());
+  // Per-item override with intent so we can reconcile item-by-item.
+  const [overrides, setOverrides] = React.useState<
+    Map<string, { set: Set<string>; intent: LikeAction }>
+  >(new Map());
   const reqRef = React.useRef(new Map<string, number>());
-  const currentRef = React.useRef(new Map<string, number>());
 
-  // Bump request identity when server state changes for an item (any realtime
-  // update) — this lets stale in-flight responses lose the race.
-  React.useEffect(() => { setLocal(new Map()); }, [likes]);
+  // When the server likes map changes, reconcile ONLY the items whose
+  // current server state now matches the optimistic intent. All other
+  // overrides remain intact — unrelated realtime traffic cannot drop them.
+  React.useEffect(() => {
+    if (overrides.size === 0 || !userId) return;
+    setOverrides((prev) => {
+      let next = prev;
+      for (const [itemId] of prev) {
+        next = reconcileLikeOverride(next, likes, itemId, userId);
+      }
+      return next === prev ? prev : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [likes, userId]);
 
   const view = React.useMemo(() => {
-    // Local overrides server for items the user just toggled.
     const out = new Map<string, Set<string>>();
     for (const [k, v] of likes) out.set(k, new Set(v));
-    for (const [k, v] of local) out.set(k, new Set(v));
+    for (const [k, v] of overrides) out.set(k, new Set(v.set));
     return out;
-  }, [likes, local]);
+  }, [likes, overrides]);
 
   const toggle = React.useCallback(async (itemId: string) => {
     if (!userId) return;
     const cur = view.get(itemId) ?? new Set<string>();
     const wasLiked = cur.has(userId);
-    const action = wasLiked ? "unlike" : "like";
+    const action: LikeAction = wasLiked ? "unlike" : "like";
     const nextReq = (reqRef.current.get(itemId) ?? 0) + 1;
     reqRef.current.set(itemId, nextReq);
-    currentRef.current.set(itemId, nextReq);
-    const optimistic = applyOptimisticLike(view, itemId, userId, action);
-    setLocal((prev) => {
-      const next = new Map<string, Set<string>>();
-      for (const [k, v] of prev) next.set(k, new Set(v));
-      next.set(itemId, optimistic.get(itemId) ?? new Set());
-      return next;
+
+    // Apply optimistic override for THIS item only.
+    setOverrides((prev) => {
+      const nxt = new Map<string, { set: Set<string>; intent: LikeAction }>();
+      for (const [k, v] of prev) nxt.set(k, { set: new Set(v.set), intent: v.intent });
+      const base = new Set(cur);
+      if (action === "like") base.add(userId); else base.delete(userId);
+      nxt.set(itemId, { set: base, intent: action });
+      return nxt;
     });
+
     try {
       if (wasLiked) {
         const { error } = await supabase.from("gallery_likes").delete()
@@ -215,16 +271,16 @@ export function useGalleryLikes(
       } else {
         const { error } = await supabase.from("gallery_likes")
           .insert({ item_id: itemId, user_id: userId });
-        // duplicate-key: someone/two devices already liked — treat as success.
-        if (error && !/duplicate/i.test(error.message)) throw error;
+        // Postgres 23505 / duplicate — idempotent success.
+        if (error && !isUniqueViolation(error)) throw error;
       }
     } catch (e) {
-      if (!shouldApplyLikeResult(currentRef.current.get(itemId) ?? 0, nextReq)) return;
-      // Rollback local override.
-      setLocal((prev) => {
-        const next = new Map<string, Set<string>>();
-        for (const [k, v] of prev) if (k !== itemId) next.set(k, new Set(v));
-        return next;
+      // Only roll back if THIS request is still the latest for this item.
+      if (reqRef.current.get(itemId) !== nextReq) return;
+      setOverrides((prev) => {
+        const nxt = new Map<string, { set: Set<string>; intent: LikeAction }>();
+        for (const [k, v] of prev) if (k !== itemId) nxt.set(k, { set: new Set(v.set), intent: v.intent });
+        return nxt;
       });
       throw e;
     }
@@ -233,38 +289,93 @@ export function useGalleryLikes(
   return { view, toggle };
 }
 
-// ─── Comments ─────────────────────────────────────────────────────────────
+// ─── Comments (paginated, idempotent via client_id) ───────────────────────
 export interface UseGalleryComments {
   comments: AnyComment[];
   state: LoadState;
+  olderState: LoadState;
+  hasOlder: boolean;
   error: string | null;
   submit: (body: string) => Promise<void>;
   retry: (clientId: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
   reload: () => Promise<void>;
+  loadOlder: () => Promise<void>;
 }
 
 export function useGalleryComments(itemId: string | null, userId: string | undefined): UseGalleryComments {
   const [comments, setComments] = React.useState<AnyComment[]>([]);
   const [state, setState] = React.useState<LoadState>("idle");
+  const [olderState, setOlderState] = React.useState<LoadState>("idle");
+  const [hasOlder, setHasOlder] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const commentsRef = React.useRef(comments);
+  commentsRef.current = comments;
 
   const reload = React.useCallback(async () => {
     if (!itemId) return;
     setState("loading"); setError(null);
     try {
-      const { data, error: err } = await supabase.from("gallery_comments")
-        .select("*").eq("item_id", itemId).order("created_at", { ascending: true });
+      // Newest page first, then reverse for ascending display.
+      const { data, error: err } = await supabase
+        .from("gallery_comments")
+        .select("*")
+        .eq("item_id", itemId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(COMMENT_PAGE_SIZE);
       if (err) throw err;
-      const rows = (data as CommentRow[]) || [];
-      setComments(rows.map((r) => ({ kind: "server" as const, ...r })));
+      const rows = ((data || []) as CommentRow[]).slice().reverse();
+      setHasOlder(rows.length >= COMMENT_PAGE_SIZE);
+      // Preserve pending/failed optimistic drafts across reload.
+      const drafts = commentsRef.current.filter((c) => c.kind === "optimistic");
+      setComments([
+        ...rows.map((r) => ({ kind: "server" as const, ...r })),
+        ...drafts,
+      ]);
       setState("loaded");
     } catch (e) {
-      console.error(e); setError((e as Error).message || "Kunne ikke laste kommentarer"); setState("error");
+      console.error(e);
+      setError((e as Error).message || "Kunne ikke laste kommentarer");
+      setState("error");
     }
   }, [itemId]);
 
-  React.useEffect(() => { setComments([]); if (itemId) void reload(); }, [itemId, reload]);
+  const loadOlder = React.useCallback(async () => {
+    if (!itemId) return;
+    if (olderState === "loading" || !hasOlder) return;
+    // Find oldest server row for cursor.
+    let cursor: CommentCursor | null = null;
+    for (const c of commentsRef.current) {
+      if (c.kind === "server") { cursor = { created_at: c.created_at, id: c.id }; break; }
+    }
+    if (!cursor) return;
+    setOlderState("loading"); setError(null);
+    try {
+      const { data, error: err } = await supabase
+        .from("gallery_comments")
+        .select("*")
+        .eq("item_id", itemId)
+        .or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(COMMENT_PAGE_SIZE);
+      if (err) throw err;
+      const rows = (data || []) as CommentRow[];
+      setHasOlder(rows.length >= COMMENT_PAGE_SIZE);
+      setComments((cur) => mergeOlderCommentPage(cur, rows));
+      setOlderState("loaded");
+    } catch (e) {
+      console.error(e);
+      setError((e as Error).message || "Kunne ikke laste eldre");
+      setOlderState("error");
+    }
+  }, [itemId, hasOlder, olderState]);
+
+  React.useEffect(() => {
+    setComments([]); setHasOlder(false); setOlderState("idle");
+    if (itemId) void reload();
+  }, [itemId, reload]);
 
   // Realtime — incremental.
   React.useEffect(() => {
@@ -289,12 +400,22 @@ export function useGalleryComments(itemId: string | null, userId: string | undef
 
   const doInsert = React.useCallback(async (clientId: string, body: string) => {
     if (!itemId || !userId) throw new Error("no user");
-    const { error: err } = await supabase.from("gallery_comments").insert({
-      item_id: itemId, user_id: userId, body,
-    });
-    if (err) throw err;
-    // realtime INSERT will replace the optimistic entry.
-    return clientId;
+    const { data, error: err } = await supabase.from("gallery_comments").insert({
+      item_id: itemId, user_id: userId, body, client_id: clientId,
+    }).select("*").maybeSingle();
+    if (err) {
+      // Idempotent: unique-violation on (user_id, client_id) means the row
+      // already exists from a prior attempt. Fetch and reconcile.
+      if (isUniqueViolation(err)) {
+        const { data: existing } = await supabase.from("gallery_comments")
+          .select("*").eq("user_id", userId).eq("client_id", clientId).maybeSingle();
+        if (existing) setComments((cur) => replaceOptimisticWithServer(cur, existing as CommentRow));
+        return;
+      }
+      throw err;
+    }
+    // If realtime hasn't landed yet, reconcile locally to avoid flicker.
+    if (data) setComments((cur) => replaceOptimisticWithServer(cur, data as CommentRow));
   }, [itemId, userId]);
 
   const submit = React.useCallback(async (raw: string) => {
@@ -315,19 +436,19 @@ export function useGalleryComments(itemId: string | null, userId: string | undef
 
   const retry = React.useCallback(async (clientId: string) => {
     if (!itemId || !userId) return;
-    const target = comments.find((c) => c.kind === "optimistic" && c.clientId === clientId);
+    const target = commentsRef.current.find((c) => c.kind === "optimistic" && c.clientId === clientId);
     if (!target || target.kind !== "optimistic") return;
     setComments((cur) => markCommentRetrying(cur, clientId));
     try { await doInsert(clientId, target.body); }
     catch (e) {
       setComments((cur) => markCommentFailed(cur, clientId, (e as Error).message || "Feil"));
     }
-  }, [itemId, userId, comments, doInsert]);
+  }, [itemId, userId, doInsert]);
 
   const remove = React.useCallback(async (id: string) => {
     const { error: err } = await supabase.from("gallery_comments").delete().eq("id", id);
     if (err) throw err;
   }, []);
 
-  return { comments, state, error, submit, retry, remove, reload };
+  return { comments, state, olderState, hasOlder, error, submit, retry, remove, reload, loadOlder };
 }
