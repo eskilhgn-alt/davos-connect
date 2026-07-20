@@ -199,7 +199,7 @@ export const SignedVideo: React.FC<Base & { controls?: boolean; muted?: boolean;
   const { url: resolved, status, error, retry } = useSignedMedia(bucket, path, url);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const retryOnceRef = React.useRef(false);
-  React.useEffect(() => { setLoadFailed(false); retryOnceRef.current = false; }, [resolved]);
+  React.useEffect(() => { setLoadFailed(false); retryOnceRef.current = false; }, [bucket, path, url]);
 
   if (status === 'error' || loadFailed) {
     return <ErrorBox className={className} onRetry={() => { setLoadFailed(false); retry(); }} message={error} />;
