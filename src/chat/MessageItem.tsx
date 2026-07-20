@@ -19,16 +19,38 @@ import { useSignedMedia } from '@/components/ui/SignedMedia';
  *   we render a real <video preload="metadata"> so the browser draws its own
  *   first-frame poster, with the same play-overlay button on top.
  */
-const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void }> = ({ att, onTap }) => {
+export const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void }> = ({ att, onTap }) => {
   const bucket = att.storageBucket ?? null;
   const full = useSignedMedia(bucket, att.storagePath ?? null, att.objectUrl || null);
   const thumb = useSignedMedia(bucket, att.thumbnailPath ?? null, att.thumbUrl ?? null);
-  const [imgErr, setImgErr] = React.useState(false);
-  const retriedRef = React.useRef(false);
-  React.useEffect(() => { setImgErr(false); retriedRef.current = false; }, [full.url, thumb.url]);
+
+  // Full-media one-shot retry gate. Terminal error only surfaces after the
+  // signed URL is re-fetched once and still fails to load.
+  const [fullLoadFailed, setFullLoadFailed] = React.useState(false);
+  const fullRetriedRef = React.useRef(false);
+  // Thumbnail is an optimization: if it fails, we silently fall back to the
+  // full-size media instead of blocking the whole attachment.
+  const [thumbLoadFailed, setThumbLoadFailed] = React.useState(false);
+  const thumbRetriedRef = React.useRef(false);
+
+  // Reset gates only when the attachment identity inputs change — never when
+  // internal re-signs produce fresh URLs for the same attachment.
+  React.useEffect(() => {
+    setFullLoadFailed(false);
+    setThumbLoadFailed(false);
+    fullRetriedRef.current = false;
+    thumbRetriedRef.current = false;
+  }, [
+    att.storageBucket,
+    att.storagePath,
+    att.thumbnailPath,
+    att.objectUrl,
+    att.thumbUrl,
+  ]);
 
   const fullUrl = full.url;
-  const thumbUrl = thumb.url;
+  const thumbUsable = !thumbLoadFailed && thumb.status !== 'error';
+  const thumbUrl = thumbUsable ? thumb.url : undefined;
 
   const activate = React.useCallback(() => {
     if (fullUrl) onTap(fullUrl);
@@ -45,19 +67,29 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
       activate();
     }
   };
-  const handleImgError = () => {
-    if (!retriedRef.current) {
-      retriedRef.current = true;
+
+  const handleFullError = () => {
+    if (!fullRetriedRef.current) {
+      fullRetriedRef.current = true;
       full.retry();
+    } else {
+      setFullLoadFailed(true);
+    }
+  };
+  const handleThumbError = () => {
+    if (!thumbRetriedRef.current) {
+      thumbRetriedRef.current = true;
       thumb.retry();
     } else {
-      setImgErr(true);
+      setThumbLoadFailed(true);
     }
   };
 
   const label = att.kind === 'video' ? 'Spill av video' : att.kind === 'gif' ? 'Vis GIF' : 'Vis bilde';
   const disabled = !fullUrl;
-  const hasError = full.status === 'error' || thumb.status === 'error' || imgErr;
+  // Terminal error only when the FULL media cannot be resolved or displayed.
+  // Thumbnail failures degrade gracefully to the full URL.
+  const hasError = full.status === 'error' || fullLoadFailed;
 
   if (hasError) {
     return (
@@ -70,7 +102,15 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
         <span className="text-xs text-muted-foreground flex-1">Kunne ikke laste vedlegg</span>
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); setImgErr(false); retriedRef.current = false; full.retry(); thumb.retry(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setFullLoadFailed(false);
+            setThumbLoadFailed(false);
+            fullRetriedRef.current = false;
+            thumbRetriedRef.current = false;
+            full.retry();
+            thumb.retry();
+          }}
           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary text-primary-foreground"
           aria-label="Prøv å laste vedlegget på nytt"
         >
@@ -82,6 +122,9 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
   }
 
   if (att.kind === 'image' || att.kind === 'gif') {
+    // Thumb is preferred; if it errors, we render the full URL directly and
+    // apply the full-media error gate to any subsequent decode failures.
+    const usingThumb = Boolean(thumbUrl);
     const src = thumbUrl || fullUrl;
     return (
       <div
@@ -101,7 +144,7 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
             className="max-w-full h-auto"
             loading="lazy"
             decoding="async"
-            onError={handleImgError}
+            onError={usingThumb ? handleThumbError : handleFullError}
           />
         ) : (
           <div className="w-[220px] h-[160px] bg-muted animate-pulse" aria-hidden />
@@ -111,6 +154,7 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
   }
 
   // Video
+  const usingThumbPoster = Boolean(thumbUrl);
   return (
     <div
       role="button"
@@ -122,8 +166,15 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
       onKeyDown={handleKeyDown}
       className="relative rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      {thumbUrl ? (
-        <img src={thumbUrl} alt="Videoforhåndsvisning" className="max-w-full h-auto block" loading="lazy" decoding="async" onError={handleImgError} />
+      {usingThumbPoster ? (
+        <img
+          src={thumbUrl}
+          alt="Videoforhåndsvisning"
+          className="max-w-full h-auto block"
+          loading="lazy"
+          decoding="async"
+          onError={handleThumbError}
+        />
       ) : fullUrl ? (
         <video
           src={fullUrl}
@@ -131,7 +182,7 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
           playsInline
           muted
           className="max-w-full h-auto block pointer-events-none"
-          onError={handleImgError}
+          onError={handleFullError}
         />
       ) : (
         <div className="w-[220px] h-[160px]" aria-hidden />
