@@ -138,6 +138,10 @@ async function fetchReactionsFor(messageIds: string[]) {
     console.warn('[chat] fetchReactionsFor failed:', error);
     return;
   }
+  // Mark every requested message as normalized-source-resolved, even if zero
+  // rows came back. This makes the normalized table durably authoritative and
+  // prevents legacy JSONB from reviving on reload once it has been superseded.
+  for (const mid of messageIds) state.everHadNormalized.add(mid);
   for (const r of data || []) {
     let map = state.reactionsByMessage.get(r.message_id);
     if (!map) {
@@ -145,9 +149,9 @@ async function fetchReactionsFor(messageIds: string[]) {
       state.reactionsByMessage.set(r.message_id, map);
     }
     map.set(r.user_id, r.emoji);
-    state.everHadNormalized.add(r.message_id);
   }
 }
+
 
 // ============ Reply expansion ============
 async function fetchReplyPreviews(messages: Message[], rows: Record<string, unknown>[]) {
