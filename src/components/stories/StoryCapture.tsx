@@ -130,11 +130,17 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
 
   // ─── Camera ───
   const unmountedRef = React.useRef(false);
+  // Generation token: every startCamera call increments this. Any older
+  // in-flight getUserMedia resolution must be discarded so a late older stream
+  // cannot overwrite a newer one.
+  const cameraGenRef = React.useRef(0);
 
   const startCamera = React.useCallback(async () => {
+    const gen = ++cameraGenRef.current;
     try {
       setCameraError(false);
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
       // Only request microphone in video mode — photo mode must never surprise-prompt.
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -145,8 +151,8 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         },
         audio: captureMode === "video",
       });
-      // If the component unmounted between the await and here, drop the stream.
-      if (unmountedRef.current) {
+      // If the component unmounted or a newer startCamera has begun, drop it.
+      if (unmountedRef.current || cameraGenRef.current !== gen) {
         stream.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
         return;
       }
@@ -160,13 +166,14 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
           await track.applyConstraints({ advanced: [{ zoom: caps.zoom.min } as any] });
         } catch {}
       }
-      if (!unmountedRef.current) setZoomLevel(1);
+      if (!unmountedRef.current && cameraGenRef.current === gen) setZoomLevel(1);
     } catch (err) {
-      if (unmountedRef.current) return;
+      if (unmountedRef.current || cameraGenRef.current !== gen) return;
       console.error("[StoryCapture] Camera error:", err);
       setCameraError(true);
     }
   }, [facingMode, captureMode]);
+
 
   React.useEffect(() => {
     if (mode === "camera") startCamera();
