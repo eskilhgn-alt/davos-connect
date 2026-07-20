@@ -1,161 +1,94 @@
-# Gallery Slice 4 + StoryViewer pointer regression
+## Gallery Slice 4B — QA correction plan
 
-Two independent workstreams. No production publish. No bucket privacy flip. No changes to existing rows/objects. Migrations only if a genuinely absent column is required for feature parity.
+Scope: main branch, no production publish, no destructive data changes. All existing gallery rows/storage objects preserved.
 
-## A) StoryViewer pointer-release ordering (small, first)
+### Files touched
 
-`handlePointerUp` currently calls `releasePointer(e)` before consuming `gestureRef.current`. Explicit release synchronously fires `onLostPointerCapture` → `handlePointerCancel` clears `gestureRef` and hold — so the up-classifier sees empty state and swipe/tap can misfire.
+- `src/features/gallery/useGallery.ts` — feed dependency loop, per-item likes, comment `client_id` + pagination
+- `src/features/gallery/helpers.ts` — cursor helpers for comments, client_id reconciliation, per-item like reconcile
+- `src/features/gallery/types.ts` — add `client_id` field, comment cursor type
+- `src/pages/GalleryScreen.tsx` — GridThumb/ViewerSheet broken-media UI, prefetch warmup, upload retry, auto-scroll, disable duplicate destructive submits
+- `src/components/ui/SignedMedia.tsx` — expose `status`/`retry` on `SignedImg`/`SignedVideo`
+- `src/features/gallery/__tests__/helpers.test.ts` — new regression tests
+- `src/features/gallery/__tests__/useGallery.test.ts` — new hook tests (mount-once, per-item likes, client_id reconciliation, comment cursor merge)
+- New migration: `gallery_comments.client_id uuid null` + partial unique index
 
-Fix in `src/components/stories/StoryViewer.tsx`:
-1. Snapshot `gestureRef.current` and `holdRef.current` at the top of `handlePointerUp`.
-2. Set a `suppressCancelRef` flag while releasing; `handlePointerCancel` early-returns when set (still handles real cancel/lost).
-3. Release pointer AFTER computing gesture and dispatching nav.
-4. `pointercancel`/`lostpointercapture` (real, not our own release) must still clear hold, resume video, reset refs — as today.
-5. Controls remain excluded via `data-story-control`.
+### 1. Refresh dependency loop (feed)
 
-New pure helper in `src/features/stories/helpers.ts`: `resolvePointerRelease({phase, isExplicitRelease, hasHold})` returning `{ resumeVideo, clearGesture, releaseCapture }`. Regression tests in `src/features/stories/__tests__/qa-regressions.test.ts`:
-- explicit-release-during-up preserves gesture for classification
-- real pointercancel always clears+resumes
-- lost-capture during move (no up) clears+resumes
+- Move `profiles` state read behind a `profilesRef`; `loadProfiles` becomes stable (`useCallback` with empty deps).
+- Dedupe in-flight profile IDs via a `Set` ref.
+- Initial fetch runs once per mount via a `didInitRef`, not on every `refresh` identity change.
 
-## B) Gallery Slice 4
+### 2. Signed media failure UX
 
-### Architecture split
+- Extend `SignedImg`/`SignedVideo` to render a broken-media placeholder + "Prøv igjen" when `status === "error"` (uses existing `useSignedMedia` API).
+- Wire `onError` on `<img>`/`<video>` to trigger `retry()`.
+- Replace `useSignedUrl` in `GridThumb` and `ViewerSheet` with the stateful `SignedImg`/`SignedVideo`. Zero public fallback.
+- Neighbor prefetch: after `signBatch`, create `new Image()` for images to warm the browser HTTP cache; skip videos.
 
-Current `src/pages/GalleryScreen.tsx` (~537 lines, monolithic) becomes:
+### 3. Per-item like reconciliation
 
-```text
-src/features/gallery/
-  types.ts                    GalleryRow, ProfileLite, CommentRow, CursorKey
-  helpers.ts                  pure logic (cursor merge, optimistic like/comment, delete-decision, poster-fallback)
-  useGalleryFeed.ts           cursor pagination + incremental realtime + errors
-  useGalleryLikes.ts          optimistic like/unlike w/ request identity
-  useGalleryComments.ts       paginated + optimistic + retry per item
-  useGalleryUpload.ts         phased upload w/ per-attempt path ownership + cleanup
-  components/
-    GridThumb.tsx
-    UploadSheet.tsx           preview + caption + phases
-    ViewerSheet.tsx           fullscreen with swipe/keys/prefetch
-    CommentSheet.tsx
-    DeleteDialog.tsx
-  __tests__/
-    helpers.test.ts           (regressions)
-src/pages/GalleryScreen.tsx   thin composition, keeps route
+- `useGalleryLikes` state becomes a `Map<itemId, {override: Set<userId>, reqId: number}>`.
+- Server `likes` map reconciles per item: only clear the override for item X when its confirmed server state matches `intent` and the response's `reqId === currentReq(itemId)`.
+- Stale responses lose the race and do not roll back a newer tap.
+- Insert error: treat Postgres `23505` (code) as idempotent success, in addition to legacy `/duplicate/i` fallback.
+
+### 4. Comments idempotency via `client_id`
+
+Migration:
+```sql
+ALTER TABLE public.gallery_comments ADD COLUMN IF NOT EXISTS client_id uuid;
+CREATE UNIQUE INDEX IF NOT EXISTS gallery_comments_user_client_uidx
+  ON public.gallery_comments (user_id, client_id) WHERE client_id IS NOT NULL;
 ```
+No existing row is modified. Grants unchanged.
 
-No parallel gallery implementation — the page still lives at `/galleri` and reuses the same DB schema.
+Hook:
+- Insert `client_id` on every optimistic submit.
+- Realtime + reload rows carry `client_id`; `replaceOptimisticWithServer` matches strictly on `client_id` first; the 30 s legacy heuristic runs only when both server row and optimistic lack `client_id`.
+- Retry re-uses the same `client_id`; duplicate-key on `(user_id, client_id)` is treated as success (idempotent).
 
-### Fetch/list (cursor pagination)
+### 5. Comment pagination
 
-- Order: `created_at desc, id desc`. Initial page 30, "Last inn mer" fetches next 30 using composite cursor via `.or("created_at.lt.<t>,and(created_at.eq.<t>,id.lt.<uuid>)")`.
-- Realtime: `gallery_items` INSERT prepends; UPDATE merges by id; DELETE removes by id. `gallery_likes`/`gallery_comments` update only affected item state (like set add/remove; comment count / list append).
-- Errors on gallery/profile/like batch queries → visible retry state (Norwegian: "Kunne ikke laste galleri" + "Prøv igjen"), no silent empty grid.
-- 14 existing rows unchanged.
+- Order `(created_at asc, id asc)` from newest cursor backwards? To stay Messenger-like we load the newest N and expose "Last inn eldre" for older pages.
+- Actually keep chronological ascending order in view; internally page from newest backwards with cursor `(created_at desc, id desc)` and reverse for display. Page size 30.
+- Retryable load error UI already present; extend to older-page load button.
+- Optimistic drafts held in a separate list; page merges preserve them.
 
-### Upload UX
+### 6. Refresh reconciliation
 
-`UploadSheet` opens on `+`:
-- Choose image or video via one input.
-- Preview (image `<img>`, video `<video playsInline muted>`).
-- Caption textarea (max 500, char counter).
-- Cancel / Del.
-- Phases: `Forbereder… → Laster opp… → Publiserer…`.
+- Feed refresh only replaces likes/commentCounts for IDs in the refreshed page; older items keep their state.
+- Realtime DELETE continues to work; both tables already have `REPLICA IDENTITY FULL`.
 
-Validation:
-- size > 0 and ≤ 20 MB after re-encode.
-- MIME allowlist for images (`image/jpeg|png|webp|heic|heif|gif`) and video (`video/mp4|webm|quicktime`).
-- After re-encode revalidate blob size/type.
-- Images: `reencodeImage` → JPEG max 2000px q0.9 (strips EXIF via canvas). Thumbnail via `createThumbnail`.
-- Video: read metadata; try poster from seeked frame; on failure store `thumbnail_path=null` and rely on `posterFallback` helper (Play icon on gradient tile) — never `<img src="">`.
+### 7. Upload hardening
 
-Path ownership: track `uploadedPaths: string[]` in an attempt-scoped ref. On any failure, `supabase.storage.from(bucket).remove(paths)` only those paths. Never touch historical objects. Cleanup errors → toast warning, still surface original failure.
+- After `reencodeImage`, validate output blob MIME (`image/jpeg`) and size ≤ 20 MB; throw with Norwegian message if not.
+- Video poster: attempt via `<video>` + `seekTo(0.1)` + canvas draw; on any error, skip thumb path and rely on fallback tile.
+- All object URLs held in refs and revoked on cleanup + on `open=false`.
+- `cleanupAttempt` already uses `ownedCleanupPaths` — keep, but ensure `historicalPaths` is derived per-attempt (already is).
+- Retry: after `phase === "error"`, expose a "Prøv igjen" button that re-runs `publish` without requiring re-select.
 
-Insert into `gallery_items` with `caption, uploaded_by, storage_bucket='chat-media', storage_path, thumbnail_path, type, mime_type, size_bytes, width, height`. All columns exist — no migration needed.
+### 8. UX details
 
-### Viewer
+- Comment list auto-scrolls to bottom on new optimistic entry only when user is already near the bottom (< 80px from bottom). If scrolled up reading older, don't fight.
+- Deletion dialog: keep derived-mode copy.
+- Disable delete action while pending (`disabled` + `aria-busy`).
+- Upload "Prøv igjen" button surfaced in error state.
 
-`ViewerSheet` (fullscreen dialog):
-- Prev/next arrows (desktop), horizontal swipe (mobile) — reuse `classifyGesture`.
-- Keyboard: `ArrowLeft`/`ArrowRight`/`Escape`.
-- Loading skeleton until signed URL resolves; error → visible retry.
-- Prefetch neighbors via `signBatch([prev, next])`.
-- Videos: `<video controls playsInline preload="metadata">`; images: `<img>` `object-contain`.
-- No `publicUrl` fallback when `storage_path` exists.
-- Single close (top-right X). 44px targets. `aria-*` labels.
-- Bottom panel: avatar + name, timestamp, caption, like heart + count, comment icon opening `CommentSheet`.
+### 9. Regression tests
 
-### Likes
+New tests (Vitest):
+- `helpers.test.ts`: client_id match wins over time heuristic; time heuristic only when both lack `client_id`; per-item like reconcile; comment cursor merge preserves order + dedupes.
+- `useGallery.test.ts` (jsdom, mocked supabase): initial feed fetch runs exactly once even when `profiles` state updates; toggling like on item A does not clear override on item B; stale response for item A does not roll back a newer tap; duplicate submit with same `client_id` produces one visible comment.
 
-`useGalleryLikes`:
-- Optimistic toggle updates `Set<userId>` immediately.
-- Track `requestId` per item; only apply server result if request is latest.
-- Unique-constraint violation on insert (duplicate like) treated as success.
-- On network error → rollback + toast.
-- Realtime INSERT/DELETE merges into set (idempotent).
+### Verification
 
-### Comments
+- `npm test` — expect all previous + new tests green
+- `npm run build` — typecheck via tsc through Vite
+- `npm run lint` — fix real errors, no suppressions
 
-`CommentSheet`:
-- Sheet from bottom, textarea + send button.
-- Paginated: initial 30, "Last inn eldre" upward using created_at asc cursor.
-- Optimistic append with `client_id` (uuid, generated locally). No schema change — client_id lives in local state only, matched to server row by (user_id, body, created_at±) or replaced when realtime INSERT arrives (dedupe helper).
-- Failed comment stays with `state: 'failed'` + Retry button; input NOT cleared until an optimistic row visibly owns the draft.
-- Max 500 chars, honest counter.
-- Realtime INSERT/DELETE incremental.
+### Limits / known gaps after this slice
 
-### Delete
-
-`DeleteDialog` (AlertDialog):
-- Only owner or admin sees delete button.
-- If `source_message_id || source_story_id`: title "Fjern fra galleri" + body "Original i chat/stories forblir." Deletes only DB row.
-- Else (direct upload): "Slett fra galleri" + body "Bildet fjernes permanent." Deletes DB row, then `storage.remove([storage_path, thumbnail_path].filter)`. Best-effort; cleanup error → warn toast, DB delete already succeeded.
-- Never `window.confirm`.
-- On success: if the deleted item was open in viewer, close viewer; realtime DELETE will remove from grid.
-
-### Helpers (pure, tested)
-
-`mergeCursorPage(existing, incoming)` — dedupe by id, keep desc order.
-`applyOptimisticLike(state, itemId, userId, action)` + `shouldApplyLikeResult(currentReq, resultReq)`.
-`applyOptimisticComment(list, draft)` + `replaceOptimisticWithServer(list, serverRow)`.
-`decideDeleteMode(item)` → `'direct' | 'derived'`.
-`videoPosterFallback(item)` → `{ useFallback: boolean }`.
-`nextViewerIndex(list, currentId, dir)`.
-
-### Tests
-
-Add `src/features/gallery/__tests__/helpers.test.ts` covering:
-- cursor merge dedupe and ordering
-- optimistic like rollback + stale-result guard
-- comment optimistic → server replace, failed retry preserves draft
-- upload cleanup path ownership (only attempt-owned paths removed)
-- direct vs derived delete decision
-- video poster fallback when metadata errors
-- viewer nav prev/next wrap behavior
-
-Plus StoryViewer helper tests noted above.
-
-Target: total tests **> 123**.
-
-### Verification commands
-
-```
-bunx vitest run
-tsgo --noEmit
-bun run build
-```
-
-Lint only changed files.
-
-### Data safety
-
-Before/after `SELECT count(*)` from `profiles, messages, attachments, gallery_items, gallery_likes, gallery_comments, stories`; and storage object counts via API. All must match. Bucket flags unchanged. No migrations executed unless a required column proves genuinely missing (spoiler: schema already supports caption/uploader/type/mime/size/thumbnail — none needed).
-
-### Out of scope
-
-Chat, auth, push, AI, rounds, location, bucket privacy flip, production publish.
-
-## Deliverable order
-
-1. StoryViewer pointer fix + helper + tests.
-2. Gallery helpers + hooks + component split + tests.
-3. Run full suite / typecheck / build. Report exact counts and DB baselines.
+- No server-side transcoding: video posters remain best-effort browser-side.
+- Bucket privacy migration (public → private) still deferred to Slice 6 as previously agreed.
+- No changes to production publish.

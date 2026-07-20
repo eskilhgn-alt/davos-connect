@@ -5,6 +5,7 @@
  */
 import type {
   AnyComment,
+  CommentCursor,
   CommentRow,
   CursorKey,
   DeleteMode,
@@ -12,21 +13,13 @@ import type {
   OptimisticComment,
 } from "./types";
 
-// ─── Cursor pagination ────────────────────────────────────────────────────
-/**
- * Extract a stable cursor from the last (oldest) row of a page. Returns null
- * when the page is empty. Order used everywhere: created_at desc, id desc.
- */
+// ─── Cursor pagination (feed) ─────────────────────────────────────────────
 export function cursorFromLast(rows: readonly GalleryRow[]): CursorKey | null {
   if (rows.length === 0) return null;
   const last = rows[rows.length - 1];
   return { created_at: last.created_at, id: last.id };
 }
 
-/**
- * Merge an incoming page into an existing feed, dedup by id, keep the ordering
- * strictly `created_at desc, id desc`. Idempotent.
- */
 export function mergeCursorPage(
   existing: readonly GalleryRow[],
   incoming: readonly GalleryRow[],
@@ -42,21 +35,17 @@ export function mergeCursorPage(
   return out;
 }
 
-/** PostgREST composite predicate: (created_at < c) OR (created_at = c AND id < id). */
 export function cursorPredicate(cursor: CursorKey): string {
   return `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`;
 }
 
-/** Apply a realtime INSERT: prepend if new, ignore duplicates. */
 export function applyInsert(existing: readonly GalleryRow[], row: GalleryRow): GalleryRow[] {
   if (existing.some((r) => r.id === row.id)) return existing.slice();
   return mergeCursorPage([row], existing);
 }
-/** Apply a realtime UPDATE: replace by id. */
 export function applyUpdate(existing: readonly GalleryRow[], row: GalleryRow): GalleryRow[] {
   return existing.map((r) => (r.id === row.id ? row : r));
 }
-/** Apply a realtime DELETE: remove by id. */
 export function applyDelete(existing: readonly GalleryRow[], id: string): GalleryRow[] {
   return existing.filter((r) => r.id !== id);
 }
@@ -64,7 +53,6 @@ export function applyDelete(existing: readonly GalleryRow[], id: string): Galler
 // ─── Likes ────────────────────────────────────────────────────────────────
 export type LikeAction = "like" | "unlike";
 
-/** Toggle a user's like set for one item. Returns a new Map. */
 export function applyOptimisticLike(
   state: ReadonlyMap<string, ReadonlySet<string>>,
   itemId: string,
@@ -80,13 +68,45 @@ export function applyOptimisticLike(
   return next;
 }
 
-/**
- * Only apply the server confirmation when the request id matches what the
- * hook currently believes is the latest attempt. Prevents an old, slow
- * response for the same item from overwriting a newer state.
- */
 export function shouldApplyLikeResult(currentReq: number, resultReq: number): boolean {
   return currentReq === resultReq;
+}
+
+/**
+ * Per-item like reconciliation. When a server update for item X arrives, if
+ * the server-side membership of `userId` matches the optimistic intent, drop
+ * the override for that single item. Overrides for OTHER items are preserved
+ * — unrelated realtime traffic must not clear an in-flight tap elsewhere.
+ */
+export function reconcileLikeOverride(
+  overrides: ReadonlyMap<string, { set: ReadonlySet<string>; intent: LikeAction }>,
+  server: ReadonlyMap<string, ReadonlySet<string>>,
+  itemId: string,
+  userId: string,
+): Map<string, { set: Set<string>; intent: LikeAction }> {
+  const next = new Map<string, { set: Set<string>; intent: LikeAction }>();
+  for (const [k, v] of overrides) next.set(k, { set: new Set(v.set), intent: v.intent });
+  const ov = next.get(itemId);
+  if (!ov) return next;
+  const serverSet = server.get(itemId) ?? new Set<string>();
+  const serverLiked = serverSet.has(userId);
+  const wantLiked = ov.intent === "like";
+  if (serverLiked === wantLiked) next.delete(itemId);
+  return next;
+}
+
+/**
+ * Common Postgres unique-violation classifier. Treats:
+ *  - PostgREST/pg error code "23505"
+ *  - Legacy string match /duplicate/i
+ * both as an idempotent success signal for INSERT retries.
+ */
+export function isUniqueViolation(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: string; message?: string };
+  if (e.code === "23505") return true;
+  if (typeof e.message === "string" && /duplicate/i.test(e.message)) return true;
+  return false;
 }
 
 // ─── Comments ─────────────────────────────────────────────────────────────
@@ -98,15 +118,34 @@ export function applyOptimisticComment(
 }
 
 /**
- * When the realtime INSERT arrives for a comment we already posted
- * optimistically, replace the optimistic entry in place (matched on
- * clientId if we own it, else on user_id+body+time window).
+ * When the realtime INSERT (or reload) delivers a server comment we may have
+ * posted optimistically, replace the optimistic entry in place.
+ * Match order:
+ *   1. Strict: server.client_id === optimistic.clientId (canonical).
+ *   2. Legacy heuristic (only when server.client_id is null AND we have an
+ *      optimistic without a matching client_id): same user + body + within
+ *      30 s of created_at. Kept solely for legacy rows that predate Slice 4B.
  */
 export function replaceOptimisticWithServer(
   list: readonly AnyComment[],
   server: CommentRow,
 ): AnyComment[] {
-  // Prefer strict match: same user + body + within 30s of created_at.
+  // 1) Strict client_id match.
+  if (server.client_id) {
+    const strictIdx = list.findIndex(
+      (c) => c.kind === "optimistic" && c.clientId === server.client_id,
+    );
+    if (strictIdx !== -1) {
+      const next = list.slice();
+      next[strictIdx] = { kind: "server", ...server };
+      return next;
+    }
+    // Server row with client_id but no matching optimistic: append (dedupe by id).
+    if (list.some((c) => c.kind === "server" && c.id === server.id)) return list.slice();
+    return [...list, { kind: "server", ...server }];
+  }
+
+  // 2) Legacy fallback — only when server row lacks client_id.
   const idx = list.findIndex((c) => {
     if (c.kind !== "optimistic") return false;
     if (c.user_id !== server.user_id) return false;
@@ -115,7 +154,6 @@ export function replaceOptimisticWithServer(
     return dt < 30_000;
   });
   if (idx === -1) {
-    // Not our optimistic — append as server row (deduped by id below).
     if (list.some((c) => c.kind === "server" && c.id === server.id)) return list.slice();
     return [...list, { kind: "server", ...server }];
   }
@@ -124,7 +162,6 @@ export function replaceOptimisticWithServer(
   return next;
 }
 
-/** Mark an optimistic comment as failed while keeping the draft text. */
 export function markCommentFailed(
   list: readonly AnyComment[],
   clientId: string,
@@ -136,7 +173,6 @@ export function markCommentFailed(
       : c,
   );
 }
-/** Restore an optimistic comment to pending for a retry attempt. */
 export function markCommentRetrying(
   list: readonly AnyComment[],
   clientId: string,
@@ -148,33 +184,61 @@ export function markCommentRetrying(
   );
 }
 
-// ─── Delete decision ──────────────────────────────────────────────────────
+// ─── Comment pagination ───────────────────────────────────────────────────
 /**
- * A gallery row is "derived" when it was created from a chat attachment or a
- * story. Deleting a derived row must NOT touch the source storage object —
- * only the gallery row is removed. Direct uploads own their objects.
+ * Extract the OLDEST server cursor from a chronologically-ordered comment
+ * list (ascending in view). "Older" means smaller created_at / id, which is
+ * the head when the list is ascending. Optimistic drafts are ignored.
  */
+export function oldestCommentCursor(list: readonly AnyComment[]): CommentCursor | null {
+  for (const c of list) {
+    if (c.kind === "server") return { created_at: c.created_at, id: c.id };
+  }
+  return null;
+}
+
+/**
+ * Merge an older page (returned newest-first by the server) with the current
+ * ascending view. Dedupe by id, keep ordering strictly ascending on
+ * (created_at, id). Optimistic drafts are preserved at the end.
+ */
+export function mergeOlderCommentPage(
+  view: readonly AnyComment[],
+  incoming: readonly CommentRow[],
+): AnyComment[] {
+  const seen = new Set<string>();
+  const servers: (CommentRow & { kind: "server" })[] = [];
+  const drafts: AnyComment[] = [];
+  for (const c of view) {
+    if (c.kind === "server") {
+      if (!seen.has(c.id)) { seen.add(c.id); servers.push({ kind: "server", ...c } as never); }
+    } else {
+      drafts.push(c);
+    }
+  }
+  for (const r of incoming) {
+    if (!seen.has(r.id)) { seen.add(r.id); servers.push({ kind: "server", ...r } as never); }
+  }
+  servers.sort((a, b) => {
+    if (a.created_at === b.created_at) return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    return a.created_at < b.created_at ? -1 : 1;
+  });
+  return [...servers, ...drafts];
+}
+
+// ─── Delete decision ──────────────────────────────────────────────────────
 export function decideDeleteMode(item: Pick<GalleryRow, "source_message_id" | "source_story_id">): DeleteMode {
   if (item.source_message_id || item.source_story_id) return "derived";
   return "direct";
 }
 
 // ─── Video poster fallback ───────────────────────────────────────────────
-/**
- * When a video item has no thumbnail_path OR poster generation failed at
- * upload time, we render a decorative fallback tile with a Play icon instead
- * of a broken <img>.
- */
 export function videoPosterFallback(item: Pick<GalleryRow, "type" | "thumbnail_path">): { useFallback: boolean } {
   if (item.type !== "video") return { useFallback: false };
   return { useFallback: !item.thumbnail_path };
 }
 
 // ─── Viewer navigation ────────────────────────────────────────────────────
-/**
- * Pick the neighbour item in a viewer sequence. `dir` = 1 forward (older),
- * -1 backward (newer). Returns null at the boundary (no wrap).
- */
 export function nextViewerIndex(
   list: readonly GalleryRow[],
   currentId: string,
@@ -188,11 +252,6 @@ export function nextViewerIndex(
 }
 
 // ─── Upload path ownership ───────────────────────────────────────────────
-/**
- * Given the paths this upload attempt uploaded, and a global set of paths
- * that must never be touched (historical rows), return the safe cleanup set.
- * Guarantees no historical object is removed by mistake.
- */
 export function ownedCleanupPaths(
   attemptPaths: readonly string[],
   protectedPaths: ReadonlySet<string>,
