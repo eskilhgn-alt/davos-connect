@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
+import { validateStoryFile, MAX_STORY_VIDEO_SEC } from "@/features/stories/helpers";
 
 interface StoryCaptureProps {
   onClose: () => void;
