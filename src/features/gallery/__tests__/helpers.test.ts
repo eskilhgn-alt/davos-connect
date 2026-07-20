@@ -91,7 +91,7 @@ describe("gallery/helpers — likes", () => {
 });
 
 describe("gallery/helpers — comments", () => {
-  const server = { id: "s1", item_id: "i1", user_id: "u1", body: "hei", created_at: "2025-01-01T10:00:00Z" };
+  const server = { id: "s1", item_id: "i1", user_id: "u1", body: "hei", created_at: "2025-01-01T10:00:00Z", client_id: null };
   const draft: AnyComment = {
     kind: "optimistic",
     clientId: "c1",
