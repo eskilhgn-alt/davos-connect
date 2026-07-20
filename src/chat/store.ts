@@ -406,9 +406,10 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
     return { ...att, file: undefined };
   }
   const file = att.file;
-  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const ext = sanitizeExtension(file.name);
   const fileId = crypto.randomUUID();
   const path = `${senderId}/${fileId}.${ext}`;
+
 
   let thumbUrl: string | undefined;
   if (att.kind === 'image' && file.type.startsWith('image/')) {
