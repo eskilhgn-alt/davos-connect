@@ -45,7 +45,6 @@ const VIDEO_MIME_ALLOW = /^video\/(mp4|webm|quicktime)$/i;
 // ─── Grid thumbnail ────────────────────────────────────────────────────────
 const GridThumb: React.FC<{ item: GalleryRow; onOpen: () => void }> = ({ item, onOpen }) => {
   const path = item.thumbnail_path || item.storage_path;
-  const url = useSignedUrl(item.storage_bucket, path, null);
   const { useFallback } = videoPosterFallback(item);
   return (
     <button
@@ -58,14 +57,16 @@ const GridThumb: React.FC<{ item: GalleryRow; onOpen: () => void }> = ({ item, o
         <div className="w-full h-full bg-gradient-to-br from-muted to-muted/60 flex items-center justify-center">
           <Play size={28} className="text-foreground/70" aria-hidden />
         </div>
-      ) : url ? (
-        <img src={url} alt={item.caption || item.type} className="w-full h-full object-cover"
-             loading="lazy" decoding="async" />
       ) : (
-        <div className="w-full h-full animate-pulse bg-muted" />
+        <SignedImg
+          bucket={item.storage_bucket}
+          path={path}
+          alt={item.caption || item.type}
+          className="w-full h-full object-cover"
+        />
       )}
       {item.type === "video" && !useFallback && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/25">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none">
           <Play size={24} className="text-white" aria-hidden />
         </div>
       )}
