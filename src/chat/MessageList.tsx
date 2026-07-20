@@ -345,6 +345,7 @@ export const MessageList: React.FC<MessageListProps> = ({
       {showJump && (
         <button
           type="button"
+          aria-label="Bla til nyeste meldinger"
           onClick={() => scrollToBottom(true)}
           className={cn(
             'absolute bottom-4 right-4 z-10',
