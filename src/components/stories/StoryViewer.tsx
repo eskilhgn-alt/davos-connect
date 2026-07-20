@@ -102,9 +102,33 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   }, [groupIdx, storyIdx, group, groups]);
 
 
+  // Async onViewed: at most one nonblocking Norwegian warning per viewer session
+  // for a real error. Ignore no_user/not_found. Prevent stale/unmounted warnings.
+  const viewedWarnedRef = React.useRef(false);
+  const unmountedRef = React.useRef(false);
+  React.useEffect(() => () => { unmountedRef.current = true; }, []);
   React.useEffect(() => {
-    if (story) onViewed(story.id);
+    if (!story) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await Promise.resolve(onViewed(story.id));
+        if (cancelled || unmountedRef.current) return;
+        if (shouldWarnForViewedResult(res as any, { alreadyWarned: viewedWarnedRef.current })) {
+          viewedWarnedRef.current = true;
+          toast.warning("Kunne ikke registrere at storyen ble sett");
+        }
+      } catch {
+        if (cancelled || unmountedRef.current) return;
+        if (!viewedWarnedRef.current) {
+          viewedWarnedRef.current = true;
+          toast.warning("Kunne ikke registrere at storyen ble sett");
+        }
+      }
+    })();
+    return () => { cancelled = true; };
   }, [story?.id]); // eslint-disable-line
+
 
   const likeReqIdRef = React.useRef(0);
   const [likeError, setLikeError] = React.useState<string | null>(null);
