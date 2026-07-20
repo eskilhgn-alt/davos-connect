@@ -1105,8 +1105,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               <button
                 type="button"
                 onClick={() => { if (!isRecording) setCaptureMode("photo"); }}
+                aria-label="Foto-modus"
+                aria-pressed={captureMode === "photo"}
                 className={cn(
-                  "px-4 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                  "px-4 py-1.5 min-h-[36px] rounded-full text-xs font-semibold transition-colors",
                   captureMode === "photo" ? "bg-white text-black" : "text-white/70"
                 )}
               >
@@ -1115,13 +1117,16 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               <button
                 type="button"
                 onClick={() => { if (!isRecording) setCaptureMode("video"); }}
+                aria-label="Video-modus"
+                aria-pressed={captureMode === "video"}
                 className={cn(
-                  "px-4 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                  "px-4 py-1.5 min-h-[36px] rounded-full text-xs font-semibold transition-colors",
                   captureMode === "video" ? "bg-white text-black" : "text-white/70"
                 )}
               >
                 Video
               </button>
+
             </div>
 
             <div className="relative flex items-center justify-center">
