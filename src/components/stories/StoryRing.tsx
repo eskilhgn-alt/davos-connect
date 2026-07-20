@@ -60,9 +60,14 @@ export const StoryRing: React.FC<StoryRingProps> = ({
               type="button"
               onClick={onAddStory}
               aria-label="Legg til ny story"
-              className="absolute -bottom-0.5 -right-0.5 w-[22px] h-[22px] rounded-full bg-primary flex items-center justify-center border-2 border-background active:scale-90 transition-transform"
+              className="absolute -bottom-3 -right-3 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center active:scale-90 transition-transform"
             >
-              <Plus size={12} className="text-primary-foreground" strokeWidth={3} aria-hidden />
+              <span
+                aria-hidden
+                className="w-[22px] h-[22px] rounded-full bg-primary flex items-center justify-center border-2 border-background"
+              >
+                <Plus size={12} className="text-primary-foreground" strokeWidth={3} />
+              </span>
             </button>
           )}
         </div>
