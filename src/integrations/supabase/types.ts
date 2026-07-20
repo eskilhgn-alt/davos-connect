@@ -141,30 +141,42 @@ export type Database = {
         Row: {
           created_at: string
           file_size: number | null
+          filename: string | null
           height: number | null
           id: string
           message_id: string
+          mime_type: string | null
+          storage_bucket: string
           storage_path: string
+          thumbnail_path: string | null
           type: string
           width: number | null
         }
         Insert: {
           created_at?: string
           file_size?: number | null
+          filename?: string | null
           height?: number | null
           id?: string
           message_id: string
+          mime_type?: string | null
+          storage_bucket?: string
           storage_path: string
+          thumbnail_path?: string | null
           type: string
           width?: number | null
         }
         Update: {
           created_at?: string
           file_size?: number | null
+          filename?: string | null
           height?: number | null
           id?: string
           message_id?: string
+          mime_type?: string | null
+          storage_bucket?: string
           storage_path?: string
+          thumbnail_path?: string | null
           type?: string
           width?: number | null
         }
@@ -344,33 +356,86 @@ export type Database = {
         }
         Relationships: []
       }
+      gallery_comments: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          item_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          item_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_comments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "gallery_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gallery_items: {
         Row: {
+          caption: string | null
           created_at: string
           height: number | null
           id: string
+          mime_type: string | null
+          size_bytes: number | null
           source_message_id: string | null
+          source_story_id: string | null
+          storage_bucket: string
           storage_path: string
+          thumbnail_path: string | null
           type: string
           uploaded_by: string
           width: number | null
         }
         Insert: {
+          caption?: string | null
           created_at?: string
           height?: number | null
           id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
           source_message_id?: string | null
+          source_story_id?: string | null
+          storage_bucket: string
           storage_path: string
+          thumbnail_path?: string | null
           type: string
           uploaded_by: string
           width?: number | null
         }
         Update: {
+          caption?: string | null
           created_at?: string
           height?: number | null
           id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
           source_message_id?: string | null
+          source_story_id?: string | null
+          storage_bucket?: string
           storage_path?: string
+          thumbnail_path?: string | null
           type?: string
           uploaded_by?: string
           width?: number | null
@@ -381,6 +446,39 @@ export type Database = {
             columns: ["source_message_id"]
             isOneToOne: false
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gallery_items_source_story_id_fkey"
+            columns: ["source_story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gallery_likes: {
+        Row: {
+          created_at: string
+          item_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          item_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          item_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_likes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "gallery_items"
             referencedColumns: ["id"]
           },
         ]
@@ -988,6 +1086,7 @@ export type Database = {
           is_treated: boolean
           note: string | null
           receipt_image_url: string | null
+          receipt_uploaded_by: string | null
           total_cost: number
         }
         Insert: {
@@ -1000,6 +1099,7 @@ export type Database = {
           is_treated?: boolean
           note?: string | null
           receipt_image_url?: string | null
+          receipt_uploaded_by?: string | null
           total_cost?: number
         }
         Update: {
@@ -1012,6 +1112,7 @@ export type Database = {
           is_treated?: boolean
           note?: string | null
           receipt_image_url?: string | null
+          receipt_uploaded_by?: string | null
           total_cost?: number
         }
         Relationships: []

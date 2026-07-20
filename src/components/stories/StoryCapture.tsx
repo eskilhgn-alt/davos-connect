@@ -492,13 +492,20 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     setUploading(true);
 
     try {
-      // Render edits onto final image
-      const finalBlob =
-        capturedMedia.type === "image" && (textOverlays.length > 0 || drawPaths.length > 0)
-          ? await renderFinalImage()
-          : capturedMedia.blob;
+      // Render edits onto final image (photos) — this canvas pass also strips EXIF.
+      let finalBlob: Blob;
+      if (capturedMedia.type === "image") {
+        if (textOverlays.length > 0 || drawPaths.length > 0) {
+          finalBlob = await renderFinalImage();
+        } else {
+          // No edits but still re-encode via canvas to strip EXIF and cap size.
+          const { reencodeImage } = await import("@/lib/imageOptimize");
+          finalBlob = await reencodeImage(capturedMedia.blob, { maxDim: 2000, quality: 0.9 });
+        }
+      } else {
+        finalBlob = capturedMedia.blob;
+      }
 
-      // Determine extension and content type from the blob
       const isVideo = capturedMedia.type === "video";
       const blobMime = finalBlob.type || (isVideo ? "video/mp4" : "image/jpeg");
       const ext = isVideo
@@ -514,33 +521,20 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         });
       if (uploadErr) throw uploadErr;
 
-      const { error: insertErr } = await supabase.from("stories").insert({
+      const { data: inserted, error: insertErr } = await supabase.from("stories").insert({
         user_id: user.id,
         storage_path: path,
         type: capturedMedia.type,
         duration_sec: capturedMedia.type === "video" ? recordTime : 0,
-      });
+      }).select("id").maybeSingle();
       if (insertErr) throw insertErr;
 
       // Gallery sync handled by database trigger (sync_story_to_gallery)
 
-      // Send push to all other users
-      const sess = await supabase.auth.getSession();
-      const pushToken = sess.data.session?.access_token;
-      if (pushToken) {
-        const { data: prof } = await supabase.from("profiles").select("nickname, full_name").eq("id", user.id).single();
-        const name = prof?.nickname || prof?.full_name || "Noen";
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${pushToken}` },
-          body: JSON.stringify({
-            type: "new_story",
-            heading: "📸 Ny story",
-            message: `${name} har lagt ut en ${capturedMedia.type === "video" ? "video" : "bilde"}-story`,
-            exclude_user_id: user.id,
-            url: "https://guttahutte.lovable.app/stories",
-          }),
-        }).catch(() => {});
+      // Send story push (dedicated function, JWT-verified server-side).
+      if (inserted?.id) {
+        supabase.functions.invoke("story-push", { body: { story_id: inserted.id } })
+          .catch((e) => console.warn("[story-push] failed:", e));
       }
 
       toast.success("Story publisert! 🎉");

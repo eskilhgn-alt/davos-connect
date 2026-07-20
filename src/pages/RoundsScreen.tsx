@@ -21,6 +21,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
 import type { Round, DrinkQuantities } from "@/hooks/useRounds";
+import { useSignedUrl } from "@/components/ui/SignedMedia";
+
+const ReceiptImage: React.FC<{ value: string }> = ({ value }) => {
+  // If value looks like a full URL, the resolver parses it and re-signs.
+  // Otherwise, it's a bucket-relative storage path in round-receipts.
+  const isUrl = /^https?:\/\//.test(value);
+  const url = useSignedUrl(isUrl ? null : 'round-receipts', isUrl ? null : value, isUrl ? value : null);
+  if (!url) return <div className="w-full h-32 rounded-xl border border-border bg-muted/10 animate-pulse" />;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      <img src={url} alt="Kvittering" className="w-full max-h-64 object-contain rounded-xl border border-border bg-muted/10" />
+    </a>
+  );
+};
 
 const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
   beer: { icon: Beer, label: "Øl" },
@@ -257,13 +271,11 @@ const RoundDetailSheet: React.FC<{
             </div>
           )}
 
-          {/* Receipt */}
+          {/* Receipt — resolve via signed URL (works for legacy full URLs and new storage paths). */}
           {round.receipt_image_url && (
             <div className="space-y-1.5">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-1">Kvittering</p>
-              <a href={round.receipt_image_url} target="_blank" rel="noopener noreferrer">
-                <img src={round.receipt_image_url} alt="Kvittering" className="w-full max-h-64 object-contain rounded-xl border border-border bg-muted/10" />
-              </a>
+              <ReceiptImage value={round.receipt_image_url} />
             </div>
           )}
 
