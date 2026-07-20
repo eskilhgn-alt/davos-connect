@@ -510,7 +510,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         {media.url && (story.type === "video" ? (
           <video
             ref={videoRef}
-            key={story.id + ":" + media.url}
+            key={story.id}
             src={media.url}
             autoPlay
             playsInline
@@ -539,7 +539,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           />
         ) : (
           <img
-            key={story.id + ":" + media.url}
+            key={story.id}
             src={media.url}
             alt=""
             className={cn("w-full h-full object-cover transition-opacity", mediaLoaded ? "opacity-100" : "opacity-0")}
