@@ -607,6 +607,26 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         ))}
       </div>
 
+      {likeError && (
+        <div
+          role="status"
+          data-story-control="1"
+          className="absolute bottom-24 left-4 right-4 z-10 flex items-center gap-2 px-3 py-2 rounded-lg bg-black/60 text-white text-xs backdrop-blur-sm"
+          onPointerDown={stop}
+          onPointerUp={(e) => { stop(e); e.preventDefault(); }}
+        >
+          <AlertTriangle size={14} aria-hidden />
+          <span className="flex-1">Kunne ikke laste hjerter</span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); retryLikes(); }}
+            className="underline underline-offset-2 font-medium"
+          >
+            Prøv igjen
+          </button>
+        </div>
+      )}
+
       <div
         className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-between px-4"
         style={{ paddingBottom: "max(calc(env(safe-area-inset-bottom, 0px) + 12px), 20px)" }}
