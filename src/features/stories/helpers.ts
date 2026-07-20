@@ -154,3 +154,74 @@ export function classifyGesture(input: {
   return "none";
 }
 
+// ─── Slice 3C additions ─────────────────────────────────────────────────
+
+/**
+ * Should the `markViewed` result trigger a user-visible warning?
+ * We ignore benign shapes (`no_user`, `not_found`, and success) and dedupe by
+ * remembering the last error the caller already surfaced this session.
+ */
+export interface ViewedWarningState {
+  /** Error already surfaced this viewer session, if any. */
+  alreadyWarned: boolean;
+}
+export function shouldWarnForViewedResult(
+  result: { ok: boolean; error?: string } | null | undefined,
+  state: ViewedWarningState,
+): boolean {
+  if (!result) return false;
+  if (result.ok) return false;
+  const err = result.error || "";
+  if (err === "no_user" || err === "not_found") return false;
+  if (state.alreadyWarned) return false;
+  return true;
+}
+
+/**
+ * Decide whether the async result for a like-fetch request should be applied.
+ * Guards against: unmount (`cancelled`) and out-of-order responses (myReq !==
+ * current).
+ */
+export function shouldApplyLikeResult(
+  currentReqId: number,
+  myReqId: number,
+  cancelled: boolean,
+): boolean {
+  if (cancelled) return false;
+  return currentReqId === myReqId;
+}
+
+export interface PointerHoldState {
+  holdActive: boolean;
+  timerCleared: boolean;
+}
+/**
+ * Pure pointer-cleanup transition: cancel/lost/up must always clear the hold
+ * timer and reset the hold flag. Callers can act on `holdActive` to resume
+ * playback if it was true.
+ */
+export function resetPointerHold(
+  prev: { holdActive: boolean; timerActive: boolean },
+): PointerHoldState {
+  return {
+    holdActive: false,
+    timerCleared: prev.timerActive,
+  };
+}
+
+/**
+ * Given the current group index and a swipe direction, pick the target group
+ * index (clamped) and the first-unviewed story index inside it. Returns null
+ * if the swipe would leave the list.
+ */
+export function nextGroupTarget(
+  groups: readonly StoryGroup[],
+  currentGroupIdx: number,
+  direction: "left" | "right",
+): StoryLocation | null {
+  const nextIdx = direction === "left" ? currentGroupIdx + 1 : currentGroupIdx - 1;
+  if (nextIdx < 0 || nextIdx >= groups.length) return null;
+  return { groupIndex: nextIdx, storyIndex: firstUnviewedIndex(groups[nextIdx]) };
+}
+
+

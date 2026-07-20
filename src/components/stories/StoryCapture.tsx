@@ -130,11 +130,17 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
 
   // ─── Camera ───
   const unmountedRef = React.useRef(false);
+  // Generation token: every startCamera call increments this. Any older
+  // in-flight getUserMedia resolution must be discarded so a late older stream
+  // cannot overwrite a newer one.
+  const cameraGenRef = React.useRef(0);
 
   const startCamera = React.useCallback(async () => {
+    const gen = ++cameraGenRef.current;
     try {
       setCameraError(false);
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
       // Only request microphone in video mode — photo mode must never surprise-prompt.
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -145,8 +151,8 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         },
         audio: captureMode === "video",
       });
-      // If the component unmounted between the await and here, drop the stream.
-      if (unmountedRef.current) {
+      // If the component unmounted or a newer startCamera has begun, drop it.
+      if (unmountedRef.current || cameraGenRef.current !== gen) {
         stream.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
         return;
       }
@@ -160,13 +166,14 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
           await track.applyConstraints({ advanced: [{ zoom: caps.zoom.min } as any] });
         } catch {}
       }
-      if (!unmountedRef.current) setZoomLevel(1);
+      if (!unmountedRef.current && cameraGenRef.current === gen) setZoomLevel(1);
     } catch (err) {
-      if (unmountedRef.current) return;
+      if (unmountedRef.current || cameraGenRef.current !== gen) return;
       console.error("[StoryCapture] Camera error:", err);
       setCameraError(true);
     }
   }, [facingMode, captureMode]);
+
 
   React.useEffect(() => {
     if (mode === "camera") startCamera();
@@ -253,25 +260,43 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   // ─── Photo / Video capture ───
   const takePhoto = () => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      toast.error("Kunne ikke ta bilde – kamera er ikke klart");
+      return;
+    }
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    canvas.getContext("2d")?.drawImage(video, 0, 0);
-    canvas.toBlob(
-      (blob) => {
-        if (!blob || unmountedRef.current) return;
-        revokeCapturedUrl();
-        const url = URL.createObjectURL(blob);
-        capturedUrlRef.current = url;
-        setCapturedMedia({ blob, type: "image", url });
-        setMode("preview");
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-      },
-      "image/jpeg",
-      0.9
-    );
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      toast.error("Kunne ikke ta bilde – nettleseren støtter ikke canvas");
+      return;
+    }
+    ctx.drawImage(video, 0, 0);
+    try {
+      canvas.toBlob(
+        (blob) => {
+          if (unmountedRef.current) return;
+          if (!blob) {
+            toast.error("Kunne ikke ta bilde – prøv igjen");
+            return;
+          }
+          revokeCapturedUrl();
+          const url = URL.createObjectURL(blob);
+          capturedUrlRef.current = url;
+          setCapturedMedia({ blob, type: "image", url });
+          setMode("preview");
+          streamRef.current?.getTracks().forEach((t) => t.stop());
+        },
+        "image/jpeg",
+        0.9
+      );
+    } catch (err) {
+      console.error("[StoryCapture] takePhoto failed:", err);
+      toast.error("Kunne ikke ta bilde – prøv igjen");
+    }
   };
+
 
   // Detect best supported MIME type for recording
   const getRecordingMimeType = (): string => {

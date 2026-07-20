@@ -69,18 +69,23 @@ export function useStories() {
       const [profilesRes, viewsRes, signedMap] = await Promise.all([
         userIds.length > 0
           ? supabase.from("profiles").select("id, nickname, full_name").in("id", userIds)
-          : Promise.resolve({ data: [] }),
+          : Promise.resolve({ data: [], error: null } as { data: any[]; error: null }),
         storyIds.length > 0
           ? supabase.from("story_views").select("story_id").eq("user_id", user.id).in("story_id", storyIds)
-          : Promise.resolve({ data: [] }),
+          : Promise.resolve({ data: [], error: null } as { data: any[]; error: null }),
         signBatch("stories", paths),
       ]);
+
+      // Do NOT silently build a feed with missing profile/view data — surface via retry state.
+      if ((profilesRes as any).error) throw (profilesRes as any).error;
+      if ((viewsRes as any).error) throw (viewsRes as any).error;
 
       const profileMap = new Map<string, { nickname: string | null; full_name: string | null }>();
       for (const p of (profilesRes.data || []) as any[]) {
         profileMap.set(p.id, { nickname: p.nickname, full_name: p.full_name });
       }
       const viewedIds = new Set((viewsRes.data || []).map((v: any) => v.story_id));
+
 
       const groupMap = new Map<string, StoryGroup>();
       for (const row of storiesData as any[]) {
