@@ -105,7 +105,7 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (file.size > MAX_FILE_SIZE) {
-        errorToast(new Error('Filen er for stor (maks 20 MB).'), { title: 'Vedlegg' });
+        errorToast('Filen er for stor (maks 20 MB).');
         continue;
       }
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
@@ -126,7 +126,7 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (file.size > MAX_FILE_SIZE) {
-        errorToast(new Error('Filen er for stor (maks 20 MB).'), { title: 'Vedlegg' });
+        errorToast('Filen er for stor (maks 20 MB).');
         continue;
       }
       newAttachments.push({
