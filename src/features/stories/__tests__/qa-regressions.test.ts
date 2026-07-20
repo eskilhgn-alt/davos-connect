@@ -5,8 +5,8 @@ import {
   resetPointerHold,
   nextGroupTarget,
   firstUnviewedIndex,
-  type StoryGroup,
 } from "../helpers";
+import type { StoryGroup } from "@/hooks/useStories";
 
 // ─── Query error propagation helper ─────────────────────────────────────
 // Simulates useStories.fetchStories checking both profilesRes.error and
