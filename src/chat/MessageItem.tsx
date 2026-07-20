@@ -11,6 +11,72 @@ import { chatStore } from './store';
 import { ChatPollCard } from '@/components/poll/ChatPollCard';
 import { useSignedUrl } from '@/components/ui/SignedMedia';
 
+/**
+ * Media attachment renderer with private-URL resolution and robust video fallback.
+ * - Images: prefers thumbnail path/url and falls back to full-size.
+ * - Videos: shows the thumbnail poster with a play overlay; if a thumbnail is
+ *   unavailable (extraction failed at upload time or on a legacy attachment),
+ *   we render a real <video preload="metadata"> so the browser draws its own
+ *   first-frame poster, with the same play-overlay button on top.
+ */
+const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void }> = ({ att, onTap }) => {
+  const bucket = att.storageBucket ?? null;
+  // Full-size resolved URL — used for onTap and as an image fallback.
+  const fullUrl = useSignedUrl(bucket, att.storagePath ?? null, att.objectUrl || null);
+  // Thumbnail resolved URL — may be undefined when unavailable.
+  const thumbUrl = useSignedUrl(bucket, att.thumbnailPath ?? null, att.thumbUrl ?? null);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (fullUrl) onTap(fullUrl);
+  };
+
+  if (att.kind === 'image' || att.kind === 'gif') {
+    const src = thumbUrl || fullUrl;
+    return (
+      <div
+        className="rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity"
+        onClick={handleClick}
+      >
+        {src ? (
+          <img src={src} alt={att.kind === 'gif' ? 'GIF' : 'Vedlegg'} className="max-w-full h-auto" loading="lazy" decoding="async" />
+        ) : (
+          <div className="w-[220px] h-[160px] bg-muted animate-pulse" aria-hidden />
+        )}
+      </div>
+    );
+  }
+
+  // Video
+  return (
+    <div
+      className="relative rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity bg-muted"
+      onClick={handleClick}
+      role="button"
+      aria-label="Spill av video"
+    >
+      {thumbUrl ? (
+        <img src={thumbUrl} alt="Videoforhåndsvisning" className="max-w-full h-auto block" loading="lazy" decoding="async" />
+      ) : fullUrl ? (
+        <video
+          src={fullUrl}
+          preload="metadata"
+          playsInline
+          muted
+          className="max-w-full h-auto block pointer-events-none"
+        />
+      ) : (
+        <div className="w-[220px] h-[160px]" aria-hidden />
+      )}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="w-12 h-12 rounded-full bg-black/55 text-white flex items-center justify-center">
+          <Play size={22} aria-hidden="true" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface MessageItemProps {
   message: Message;
   isOwn: boolean;
