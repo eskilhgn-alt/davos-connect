@@ -1015,12 +1015,15 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                 key={c}
                 type="button"
                 onClick={() => setTextColor(c)}
+                aria-label={`Tekstfarge ${c}`}
+                aria-pressed={textColor === c}
                 className={cn(
-                  "w-7 h-7 rounded-full border-2 transition-transform",
-                  textColor === c ? "border-white scale-125" : "border-white/30"
+                  "w-11 h-11 rounded-full border-2 transition-transform flex items-center justify-center",
+                  textColor === c ? "border-white scale-110" : "border-white/30"
                 )}
-                style={{ backgroundColor: c }}
-              />
+              >
+                <span aria-hidden className="w-7 h-7 rounded-full" style={{ backgroundColor: c }} />
+              </button>
             ))}
           </div>
 
@@ -1031,8 +1034,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                 key={s}
                 type="button"
                 onClick={() => setTextStyle(s)}
+                aria-label={s === "bold" ? "Fet tekst" : s === "outline" ? "Tekst med omriss" : "Tekst med bakgrunn"}
+                aria-pressed={textStyle === s}
                 className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+                  "px-3 py-1 min-h-[36px] rounded-full text-xs font-medium transition-colors",
                   textStyle === s ? "bg-white text-black" : "bg-white/20 text-white"
                 )}
               >
@@ -1050,15 +1055,17 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               onChange={(e) => setTextInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addTextOverlay()}
               placeholder="Skriv tekst..."
+              aria-label="Tekst til story"
               className="flex-1 px-4 py-3 rounded-full bg-white/15 text-white placeholder:text-white/40 backdrop-blur-sm border border-white/20 text-sm focus:outline-none focus:border-white/50"
             />
             <button
               type="button"
               onClick={addTextOverlay}
               disabled={!textInput.trim()}
-              className="p-3 rounded-full bg-white text-black disabled:opacity-40"
+              aria-label="Legg til tekst"
+              className="p-3 min-w-[44px] min-h-[44px] rounded-full bg-white text-black disabled:opacity-40"
             >
-              <Check size={18} />
+              <Check size={18} aria-hidden />
             </button>
           </div>
         </div>
@@ -1072,15 +1079,19 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               key={c}
               type="button"
               onClick={() => setDrawColor(c)}
+              aria-label={`Tegnefarge ${c}`}
+              aria-pressed={drawColor === c}
               className={cn(
-                "w-7 h-7 rounded-full border-2 transition-transform",
-                drawColor === c ? "border-white scale-125" : "border-white/30"
+                "w-11 h-11 rounded-full border-2 transition-transform flex items-center justify-center",
+                drawColor === c ? "border-white scale-110" : "border-white/30"
               )}
-              style={{ backgroundColor: c }}
-            />
+            >
+              <span aria-hidden className="w-7 h-7 rounded-full" style={{ backgroundColor: c }} />
+            </button>
           ))}
         </div>
       )}
+
 
       {/* Bottom controls */}
       <div
