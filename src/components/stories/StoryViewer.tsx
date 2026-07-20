@@ -76,22 +76,31 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   // Prefetch next stories via signBatch (fresh signed URLs, not stale ones).
   React.useEffect(() => {
     if (!group) return;
-    const paths: string[] = [];
-    if (storyIdx < group.stories.length - 1) paths.push(group.stories[storyIdx + 1].storagePath);
-    if (groupIdx < groups.length - 1) paths.push(groups[groupIdx + 1].stories[0].storagePath);
-    if (paths.length === 0) return;
-    signBatch("stories", paths).then((map) => {
-      map.forEach((url) => {
+    // Derive type from the target story, not from the signed URL (which has query params).
+    const targets: Array<{ path: string; type: "image" | "video" }> = [];
+    if (storyIdx < group.stories.length - 1) {
+      const s = group.stories[storyIdx + 1];
+      targets.push({ path: s.storagePath, type: s.mediaType === "video" ? "video" : "image" });
+    }
+    if (groupIdx < groups.length - 1) {
+      const s = groups[groupIdx + 1].stories[0];
+      targets.push({ path: s.storagePath, type: s.mediaType === "video" ? "video" : "image" });
+    }
+    if (targets.length === 0) return;
+    signBatch("stories", targets.map((t) => t.path)).then((map) => {
+      targets.forEach(({ path, type }) => {
+        const url = map.get(path);
         if (!url) return;
         const link = document.createElement("link");
         link.rel = "prefetch";
         link.href = url;
-        link.as = url.match(/\.(mp4|webm|mov)/i) ? "video" : "image";
+        link.as = type === "video" ? "video" : "image";
         document.head.appendChild(link);
         setTimeout(() => link.remove(), 30000);
       });
     }).catch(() => { /* prefetch is best-effort */ });
   }, [groupIdx, storyIdx, group, groups]);
+
 
   React.useEffect(() => {
     if (story) onViewed(story.id);
