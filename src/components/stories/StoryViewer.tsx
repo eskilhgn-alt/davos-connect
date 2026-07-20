@@ -265,6 +265,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   }, [groupIdx, groups]);
 
   const pointerIdRef = React.useRef<number | null>(null);
+  const suppressCancelRef = React.useRef(false);
   const releasePointer = (e?: React.PointerEvent) => {
     const target = (e?.currentTarget ?? null) as (Element & { releasePointerCapture?: (id: number) => void }) | null;
     const id = pointerIdRef.current;
@@ -308,18 +309,25 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     e.preventDefault();
     e.stopPropagation();
     if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = undefined; }
-    releasePointer(e);
-    if (closingRef.current) return;
-    if (menuOpen || confirmDelete) return;
-    if (holdRef.current) {
+    if (closingRef.current) { suppressCancelRef.current = true; try { releasePointer(e); } finally { suppressCancelRef.current = false; } return; }
+    if (menuOpen || confirmDelete) { suppressCancelRef.current = true; try { releasePointer(e); } finally { suppressCancelRef.current = false; } return; }
+
+    // Snapshot BEFORE releasing capture — explicit release synchronously fires
+    // lostpointercapture; without the snapshot the cancel handler would clear
+    // gestureRef and the up-classifier would see empty state.
+    const start = gestureRef.current;
+    const wasHold = holdRef.current;
+    gestureRef.current = null;
+    holdRef.current = false;
+
+    suppressCancelRef.current = true;
+    try { releasePointer(e); } finally { suppressCancelRef.current = false; }
+
+    if (wasHold) {
       setPaused(false);
       if (videoRef.current) videoRef.current.play().catch(() => {});
-      holdRef.current = false;
-      gestureRef.current = null;
       return;
     }
-    const start = gestureRef.current;
-    gestureRef.current = null;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const dx = start ? e.clientX - start.x : 0;
     const dy = start ? e.clientY - start.y : 0;
@@ -335,8 +343,10 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     else if (g === "tap-right" || g === "none") goNext();
   };
 
-  // pointercancel / lostpointercapture must clear pause+hold or the story stays frozen.
+  // Real pointercancel / lostpointercapture must clear pause+hold or the story
+  // stays frozen. Our own explicit release (during up) is suppressed.
   const handlePointerCancel = (e?: React.PointerEvent) => {
+    if (suppressCancelRef.current) return;
     if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = undefined; }
     if (holdRef.current) {
       setPaused(false);
@@ -346,6 +356,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     gestureRef.current = null;
     releasePointer(e);
   };
+
 
 
   const handleClose = React.useCallback((e: React.MouseEvent | React.PointerEvent | KeyboardEvent) => {

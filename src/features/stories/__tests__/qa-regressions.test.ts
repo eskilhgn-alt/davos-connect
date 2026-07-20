@@ -5,6 +5,7 @@ import {
   resetPointerHold,
   nextGroupTarget,
   firstUnviewedIndex,
+  resolvePointerRelease,
 } from "../helpers";
 import type { StoryGroup } from "@/hooks/useStories";
 
@@ -122,3 +123,28 @@ describe("Slice 3C — nextGroupTarget lands on first-unviewed", () => {
     expect(nextGroupTarget(groups, 0, "right")).toBeNull();
   });
 });
+
+// ─── Slice 4 — pointer release ordering regression ─────────────────────
+describe("Slice 4 — resolvePointerRelease ordering", () => {
+  it("up without hold classifies then releases capture", () => {
+    expect(resolvePointerRelease({ phase: "up", isExplicitRelease: true, hasHold: false }))
+      .toEqual({ classify: true, clearGesture: true, resumeVideo: false, releaseCapture: true });
+  });
+  it("up with hold resumes video and does not classify", () => {
+    expect(resolvePointerRelease({ phase: "up", isExplicitRelease: true, hasHold: true }))
+      .toEqual({ classify: false, clearGesture: true, resumeVideo: true, releaseCapture: true });
+  });
+  it("explicit cancel during up is a no-op (gesture preserved)", () => {
+    expect(resolvePointerRelease({ phase: "cancel", isExplicitRelease: true, hasHold: false }))
+      .toEqual({ classify: false, clearGesture: false, resumeVideo: false, releaseCapture: false });
+    expect(resolvePointerRelease({ phase: "lost", isExplicitRelease: true, hasHold: true }))
+      .toEqual({ classify: false, clearGesture: false, resumeVideo: false, releaseCapture: false });
+  });
+  it("real cancel always cleans up and resumes when hold was active", () => {
+    expect(resolvePointerRelease({ phase: "cancel", isExplicitRelease: false, hasHold: true }))
+      .toEqual({ classify: false, clearGesture: true, resumeVideo: true, releaseCapture: true });
+    expect(resolvePointerRelease({ phase: "lost", isExplicitRelease: false, hasHold: false }))
+      .toEqual({ classify: false, clearGesture: true, resumeVideo: false, releaseCapture: true });
+  });
+});
+
