@@ -260,25 +260,43 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   // ─── Photo / Video capture ───
   const takePhoto = () => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      toast.error("Kunne ikke ta bilde – kamera er ikke klart");
+      return;
+    }
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    canvas.getContext("2d")?.drawImage(video, 0, 0);
-    canvas.toBlob(
-      (blob) => {
-        if (!blob || unmountedRef.current) return;
-        revokeCapturedUrl();
-        const url = URL.createObjectURL(blob);
-        capturedUrlRef.current = url;
-        setCapturedMedia({ blob, type: "image", url });
-        setMode("preview");
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-      },
-      "image/jpeg",
-      0.9
-    );
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      toast.error("Kunne ikke ta bilde – nettleseren støtter ikke canvas");
+      return;
+    }
+    ctx.drawImage(video, 0, 0);
+    try {
+      canvas.toBlob(
+        (blob) => {
+          if (unmountedRef.current) return;
+          if (!blob) {
+            toast.error("Kunne ikke ta bilde – prøv igjen");
+            return;
+          }
+          revokeCapturedUrl();
+          const url = URL.createObjectURL(blob);
+          capturedUrlRef.current = url;
+          setCapturedMedia({ blob, type: "image", url });
+          setMode("preview");
+          streamRef.current?.getTracks().forEach((t) => t.stop());
+        },
+        "image/jpeg",
+        0.9
+      );
+    } catch (err) {
+      console.error("[StoryCapture] takePhoto failed:", err);
+      toast.error("Kunne ikke ta bilde – prøv igjen");
+    }
   };
+
 
   // Detect best supported MIME type for recording
   const getRecordingMimeType = (): string => {
