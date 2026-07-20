@@ -62,6 +62,11 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const chunksRef = React.useRef<Blob[]>([]);
   const holdTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
   const recordTimerRef = React.useRef<ReturnType<typeof setInterval>>();
+  const hardStopTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
+  const recordStartedAtRef = React.useRef<number>(0);
+  const finalDurationRef = React.useRef<number>(0);
+  const capturedUrlRef = React.useRef<string | null>(null);
+  const pendingMetadataUrlRef = React.useRef<string | null>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const drawContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -74,6 +79,8 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     blob: Blob;
     type: "image" | "video";
     url: string;
+    /** Bounded real duration in seconds for videos (1..60). */
+    durationSec?: number;
   } | null>(null);
   const [uploading, setUploading] = React.useState(false);
   const [facingMode, setFacingMode] = React.useState<"user" | "environment">("environment");
@@ -102,11 +109,28 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
 
   const MAX_RECORD_SECS = MAX_STORY_VIDEO_SEC;
 
+  /** Clamp to [1, MAX_RECORD_SECS] and reject non-finite values. */
+  const boundDurationSec = React.useCallback((raw: number): number | null => {
+    if (!Number.isFinite(raw) || raw <= 0) return null;
+    return Math.min(MAX_RECORD_SECS, Math.max(1, Math.ceil(raw)));
+  }, [MAX_RECORD_SECS]);
+
+  /** Revoke the latest captured object URL exactly once. */
+  const revokeCapturedUrl = React.useCallback(() => {
+    const u = capturedUrlRef.current;
+    if (!u) return;
+    capturedUrlRef.current = null;
+    try { URL.revokeObjectURL(u); } catch { /* ignore */ }
+  }, []);
+
+
   // ─── Capture mode: photo vs video (declared before camera effect so it
   // can drive whether we request mic permission). ───
   const [captureMode, setCaptureMode] = React.useState<"photo" | "video">("photo");
 
   // ─── Camera ───
+  const unmountedRef = React.useRef(false);
+
   const startCamera = React.useCallback(async () => {
     try {
       setCameraError(false);
@@ -121,6 +145,11 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         },
         audio: captureMode === "video",
       });
+      // If the component unmounted between the await and here, drop the stream.
+      if (unmountedRef.current) {
+        stream.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+        return;
+      }
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
 
@@ -131,14 +160,13 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
           await track.applyConstraints({ advanced: [{ zoom: caps.zoom.min } as any] });
         } catch {}
       }
-      setZoomLevel(1);
+      if (!unmountedRef.current) setZoomLevel(1);
     } catch (err) {
+      if (unmountedRef.current) return;
       console.error("[StoryCapture] Camera error:", err);
       setCameraError(true);
     }
   }, [facingMode, captureMode]);
-
-  const unmountedRef = React.useRef(false);
 
   React.useEffect(() => {
     if (mode === "camera") startCamera();
@@ -147,19 +175,36 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     };
   }, [mode, startCamera]);
 
-  // Full component cleanup: stop recorder, tracks, timers; revoke captured URL.
+  // Full component cleanup: stop recorder, tracks, timers; revoke object URLs
+  // (both captured and pending metadata) exactly once via refs so the effect
+  // always sees the latest value.
   React.useEffect(() => {
     return () => {
       unmountedRef.current = true;
-      try { if (recorderRef.current?.state === "recording") recorderRef.current.stop(); } catch { /* ignore */ }
+      try {
+        const r = recorderRef.current;
+        if (r) {
+          r.ondataavailable = null;
+          r.onstop = null;
+          r.onerror = null;
+          if (r.state === "recording") r.stop();
+        }
+      } catch { /* ignore */ }
       streamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
       if (recordTimerRef.current) clearInterval(recordTimerRef.current);
-      if (capturedMedia?.url) { try { URL.revokeObjectURL(capturedMedia.url); } catch { /* ignore */ } }
+      if (hardStopTimerRef.current) clearTimeout(hardStopTimerRef.current);
+      revokeCapturedUrl();
+      const pm = pendingMetadataUrlRef.current;
+      if (pm) {
+        pendingMetadataUrlRef.current = null;
+        try { URL.revokeObjectURL(pm); } catch { /* ignore */ }
+      }
     };
-    // Intentionally run only on unmount.
+    // Intentionally run only on unmount; refs guarantee latest values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   // Apply zoom via video track constraints
   React.useEffect(() => {
@@ -215,11 +260,13 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     canvas.getContext("2d")?.drawImage(video, 0, 0);
     canvas.toBlob(
       (blob) => {
-        if (blob) {
-          setCapturedMedia({ blob, type: "image", url: URL.createObjectURL(blob) });
-          setMode("preview");
-          streamRef.current?.getTracks().forEach((t) => t.stop());
-        }
+        if (!blob || unmountedRef.current) return;
+        revokeCapturedUrl();
+        const url = URL.createObjectURL(blob);
+        capturedUrlRef.current = url;
+        setCapturedMedia({ blob, type: "image", url });
+        setMode("preview");
+        streamRef.current?.getTracks().forEach((t) => t.stop());
       },
       "image/jpeg",
       0.9
@@ -242,9 +289,19 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     return ""; // Let browser pick default
   };
 
+  const stopRecording = React.useCallback(() => {
+    try {
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    } catch { /* ignore */ }
+    setIsRecording(false);
+    if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = undefined; }
+    if (hardStopTimerRef.current) { clearTimeout(hardStopTimerRef.current); hardStopTimerRef.current = undefined; }
+  }, []);
+
   const startRecording = () => {
     if (!streamRef.current) return;
     chunksRef.current = [];
+    finalDurationRef.current = 0;
     const mimeType = getRecordingMimeType();
     const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
     let recorder: MediaRecorder;
@@ -272,29 +329,43 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         streamRef.current?.getTracks().forEach((t) => t.stop());
         return;
       }
-      setCapturedMedia({ blob, type: "video", url: URL.createObjectURL(blob) });
+      // Use the monotonic startedAt to compute a bounded duration (1..60).
+      const elapsed = recordStartedAtRef.current
+        ? (performance.now() - recordStartedAtRef.current) / 1000
+        : 0;
+      const bounded = boundDurationSec(elapsed) ?? 1;
+      finalDurationRef.current = bounded;
+      revokeCapturedUrl();
+      const url = URL.createObjectURL(blob);
+      capturedUrlRef.current = url;
+      setCapturedMedia({ blob, type: "video", url, durationSec: bounded });
+      setRecordTime(bounded);
       setMode("preview");
       streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+    recorder.onerror = (ev) => {
+      console.warn("[StoryCapture] recorder error:", ev);
     };
     recorder.start(1000);
     recorderRef.current = recorder;
     setIsRecording(true);
     setRecordTime(0);
-    recordTimerRef.current = setInterval(() => {
-      setRecordTime((t) => {
-        if (t >= MAX_RECORD_SECS) {
-          stopRecording();
-          return t;
-        }
-        return t + 1;
-      });
-    }, 1000);
-  };
+    recordStartedAtRef.current = performance.now();
 
-  const stopRecording = () => {
-    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
-    setIsRecording(false);
-    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    // Display counter (visual only). Uses the monotonic start so drift never
+    // exceeds the hard stop, and never advances past MAX_RECORD_SECS.
+    recordTimerRef.current = setInterval(() => {
+      if (unmountedRef.current) return;
+      const elapsed = (performance.now() - recordStartedAtRef.current) / 1000;
+      const shown = Math.min(MAX_RECORD_SECS, Math.max(0, Math.floor(elapsed)));
+      setRecordTime(shown);
+    }, 250);
+
+    // Hard timeout guarantees we stop AT or BEFORE MAX_RECORD_SECS regardless
+    // of visual counter jitter or a stuck interval.
+    hardStopTimerRef.current = setTimeout(() => {
+      stopRecording();
+    }, MAX_RECORD_SECS * 1000);
   };
 
   const handleCaptureButtonTap = () => {
@@ -311,9 +382,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   };
 
   const retake = () => {
-    if (capturedMedia) URL.revokeObjectURL(capturedMedia.url);
+    revokeCapturedUrl();
     setCapturedMedia(null);
     setRecordTime(0);
+    finalDurationRef.current = 0;
     setTextOverlays([]);
     setDrawPaths([]);
     setEditMode("none");
@@ -322,13 +394,37 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   };
 
   // ─── File input fallback ───
+  /**
+   * Read a video's real duration. Rejects on error / NaN / Infinity / 0
+   * so callers can fail visibly instead of accepting garbage.
+   * The pending object URL is tracked in a ref so unmount can revoke it.
+   */
   const readVideoDuration = (file: File): Promise<number> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file);
+      pendingMetadataUrlRef.current = url;
       const v = document.createElement("video");
       v.preload = "metadata";
-      v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(v.duration || 0); };
-      v.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
+      const cleanup = () => {
+        if (pendingMetadataUrlRef.current === url) {
+          pendingMetadataUrlRef.current = null;
+          try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+        }
+      };
+      v.onloadedmetadata = () => {
+        const d = v.duration;
+        cleanup();
+        if (unmountedRef.current) { reject(new Error("unmounted")); return; }
+        if (!Number.isFinite(d) || d <= 0) {
+          reject(new Error("invalid_duration"));
+          return;
+        }
+        resolve(d);
+      };
+      v.onerror = () => {
+        cleanup();
+        reject(new Error("metadata_load_failed"));
+      };
       v.src = url;
     });
   };
@@ -345,22 +441,45 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       return;
     }
     const type = file.type.startsWith("video") ? "video" as const : "image" as const;
-    let durationSec = 0;
+    let bounded: number | undefined;
     if (type === "video") {
-      durationSec = await readVideoDuration(file);
-      if (durationSec > MAX_RECORD_SECS + 0.5) {
+      let raw: number;
+      try {
+        raw = await readVideoDuration(file);
+      } catch (err) {
+        if (unmountedRef.current) { e.target.value = ""; return; }
+        console.warn("[StoryCapture] video metadata error:", err);
+        errorToast("Kunne ikke lese video-lengden");
+        e.target.value = "";
+        return;
+      }
+      if (unmountedRef.current) { e.target.value = ""; return; }
+      if (raw > MAX_RECORD_SECS + 0.5) {
         errorToast(`Video er lengre enn ${MAX_RECORD_SECS}s`);
         e.target.value = "";
         return;
       }
+      const b = boundDurationSec(raw);
+      if (b === null) {
+        errorToast("Ugyldig videolengde");
+        e.target.value = "";
+        return;
+      }
+      bounded = b;
     }
+    revokeCapturedUrl();
     const url = URL.createObjectURL(file);
-    setCapturedMedia({ blob: file, type, url });
-    if (type === "video") setRecordTime(Math.round(durationSec));
+    capturedUrlRef.current = url;
+    setCapturedMedia({ blob: file, type, url, durationSec: bounded });
+    if (type === "video" && bounded) {
+      finalDurationRef.current = bounded;
+      setRecordTime(bounded);
+    }
     setMode("preview");
     streamRef.current?.getTracks().forEach((t) => t.stop());
     e.target.value = "";
   };
+
 
 
 
@@ -589,11 +708,16 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       if (uploadErr) throw uploadErr;
       uploadedPath = path;
 
+      // Persist the bounded real duration (never the counter).
+      const persistDuration = capturedMedia.type === "video"
+        ? (capturedMedia.durationSec ?? boundDurationSec(finalDurationRef.current) ?? 1)
+        : 0;
+
       const { data: inserted, error: insertErr } = await supabase.from("stories").insert({
         user_id: user.id,
         storage_path: path,
         type: capturedMedia.type,
-        duration_sec: capturedMedia.type === "video" ? recordTime : 0,
+        duration_sec: persistDuration,
       }).select("id").maybeSingle();
       if (insertErr) throw insertErr;
 
@@ -619,7 +743,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       }
 
       toast.success("Story publisert! 🎉");
-      URL.revokeObjectURL(capturedMedia.url);
+      revokeCapturedUrl();
       onPublished();
     } catch (err: any) {
       console.error("Publish error:", err);
@@ -668,7 +792,12 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   );
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={mode === "camera" ? "Ta ny story" : "Forhåndsvisning av story"}
+      className="fixed inset-0 z-50 bg-black flex flex-col"
+    >
       {/* Hidden file input fallback */}
       <input
         ref={fileInputRef}
@@ -687,9 +816,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         <button
           type="button"
           onClick={onClose}
-          className="p-2.5 rounded-full bg-black/50 text-white backdrop-blur-sm"
+          aria-label="Lukk"
+          className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/50 text-white backdrop-blur-sm"
         >
-          <X size={22} />
+          <X size={22} aria-hidden />
         </button>
 
         <div className="flex items-center gap-2">
@@ -698,16 +828,19 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               <button
                 type="button"
                 onClick={() => setFlashOn((f) => !f)}
-                className="p-2.5 rounded-full bg-black/50 text-white backdrop-blur-sm"
+                aria-label={flashOn ? "Slå av blits" : "Slå på blits"}
+                aria-pressed={flashOn}
+                className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/50 text-white backdrop-blur-sm"
               >
-                {flashOn ? <Zap size={20} /> : <ZapOff size={20} />}
+                {flashOn ? <Zap size={20} aria-hidden /> : <ZapOff size={20} aria-hidden />}
               </button>
               <button
                 type="button"
                 onClick={() => setFacingMode((f) => (f === "user" ? "environment" : "user"))}
-                className="p-2.5 rounded-full bg-black/50 text-white backdrop-blur-sm"
+                aria-label="Bytt kamera"
+                className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/50 text-white backdrop-blur-sm"
               >
-                <RotateCcw size={20} />
+                <RotateCcw size={20} aria-hidden />
               </button>
             </>
           )}
@@ -717,9 +850,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                 <button
                   type="button"
                   onClick={handleUndo}
-                  className="p-2.5 rounded-full bg-black/50 text-white backdrop-blur-sm"
+                  aria-label="Angre siste"
+                  className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/50 text-white backdrop-blur-sm"
                 >
-                  <Undo2 size={20} />
+                  <Undo2 size={20} aria-hidden />
                 </button>
               )}
               <button
@@ -731,12 +865,14 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                     setEditMode("draw");
                   }
                 }}
+                aria-label="Tegn"
+                aria-pressed={editMode === "draw"}
                 className={cn(
-                  "p-2.5 rounded-full backdrop-blur-sm",
+                  "p-2.5 min-w-[44px] min-h-[44px] rounded-full backdrop-blur-sm",
                   editMode === "draw" ? "bg-white text-black" : "bg-black/50 text-white"
                 )}
               >
-                <Pencil size={20} />
+                <Pencil size={20} aria-hidden />
               </button>
               <button
                 type="button"
@@ -750,17 +886,20 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                     setTimeout(() => textInputRef.current?.focus(), 100);
                   }
                 }}
+                aria-label="Legg til tekst"
+                aria-pressed={editMode === "text"}
                 className={cn(
-                  "p-2.5 rounded-full backdrop-blur-sm",
+                  "p-2.5 min-w-[44px] min-h-[44px] rounded-full backdrop-blur-sm",
                   editMode === "text" ? "bg-white text-black" : "bg-black/50 text-white"
                 )}
               >
-                <Type size={20} />
+                <Type size={20} aria-hidden />
               </button>
             </>
           )}
         </div>
       </div>
+
 
       {/* Zoom indicator */}
       {mode === "camera" && zoomLevel > 1 && (
@@ -881,12 +1020,15 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                 key={c}
                 type="button"
                 onClick={() => setTextColor(c)}
+                aria-label={`Tekstfarge ${c}`}
+                aria-pressed={textColor === c}
                 className={cn(
-                  "w-7 h-7 rounded-full border-2 transition-transform",
-                  textColor === c ? "border-white scale-125" : "border-white/30"
+                  "w-11 h-11 rounded-full border-2 transition-transform flex items-center justify-center",
+                  textColor === c ? "border-white scale-110" : "border-white/30"
                 )}
-                style={{ backgroundColor: c }}
-              />
+              >
+                <span aria-hidden className="w-7 h-7 rounded-full" style={{ backgroundColor: c }} />
+              </button>
             ))}
           </div>
 
@@ -897,8 +1039,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                 key={s}
                 type="button"
                 onClick={() => setTextStyle(s)}
+                aria-label={s === "bold" ? "Fet tekst" : s === "outline" ? "Tekst med omriss" : "Tekst med bakgrunn"}
+                aria-pressed={textStyle === s}
                 className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+                  "px-3 py-1 min-h-[36px] rounded-full text-xs font-medium transition-colors",
                   textStyle === s ? "bg-white text-black" : "bg-white/20 text-white"
                 )}
               >
@@ -916,15 +1060,17 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               onChange={(e) => setTextInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addTextOverlay()}
               placeholder="Skriv tekst..."
+              aria-label="Tekst til story"
               className="flex-1 px-4 py-3 rounded-full bg-white/15 text-white placeholder:text-white/40 backdrop-blur-sm border border-white/20 text-sm focus:outline-none focus:border-white/50"
             />
             <button
               type="button"
               onClick={addTextOverlay}
               disabled={!textInput.trim()}
-              className="p-3 rounded-full bg-white text-black disabled:opacity-40"
+              aria-label="Legg til tekst"
+              className="p-3 min-w-[44px] min-h-[44px] rounded-full bg-white text-black disabled:opacity-40"
             >
-              <Check size={18} />
+              <Check size={18} aria-hidden />
             </button>
           </div>
         </div>
@@ -938,15 +1084,19 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               key={c}
               type="button"
               onClick={() => setDrawColor(c)}
+              aria-label={`Tegnefarge ${c}`}
+              aria-pressed={drawColor === c}
               className={cn(
-                "w-7 h-7 rounded-full border-2 transition-transform",
-                drawColor === c ? "border-white scale-125" : "border-white/30"
+                "w-11 h-11 rounded-full border-2 transition-transform flex items-center justify-center",
+                drawColor === c ? "border-white scale-110" : "border-white/30"
               )}
-              style={{ backgroundColor: c }}
-            />
+            >
+              <span aria-hidden className="w-7 h-7 rounded-full" style={{ backgroundColor: c }} />
+            </button>
           ))}
         </div>
       )}
+
 
       {/* Bottom controls */}
       <div
@@ -960,8 +1110,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               <button
                 type="button"
                 onClick={() => { if (!isRecording) setCaptureMode("photo"); }}
+                aria-label="Foto-modus"
+                aria-pressed={captureMode === "photo"}
                 className={cn(
-                  "px-4 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                  "px-4 py-1.5 min-h-[36px] rounded-full text-xs font-semibold transition-colors",
                   captureMode === "photo" ? "bg-white text-black" : "text-white/70"
                 )}
               >
@@ -970,13 +1122,16 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               <button
                 type="button"
                 onClick={() => { if (!isRecording) setCaptureMode("video"); }}
+                aria-label="Video-modus"
+                aria-pressed={captureMode === "video"}
                 className={cn(
-                  "px-4 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                  "px-4 py-1.5 min-h-[36px] rounded-full text-xs font-semibold transition-colors",
                   captureMode === "video" ? "bg-white text-black" : "text-white/70"
                 )}
               >
                 Video
               </button>
+
             </div>
 
             <div className="relative flex items-center justify-center">
@@ -989,6 +1144,12 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               <button
                 type="button"
                 onClick={handleCaptureButtonTap}
+                aria-label={
+                  captureMode === "video"
+                    ? isRecording ? "Stopp opptak" : "Start opptak"
+                    : "Ta bilde"
+                }
+                aria-pressed={isRecording}
                 className={cn(
                   "w-[72px] h-[72px] rounded-full border-[4px]",
                   "flex items-center justify-center",

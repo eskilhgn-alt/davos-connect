@@ -76,39 +76,62 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   // Prefetch next stories via signBatch (fresh signed URLs, not stale ones).
   React.useEffect(() => {
     if (!group) return;
-    const paths: string[] = [];
-    if (storyIdx < group.stories.length - 1) paths.push(group.stories[storyIdx + 1].storagePath);
-    if (groupIdx < groups.length - 1) paths.push(groups[groupIdx + 1].stories[0].storagePath);
-    if (paths.length === 0) return;
-    signBatch("stories", paths).then((map) => {
-      map.forEach((url) => {
+    // Derive type from the target story, not from the signed URL (which has query params).
+    const targets: Array<{ path: string; type: "image" | "video" }> = [];
+    if (storyIdx < group.stories.length - 1) {
+      const s = group.stories[storyIdx + 1];
+      targets.push({ path: s.storagePath, type: s.type === "video" ? "video" : "image" });
+    }
+    if (groupIdx < groups.length - 1) {
+      const s = groups[groupIdx + 1].stories[0];
+      targets.push({ path: s.storagePath, type: s.type === "video" ? "video" : "image" });
+    }
+    if (targets.length === 0) return;
+    signBatch("stories", targets.map((t) => t.path)).then((map) => {
+      targets.forEach(({ path, type }) => {
+        const url = map.get(path);
         if (!url) return;
         const link = document.createElement("link");
         link.rel = "prefetch";
         link.href = url;
-        link.as = url.match(/\.(mp4|webm|mov)/i) ? "video" : "image";
+        link.as = type === "video" ? "video" : "image";
         document.head.appendChild(link);
         setTimeout(() => link.remove(), 30000);
       });
     }).catch(() => { /* prefetch is best-effort */ });
   }, [groupIdx, storyIdx, group, groups]);
 
+
   React.useEffect(() => {
     if (story) onViewed(story.id);
   }, [story?.id]); // eslint-disable-line
 
+  const likeReqIdRef = React.useRef(0);
+  const [likeError, setLikeError] = React.useState<string | null>(null);
   React.useEffect(() => {
     if (!story || !user) return;
+    setLikeError(null);
+    const myReq = ++likeReqIdRef.current;
+    let cancelled = false;
     const fetchLikes = async () => {
-      const [{ count }, { data: myLike }] = await Promise.all([
+      const [countRes, myLikeRes] = await Promise.all([
         supabase.from("story_likes").select("*", { count: "exact", head: true }).eq("story_id", story.id),
         supabase.from("story_likes").select("story_id").eq("story_id", story.id).eq("user_id", user.id).maybeSingle(),
       ]);
-      setLikeCount(count || 0);
-      setLiked(!!myLike);
+      // Discard if a newer request has started, the story changed, or unmount.
+      if (cancelled || likeReqIdRef.current !== myReq) return;
+      if (countRes.error || myLikeRes.error) {
+        console.warn("[StoryViewer] like fetch failed:", countRes.error || myLikeRes.error);
+        setLikeError((countRes.error || myLikeRes.error)?.message || "Kunne ikke laste hjerter");
+        return;
+      }
+      setLikeCount(countRes.count || 0);
+      setLiked(!!myLikeRes.data);
     };
     fetchLikes();
+    return () => { cancelled = true; };
   }, [story?.id, user]); // eslint-disable-line
+
 
   React.useEffect(() => {
     if (!story || paused || mediaError || !mediaLoaded || deleting) {
@@ -264,6 +287,17 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     else if (g === "tap-right" || g === "none") goNext();
   };
 
+  // pointercancel / lostpointercapture must clear pause+hold or the story stays frozen.
+  const handlePointerCancel = () => {
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = undefined; }
+    if (holdRef.current) {
+      setPaused(false);
+      if (videoRef.current) videoRef.current.play().catch(() => {});
+    }
+    holdRef.current = false;
+    gestureRef.current = null;
+  };
+
   const handleClose = React.useCallback((e: React.MouseEvent | React.PointerEvent | KeyboardEvent) => {
     if ("stopPropagation" in e) e.stopPropagation();
     if ("preventDefault" in e) e.preventDefault();
@@ -315,6 +349,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onLostPointerCapture={handlePointerCancel}
       onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
     >
       <div
@@ -463,11 +499,19 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           </div>
         )}
 
-        {story.type === "video" ? (
+        {/* Only render media once the signed resolver has produced a URL.
+            We must NOT fall back to story.publicUrl while a storagePath exists —
+            that would leak the private object through a stale public URL. */}
+        {!media.url && !mediaError && (
+          <div className="absolute inset-0 flex items-center justify-center text-white/60 text-sm">
+            Laster…
+          </div>
+        )}
+        {media.url && (story.type === "video" ? (
           <video
             ref={videoRef}
             key={story.id}
-            src={media.url || story.publicUrl}
+            src={media.url}
             autoPlay
             playsInline
             muted
@@ -496,7 +540,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         ) : (
           <img
             key={story.id}
-            src={media.url || story.publicUrl}
+            src={media.url}
             alt=""
             className={cn("w-full h-full object-cover transition-opacity", mediaLoaded ? "opacity-100" : "opacity-0")}
             draggable={false}
@@ -510,7 +554,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
               }
             }}
           />
-        )}
+        ))}
       </div>
 
       <div
