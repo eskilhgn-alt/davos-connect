@@ -407,7 +407,7 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
   }
   const rawExt = sanitizeExtension(file.name);
   const fileId = crypto.randomUUID();
-  const bucket: 'chat-media' = 'chat-media';
+  const bucket = 'chat-media' as const;
 
   // Re-encode images through canvas to strip EXIF; keep videos/gifs as-is.
   // A re-encode failure MUST surface — silently uploading the original file
