@@ -300,7 +300,18 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   };
 
   // ─── File input fallback ───
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const readVideoDuration = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(v.duration || 0); };
+      v.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
+      v.src = url;
+    });
+  };
+
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const check = validateStoryFile({ size: file.size, type: file.type });
@@ -312,11 +323,23 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       return;
     }
     const type = file.type.startsWith("video") ? "video" as const : "image" as const;
+    let durationSec = 0;
+    if (type === "video") {
+      durationSec = await readVideoDuration(file);
+      if (durationSec > MAX_RECORD_SECS + 0.5) {
+        errorToast(`Video er lengre enn ${MAX_RECORD_SECS}s`);
+        e.target.value = "";
+        return;
+      }
+    }
     const url = URL.createObjectURL(file);
     setCapturedMedia({ blob: file, type, url });
+    if (type === "video") setRecordTime(Math.round(durationSec));
     setMode("preview");
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    e.target.value = "";
   };
+
 
 
   // ─── Drawing ───
