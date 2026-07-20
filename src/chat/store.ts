@@ -19,6 +19,7 @@ import {
   mapReplyPreview,
   sanitizeExtension,
   buildBeforeCursorOrFilter,
+  normalizeAttachment,
   type Cursor,
 } from './logic';
 
