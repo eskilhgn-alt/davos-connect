@@ -260,11 +260,13 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     canvas.getContext("2d")?.drawImage(video, 0, 0);
     canvas.toBlob(
       (blob) => {
-        if (blob) {
-          setCapturedMedia({ blob, type: "image", url: URL.createObjectURL(blob) });
-          setMode("preview");
-          streamRef.current?.getTracks().forEach((t) => t.stop());
-        }
+        if (!blob || unmountedRef.current) return;
+        revokeCapturedUrl();
+        const url = URL.createObjectURL(blob);
+        capturedUrlRef.current = url;
+        setCapturedMedia({ blob, type: "image", url });
+        setMode("preview");
+        streamRef.current?.getTracks().forEach((t) => t.stop());
       },
       "image/jpeg",
       0.9
@@ -287,9 +289,19 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     return ""; // Let browser pick default
   };
 
+  const stopRecording = React.useCallback(() => {
+    try {
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    } catch { /* ignore */ }
+    setIsRecording(false);
+    if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = undefined; }
+    if (hardStopTimerRef.current) { clearTimeout(hardStopTimerRef.current); hardStopTimerRef.current = undefined; }
+  }, []);
+
   const startRecording = () => {
     if (!streamRef.current) return;
     chunksRef.current = [];
+    finalDurationRef.current = 0;
     const mimeType = getRecordingMimeType();
     const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
     let recorder: MediaRecorder;
@@ -317,29 +329,43 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         streamRef.current?.getTracks().forEach((t) => t.stop());
         return;
       }
-      setCapturedMedia({ blob, type: "video", url: URL.createObjectURL(blob) });
+      // Use the monotonic startedAt to compute a bounded duration (1..60).
+      const elapsed = recordStartedAtRef.current
+        ? (performance.now() - recordStartedAtRef.current) / 1000
+        : 0;
+      const bounded = boundDurationSec(elapsed) ?? 1;
+      finalDurationRef.current = bounded;
+      revokeCapturedUrl();
+      const url = URL.createObjectURL(blob);
+      capturedUrlRef.current = url;
+      setCapturedMedia({ blob, type: "video", url, durationSec: bounded });
+      setRecordTime(bounded);
       setMode("preview");
       streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+    recorder.onerror = (ev) => {
+      console.warn("[StoryCapture] recorder error:", ev);
     };
     recorder.start(1000);
     recorderRef.current = recorder;
     setIsRecording(true);
     setRecordTime(0);
-    recordTimerRef.current = setInterval(() => {
-      setRecordTime((t) => {
-        if (t >= MAX_RECORD_SECS) {
-          stopRecording();
-          return t;
-        }
-        return t + 1;
-      });
-    }, 1000);
-  };
+    recordStartedAtRef.current = performance.now();
 
-  const stopRecording = () => {
-    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
-    setIsRecording(false);
-    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    // Display counter (visual only). Uses the monotonic start so drift never
+    // exceeds the hard stop, and never advances past MAX_RECORD_SECS.
+    recordTimerRef.current = setInterval(() => {
+      if (unmountedRef.current) return;
+      const elapsed = (performance.now() - recordStartedAtRef.current) / 1000;
+      const shown = Math.min(MAX_RECORD_SECS, Math.max(0, Math.floor(elapsed)));
+      setRecordTime(shown);
+    }, 250);
+
+    // Hard timeout guarantees we stop AT or BEFORE MAX_RECORD_SECS regardless
+    // of visual counter jitter or a stuck interval.
+    hardStopTimerRef.current = setTimeout(() => {
+      stopRecording();
+    }, MAX_RECORD_SECS * 1000);
   };
 
   const handleCaptureButtonTap = () => {
@@ -356,9 +382,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   };
 
   const retake = () => {
-    if (capturedMedia) URL.revokeObjectURL(capturedMedia.url);
+    revokeCapturedUrl();
     setCapturedMedia(null);
     setRecordTime(0);
+    finalDurationRef.current = 0;
     setTextOverlays([]);
     setDrawPaths([]);
     setEditMode("none");
@@ -367,13 +394,37 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   };
 
   // ─── File input fallback ───
+  /**
+   * Read a video's real duration. Rejects on error / NaN / Infinity / 0
+   * so callers can fail visibly instead of accepting garbage.
+   * The pending object URL is tracked in a ref so unmount can revoke it.
+   */
   const readVideoDuration = (file: File): Promise<number> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file);
+      pendingMetadataUrlRef.current = url;
       const v = document.createElement("video");
       v.preload = "metadata";
-      v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(v.duration || 0); };
-      v.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
+      const cleanup = () => {
+        if (pendingMetadataUrlRef.current === url) {
+          pendingMetadataUrlRef.current = null;
+          try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+        }
+      };
+      v.onloadedmetadata = () => {
+        const d = v.duration;
+        cleanup();
+        if (unmountedRef.current) { reject(new Error("unmounted")); return; }
+        if (!Number.isFinite(d) || d <= 0) {
+          reject(new Error("invalid_duration"));
+          return;
+        }
+        resolve(d);
+      };
+      v.onerror = () => {
+        cleanup();
+        reject(new Error("metadata_load_failed"));
+      };
       v.src = url;
     });
   };
@@ -390,22 +441,45 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       return;
     }
     const type = file.type.startsWith("video") ? "video" as const : "image" as const;
-    let durationSec = 0;
+    let bounded: number | undefined;
     if (type === "video") {
-      durationSec = await readVideoDuration(file);
-      if (durationSec > MAX_RECORD_SECS + 0.5) {
+      let raw: number;
+      try {
+        raw = await readVideoDuration(file);
+      } catch (err) {
+        if (unmountedRef.current) { e.target.value = ""; return; }
+        console.warn("[StoryCapture] video metadata error:", err);
+        errorToast("Kunne ikke lese video-lengden");
+        e.target.value = "";
+        return;
+      }
+      if (unmountedRef.current) { e.target.value = ""; return; }
+      if (raw > MAX_RECORD_SECS + 0.5) {
         errorToast(`Video er lengre enn ${MAX_RECORD_SECS}s`);
         e.target.value = "";
         return;
       }
+      const b = boundDurationSec(raw);
+      if (b === null) {
+        errorToast("Ugyldig videolengde");
+        e.target.value = "";
+        return;
+      }
+      bounded = b;
     }
+    revokeCapturedUrl();
     const url = URL.createObjectURL(file);
-    setCapturedMedia({ blob: file, type, url });
-    if (type === "video") setRecordTime(Math.round(durationSec));
+    capturedUrlRef.current = url;
+    setCapturedMedia({ blob: file, type, url, durationSec: bounded });
+    if (type === "video" && bounded) {
+      finalDurationRef.current = bounded;
+      setRecordTime(bounded);
+    }
     setMode("preview");
     streamRef.current?.getTracks().forEach((t) => t.stop());
     e.target.value = "";
   };
+
 
 
 
