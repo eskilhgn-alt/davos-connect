@@ -252,22 +252,41 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   const gestureRef = React.useRef<{ x: number; y: number; t: number } | null>(null);
 
   const goNextGroup = React.useCallback(() => {
-    if (groupIdx < groups.length - 1) {
-      setGroupIdx((i) => i + 1);
-      setStoryIdx(0);
-    }
-  }, [groupIdx, groups.length]);
+    const target = nextGroupTarget(groups, groupIdx, "left");
+    if (!target) return;
+    setGroupIdx(target.groupIndex);
+    setStoryIdx(target.storyIndex);
+  }, [groupIdx, groups]);
   const goPrevGroup = React.useCallback(() => {
-    if (groupIdx > 0) {
-      setGroupIdx((i) => i - 1);
-      setStoryIdx(0);
+    const target = nextGroupTarget(groups, groupIdx, "right");
+    if (!target) return;
+    setGroupIdx(target.groupIndex);
+    setStoryIdx(target.storyIndex);
+  }, [groupIdx, groups]);
+
+  const pointerIdRef = React.useRef<number | null>(null);
+  const releasePointer = (e?: React.PointerEvent) => {
+    const target = (e?.currentTarget ?? null) as (Element & { releasePointerCapture?: (id: number) => void }) | null;
+    const id = pointerIdRef.current;
+    if (target && id != null && target.hasPointerCapture?.(id)) {
+      try { target.releasePointerCapture(id); } catch { /* ignore */ }
     }
-  }, [groupIdx]);
+    pointerIdRef.current = null;
+  };
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (menuOpen || confirmDelete) return;
+    // Excluded controls set data-story-control="1"; do not capture on those.
+    const inControl = (e.target as HTMLElement | null)?.closest?.('[data-story-control="1"]');
+    if (inControl) return;
     gestureRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
     holdRef.current = false;
+    // Capture the pointer so we still get pointercancel/lostpointercapture even
+    // if the finger drifts out of the root element.
+    try {
+      (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+      pointerIdRef.current = e.pointerId;
+    } catch { /* ignore */ }
     holdTimerRef.current = setTimeout(() => {
       holdRef.current = true;
       setPaused(true);
@@ -289,6 +308,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     e.preventDefault();
     e.stopPropagation();
     if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = undefined; }
+    releasePointer(e);
     if (closingRef.current) return;
     if (menuOpen || confirmDelete) return;
     if (holdRef.current) {
@@ -316,7 +336,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   };
 
   // pointercancel / lostpointercapture must clear pause+hold or the story stays frozen.
-  const handlePointerCancel = () => {
+  const handlePointerCancel = (e?: React.PointerEvent) => {
     if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = undefined; }
     if (holdRef.current) {
       setPaused(false);
@@ -324,7 +344,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     }
     holdRef.current = false;
     gestureRef.current = null;
+    releasePointer(e);
   };
+
 
   const handleClose = React.useCallback((e: React.MouseEvent | React.PointerEvent | KeyboardEvent) => {
     if ("stopPropagation" in e) e.stopPropagation();
