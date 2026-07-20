@@ -313,6 +313,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
       aria-label={`Historie fra ${group.displayName}`}
       className="fixed inset-0 z-50 bg-black flex flex-col touch-none select-none"
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
     >
