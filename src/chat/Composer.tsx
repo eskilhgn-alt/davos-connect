@@ -1,16 +1,18 @@
 /**
- * Composer - iMessage-style message input
- * Full-width textarea on top, toolbar below
- * Fixed at bottom, stable on iOS
+ * Composer - iMessage-style message input with reply preview and file attachments.
  */
 
 import * as React from 'react';
-import { Send, Camera, ImageIcon, X, Smile } from 'lucide-react';
+import { Send, Camera, ImageIcon, X, Smile, Paperclip, Reply } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Attachment } from './types';
+import type { Attachment, ReplyPreview } from './types';
 import { chatStore } from './store';
 import { EmojiPicker } from './EmojiPicker';
 import { GiphyPicker } from './GiphyPicker';
+import { useAuth } from '@/contexts/AuthContext';
+import { errorToast } from '@/utils/errorToast';
+
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 interface ComposerProps {
   onSend: (text: string, attachments: Attachment[]) => void | Promise<void>;
@@ -22,10 +24,16 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
   const [attachments, setAttachments] = React.useState<Attachment[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const [showGiphyPicker, setShowGiphyPicker] = React.useState(false);
+  const [replyTo, setReplyTo] = React.useState<ReplyPreview | null>(null);
+  const [sending, setSending] = React.useState(false);
+  const { user, profile } = useAuth();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const cameraInputRef = React.useRef<HTMLInputElement>(null);
+  const docInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => chatStore.subscribeToReplyTo(setReplyTo), []);
 
   // Measure and report height
   React.useEffect(() => {
