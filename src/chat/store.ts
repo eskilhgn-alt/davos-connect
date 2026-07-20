@@ -20,6 +20,7 @@ import {
   sanitizeExtension,
   buildBeforeCursorOrFilter,
   normalizeAttachment,
+  serializeAttachmentForPersist,
   type Cursor,
 } from './logic';
 
