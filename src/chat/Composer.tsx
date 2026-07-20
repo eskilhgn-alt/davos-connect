@@ -192,21 +192,10 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-        {/* Attachment previews */}
-        {attachments.length > 0 && (
-          <div className="flex gap-2 px-3 pt-2 overflow-x-auto">
-            {attachments.map((att) => (
-              <div key={att.id} className="relative flex-shrink-0">
-                {att.kind === 'video' ? (
-                  <video src={att.objectUrl} className="h-16 w-16 object-cover rounded-lg" />
-                ) : (
-                  <img src={att.objectUrl} alt="Vedlegg" className="h-16 w-16 object-cover rounded-lg" />
-        )}
-
-        {/* Reply preview */}
+        {/* Reply preview — appears exactly once, outside the attachment list */}
         {replyTo && (
           <div className="flex items-center gap-2 mx-3 my-2 px-3 py-2 rounded-lg bg-muted border-l-2 border-primary">
-            <Reply size={14} className="text-muted-foreground flex-none" />
+            <Reply size={14} className="text-muted-foreground flex-none" aria-hidden="true" />
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-medium text-muted-foreground">
                 Svarer {replyTo.senderName || 'melding'}
@@ -221,20 +210,61 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
               onClick={() => chatStore.setReplyTo(null)}
               className="w-6 h-6 rounded-full bg-background text-foreground flex items-center justify-center flex-none"
             >
-              <X size={14} />
+              <X size={14} aria-hidden="true" />
             </button>
           </div>
         )}
 
-                <button
-                  type="button"
-                  onClick={() => removeAttachment(att.id)}
-                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+        {/* Attachment previews */}
+        {attachments.length > 0 && (
+          <div className="flex gap-2 px-3 pt-2 overflow-x-auto">
+            {attachments.map((att) => {
+              const isFile = att.kind === 'file';
+              return (
+                <div
+                  key={att.id}
+                  className={cn(
+                    'relative flex-shrink-0',
+                    isFile ? 'min-w-[180px]' : ''
+                  )}
                 >
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
+                  {att.kind === 'video' && (
+                    <video
+                      src={att.objectUrl}
+                      className="h-16 w-16 object-cover rounded-lg"
+                    />
+                  )}
+                  {(att.kind === 'image' || att.kind === 'gif') && (
+                    <img
+                      src={att.objectUrl}
+                      alt={att.filename || 'Vedlegg'}
+                      className="h-16 w-16 object-cover rounded-lg"
+                    />
+                  )}
+                  {isFile && (
+                    <div className="flex items-center gap-2 h-16 px-3 rounded-lg bg-muted border border-border">
+                      <Paperclip size={18} className="text-muted-foreground flex-none" aria-hidden="true" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium truncate max-w-[140px]">
+                          {att.filename || 'Fil'}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {att.size ? `${Math.round(att.size / 1024)} KB` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Fjern vedlegg"
+                    onClick={() => removeAttachment(att.id)}
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+                  >
+                    <X size={12} aria-hidden="true" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
