@@ -132,6 +132,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
 
   const likeReqIdRef = React.useRef(0);
   const [likeError, setLikeError] = React.useState<string | null>(null);
+  const [likeRetryTick, setLikeRetryTick] = React.useState(0);
   React.useEffect(() => {
     if (!story || !user) return;
     setLikeError(null);
@@ -155,7 +156,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
     };
     fetchLikes();
     return () => { cancelled = true; };
-  }, [story?.id, user]); // eslint-disable-line
+  }, [story?.id, user, likeRetryTick]); // eslint-disable-line
+  const retryLikes = React.useCallback(() => setLikeRetryTick((t) => t + 1), []);
+
 
 
   React.useEffect(() => {
