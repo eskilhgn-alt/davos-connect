@@ -266,3 +266,149 @@ describe('chat/logic — normalizeAttachment (Slice 1 backfill parser)', () => {
     expect(n.objectUrl).toContain('giphy');
   });
 });
+
+import { serializeAttachmentForPersist } from '@/chat/logic';
+import { attachmentsAlreadyUploaded, attachmentsNeedingUpload } from '@/chat/logic';
+
+describe('chat/logic — serializeAttachmentForPersist (stable-only for NEW stored)', () => {
+  const forbidden = (v: string | undefined | null) => {
+    if (!v) return false;
+    if (v.startsWith('blob:')) return true;
+    if (v.includes('/storage/v1/object/public/')) return true;
+    if (v.includes('/storage/v1/object/sign/')) return true; // signed
+    if (v.includes('token=')) return true; // signed URL query
+    return false;
+  };
+
+  it('NEW stored image attachment persists only stable coordinates (no blob/public/signed URL)', () => {
+    const a = {
+      id: 'x1', kind: 'image' as const,
+      objectUrl: 'blob:http://localhost:8080/abc',
+      thumbUrl: 'blob:http://localhost:8080/thumb',
+      storageBucket: 'chat-media' as const,
+      storagePath: 'user1/uuid.jpg',
+      thumbnailPath: 'user1/uuid_thumb.jpg',
+      filename: 'photo.jpg', mime: 'image/jpeg', size: 12345,
+      // File handle must never leak into JSONB.
+      file: new File([new Uint8Array(1)], 'photo.jpg', { type: 'image/jpeg' }),
+    };
+    const out = serializeAttachmentForPersist(a);
+    expect(out.storageBucket).toBe('chat-media');
+    expect(out.storagePath).toBe('user1/uuid.jpg');
+    expect(out.thumbnailPath).toBe('user1/uuid_thumb.jpg');
+    expect(out.filename).toBe('photo.jpg');
+    expect(out.mime).toBe('image/jpeg');
+    expect(out.size).toBe(12345);
+    // These must NOT appear on stable serialization.
+    expect(out.objectUrl).toBeUndefined();
+    expect(out.thumbUrl).toBeUndefined();
+    expect((out as Record<string, unknown>).file).toBeUndefined();
+    // Sanity: no forbidden URL slipped into any string field.
+    for (const v of Object.values(out)) {
+      if (typeof v === 'string') expect(forbidden(v)).toBe(false);
+    }
+  });
+
+  it('NEW stored video with public thumbnail URL still persists only stable paths', () => {
+    // Simulates what uploadOne used to do (persisting getPublicUrl). Even if
+    // an Attachment enters the serializer carrying legacy URL fields alongside
+    // stable coordinates, we must strip the URLs.
+    const a = {
+      id: 'x2', kind: 'video' as const,
+      objectUrl: 'https://psupgftxzyoyeyuhtqgw.supabase.co/storage/v1/object/public/chat-media/u/1.mp4',
+      thumbUrl: 'https://psupgftxzyoyeyuhtqgw.supabase.co/storage/v1/object/public/chat-media/u/1_thumb.jpg',
+      storageBucket: 'chat-media' as const,
+      storagePath: 'u/1.mp4',
+      thumbnailPath: 'u/1_thumb.jpg',
+    };
+    const out = serializeAttachmentForPersist(a);
+    expect(out.storagePath).toBe('u/1.mp4');
+    expect(out.thumbnailPath).toBe('u/1_thumb.jpg');
+    expect(out.objectUrl).toBeUndefined();
+    expect(out.thumbUrl).toBeUndefined();
+    for (const v of Object.values(out)) {
+      if (typeof v === 'string') expect(forbidden(v)).toBe(false);
+    }
+  });
+
+  it('signed URL leaking in must not be persisted', () => {
+    const a = {
+      id: 'x3', kind: 'image' as const,
+      objectUrl: 'https://psupgftxzyoyeyuhtqgw.supabase.co/storage/v1/object/sign/chat-media/u/1.jpg?token=abc.def.ghi',
+      storageBucket: 'chat-media' as const,
+      storagePath: 'u/1.jpg',
+    };
+    const out = serializeAttachmentForPersist(a);
+    expect(out.objectUrl).toBeUndefined();
+    for (const v of Object.values(out)) {
+      if (typeof v === 'string') expect(forbidden(v)).toBe(false);
+    }
+  });
+
+  it('historical legacy public URL WITHOUT stable path is preserved (backward compat)', () => {
+    const a = {
+      id: 'h1', kind: 'image' as const,
+      objectUrl: 'https://example.supabase.co/storage/v1/object/public/chat-media/legacy/path.jpg',
+      thumbUrl: 'https://example.supabase.co/storage/v1/object/public/chat-media/legacy/path_thumb.jpg',
+    };
+    const out = serializeAttachmentForPersist(a);
+    expect(out.objectUrl).toBe(a.objectUrl);
+    expect(out.thumbUrl).toBe(a.thumbUrl);
+    expect(out.storageBucket).toBeUndefined();
+    expect(out.storagePath).toBeUndefined();
+  });
+
+  it('external Giphy passthrough (no stable path) is preserved', () => {
+    const a = {
+      id: 'g1', kind: 'gif' as const,
+      objectUrl: 'https://media.giphy.com/media/xyz/giphy.gif',
+    };
+    const out = serializeAttachmentForPersist(a);
+    expect(out.objectUrl).toBe(a.objectUrl);
+    expect(out.storagePath).toBeUndefined();
+  });
+
+  it('blob URL WITHOUT stable path is never persisted (safety net)', () => {
+    const a = {
+      id: 'b1', kind: 'image' as const,
+      objectUrl: 'blob:http://localhost:8080/never-uploaded',
+    };
+    const out = serializeAttachmentForPersist(a);
+    expect(out.objectUrl).toBeUndefined();
+  });
+
+  it('poll cards still serialize their poll_* metadata', () => {
+    const a = {
+      id: 'p1', kind: 'poll' as unknown as 'image',
+      objectUrl: '', poll_id: 'poll-123', poll_event: 'created',
+    };
+    const out = serializeAttachmentForPersist(a);
+    expect(out.poll_id).toBe('poll-123');
+    expect(out.poll_event).toBe('created');
+  });
+});
+
+describe('chat/logic — needing/alreadyUploaded with stable paths', () => {
+  it('a stable storageBucket+storagePath counts as uploaded, even with empty objectUrl', () => {
+    const a = { id: 'u1', kind: 'image' as const, objectUrl: '', storageBucket: 'chat-media' as const, storagePath: 'u/1.jpg' };
+    expect(attachmentsAlreadyUploaded([a])).toHaveLength(1);
+    expect(attachmentsNeedingUpload([a])).toHaveLength(0);
+  });
+
+  it('a blob URL with no stable path still needs upload', () => {
+    const a = { id: 'u2', kind: 'image' as const, objectUrl: 'blob:http://x/y', file: new File([new Uint8Array(1)], 'a.jpg') };
+    expect(attachmentsNeedingUpload([a])).toHaveLength(1);
+    expect(attachmentsAlreadyUploaded([a])).toHaveLength(0);
+  });
+
+  it('a File handle without stable path needs upload even when objectUrl is empty', () => {
+    const a = { id: 'u3', kind: 'image' as const, objectUrl: '', file: new File([new Uint8Array(1)], 'a.jpg') };
+    expect(attachmentsNeedingUpload([a])).toHaveLength(1);
+  });
+
+  it('an external URL (Giphy) with no file/blob counts as already-uploaded passthrough', () => {
+    const a = { id: 'u4', kind: 'gif' as const, objectUrl: 'https://media.giphy.com/x.gif' };
+    expect(attachmentsAlreadyUploaded([a])).toHaveLength(1);
+    expect(attachmentsNeedingUpload([a])).toHaveLength(0);
+  });
+});
