@@ -421,13 +421,14 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   const renderFinalImage = async (): Promise<Blob> => {
     if (capturedMedia?.type === "video" || !capturedMedia) return capturedMedia!.blob;
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext("2d")!;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("canvas ctx unavailable")); return; }
         ctx.drawImage(img, 0, 0);
 
         const scaleX = img.width / 100;
@@ -488,8 +489,12 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
           }
         }
 
-        canvas.toBlob((blob) => resolve(blob!), "image/jpeg", 0.9);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("toBlob returned null"));
+        }, "image/jpeg", 0.9);
       };
+      img.onerror = () => reject(new Error("image load failed"));
       img.src = capturedMedia.url;
     });
   };
