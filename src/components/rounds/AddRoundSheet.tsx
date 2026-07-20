@@ -125,17 +125,20 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
     }
     setSubmitting(true);
 
-    // Upload receipt if present
+    // Upload receipt if present — new receipts go under <userId>/... so they
+    // match the owner-scoped storage policies.
     let receiptUrl: string | undefined;
     if (receiptFile) {
-      const ext = receiptFile.name.split(".").pop() || "jpg";
-      const path = `receipts/${user.id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("round-receipts").upload(path, receiptFile);
+      const rawExt = (receiptFile.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) || "bin";
+      const path = `${user.id}/${crypto.randomUUID()}.${rawExt}`;
+      const { error: upErr } = await supabase.storage.from("round-receipts").upload(path, receiptFile, {
+        contentType: receiptFile.type || undefined,
+      });
       if (upErr) {
         console.warn("Receipt upload failed:", upErr);
       } else {
-        const { data: urlData } = supabase.storage.from("round-receipts").getPublicUrl(path);
-        receiptUrl = urlData.publicUrl;
+        // Store the storage path (bucket-relative). Consumers resolve via signed URLs.
+        receiptUrl = path;
       }
     }
 

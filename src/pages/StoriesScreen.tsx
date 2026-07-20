@@ -13,7 +13,7 @@ import { useStories } from "@/hooks/useStories";
 import { useAuth } from "@/contexts/AuthContext";
 import { Film, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
 
 export const StoriesScreen: React.FC = () => {
   const { user } = useAuth();
@@ -21,17 +21,30 @@ export const StoriesScreen: React.FC = () => {
   const [viewerOpen, setViewerOpen] = React.useState(false);
   const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
   const [captureOpen, setCaptureOpen] = React.useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const openStory = (groupIndex: number) => {
     setViewerGroupIdx(groupIndex);
     setViewerOpen(true);
   };
 
-  // Get latest story thumbnail per group
-  const getThumbUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from("stories").getPublicUrl(storagePath);
-    return data.publicUrl;
-  };
+  // Deep-link: /historier?story=<id> opens the correct group
+  React.useEffect(() => {
+    const target = searchParams.get("story");
+    if (!target || groups.length === 0) return;
+    const idx = groups.findIndex((g) => g.stories.some((s) => s.id === target));
+    if (idx >= 0) {
+      setViewerGroupIdx(idx);
+      setViewerOpen(true);
+      // Clear the param so refresh doesn't re-open
+      const next = new URLSearchParams(searchParams);
+      next.delete("story");
+      setSearchParams(next, { replace: true });
+    }
+  }, [groups, searchParams, setSearchParams]);
+
+  // Signed URL is already resolved in useStories via signBatch
+  const getThumbUrl = (story: { publicUrl: string }) => story.publicUrl;
 
   return (
     <div
@@ -75,7 +88,7 @@ export const StoriesScreen: React.FC = () => {
               <div className="grid grid-cols-2 gap-2">
                 {groups.map((group, idx) => {
                   const latestStory = group.stories[group.stories.length - 1];
-                  const thumbUrl = getThumbUrl(latestStory.storagePath);
+                  const thumbUrl = getThumbUrl(latestStory);
                   const diff = Date.now() - new Date(latestStory.createdAt).getTime();
                   const mins = Math.floor(diff / 60000);
                   const timeAgo = mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}t`;

@@ -1,10 +1,12 @@
 /**
- * useStories - Hook for fetching and managing stories
+ * useStories - Hook for fetching and managing stories.
+ * Uses batch-signed URLs against the private `stories` bucket.
  */
 
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { signBatch } from "@/lib/mediaUrl";
 
 export interface Story {
   id: string;
@@ -14,6 +16,7 @@ export interface Story {
   durationSec: number;
   createdAt: string;
   expiresAt: string;
+  /** Signed URL — refreshed automatically by the resolver cache. */
   publicUrl: string;
   viewed: boolean;
 }
@@ -33,7 +36,6 @@ export function useStories() {
   const fetchStories = React.useCallback(async () => {
     if (!user) return;
 
-    // Fetch active (non-expired) stories
     const { data: storiesData, error } = await supabase
       .from("stories")
       .select("id, user_id, storage_path, type, duration_sec, created_at, expires_at")
@@ -52,17 +54,18 @@ export function useStories() {
       return;
     }
 
-    // Parallel fetch: profiles + views
     const userIds = [...new Set(storiesData.map((s: any) => s.user_id))];
     const storyIds = storiesData.map((s: any) => s.id);
+    const paths = [...new Set(storiesData.map((s: any) => s.storage_path))];
 
-    const [profilesRes, viewsRes] = await Promise.all([
+    const [profilesRes, viewsRes, signedMap] = await Promise.all([
       userIds.length > 0
         ? supabase.from("profiles").select("id, nickname, full_name").in("id", userIds)
         : Promise.resolve({ data: [] }),
       storyIds.length > 0
         ? supabase.from("story_views").select("story_id").eq("user_id", user.id).in("story_id", storyIds)
         : Promise.resolve({ data: [] }),
+      signBatch("stories", paths),
     ]);
 
     const profileMap = new Map<string, { nickname: string | null; full_name: string | null }>();
@@ -71,11 +74,6 @@ export function useStories() {
     }
     const viewedIds = new Set((viewsRes.data || []).map((v: any) => v.story_id));
 
-    // Build public URL base once
-    const { data: baseUrlData } = supabase.storage.from("stories").getPublicUrl("");
-    const storageBase = baseUrlData.publicUrl.replace(/\/$/, "");
-
-    // Group by user
     const groupMap = new Map<string, StoryGroup>();
     for (const row of storiesData as any[]) {
       const story: Story = {
@@ -86,7 +84,7 @@ export function useStories() {
         durationSec: row.duration_sec || 0,
         createdAt: row.created_at,
         expiresAt: row.expires_at,
-        publicUrl: `${storageBase}/${row.storage_path}`,
+        publicUrl: signedMap.get(row.storage_path) || "",
         viewed: viewedIds.has(row.id),
       };
 
@@ -104,7 +102,6 @@ export function useStories() {
       if (!story.viewed) group.hasUnviewed = true;
     }
 
-    // Put current user first, then sort by most recent
     const allGroups = Array.from(groupMap.values());
     allGroups.sort((a, b) => {
       if (a.userId === user.id) return -1;
@@ -118,11 +115,8 @@ export function useStories() {
     setLoading(false);
   }, [user]);
 
-  React.useEffect(() => {
-    fetchStories();
-  }, [fetchStories]);
+  React.useEffect(() => { fetchStories(); }, [fetchStories]);
 
-  // Realtime subscription
   React.useEffect(() => {
     const channel = supabase
       .channel("stories-rt")
@@ -130,16 +124,34 @@ export function useStories() {
         fetchStories();
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [fetchStories]);
 
+  /**
+   * Mark a story as viewed for the current user.
+   * Uses insert with duplicate-key ignore so re-viewing doesn't error.
+   * Surfaces failure via console (caller may retry).
+   */
   const markViewed = React.useCallback(async (storyId: string) => {
     if (!user) return;
-    await supabase
+    const { error } = await supabase
       .from("story_views")
-      .upsert({ story_id: storyId, user_id: user.id }, { onConflict: "story_id,user_id" });
+      .insert({ story_id: storyId, user_id: user.id });
+    // 23505 = unique_violation → the row already exists, which is fine.
+    if (error && (error as { code?: string }).code !== "23505") {
+      console.warn("[stories] markViewed failed:", error);
+    }
   }, [user]);
 
-  return { groups, loading, refetch: fetchStories, markViewed };
+  /** Delete own story: removes the DB row and the storage object. Cascades to gallery. */
+  const deleteStory = React.useCallback(async (story: Story): Promise<void> => {
+    if (!user || story.userId !== user.id) throw new Error("Ikke din story");
+    const { error: dbErr } = await supabase.from("stories").delete().eq("id", story.id);
+    if (dbErr) throw dbErr;
+    // Best-effort storage cleanup — a failure here doesn't undo the DB delete.
+    supabase.storage.from("stories").remove([story.storagePath]).catch(() => {});
+    await fetchStories();
+  }, [user, fetchStories]);
+
+  return { groups, loading, refetch: fetchStories, markViewed, deleteStory };
 }
