@@ -392,36 +392,46 @@ interface PendingSend {
 const pendingByClientId = new Map<string, PendingSend>();
 
 async function uploadOne(att: Attachment, senderId: string): Promise<Attachment> {
-  // Already uploaded on a previous attempt — nothing to do.
-  if (!att.file || !att.objectUrl.startsWith('blob:')) {
+  // Already uploaded on a previous attempt — nothing to do. A stable
+  // (storageBucket, storagePath) is the source of truth for "uploaded"; a
+  // non-blob objectUrl is the legacy/external case.
+  if ((att.storageBucket && att.storagePath) || (!att.file && att.objectUrl && !att.objectUrl.startsWith('blob:'))) {
     return { ...att, file: undefined };
   }
   const file = att.file;
+  if (!file) {
+    // Nothing to upload and no stable path — treat as passthrough (should
+    // not happen in practice; guarded so retries don't loop).
+    return { ...att, file: undefined };
+  }
   const rawExt = sanitizeExtension(file.name);
   const fileId = crypto.randomUUID();
   const bucket: 'chat-media' = 'chat-media';
 
   // Re-encode images through canvas to strip EXIF; keep videos/gifs as-is.
+  // A re-encode failure MUST surface — silently uploading the original file
+  // would ship EXIF (GPS, device, timestamp) to storage.
   let uploadBlob: Blob = file;
   let uploadMime = file.type;
   let ext = rawExt;
   if (att.kind === 'image' && file.type.startsWith('image/') && file.type !== 'image/gif') {
+    const { reencodeImage } = await import('@/lib/imageOptimize');
     try {
-      const { reencodeImage } = await import('@/lib/imageOptimize');
       uploadBlob = await reencodeImage(file, { maxDim: 2000, quality: 0.9, mimeType: 'image/jpeg' });
       uploadMime = 'image/jpeg';
       ext = 'jpg';
     } catch (e) {
-      console.warn('[chat] image re-encode failed, falling back to original', e);
+      const detail = e instanceof Error ? e.message : String(e);
+      throw new Error(`Bildet kunne ikke prosesseres trygt (EXIF-fjerning feilet): ${detail}`);
     }
   }
 
   const path = `${senderId}/${fileId}.${ext}`;
-  let thumbUrl: string | undefined;
   let thumbnailPath: string | undefined;
 
-  // Thumbnail for images and videos. Failure is non-fatal — a proper fallback
-  // renders in MessageItem when a thumbnail path/url isn't available.
+  // Thumbnail for images and videos. Thumbnail failure is non-fatal — the
+  // renderer has a fallback. Success uploads to storage BEFORE the main file
+  // so we can clean it up if the main upload later fails.
   try {
     const { createThumbnail, createVideoThumbnail } = await import('@/utils/imageThumb');
     let thumbBlob: Blob | null = null;
@@ -431,26 +441,40 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
       try { thumbBlob = (await createVideoThumbnail(file)).thumbBlob; } catch { /* codec/CORS — fallback UI covers this */ }
     }
     if (thumbBlob) {
-      thumbnailPath = `${senderId}/${fileId}_thumb.jpg`;
-      const { error: thumbErr } = await supabase.storage.from(bucket).upload(thumbnailPath, thumbBlob, { contentType: 'image/jpeg' });
-      if (thumbErr) { thumbnailPath = undefined; }
-      else {
-        const { data: thumbData } = supabase.storage.from(bucket).getPublicUrl(thumbnailPath);
-        thumbUrl = thumbData.publicUrl;
+      const candidatePath = `${senderId}/${fileId}_thumb.jpg`;
+      const { error: thumbErr } = await supabase.storage.from(bucket).upload(candidatePath, thumbBlob, { contentType: 'image/jpeg' });
+      if (thumbErr) {
+        console.warn('[chat] thumbnail upload failed (non-fatal)', thumbErr);
+      } else {
+        thumbnailPath = candidatePath;
       }
     }
   } catch (e) {
-    console.warn('[chat] thumb failed', e);
+    console.warn('[chat] thumb generation failed (non-fatal)', e);
   }
 
   const { error } = await supabase.storage.from(bucket).upload(path, uploadBlob, { contentType: uploadMime });
-  if (error) throw new Error(`Opplasting feilet: ${error.message}`);
-  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+  if (error) {
+    // Main upload failed — if we uploaded a thumbnail moments ago, remove it
+    // so we do not leak orphaned storage objects. Surface any cleanup failure
+    // so the developer can see it, but do not swallow the original error.
+    if (thumbnailPath) {
+      try {
+        const { error: rmErr } = await supabase.storage.from(bucket).remove([thumbnailPath]);
+        if (rmErr) console.error('[chat] orphan thumbnail cleanup failed', thumbnailPath, rmErr);
+      } catch (rmErr) {
+        console.error('[chat] orphan thumbnail cleanup threw', thumbnailPath, rmErr);
+      }
+    }
+    throw new Error(`Opplasting feilet: ${error.message}`);
+  }
+
+  // NEW stored attachment — persist ONLY stable coordinates. No public URL,
+  // no signed URL, no blob URL. Renderers resolve via SignedMedia.
   return {
     id: att.id,
     kind: att.kind,
-    objectUrl: urlData.publicUrl,
-    thumbUrl,
+    objectUrl: '',
     filename: file.name,
     mime: uploadMime,
     size: uploadBlob.size,
