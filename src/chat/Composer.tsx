@@ -201,7 +201,31 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
                   <video src={att.objectUrl} className="h-16 w-16 object-cover rounded-lg" />
                 ) : (
                   <img src={att.objectUrl} alt="Vedlegg" className="h-16 w-16 object-cover rounded-lg" />
-                )}
+        )}
+
+        {/* Reply preview */}
+        {replyTo && (
+          <div className="flex items-center gap-2 mx-3 my-2 px-3 py-2 rounded-lg bg-muted border-l-2 border-primary">
+            <Reply size={14} className="text-muted-foreground flex-none" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-muted-foreground">
+                Svarer {replyTo.senderName || 'melding'}
+              </p>
+              <p className="text-xs text-foreground truncate">
+                {replyTo.deleted ? 'Slettet melding' : (replyTo.text || 'Vedlegg')}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Avbryt svar"
+              onClick={() => chatStore.setReplyTo(null)}
+              className="w-6 h-6 rounded-full bg-background text-foreground flex items-center justify-center flex-none"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
                 <button
                   type="button"
                   onClick={() => removeAttachment(att.id)}
@@ -239,8 +263,9 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
           {/* Send button */}
           <button
             type="button"
+            aria-label="Send melding"
             onClick={handleSend}
-            disabled={!canSend}
+            disabled={!canSend || sending}
             className={cn(
               'flex-none flex items-center justify-center rounded-full',
               'w-11 h-11 transition-colors mb-[1px]',
@@ -257,6 +282,7 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
         <div className="flex items-center gap-1 px-3 pb-1">
           <button
             type="button"
+            aria-label="Ta bilde"
             onClick={() => cameraInputRef.current?.click()}
             className="tap-target flex items-center justify-center text-muted-foreground active:text-foreground transition-colors"
           >
@@ -273,6 +299,7 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
 
           <button
             type="button"
+            aria-label="Legg til bilde eller video"
             onClick={() => fileInputRef.current?.click()}
             className="tap-target flex items-center justify-center text-muted-foreground active:text-foreground transition-colors"
           >
@@ -289,6 +316,24 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
 
           <button
             type="button"
+            aria-label="Legg til fil"
+            onClick={() => docInputRef.current?.click()}
+            className="tap-target flex items-center justify-center text-muted-foreground active:text-foreground transition-colors"
+          >
+            <Paperclip size={22} />
+          </button>
+          <input
+            ref={docInputRef}
+            type="file"
+            accept=".pdf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip,text/plain,text/csv"
+            multiple
+            className="hidden"
+            onChange={(e) => handleDocs(e.target.files)}
+          />
+
+          <button
+            type="button"
+            aria-label="Legg til emoji"
             onClick={() => setShowEmojiPicker(true)}
             className="tap-target flex items-center justify-center text-muted-foreground active:text-foreground transition-colors"
           >
@@ -297,6 +342,7 @@ export const Composer: React.FC<ComposerProps> = ({ onSend, onHeightChange }) =>
 
           <button
             type="button"
+            aria-label="Legg til GIF"
             onClick={() => setShowGiphyPicker(true)}
             className="tap-target flex items-center justify-center text-muted-foreground active:text-foreground transition-colors font-semibold text-xs"
           >
