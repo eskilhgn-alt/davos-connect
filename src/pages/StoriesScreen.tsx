@@ -70,7 +70,7 @@ export const StoriesScreen: React.FC = () => {
   }, [groups, loading, error, searchParams, setSearchParams]);
 
 
-  const getThumbUrl = (story: { publicUrl: string }) => story.publicUrl;
+
 
   return (
     <div
