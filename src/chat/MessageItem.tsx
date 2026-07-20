@@ -9,7 +9,7 @@ import type { Message, Attachment } from './types';
 import { ReactionsRow } from './ReactionsRow';
 import { chatStore } from './store';
 import { ChatPollCard } from '@/components/poll/ChatPollCard';
-import { useSignedUrl } from '@/components/ui/SignedMedia';
+import { useSignedMedia } from '@/components/ui/SignedMedia';
 
 /**
  * Media attachment renderer with private-URL resolution and robust video fallback.
@@ -21,8 +21,14 @@ import { useSignedUrl } from '@/components/ui/SignedMedia';
  */
 const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void }> = ({ att, onTap }) => {
   const bucket = att.storageBucket ?? null;
-  const fullUrl = useSignedUrl(bucket, att.storagePath ?? null, att.objectUrl || null);
-  const thumbUrl = useSignedUrl(bucket, att.thumbnailPath ?? null, att.thumbUrl ?? null);
+  const full = useSignedMedia(bucket, att.storagePath ?? null, att.objectUrl || null);
+  const thumb = useSignedMedia(bucket, att.thumbnailPath ?? null, att.thumbUrl ?? null);
+  const [imgErr, setImgErr] = React.useState(false);
+  const retriedRef = React.useRef(false);
+  React.useEffect(() => { setImgErr(false); retriedRef.current = false; }, [full.url, thumb.url]);
+
+  const fullUrl = full.url;
+  const thumbUrl = thumb.url;
 
   const activate = React.useCallback(() => {
     if (fullUrl) onTap(fullUrl);
@@ -39,9 +45,41 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
       activate();
     }
   };
+  const handleImgError = () => {
+    if (!retriedRef.current) {
+      retriedRef.current = true;
+      full.retry();
+      thumb.retry();
+    } else {
+      setImgErr(true);
+    }
+  };
 
   const label = att.kind === 'video' ? 'Spill av video' : att.kind === 'gif' ? 'Vis GIF' : 'Vis bilde';
   const disabled = !fullUrl;
+  const hasError = full.status === 'error' || thumb.status === 'error' || imgErr;
+
+  if (hasError) {
+    return (
+      <div
+        role="alert"
+        aria-live="polite"
+        className="flex items-center gap-2 rounded-2xl px-3 py-2 border border-border bg-muted/50 max-w-[260px]"
+      >
+        <AlertCircle size={14} className="text-destructive flex-none" aria-hidden="true" />
+        <span className="text-xs text-muted-foreground flex-1">Kunne ikke laste vedlegg</span>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setImgErr(false); retriedRef.current = false; full.retry(); thumb.retry(); }}
+          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary text-primary-foreground"
+          aria-label="Prøv å laste vedlegget på nytt"
+        >
+          <RotateCw size={12} aria-hidden="true" />
+          <span>Prøv igjen</span>
+        </button>
+      </div>
+    );
+  }
 
   if (att.kind === 'image' || att.kind === 'gif') {
     const src = thumbUrl || fullUrl;
@@ -51,12 +89,20 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
         tabIndex={0}
         aria-label={label}
         aria-disabled={disabled || undefined}
+        aria-busy={disabled || undefined}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         className="rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         {src ? (
-          <img src={src} alt={att.kind === 'gif' ? 'GIF' : 'Vedlegg'} className="max-w-full h-auto" loading="lazy" decoding="async" />
+          <img
+            src={src}
+            alt={att.kind === 'gif' ? 'GIF' : 'Vedlegg'}
+            className="max-w-full h-auto"
+            loading="lazy"
+            decoding="async"
+            onError={handleImgError}
+          />
         ) : (
           <div className="w-[220px] h-[160px] bg-muted animate-pulse" aria-hidden />
         )}
@@ -71,12 +117,13 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
       tabIndex={0}
       aria-label={label}
       aria-disabled={disabled || undefined}
+      aria-busy={disabled || undefined}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       className="relative rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       {thumbUrl ? (
-        <img src={thumbUrl} alt="Videoforhåndsvisning" className="max-w-full h-auto block" loading="lazy" decoding="async" />
+        <img src={thumbUrl} alt="Videoforhåndsvisning" className="max-w-full h-auto block" loading="lazy" decoding="async" onError={handleImgError} />
       ) : fullUrl ? (
         <video
           src={fullUrl}
@@ -84,6 +131,7 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
           playsInline
           muted
           className="max-w-full h-auto block pointer-events-none"
+          onError={handleImgError}
         />
       ) : (
         <div className="w-[220px] h-[160px]" aria-hidden />
@@ -98,17 +146,40 @@ const MediaAttachment: React.FC<{ att: Attachment; onTap: (src: string) => void 
 };
 
 /**
- * File/PDF attachment renderer. Routes through the signed resolver using
- * stable (bucket, path) when present, falling back to legacy public URL or
- * external URL passthrough. Shows a loading state until the URL is resolved
- * and disables the link (prevents empty-href navigation) when resolution
- * hasn't completed or has failed. Full status UI (retry, error banner) lives
- * in Slice 2; here we only guarantee that the private-media switch does not
- * break downloads.
+ * File/PDF attachment renderer with signed-URL status, error, and retry UI.
  */
 const FileAttachmentItem: React.FC<{ att: Attachment; isOwn: boolean }> = ({ att, isOwn }) => {
   const bucket = att.storageBucket ?? null;
-  const resolved = useSignedUrl(bucket, att.storagePath ?? null, att.objectUrl || null);
+  const { url: resolved, status, error, retry } = useSignedMedia(bucket, att.storagePath ?? null, att.objectUrl || null);
+
+  if (status === 'error') {
+    return (
+      <div
+        role="alert"
+        aria-live="polite"
+        className={cn(
+          'flex items-center gap-2 rounded-2xl px-3 py-2 border',
+          isOwn ? 'bg-primary/10 border-primary/40' : 'bg-muted border-border',
+        )}
+      >
+        <AlertCircle size={16} className="text-destructive flex-none" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs truncate">Kunne ikke laste {att.filename || 'fil'}</p>
+          {error && <p className="text-[11px] text-muted-foreground truncate">{error}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); retry(); }}
+          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary text-primary-foreground flex-none"
+          aria-label="Prøv å laste filen på nytt"
+        >
+          <RotateCw size={12} aria-hidden="true" />
+          <span>Prøv igjen</span>
+        </button>
+      </div>
+    );
+  }
+
   const href = resolved || '';
   const disabled = !href;
   return (
@@ -122,6 +193,7 @@ const FileAttachmentItem: React.FC<{ att: Attachment; isOwn: boolean }> = ({ att
         if (disabled) e.preventDefault();
       }}
       aria-disabled={disabled || undefined}
+      aria-busy={disabled || undefined}
       aria-label={disabled ? `Laster ${att.filename || 'fil'}…` : `Last ned ${att.filename || 'fil'}`}
       className={cn(
         'flex items-center gap-2 rounded-2xl px-3 py-2 border',
