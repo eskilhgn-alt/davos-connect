@@ -811,9 +811,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         <button
           type="button"
           onClick={onClose}
-          className="p-2.5 rounded-full bg-black/50 text-white backdrop-blur-sm"
+          aria-label="Lukk"
+          className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/50 text-white backdrop-blur-sm"
         >
-          <X size={22} />
+          <X size={22} aria-hidden />
         </button>
 
         <div className="flex items-center gap-2">
@@ -822,16 +823,19 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
               <button
                 type="button"
                 onClick={() => setFlashOn((f) => !f)}
-                className="p-2.5 rounded-full bg-black/50 text-white backdrop-blur-sm"
+                aria-label={flashOn ? "Slå av blits" : "Slå på blits"}
+                aria-pressed={flashOn}
+                className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/50 text-white backdrop-blur-sm"
               >
-                {flashOn ? <Zap size={20} /> : <ZapOff size={20} />}
+                {flashOn ? <Zap size={20} aria-hidden /> : <ZapOff size={20} aria-hidden />}
               </button>
               <button
                 type="button"
                 onClick={() => setFacingMode((f) => (f === "user" ? "environment" : "user"))}
-                className="p-2.5 rounded-full bg-black/50 text-white backdrop-blur-sm"
+                aria-label="Bytt kamera"
+                className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/50 text-white backdrop-blur-sm"
               >
-                <RotateCcw size={20} />
+                <RotateCcw size={20} aria-hidden />
               </button>
             </>
           )}
@@ -841,9 +845,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                 <button
                   type="button"
                   onClick={handleUndo}
-                  className="p-2.5 rounded-full bg-black/50 text-white backdrop-blur-sm"
+                  aria-label="Angre siste"
+                  className="p-2.5 min-w-[44px] min-h-[44px] rounded-full bg-black/50 text-white backdrop-blur-sm"
                 >
-                  <Undo2 size={20} />
+                  <Undo2 size={20} aria-hidden />
                 </button>
               )}
               <button
@@ -855,12 +860,14 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                     setEditMode("draw");
                   }
                 }}
+                aria-label="Tegn"
+                aria-pressed={editMode === "draw"}
                 className={cn(
-                  "p-2.5 rounded-full backdrop-blur-sm",
+                  "p-2.5 min-w-[44px] min-h-[44px] rounded-full backdrop-blur-sm",
                   editMode === "draw" ? "bg-white text-black" : "bg-black/50 text-white"
                 )}
               >
-                <Pencil size={20} />
+                <Pencil size={20} aria-hidden />
               </button>
               <button
                 type="button"
@@ -874,17 +881,20 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
                     setTimeout(() => textInputRef.current?.focus(), 100);
                   }
                 }}
+                aria-label="Legg til tekst"
+                aria-pressed={editMode === "text"}
                 className={cn(
-                  "p-2.5 rounded-full backdrop-blur-sm",
+                  "p-2.5 min-w-[44px] min-h-[44px] rounded-full backdrop-blur-sm",
                   editMode === "text" ? "bg-white text-black" : "bg-black/50 text-white"
                 )}
               >
-                <Type size={20} />
+                <Type size={20} aria-hidden />
               </button>
             </>
           )}
         </div>
       </div>
+
 
       {/* Zoom indicator */}
       {mode === "camera" && zoomLevel > 1 && (
