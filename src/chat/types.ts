@@ -38,12 +38,20 @@ export interface Message {
 export interface Attachment {
   id: string;
   kind: 'image' | 'video' | 'gif' | 'file';
+  /**
+   * Legacy / rollback field. Active code prefers stable (storageBucket, storagePath)
+   * and resolves through resolveMediaUrl at render time.
+   */
   objectUrl: string;
   file?: File;
   thumbUrl?: string;
   filename?: string;
   mime?: string;
   size?: number;
+  /** Stable storage location — preferred by all render code. */
+  storageBucket?: 'chat-media' | 'stories' | 'avatars' | 'round-receipts';
+  storagePath?: string;
+  thumbnailPath?: string;
   // For poll cards (existing behavior)
   poll_id?: string;
   poll_event?: string;
