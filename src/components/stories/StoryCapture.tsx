@@ -499,6 +499,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
     if (!capturedMedia || !user) return;
     setUploading(true);
 
+    let uploadedPath: string | null = null;
     try {
       // Render edits onto final image (photos) — this canvas pass also strips EXIF.
       let finalBlob: Blob;
@@ -512,6 +513,14 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         }
       } else {
         finalBlob = capturedMedia.blob;
+      }
+
+      // Validate final blob size/MIME before upload.
+      const check = validateStoryFile({ size: finalBlob.size, type: finalBlob.type });
+      if (!check.ok) {
+        if (check.reason === "too_large") throw new Error("Filen er for stor (maks 100 MB)");
+        if (check.reason === "unsupported_type") throw new Error("Ikke støttet filtype");
+        throw new Error("Kan ikke publisere denne filen");
       }
 
       const isVideo = capturedMedia.type === "video";
@@ -528,6 +537,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
           cacheControl: "3600",
         });
       if (uploadErr) throw uploadErr;
+      uploadedPath = path;
 
       const { data: inserted, error: insertErr } = await supabase.from("stories").insert({
         user_id: user.id,
@@ -537,12 +547,25 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       }).select("id").maybeSingle();
       if (insertErr) throw insertErr;
 
+      // DB insert succeeded — object is now "owned" and must not be cleaned up.
+      uploadedPath = null;
+
       // Gallery sync handled by database trigger (sync_story_to_gallery)
 
-      // Send story push (dedicated function, JWT-verified server-side).
+      // Send story push (best effort — inspect resolved error).
       if (inserted?.id) {
-        supabase.functions.invoke("story-push", { body: { story_id: inserted.id } })
-          .catch((e) => console.warn("[story-push] failed:", e));
+        try {
+          const { error: pushErr } = await supabase.functions.invoke("story-push", {
+            body: { story_id: inserted.id },
+          });
+          if (pushErr) {
+            console.warn("[story-push] failed:", pushErr);
+            toast.warning("Story publisert, men varsel ble ikke sendt");
+          }
+        } catch (e) {
+          console.warn("[story-push] failed:", e);
+          toast.warning("Story publisert, men varsel ble ikke sendt");
+        }
       }
 
       toast.success("Story publisert! 🎉");
@@ -550,11 +573,20 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
       onPublished();
     } catch (err: any) {
       console.error("Publish error:", err);
-      errorToast("Kunne ikke publisere story");
+      // Cleanup orphan storage object if insert failed after upload.
+      if (uploadedPath) {
+        const { error: cleanupErr } = await supabase.storage.from("stories").remove([uploadedPath]);
+        if (cleanupErr) {
+          console.warn("[StoryCapture] Orphan cleanup failed:", cleanupErr);
+          toast.warning("Publisering feilet – midlertidig fil kunne ikke fjernes");
+        }
+      }
+      errorToast(err?.message || "Kunne ikke publisere story");
     } finally {
       setUploading(false);
     }
   };
+
 
   // ─── Progress ring ───
   const ringProgress = recordTime / MAX_RECORD_SECS;
