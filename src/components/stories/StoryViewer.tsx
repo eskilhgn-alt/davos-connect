@@ -143,12 +143,13 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         supabase.from("story_likes").select("story_id").eq("story_id", story.id).eq("user_id", user.id).maybeSingle(),
       ]);
       // Discard if a newer request has started, the story changed, or unmount.
-      if (cancelled || likeReqIdRef.current !== myReq) return;
+      if (!shouldApplyLikeResult(likeReqIdRef.current, myReq, cancelled)) return;
       if (countRes.error || myLikeRes.error) {
         console.warn("[StoryViewer] like fetch failed:", countRes.error || myLikeRes.error);
         setLikeError((countRes.error || myLikeRes.error)?.message || "Kunne ikke laste hjerter");
         return;
       }
+      setLikeError(null);
       setLikeCount(countRes.count || 0);
       setLiked(!!myLikeRes.data);
     };
