@@ -268,7 +268,6 @@ describe('chat/logic — normalizeAttachment (Slice 1 backfill parser)', () => {
 });
 
 import { serializeAttachmentForPersist } from '@/chat/logic';
-import { attachmentsAlreadyUploaded, attachmentsNeedingUpload } from '@/chat/logic';
 
 describe('chat/logic — serializeAttachmentForPersist (stable-only for NEW stored)', () => {
   const forbidden = (v: string | undefined | null) => {
