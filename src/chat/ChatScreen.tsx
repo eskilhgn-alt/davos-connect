@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { ArrowLeft, Home } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useVisualViewport } from './useVisualViewport';
 import { chatStore } from './store';
@@ -19,6 +19,8 @@ const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
 export const ChatScreen: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const deepLinkMessageId = searchParams.get('message');
   const { vvh, kb } = useVisualViewport();
   const { user, profile } = useAuth();
   const [messages, setMessages] = React.useState<Message[]>([]);
