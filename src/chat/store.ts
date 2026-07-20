@@ -568,6 +568,9 @@ async function performSend(clientId: string): Promise<Message | null> {
     const insertId = clientId; // reuse client id as row id for idempotency
 
     let data: Record<string, unknown> | null = null;
+    // Serialize attachments: NEW stored attachments are persisted with stable
+    // coordinates only; historical/external attachments preserve legacy URLs.
+    const serializedAtts = uploaded.map(serializeAttachmentForPersist);
     const insertRes = await supabase
       .from('messages')
       .insert({
@@ -576,7 +579,7 @@ async function performSend(clientId: string): Promise<Message | null> {
         thread_id: DEFAULT_THREAD_ID,
         sender_id: p.senderId,
         sender_name: p.senderName,
-        attachments: uploaded as unknown as never,
+        attachments: serializedAtts as unknown as never,
         reply_to_id: p.replyToId,
       } as never)
       .select()
@@ -585,6 +588,8 @@ async function performSend(clientId: string): Promise<Message | null> {
     if (insertRes.error) {
       // Idempotent recovery: if the row already exists with our client id and
       // is owned by this sender, treat as success (the previous response was lost).
+      // The uploaded stable objects are preserved — they'll be found by the
+      // existing row and remain valid. We intentionally do NOT delete them.
       if (isDuplicateKeyError(insertRes.error)) {
         const existing = await supabase
           .from('messages')
@@ -623,7 +628,10 @@ async function performSend(clientId: string): Promise<Message | null> {
     notify();
 
     // Mirror media attachments into the normalized attachments table so gallery
-    // sync runs and future consumers can query by (bucket, path). Non-fatal.
+    // sync runs and future consumers can query by (bucket, path). We upsert on
+    // (message_id, storage_path) so a recovered duplicate send does not create
+    // duplicate mirror rows. Mirror failure must NOT turn the message failed —
+    // the message insert already succeeded and it's the source of truth.
     try {
       const rows = (uploaded || [])
         .filter((a) => (a.kind === 'image' || a.kind === 'video' || a.kind === 'gif') && a.storageBucket && a.storagePath)
@@ -638,7 +646,12 @@ async function performSend(clientId: string): Promise<Message | null> {
           file_size: a.size ?? null,
         }));
       if (rows.length > 0) {
-        await supabase.from('attachments').insert(rows as never);
+        const { error: mirrorErr } = await supabase
+          .from('attachments')
+          .upsert(rows as never, { onConflict: 'message_id,storage_path', ignoreDuplicates: true });
+        if (mirrorErr) {
+          console.warn('[chat] attachments mirror upsert error', mirrorErr);
+        }
       }
     } catch (e) {
       console.warn('[chat] attachments mirror failed', e);
