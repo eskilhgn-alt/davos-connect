@@ -12,8 +12,11 @@ import {
   attachmentsNeedingUpload,
   attachmentsAlreadyUploaded,
   isSorted,
+  sanitizeExtension,
+  buildBeforeCursorOrFilter,
 } from '@/chat/logic';
 import type { Attachment } from '@/chat/types';
+
 
 describe('chat/logic — pagination cursor & merge/order', () => {
   it('is strictly before by (createdAt, id) tiebreaker', () => {
