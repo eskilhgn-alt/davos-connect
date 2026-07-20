@@ -687,6 +687,23 @@ export async function retrySend(clientId: string): Promise<void> {
 }
 
 export function discardFailed(clientId: string): void {
+  // Explicit user-initiated discard of a failed pending message. This is the
+  // only path where it is safe to clean up uploaded storage objects, because
+  // the user has decided this message will never be retried. Duplicate-key
+  // recovery inside performSend takes a different path and preserves objects.
+  const pending = pendingByClientId.get(clientId);
+  if (pending) {
+    const paths: string[] = [];
+    for (const a of pending.attachments) {
+      if (a.storageBucket === 'chat-media' && a.storagePath) paths.push(a.storagePath);
+      if (a.storageBucket === 'chat-media' && a.thumbnailPath) paths.push(a.thumbnailPath);
+    }
+    if (paths.length > 0) {
+      supabase.storage.from('chat-media').remove(paths).then(({ error }) => {
+        if (error) console.error('[chat] discard cleanup failed', paths, error);
+      });
+    }
+  }
   state.optimistic.delete(clientId);
   pendingByClientId.delete(clientId);
   notify();
