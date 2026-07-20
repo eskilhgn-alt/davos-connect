@@ -21,7 +21,7 @@ interface StoryViewerProps {
   initialGroupIndex: number;
   initialStoryIndex?: number;
   onClose: () => void;
-  onViewed: (storyId: string) => void;
+  onViewed: (storyId: string) => Promise<{ ok: boolean; error?: string }> | void;
   onDelete?: (story: Story) => Promise<DeleteResult>;
 }
 
