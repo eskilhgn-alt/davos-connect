@@ -227,7 +227,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             <div className={cn('px-1', isOwn ? 'flex justify-end' : '')}>
               <ChatPollCard
                 pollId={(pollAtt as { poll_id?: string }).poll_id}
-                pollEvent={(pollAtt as { poll_event?: string }).poll_event}
+                pollEvent={(pollAtt as { poll_event?: 'created' | 'cancelled' | 'ended' | 'reminder' }).poll_event}
                 messageText={message.text}
               />
             </div>
