@@ -146,21 +146,33 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages.length, scrollToBottom]);
 
-  // Deep-link: scroll to specific message when it exists in state
+  // Deep-link: bounded load-earlier loop until the message is present,
+  // then scroll and briefly highlight.
   React.useEffect(() => {
     if (!deepLinkMessageId) return;
-    const attempts = [50, 250, 800];
-    attempts.forEach((delay) => {
-      setTimeout(() => {
-        const el = document.getElementById(`msg-${deepLinkMessageId}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          el.classList.add('ring-2', 'ring-primary');
-          setTimeout(() => el.classList.remove('ring-2', 'ring-primary'), 1600);
-        }
-      }, delay);
-    });
+    let cancelled = false;
+    (async () => {
+      await chatStore.ensureMessageLoaded(deepLinkMessageId);
+      if (cancelled) return;
+      const attempts = [50, 250, 800];
+      attempts.forEach((delay) => {
+        setTimeout(() => {
+          const el = document.getElementById(`msg-${deepLinkMessageId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-primary');
+            setTimeout(() => el.classList.remove('ring-2', 'ring-primary'), 1600);
+          }
+        }, delay);
+      });
+    })();
+    return () => { cancelled = true; };
   }, [deepLinkMessageId, messages.length]);
+
+  // Channel status for a small, unobtrusive banner
+  const [channelStatus, setChannelStatus] = React.useState<'idle' | 'connecting' | 'connected' | 'reconnecting' | 'offline'>('idle');
+  React.useEffect(() => chatStore.subscribeToChannelStatus(setChannelStatus), []);
+
 
   // Handle showing combined actions sheet (single tap)
   const handleShowActions = React.useCallback((message: Message) => {
@@ -272,6 +284,15 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   return (
     <div className="relative flex-1 min-h-0">
+      {(channelStatus === 'reconnecting' || channelStatus === 'offline') && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-10 text-[11px] px-2 py-1 rounded-full bg-muted text-muted-foreground shadow-sm"
+        >
+          {channelStatus === 'reconnecting' ? 'Kobler til på nytt…' : 'Frakoblet'}
+        </div>
+      )}
       <div
         ref={scrollRef}
         onScroll={checkNearBottom}
@@ -324,6 +345,7 @@ export const MessageList: React.FC<MessageListProps> = ({
       {showJump && (
         <button
           type="button"
+          aria-label="Bla til nyeste meldinger"
           onClick={() => scrollToBottom(true)}
           className={cn(
             'absolute bottom-4 right-4 z-10',

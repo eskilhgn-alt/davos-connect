@@ -87,6 +87,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   if (message.deletedAt) {
     return (
       <div
+        id={`msg-${message.id}`}
         className={cn(
           'flex flex-col gap-1 px-4 py-1',
           isOwn ? 'items-end' : 'items-start'
@@ -110,11 +111,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
   return (
     <div
+      id={`msg-${message.id}`}
       className={cn(
         'flex flex-col gap-1 px-4 py-1',
         isOwn ? 'items-end' : 'items-start'
       )}
     >
+
       {/* Sender name - show for all messages */}
       {showSender && (
         <span className={cn(
@@ -173,10 +176,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       )}
 
 
-      {/* Attachments */}
-      {message.attachments && message.attachments.length > 0 && (
+      {/* Media attachments only — file attachments render above */}
+      {message.attachments && message.attachments.some((a) => a.kind === 'image' || a.kind === 'video' || a.kind === 'gif') && (
         <div className={cn('flex flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
-          {message.attachments.map((att) => (
+          {message.attachments
+            .filter((a) => a.kind === 'image' || a.kind === 'video' || a.kind === 'gif')
+            .map((att) => (
             <div
               key={att.id}
               className="rounded-2xl overflow-hidden max-w-[260px] cursor-pointer active:opacity-80 transition-opacity"
@@ -202,7 +207,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 />
               ) : (
                 <img
-                  src={(att as any).thumbUrl || att.objectUrl}
+                  src={(att as { thumbUrl?: string }).thumbUrl || att.objectUrl}
                   alt="Vedlegg"
                   className="max-w-full h-auto"
                   loading="lazy"
@@ -216,13 +221,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       {/* Text bubble or edit mode */}
       {message.text && (() => {
         // Check if this is a poll system message
-        const pollAtt = message.attachments?.find((a: any) => a.kind === 'poll');
+        const pollAtt = message.attachments?.find((a: { kind: string }) => a.kind === 'poll');
         if (pollAtt) {
           return (
             <div className={cn('px-1', isOwn ? 'flex justify-end' : '')}>
               <ChatPollCard
-                pollId={(pollAtt as any).poll_id}
-                pollEvent={(pollAtt as any).poll_event}
+                pollId={(pollAtt as { poll_id?: string }).poll_id}
+                pollEvent={(pollAtt as { poll_event?: 'created' | 'cancelled' | 'ended' | 'reminder' }).poll_event}
                 messageText={message.text}
               />
             </div>
@@ -253,17 +258,19 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
+                aria-label="Avbryt redigering"
                 onClick={handleCancelEdit}
                 className="w-8 h-8 rounded-full bg-muted flex items-center justify-center"
               >
-                <X size={16} />
+                <X size={16} aria-hidden="true" />
               </button>
               <button
                 type="button"
+                aria-label="Lagre redigering"
                 onClick={handleSaveEdit}
                 className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
               >
-                <Check size={16} />
+                <Check size={16} aria-hidden="true" />
               </button>
             </div>
           </div>
