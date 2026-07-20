@@ -182,7 +182,26 @@ export const MessageList: React.FC<MessageListProps> = ({
     const msgId = activeMessage?.id;
     setShowActionsSheet(false);
     setActiveMessage(null);
-    if (msgId) chatStore.deleteMessage(msgId);
+    if (msgId) {
+      chatStore.deleteMessage(msgId).catch((err) => {
+        console.error('[Chat] delete failed', err);
+        // Surface error visibly instead of just logging
+        window.alert(err?.message || 'Kunne ikke slette meldingen.');
+      });
+    }
+  }, [activeMessage]);
+
+  const handleReply = React.useCallback(() => {
+    if (activeMessage) {
+      chatStore.setReplyTo({
+        id: activeMessage.id,
+        text: activeMessage.text,
+        senderName: activeMessage.senderName,
+        deleted: !!activeMessage.deletedAt,
+      });
+    }
+    setShowActionsSheet(false);
+    setActiveMessage(null);
   }, [activeMessage]);
 
   const handleCopy = React.useCallback(async () => {
@@ -287,6 +306,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           isOwn={activeMessage.senderId === currentUserId}
           onEdit={activeMessage.senderId === currentUserId ? handleEdit : undefined}
           onDelete={activeMessage.senderId === currentUserId ? handleDelete : undefined}
+          onReply={activeMessage.deletedAt ? undefined : handleReply}
           onCopy={handleCopy}
           onReact={handleReact}
           onClose={() => {
