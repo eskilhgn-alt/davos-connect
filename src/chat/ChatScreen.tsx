@@ -101,7 +101,9 @@ export const ChatScreen: React.FC = () => {
         currentUserId={userId}
         composerHeight={composerHeight}
         isTyping={typingState.isTyping}
+        deepLinkMessageId={deepLinkMessageId}
       />
+
 
       <div
         className="fixed left-0 right-0 z-10"
