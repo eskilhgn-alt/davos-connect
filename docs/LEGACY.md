@@ -26,20 +26,21 @@ deaktivert (`active=false`) og trigger ingenting. Ingen ny cron aktiveres i
 dette trinnet – hvis morgen-push gjeninnføres senere, skal det være én
 enkelt Val Thorens/Open-Meteo-basert funksjon.
 
-## Fjernet i step 3 (aktiv navigasjon)
+## Arkivert i generisk app-opprydding
 
-Følgende funksjoner er tatt ut av aktiv navigasjon og standardflyt. Historiske
-tabeller (`shot_events`, `token_ledger`, `points_ledger`, `ski_speed_records`,
-`ski_daily_vertical`, `ski_track_points`, `ski_altitude_samples`,
-`ski_daily_awards`, `user_frikort`) er BEVART urørt – ingen destruktive
-migrasjoner.
+Følgende funksjoner er tatt ut av aktiv navigasjon og klientkoden. Historiske
+tabeller er bevart for sporbarhet, men migrasjonen
+`20260720123000_archive_retired_gamification.sql` har fjernet all direkte
+tilgang for `public`, `anon` og `authenticated`. Tilhørende RPC-er er også
+tilbakekalt. Arkivet kan derfor bare håndteres server-side med eksplisitt
+service-tilgang.
 
 - **Shot Roulette / tokens / frikort / poeng-topplister** – rutene `/shot`
   og `/tokens` redirecter nå til `/hjem`, MoreScreen viser ingen shot-flis, og
   MCP-manifestet eksponerer ikke lenger shot- eller poeng-verktøy.
-- **Ski-fart / toppfart / dagspremier** – `useSkiTracker`, `SkiPerformanceTracker`,
-  `SkiRouteMap`, `SkiUserList`, `SkiSpeedLeaderboard` er ikke lenger montert
-  fra noen aktiv side; komponentfilene kan slettes trygt i et senere trinn.
+- **Ski-fart / toppfart / dagspremier** – tracker-hooks, sider og komponenter er
+  slettet fra klientkoden. De kan senere bygges på nytt som en egen,
+  destinasjonsuavhengig modul med tydelig samtykke og batteribudsjett.
 - **Auto-lokasjon / auto-push** – `AppLayout` starter ikke lenger
   `useLocationTracker` eller `useAutoPush`. Deling av posisjon er strengt
   opt-in fra `/crew` (via `startSharing`) og stopper med `stopSharing`, som
@@ -51,3 +52,9 @@ migrasjoner.
 fjernet fra `src/lib/mcp/`. Beholdt: `get_my_profile`,
 `list_recent_chat_messages`, `post_chat_message`.
 
+## Ny brukerflyt
+
+`20260720124000_generic_new_user_flow.sql` erstatter den gamle triggeren som
+ga nye brukere tokens/frikort og kunne tildele admin fra en hardkodet e-post.
+Nyregistrering oppretter nå kun profil og standardrolle. Tilgang godkjennes
+eksplisitt av en eksisterende admin.

@@ -1,6 +1,6 @@
 /**
  * useMarkAsRead - Hook to mark messages as read in the database
- * Uses IntersectionObserver to detect when messages become visible
+ * MessageList uses IntersectionObserver and queues visible message ids here.
  */
 
 import * as React from "react";
@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function useMarkAsRead() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const markedRef = React.useRef<Set<string>>(new Set());
   const pendingRef = React.useRef<Set<string>>(new Set());
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);

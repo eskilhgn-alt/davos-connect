@@ -29,6 +29,7 @@ const DEFAULT_THREAD_ID = '00000000-0000-0000-0000-000000000001';
 const INITIAL_PAGE = 50;
 const PAGE_SIZE = 50;
 const TYPING_TTL_MS = 3000;
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 // Bounded deep-link paging: at most this many extra pages to find the target id.
 const MAX_DEEP_LINK_PAGES = 40;
 
@@ -392,6 +393,13 @@ interface PendingSend {
 
 const pendingByClientId = new Map<string, PendingSend>();
 
+function revokeLocalObjectUrls(attachments: Attachment[]): void {
+  for (const attachment of attachments) {
+    if (attachment.objectUrl?.startsWith('blob:')) URL.revokeObjectURL(attachment.objectUrl);
+    if (attachment.thumbUrl?.startsWith('blob:')) URL.revokeObjectURL(attachment.thumbUrl);
+  }
+}
+
 async function uploadOne(att: Attachment, senderId: string): Promise<Attachment> {
   // Already uploaded on a previous attempt — nothing to do. A stable
   // (storageBucket, storagePath) is the source of truth for "uploaded"; a
@@ -425,6 +433,10 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
       const detail = e instanceof Error ? e.message : String(e);
       throw new Error(`Bildet kunne ikke prosesseres trygt (EXIF-fjerning feilet): ${detail}`);
     }
+  }
+
+  if (uploadBlob.size <= 0 || uploadBlob.size > MAX_UPLOAD_BYTES) {
+    throw new Error('Den ferdige filen er for stor (maks 20 MB).');
   }
 
   const path = `${senderId}/${fileId}.${ext}`;
@@ -625,6 +637,7 @@ async function performSend(clientId: string): Promise<Message | null> {
     state.byId.set(msg.id, msg);
     state.optimistic.delete(clientId);
     pendingByClientId.delete(clientId);
+    revokeLocalObjectUrls(p.attachments);
     notify();
 
     // Mirror media attachments into the normalized attachments table so gallery
@@ -703,6 +716,7 @@ export function discardFailed(clientId: string): void {
         if (error) console.error('[chat] discard cleanup failed', paths, error);
       });
     }
+    revokeLocalObjectUrls(pending.attachments);
   }
   state.optimistic.delete(clientId);
   pendingByClientId.delete(clientId);
@@ -711,19 +725,37 @@ export function discardFailed(clientId: string): void {
 
 // ============ Edit / Delete ============
 export async function editMessage(messageId: string, newText: string): Promise<void> {
+  const previous = state.byId.get(messageId);
+  const editedAt = Date.now();
+  if (previous) {
+    state.byId.set(messageId, { ...previous, text: newText.trim(), editedAt });
+    notify();
+  }
   const { error } = await supabase
     .from('messages')
-    .update({ text: newText.trim(), edited_at: new Date().toISOString() })
+    .update({ text: newText.trim(), edited_at: new Date(editedAt).toISOString() })
     .eq('id', messageId);
-  if (error) throw error;
+  if (error) {
+    if (previous) { state.byId.set(messageId, previous); notify(); }
+    throw error;
+  }
 }
 
 export async function deleteMessage(messageId: string): Promise<void> {
+  const previous = state.byId.get(messageId);
+  const deletedAt = Date.now();
+  if (previous) {
+    state.byId.set(messageId, { ...previous, deletedAt });
+    notify();
+  }
   const { error } = await supabase
     .from('messages')
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: new Date(deletedAt).toISOString() })
     .eq('id', messageId);
-  if (error) throw error;
+  if (error) {
+    if (previous) { state.byId.set(messageId, previous); notify(); }
+    throw error;
+  }
 }
 
 // ============ Reactions (table-backed) ============
@@ -804,9 +836,10 @@ function ensureTypingChannel() {
     { config: { broadcast: { self: false }, private: true } as never },
   );
   typingChannel.on('broadcast', { event: 'typing' }, (payload) => {
-    const p = (payload.payload || {}) as { id?: string; name?: string };
+    const p = (payload.payload || {}) as { id?: string; name?: string; typing?: boolean };
     if (!p.id || !selfUid || p.id === selfUid) return;
-    remoteTyping.set(p.id, { name: p.name || 'Noen', at: Date.now() });
+    if (p.typing === false) remoteTyping.delete(p.id);
+    else remoteTyping.set(p.id, { name: p.name || 'Noen', at: Date.now() });
     typingSubs.forEach((s) => s(typingSnapshot()));
   });
   typingChannel.subscribe((status) => {
@@ -836,14 +869,17 @@ function teardownTypingIfIdle() {
 
 export function setTyping(isTyping: boolean, meta?: { id: string; name: string }) {
   ensureTypingChannel();
-  if (!isTyping) return;
-  const now = Date.now();
-  if (now - localTypingLastSent < 800) return; // throttle
-  localTypingLastSent = now;
   if (!meta) return;
   selfUid = meta.id;
+  const now = Date.now();
+  if (isTyping && now - localTypingLastSent < 800) return; // throttle starts, never stops
+  if (isTyping) localTypingLastSent = now;
   if (typingChannel && typingChannelReady) {
-    typingChannel.send({ type: 'broadcast', event: 'typing', payload: { id: meta.id, name: meta.name } });
+    typingChannel.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { id: meta.id, name: meta.name, typing: isTyping },
+    });
   }
 }
 

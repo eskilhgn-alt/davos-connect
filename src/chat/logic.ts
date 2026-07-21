@@ -265,3 +265,19 @@ export function isSorted(list: Array<{ createdAt: number; id: string }>): boolea
   return true;
 }
 
+/** Return the newest outgoing bubble that has been read by somebody else. */
+export function latestSeenOutgoingId(
+  messages: Array<{ id: string; senderId: string; deletedAt?: number }>,
+  seenCounts: ReadonlyMap<string, number>,
+  currentUserId: string,
+): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (
+      message.senderId === currentUserId
+      && !message.deletedAt
+      && (seenCounts.get(message.id) ?? 0) > 0
+    ) return message.id;
+  }
+  return null;
+}

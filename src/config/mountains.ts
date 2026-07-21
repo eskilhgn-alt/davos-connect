@@ -25,6 +25,3 @@ export const TRIP_CENTER = {
   lat: ACTIVE_TRIP.center.lat,
   lon: ACTIVE_TRIP.center.lon,
 };
-
-/** Backwards-compat alias. New code should use `TRIP_CENTER`. */
-export const DAVOS_CENTER = TRIP_CENTER;

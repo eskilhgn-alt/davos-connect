@@ -6,6 +6,7 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { oneSignalService } from "@/services/onesignal";
 
 interface Profile {
   id: string;
@@ -243,6 +244,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    try {
+      await oneSignalService.logout();
+    } catch (error) {
+      console.warn("[Auth] OneSignal logout failed", error);
+    }
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

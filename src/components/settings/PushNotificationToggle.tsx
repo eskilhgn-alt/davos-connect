@@ -161,7 +161,7 @@ export const PushNotificationToggle: React.FC = () => {
           <p className="text-sm font-medium">Push-varsler</p>
           <p className="text-xs text-muted-foreground">
             {initState === 'loading' && 'Kobler til…'}
-            {initState === 'ready' && (isEnabled ? "Aktivert – du får beskjed om nye meldinger" : "Deaktivert")}
+            {initState === 'ready' && (isEnabled ? "Aktivert for meldinger og gruppeaktivitet" : "Deaktivert")}
             {initState === 'error' && 'Feil ved tilkobling'}
             {initState === 'idle' && 'Initialiserer…'}
           </p>
@@ -186,7 +186,7 @@ export const PushNotificationToggle: React.FC = () => {
 
       {initState === 'ready' && !isEnabled && !errorMsg && (
         <p className="text-xs text-muted-foreground px-4">
-          Når aktivert mottar du varsler om nye meldinger i chatten, selv når appen er lukket.
+          Når aktivert mottar du varsler om chat, stories, avstemninger og andre viktige gruppehendelser – også når appen er lukket.
         </p>
       )}
     </div>

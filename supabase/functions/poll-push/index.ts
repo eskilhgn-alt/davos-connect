@@ -7,6 +7,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const APP_URL = Deno.env.get("APP_URL") || "https://guttahutte.lovable.app";
+const ALLOWED_TYPES = new Set(["created", "resolved", "cancelled", "reminder"]);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -45,6 +48,11 @@ serve(async (req) => {
     const { poll_id, type } = await req.json();
     if (!poll_id || !type) {
       return new Response(JSON.stringify({ error: "Missing poll_id or type" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!ALLOWED_TYPES.has(type)) {
+      return new Response(JSON.stringify({ error: "Unsupported notification type" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -139,13 +147,29 @@ serve(async (req) => {
       });
     }
 
+    targetUserIds = Array.from(new Set(targetUserIds));
+
+    const dedupeKey = `poll:${poll_id}:${type}`;
+    const { error: claimError } = await supabase.from("notification_dispatches").insert({
+      dedupe_key: dedupeKey,
+      kind: "poll",
+      source_id: poll_id,
+      event_type: type,
+    });
+    if (claimError?.code === "23505") {
+      return new Response(JSON.stringify({ success: true, sent: 0, reason: "already_dispatched" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (claimError) throw claimError;
+
     const notificationPayload = {
       app_id: ONESIGNAL_APP_ID,
       include_aliases: { external_id: targetUserIds },
       target_channel: "push",
       headings: { en: heading },
       contents: { en: content },
-      url: `https://guttahutte.lovable.app/poll`,
+      url: `${APP_URL}/poll`,
       collapse_id: `poll_${poll_id}`,
     };
 
@@ -159,6 +183,18 @@ serve(async (req) => {
     });
 
     const result = await response.json();
+    if (!response.ok) {
+      console.error("OneSignal poll push error:", result);
+      await supabase.from("notification_dispatches").delete().eq("dedupe_key", dedupeKey);
+      return new Response(JSON.stringify({ error: "OneSignal request failed" }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    await supabase
+      .from("notification_dispatches")
+      .update({ sent_at: new Date().toISOString(), last_error: null })
+      .eq("dedupe_key", dedupeKey);
     console.log(`Poll push (${type}) sent to ${targetUserIds.length} users:`, result);
 
     return new Response(

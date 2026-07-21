@@ -12,44 +12,44 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 
 import { errorToast } from "@/utils/errorToast";
 
-import ChatScreen from "./pages/ChatScreen";
-import HomeScreen from "./pages/HomeScreen";
-import MoreScreen from "./pages/MoreScreen";
-import MapScreen from "./pages/MapScreen";
-import CrewMapScreen from "./pages/CrewMapScreen";
-import LiveScreen from "./pages/LiveScreen";
-import GalleryScreen from "./pages/GalleryScreen";
-import WeatherScreen from "./pages/WeatherScreen";
-// ShotScreen fjernet fra aktiv navigasjon i step 3; ruter redirect til /hjem.
-import AgendaScreen from "./pages/AgendaScreen";
-
-import FaktasjekkerScreen from "./pages/FaktasjekkerScreen";
-import StoriesScreen from "./pages/StoriesScreen";
-
-import PollScreen from "./pages/PollScreen";
-import RoundsScreen from "./pages/RoundsScreen";
-import RoomiesScreen from "./pages/RoomiesScreen";
-
-import SettingsScreen from "./pages/SettingsScreen";
-import WebcamsScreen from "./pages/WebcamsScreen";
-import AuthScreen from "./pages/AuthScreen";
-import AdminScreen from "./pages/AdminScreen";
-import GroupScreen from "./pages/GroupScreen";
-// TokensScreen fjernet fra aktiv navigasjon i step 3; ruter redirect til /hjem.
-// Casino-skjermen er avviklet – ruter redirect til /hjem.
-import AvalancheScreen from "./pages/AvalancheScreen";
-
-
-
-import ResetPasswordScreen from "./pages/ResetPasswordScreen";
-import VerifyEmailScreen from "./pages/VerifyEmailScreen";
-import OAuthConsent from "./pages/OAuthConsent";
-import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
+
+// Route-level splitting keeps the first mobile load small. Screens are fetched
+// only when the user opens them, while Vite PWA precaches the generated chunks.
+const ChatScreen = React.lazy(() => import("./pages/ChatScreen"));
+const HomeScreen = React.lazy(() => import("./pages/HomeScreen"));
+const MoreScreen = React.lazy(() => import("./pages/MoreScreen"));
+const MapScreen = React.lazy(() => import("./pages/MapScreen"));
+const CrewMapScreen = React.lazy(() => import("./pages/CrewMapScreen"));
+const LiveScreen = React.lazy(() => import("./pages/LiveScreen"));
+const GalleryScreen = React.lazy(() => import("./pages/GalleryScreen"));
+const WeatherScreen = React.lazy(() => import("./pages/WeatherScreen"));
+const AgendaScreen = React.lazy(() => import("./pages/AgendaScreen"));
+const FaktasjekkerScreen = React.lazy(() => import("./pages/FaktasjekkerScreen"));
+const StoriesScreen = React.lazy(() => import("./pages/StoriesScreen"));
+const PollScreen = React.lazy(() => import("./pages/PollScreen"));
+const RoundsScreen = React.lazy(() => import("./pages/RoundsScreen"));
+const RoomiesScreen = React.lazy(() => import("./pages/RoomiesScreen"));
+const SettingsScreen = React.lazy(() => import("./pages/SettingsScreen"));
+const WebcamsScreen = React.lazy(() => import("./pages/WebcamsScreen"));
+const AuthScreen = React.lazy(() => import("./pages/AuthScreen"));
+const AdminScreen = React.lazy(() => import("./pages/AdminScreen"));
+const GroupScreen = React.lazy(() => import("./pages/GroupScreen"));
+const AvalancheScreen = React.lazy(() => import("./pages/AvalancheScreen"));
+const ResetPasswordScreen = React.lazy(() => import("./pages/ResetPasswordScreen"));
+const VerifyEmailScreen = React.lazy(() => import("./pages/VerifyEmailScreen"));
+const OAuthConsent = React.lazy(() => import("./pages/OAuthConsent"));
+const NotFound = React.lazy(() => import("./pages/NotFound"));
 
 // Weather prefetch is triggered in AuthContext when user is authenticated
 
 const queryClient = new QueryClient();
+
+const RouteLoading = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background" role="status" aria-label="Laster side">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
 
 // Protected route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -100,7 +100,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const AppRoutes = () => (
-  <Routes>
+  <React.Suspense fallback={<RouteLoading />}>
+    <Routes>
     {/* Auth routes (public) */}
     <Route path="/auth" element={<AuthScreen />} />
     <Route path="/reset-password" element={<ResetPasswordScreen />} />
@@ -144,8 +145,9 @@ const AppRoutes = () => (
 
     </Route>
     
-    <Route path="*" element={<NotFound />} />
-  </Routes>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </React.Suspense>
 );
 
 // Global PWA hardening — prevents silent async crashes + browser context menu

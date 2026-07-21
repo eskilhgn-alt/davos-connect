@@ -23,10 +23,10 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
-import { SignedImg, SignedVideo, useSignedMedia } from "@/components/ui/SignedMedia";
+import { useSignedMedia } from "@/components/ui/SignedMedia";
 import { signBatch, type Bucket } from "@/lib/mediaUrl";
 import { reencodeImage } from "@/lib/imageOptimize";
-import { createThumbnail } from "@/utils/imageThumb";
+import { createThumbnail, createVideoThumbnail } from "@/utils/imageThumb";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -34,9 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useGalleryFeed, useGalleryLikes, useGalleryComments } from "@/features/gallery/useGallery";
 import type { GalleryRow, ProfileLite } from "@/features/gallery/types";
-import {
-  decideDeleteMode, nextViewerIndex, ownedCleanupPaths, videoPosterFallback,
-} from "@/features/gallery/helpers";
+import { decideDeleteMode, nextViewerIndex, videoPosterFallback } from "@/features/gallery/helpers";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 const IMAGE_MIME_ALLOW = /^image\/(jpeg|png|webp|heic|heif|gif)$/i;
@@ -45,25 +43,54 @@ const VIDEO_MIME_ALLOW = /^video\/(mp4|webm|quicktime)$/i;
 // ─── Grid thumbnail ────────────────────────────────────────────────────────
 const GridThumb: React.FC<{ item: GalleryRow; onOpen: () => void }> = ({ item, onOpen }) => {
   const path = item.thumbnail_path || item.storage_path;
+  const media = useSignedMedia(item.storage_bucket, path, null);
   const { useFallback } = videoPosterFallback(item);
+  const [decodeFailed, setDecodeFailed] = React.useState(false);
+  const retriedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    setDecodeFailed(false);
+    retriedRef.current = false;
+  }, [item.id, path]);
+
+  const retry = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDecodeFailed(false);
+    retriedRef.current = false;
+    media.retry();
+  };
+
+  const handleDecodeError = () => {
+    if (!retriedRef.current) {
+      retriedRef.current = true;
+      media.retry();
+      return;
+    }
+    setDecodeFailed(true);
+  };
+
+  const failed = media.status === "error" || decodeFailed;
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="relative aspect-square overflow-hidden rounded-sm bg-muted"
-      aria-label="Åpne bilde"
-    >
+    <div className="relative aspect-square overflow-hidden rounded-sm bg-muted">
       {useFallback ? (
         <div className="w-full h-full bg-gradient-to-br from-muted to-muted/60 flex items-center justify-center">
           <Play size={28} className="text-foreground/70" aria-hidden />
         </div>
+      ) : failed ? (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-muted p-2 text-center">
+          <AlertCircle size={20} className="text-destructive" aria-hidden />
+          <span className="text-[11px] text-muted-foreground">Kunne ikke laste</span>
+          <button type="button" onClick={retry}
+                  className="min-h-9 rounded-full border border-border bg-background px-3 text-xs">
+            Prøv igjen
+          </button>
+        </div>
+      ) : media.url ? (
+        <img src={media.url} alt={item.caption || item.type}
+             className="w-full h-full object-cover" loading="lazy" decoding="async"
+             onError={handleDecodeError} />
       ) : (
-        <SignedImg
-          bucket={item.storage_bucket}
-          path={path}
-          alt={item.caption || item.type}
-          className="w-full h-full object-cover"
-        />
+        <div className="w-full h-full animate-pulse bg-muted" role="img" aria-label="Laster media" />
       )}
       {item.type === "video" && !useFallback && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none">
@@ -73,7 +100,11 @@ const GridThumb: React.FC<{ item: GalleryRow; onOpen: () => void }> = ({ item, o
       {item.type === "gif" && (
         <div className="absolute bottom-1 right-1 rounded-sm bg-black/60 px-1 text-[10px] font-bold text-white">GIF</div>
       )}
-    </button>
+      {!failed && (
+        <button type="button" onClick={onOpen} className="absolute inset-0 z-10"
+                aria-label={`Åpne ${item.type === "video" ? "video" : "bilde"}`} />
+      )}
+    </div>
   );
 };
 
@@ -84,8 +115,7 @@ const UploadSheet: React.FC<{
   open: boolean;
   onClose: () => void;
   userId: string;
-  historicalPaths: ReadonlySet<string>;
-}> = ({ open, onClose, userId, historicalPaths }) => {
+}> = ({ open, onClose, userId }) => {
   const [file, setFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [caption, setCaption] = React.useState("");
@@ -93,15 +123,21 @@ const UploadSheet: React.FC<{
   const [errMsg, setErrMsg] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const attemptPaths = React.useRef<string[]>([]);
+  const publishingRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!open) {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
       setFile(null); setPreviewUrl(null); setCaption(""); setPhase("idle"); setErrMsg(null);
       attemptPaths.current = [];
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  React.useEffect(() => {
+    if (!file) { setPreviewUrl(null); return; }
+    const next = URL.createObjectURL(file);
+    setPreviewUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [file]);
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; e.target.value = "";
@@ -111,12 +147,11 @@ const UploadSheet: React.FC<{
     const isImg = IMAGE_MIME_ALLOW.test(f.type);
     const isVid = VIDEO_MIME_ALLOW.test(f.type);
     if (!isImg && !isVid) { errorToast("Filtype ikke støttet"); return; }
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setFile(f); setPreviewUrl(URL.createObjectURL(f)); setCaption("");
+    setFile(f); setCaption(""); setPhase("idle"); setErrMsg(null);
   };
 
   const cleanupAttempt = async () => {
-    const paths = ownedCleanupPaths(attemptPaths.current, historicalPaths);
+    const paths = Array.from(new Set(attemptPaths.current.filter(Boolean)));
     if (paths.length === 0) return;
     const { error } = await supabase.storage.from("chat-media").remove(paths);
     if (error) toast.warning("Rydding etter feilet opplasting mislyktes");
@@ -124,12 +159,14 @@ const UploadSheet: React.FC<{
   };
 
   const publish = async () => {
-    if (!file) return;
+    if (!file || publishingRef.current) return;
+    publishingRef.current = true;
     setPhase("preparing"); setErrMsg(null);
     attemptPaths.current = [];
     try {
       const bucket: Bucket = "chat-media";
-      const fileId = crypto.randomUUID();
+      const attemptId = crypto.randomUUID();
+      const prefix = `${userId}/${attemptId}`;
       const isVideo = file.type.startsWith("video/");
       let uploadBlob: Blob = file;
       let thumbPath: string | null = null;
@@ -140,12 +177,9 @@ const UploadSheet: React.FC<{
       if (!isVideo) {
         uploadBlob = await reencodeImage(file, { maxDim: 2000, quality: 0.9 });
         mime = "image/jpeg";
-        if (uploadBlob.size === 0 || uploadBlob.size > MAX_UPLOAD_BYTES) {
-          throw new Error("Re-encoded fil har ugyldig størrelse");
-        }
         try {
           const t = await createThumbnail(new File([uploadBlob], "x.jpg", { type: "image/jpeg" }));
-          thumbPath = `${userId}/${fileId}_thumb.jpg`;
+          thumbPath = `${prefix}/thumb.jpg`;
           const up = await supabase.storage.from(bucket).upload(thumbPath, t.thumbBlob, { contentType: "image/jpeg" });
           if (up.error) throw up.error;
           attemptPaths.current.push(thumbPath);
@@ -154,15 +188,32 @@ const UploadSheet: React.FC<{
           console.warn("thumb failed", e);
           thumbPath = null;
         }
+      } else {
+        try {
+          const t = await createVideoThumbnail(file);
+          thumbPath = `${prefix}/thumb.jpg`;
+          const up = await supabase.storage.from(bucket).upload(thumbPath, t.thumbBlob, { contentType: "image/jpeg" });
+          if (up.error) throw up.error;
+          attemptPaths.current.push(thumbPath);
+          width = t.width; height = t.height;
+        } catch (e) {
+          console.warn("video poster failed; using fallback", e);
+          thumbPath = null;
+        }
       }
-      // Video: try metadata + poster later (browser variability). For now
-      // upload without poster; grid uses fallback tile.
+
+      if (uploadBlob.size === 0 || uploadBlob.size > MAX_UPLOAD_BYTES) {
+        throw new Error("Den ferdige filen har ugyldig størrelse (maks 20 MB)");
+      }
+      if ((!isVideo && mime !== "image/jpeg") || (isVideo && !VIDEO_MIME_ALLOW.test(mime))) {
+        throw new Error("Den ferdige filtypen er ikke støttet");
+      }
 
       setPhase("uploading");
       const ext = isVideo
         ? (mime.includes("mp4") ? "mp4" : mime.includes("webm") ? "webm" : mime.includes("quicktime") ? "mov" : "mp4")
         : "jpg";
-      const mainPath = `${userId}/${fileId}.${ext}`;
+      const mainPath = `${prefix}/main.${ext}`;
       const upMain = await supabase.storage.from(bucket).upload(mainPath, uploadBlob, { contentType: mime });
       if (upMain.error) throw upMain.error;
       attemptPaths.current.push(mainPath);
@@ -188,6 +239,8 @@ const UploadSheet: React.FC<{
       setErrMsg((e as Error).message || "Opplasting feilet");
       setPhase("error");
       await cleanupAttempt();
+    } finally {
+      publishingRef.current = false;
     }
   };
 
@@ -251,9 +304,15 @@ const UploadSheet: React.FC<{
           </div>
         )}
         {phase === "error" && errMsg && (
-          <div role="alert" className="flex items-start gap-2 text-sm text-destructive">
-            <AlertCircle size={16} className="mt-0.5" aria-hidden />
-            <span>{errMsg}</span>
+          <div role="alert" className="space-y-3 rounded-md border border-destructive/30 p-3 text-sm text-destructive">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={16} className="mt-0.5" aria-hidden />
+              <span>{errMsg}</span>
+            </div>
+            <button type="button" onClick={() => void publish()}
+                    className="min-h-11 rounded-full bg-primary px-4 font-semibold text-primary-foreground">
+              Prøv igjen
+            </button>
           </div>
         )}
       </div>
@@ -267,19 +326,54 @@ const CommentSheet: React.FC<{
   currentUserId: string | undefined; isAdmin: boolean;
   profiles: Record<string, ProfileLite>;
 }> = ({ open, onClose, item, currentUserId, isAdmin, profiles }) => {
-  const { comments, state, error, submit, retry, remove, reload } = useGalleryComments(open ? item.id : null, currentUserId);
+  const { comments, state, olderState, hasOlder, error, submit, retry, remove, reload, loadOlder } = useGalleryComments(open ? item.id : null, currentUserId);
   const [draft, setDraft] = React.useState("");
   const [sending, setSending] = React.useState(false);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const initialScrolledRef = React.useRef(false);
+
+  React.useEffect(() => {
+    initialScrolledRef.current = false;
+  }, [item.id, open]);
+
+  React.useEffect(() => {
+    if (state !== "loaded" || initialScrolledRef.current) return;
+    initialScrolledRef.current = true;
+    requestAnimationFrame(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
+  }, [state]);
 
   if (!open) return null;
   const send = async () => {
     if (!draft.trim() || sending) return;
     setSending(true);
     const body = draft;
+    const el = scrollRef.current;
+    const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 96;
     try {
-      await submit(body);
       setDraft(""); // only clear once optimistic row exists
+      const pending = submit(body);
+      if (nearBottom) {
+        requestAnimationFrame(() => {
+          const next = scrollRef.current;
+          next?.scrollTo({ top: next.scrollHeight, behavior: "smooth" });
+        });
+      }
+      await pending;
     } finally { setSending(false); }
+  };
+
+  const loadOlderPreservingPosition = async () => {
+    const el = scrollRef.current;
+    const oldHeight = el?.scrollHeight ?? 0;
+    const oldTop = el?.scrollTop ?? 0;
+    await loadOlder();
+    requestAnimationFrame(() => {
+      const next = scrollRef.current;
+      if (next) next.scrollTop = oldTop + (next.scrollHeight - oldHeight);
+    });
   };
 
   return (
@@ -293,7 +387,7 @@ const CommentSheet: React.FC<{
           <X size={20} />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
         {state === "loading" && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 size={14} className="animate-spin" aria-hidden /> Laster kommentarer…
@@ -308,6 +402,15 @@ const CommentSheet: React.FC<{
         )}
         {comments.length === 0 && state === "loaded" && (
           <p className="text-sm text-muted-foreground">Ingen kommentarer ennå.</p>
+        )}
+        {hasOlder && (
+          <div className="flex justify-center">
+            <button type="button" onClick={() => void loadOlderPreservingPosition()}
+                    disabled={olderState === "loading"}
+                    className="min-h-11 rounded-full border border-border px-4 text-sm disabled:opacity-50">
+              {olderState === "loading" ? "Laster…" : olderState === "error" ? "Prøv igjen" : "Last inn eldre"}
+            </button>
+          </div>
         )}
         {comments.map((c) => {
           const p = profiles[c.user_id];
@@ -369,10 +472,11 @@ const DeleteDialog: React.FC<{
   onCancel: () => void;
   item: GalleryRow;
   onConfirmed: () => void | Promise<void>;
-}> = ({ open, onCancel, item, onConfirmed }) => {
+  deleting: boolean;
+}> = ({ open, onCancel, item, onConfirmed, deleting }) => {
   const mode = decideDeleteMode(item);
   return (
-    <AlertDialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
+    <AlertDialog open={open} onOpenChange={(v) => { if (!v && !deleting) onCancel(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
@@ -385,10 +489,10 @@ const DeleteDialog: React.FC<{
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Avbryt</AlertDialogCancel>
-          <AlertDialogAction onClick={() => void onConfirmed()}
+          <AlertDialogCancel disabled={deleting}>Avbryt</AlertDialogCancel>
+          <AlertDialogAction onClick={() => void onConfirmed()} disabled={deleting} aria-busy={deleting}
                              className="bg-destructive text-destructive-foreground">
-            {mode === "derived" ? "Fjern" : "Slett"}
+            {deleting ? "Arbeider…" : mode === "derived" ? "Fjern" : "Slett"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -412,24 +516,48 @@ const ViewerSheet: React.FC<{
   const [currentId, setCurrentId] = React.useState(startId);
   const [showComments, setShowComments] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
   const item = items.find((i) => i.id === currentId) ?? null;
 
-  const { url } = useSignedMedia(item?.storage_bucket ?? "chat-media", item?.storage_path ?? "", null);
+  const media = useSignedMedia(item?.storage_bucket ?? "chat-media", item?.storage_path ?? "", null);
+  const [decodeFailed, setDecodeFailed] = React.useState(false);
+  const retriedMediaRef = React.useRef(false);
+
+  React.useEffect(() => {
+    setDecodeFailed(false);
+    retriedMediaRef.current = false;
+  }, [currentId]);
+
+  const handleMediaError = () => {
+    if (!retriedMediaRef.current) {
+      retriedMediaRef.current = true;
+      media.retry();
+      return;
+    }
+    setDecodeFailed(true);
+  };
 
   // Prefetch neighbours through the shared signed resolver.
   React.useEffect(() => {
     if (!item) return;
     const prev = nextViewerIndex(items, currentId, -1);
     const next = nextViewerIndex(items, currentId, 1);
-    const buckets = new Map<Bucket, string[]>();
+    const buckets = new Map<Bucket, GalleryRow[]>();
     for (const n of [prev, next]) {
       if (!n) continue;
-      const path = n.storage_path;
       const arr = buckets.get(n.storage_bucket) ?? [];
-      arr.push(path);
+      arr.push(n);
       buckets.set(n.storage_bucket, arr);
     }
-    for (const [b, paths] of buckets) void signBatch(b, paths);
+    for (const [b, neighbours] of buckets) {
+      void signBatch(b, neighbours.map((n) => n.storage_path)).then((signed) => {
+        for (const n of neighbours) {
+          if (n.type === "video") continue;
+          const url = signed.get(n.storage_path);
+          if (url) { const img = new Image(); img.src = url; }
+        }
+      });
+    }
   }, [items, currentId, item]);
 
   // Keyboard navigation.
@@ -468,22 +596,25 @@ const ViewerSheet: React.FC<{
   const canDelete = currentUserId === item.uploaded_by || isAdmin;
 
   const handleDownload = () => {
-    if (!url) return;
+    if (!media.url || media.status !== "ready" || decodeFailed) return;
     const a = document.createElement("a");
-    a.href = url; a.download = `guttahutte-${item.id.slice(0, 8)}`;
+    a.href = media.url; a.download = `guttahutte-${item.id.slice(0, 8)}`;
     a.target = "_blank"; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
   const performDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
     const mode = decideDeleteMode(item);
     const { error } = await supabase.from("gallery_items").delete().eq("id", item.id);
-    if (error) { errorToast("Kunne ikke slette"); setConfirmDelete(false); return; }
+    if (error) { errorToast("Kunne ikke slette"); setDeleting(false); return; }
     if (mode === "direct") {
       const paths = [item.storage_path, item.thumbnail_path].filter(Boolean) as string[];
       const { error: rmErr } = await supabase.storage.from(item.storage_bucket).remove(paths);
       if (rmErr) toast.warning("Rad slettet, men filrydding feilet");
     }
     setConfirmDelete(false);
+    setDeleting(false);
     toast.success(mode === "direct" ? "Slettet fra galleri" : "Fjernet fra galleri");
     onDeleted(item.id);
     const next = nextViewerIndex(items, item.id, 1) ?? nextViewerIndex(items, item.id, -1);
@@ -519,15 +650,25 @@ const ViewerSheet: React.FC<{
 
       <div className="flex-1 overflow-y-auto" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <div className="relative w-full bg-black flex items-center justify-center" style={{ minHeight: "40vh" }}>
-          {!url ? (
+          {(media.status === "error" || decodeFailed) ? (
+            <div role="alert" className="flex flex-col items-center gap-3 p-8 text-center text-white">
+              <AlertCircle size={28} aria-hidden />
+              <span className="text-sm">Kunne ikke laste mediet</span>
+              {media.error && <span className="max-w-sm text-xs text-white/70">{media.error}</span>}
+              <button type="button" onClick={() => { setDecodeFailed(false); retriedMediaRef.current = false; media.retry(); }}
+                      className="min-h-11 rounded-full bg-white px-4 text-sm font-semibold text-black">
+                Prøv igjen
+              </button>
+            </div>
+          ) : !media.url ? (
             <div className="flex flex-col items-center gap-2 text-white p-8">
               <Loader2 className="animate-spin" aria-hidden />
               <span className="text-xs">Laster…</span>
             </div>
           ) : item.type === "video" ? (
-            <video src={url} controls playsInline preload="metadata" className="w-full max-h-[70vh]" />
+            <video src={media.url} controls playsInline preload="metadata" className="w-full max-h-[70vh]" onError={handleMediaError} />
           ) : (
-            <img src={url} alt={item.caption || ""} className="w-full max-h-[70vh] object-contain" />
+            <img src={media.url} alt={item.caption || ""} className="w-full max-h-[70vh] object-contain" onError={handleMediaError} />
           )}
           {prevItem && (
             <button type="button" onClick={() => setCurrentId(prevItem.id)}
@@ -560,8 +701,8 @@ const ViewerSheet: React.FC<{
               <span>{commentCounts.get(item.id) ?? 0}</span>
             </button>
             <div className="flex-1" />
-            <button type="button" onClick={handleDownload}
-                    className="min-h-11 min-w-11 rounded-full hover:bg-muted flex items-center justify-center"
+            <button type="button" onClick={handleDownload} disabled={!media.url || media.status !== "ready" || decodeFailed}
+                    className="min-h-11 min-w-11 rounded-full hover:bg-muted flex items-center justify-center disabled:opacity-40"
                     aria-label="Last ned">
               <Download size={20} />
             </button>
@@ -580,7 +721,7 @@ const ViewerSheet: React.FC<{
       <CommentSheet open={showComments} onClose={() => setShowComments(false)}
                     item={item} currentUserId={currentUserId} isAdmin={isAdmin} profiles={profiles} />
       <DeleteDialog open={confirmDelete} onCancel={() => setConfirmDelete(false)}
-                    item={item} onConfirmed={performDelete} />
+                    item={item} onConfirmed={performDelete} deleting={deleting} />
     </div>
   );
 };
@@ -592,17 +733,6 @@ export const GalleryScreen: React.FC = () => {
   const { view: likeView, toggle: toggleLike } = useGalleryLikes(feed.likes, user?.id);
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const [viewerStart, setViewerStart] = React.useState<string | null>(null);
-
-  // Historical storage paths (all currently-seen items) — never touched by
-  // upload cleanup even if a caller passes them.
-  const historicalPaths = React.useMemo(() => {
-    const s = new Set<string>();
-    for (const r of feed.items) {
-      s.add(r.storage_path);
-      if (r.thumbnail_path) s.add(r.thumbnail_path);
-    }
-    return s;
-  }, [feed.items]);
 
   return (
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
@@ -670,7 +800,7 @@ export const GalleryScreen: React.FC = () => {
 
       {user && (
         <UploadSheet open={uploadOpen} onClose={() => setUploadOpen(false)}
-                     userId={user.id} historicalPaths={historicalPaths} />
+                     userId={user.id} />
       )}
 
       {viewerStart && (

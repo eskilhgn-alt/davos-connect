@@ -5,7 +5,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-const ONESIGNAL_APP_ID = "df7c293f-d521-419d-9cbb-2843520ce5c4";
+const ONESIGNAL_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID || "df7c293f-d521-419d-9cbb-2843520ce5c4";
 const PUSH_ENABLED_KEY = "push_notifications_enabled";
 const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -17,6 +17,7 @@ declare global {
 }
 
 interface OneSignalInstance {
+  __initialized?: boolean;
   init: (config: OneSignalConfig) => Promise<void>;
   Notifications: {
     permission: boolean;
@@ -31,8 +32,12 @@ interface OneSignalInstance {
     };
     addTag: (key: string, value: string) => Promise<void>;
   };
-  login: (externalId: string) => Promise<void>;
+  login: (externalId: string, jwt?: string) => Promise<void>;
   logout: () => Promise<void>;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 interface OneSignalConfig {
@@ -46,6 +51,7 @@ interface OneSignalConfig {
 
 let isInitialized = false;
 let oneSignalInstance: OneSignalInstance | null = null;
+let initializedUserId: string | null = null;
 
 /**
  * Load OneSignal SDK dynamically
@@ -72,13 +78,18 @@ function loadOneSignalSDK(): Promise<void> {
  * Initialize OneSignal
  */
 export async function initOneSignal(userId: string): Promise<void> {
-  if (isInitialized) {
-    console.log("[OneSignal] Already initialized, skipping");
+  if (isInitialized && oneSignalInstance) {
+    // OneSignal recommends login on every app open and whenever the account
+    // changes. Skipping here can route a shared device's pushes to the prior user.
+    await oneSignalInstance.login(userId);
+    initializedUserId = userId;
     return;
   }
-  if (window.OneSignal && (window.OneSignal as any).__initialized) {
+  if (window.OneSignal?.__initialized) {
     console.log("[OneSignal] SDK already initialized externally, reusing");
     oneSignalInstance = window.OneSignal;
+    await oneSignalInstance.login(userId);
+    initializedUserId = userId;
     isInitialized = true;
     return;
   }
@@ -108,10 +119,9 @@ export async function initOneSignal(userId: string): Promise<void> {
               notifyButton: { enable: false },
             });
             console.log("[OneSignal] SDK initialized");
-          } catch (initErr: any) {
+          } catch (initErr: unknown) {
             // "SDK already initialized" is not a real error - just reuse the instance
-            if (initErr?.message?.includes?.('already initialized') || 
-                String(initErr).includes('already initialized')) {
+            if (errorMessage(initErr).includes('already initialized')) {
               console.log("[OneSignal] SDK was already initialized, reusing");
             } else {
               throw initErr;
@@ -121,9 +131,10 @@ export async function initOneSignal(userId: string): Promise<void> {
           // Login with user's external ID
           try {
             await OneSignal.login(userId);
+            initializedUserId = userId;
             console.log("[OneSignal] Logged in as", userId.substring(0, 8) + "...");
-          } catch (loginErr: any) {
-            console.warn("[OneSignal] Login warning:", loginErr?.message || loginErr);
+          } catch (loginErr: unknown) {
+            console.warn("[OneSignal] Login warning:", errorMessage(loginErr));
           }
           
           isInitialized = true;
@@ -139,6 +150,16 @@ export async function initOneSignal(userId: string): Promise<void> {
   } catch (error) {
     console.error("[OneSignal] Init failed:", error);
     throw error;
+  }
+}
+
+/** Detach the browser subscription from the signed-out account. */
+export async function logoutOneSignal(): Promise<void> {
+  if (!oneSignalInstance || !initializedUserId) return;
+  try {
+    await oneSignalInstance.logout();
+  } finally {
+    initializedUserId = null;
   }
 }
 
@@ -246,7 +267,7 @@ async function savePushToken(userId: string, displayName: string, pushToken: str
     );
 
   if (error) {
-    console.error("Error saving push token:", error);
+    throw new Error(`Kunne ikke lagre push-medlemskap: ${error.message}`);
   }
 }
 
@@ -260,12 +281,12 @@ async function removePushToken(userId: string): Promise<void> {
     .eq("user_id", userId);
 
   if (error) {
-    console.error("Error removing push token:", error);
+    throw new Error(`Kunne ikke fjerne push-medlemskap: ${error.message}`);
   }
 }
 
 /**
- * Save push token to push_tokens table (used by shot-push, poll-push)
+ * Save push token to the canonical push registry used by server notifications.
  */
 async function savePushTokenRecord(userId: string, playerId: string): Promise<void> {
   const { error } = await supabase
@@ -280,7 +301,7 @@ async function savePushTokenRecord(userId: string, playerId: string): Promise<vo
     );
 
   if (error) {
-    console.error("Error saving push_tokens record:", error);
+    throw new Error(`Kunne ikke lagre push-token: ${error.message}`);
   }
 }
 
@@ -294,7 +315,7 @@ async function removePushTokenRecord(userId: string): Promise<void> {
     .eq("user_id", userId);
 
   if (error) {
-    console.error("Error removing push_tokens record:", error);
+    throw new Error(`Kunne ikke fjerne push-token: ${error.message}`);
   }
 }
 
@@ -333,4 +354,5 @@ export const oneSignalService = {
   enablePush,
   disablePush,
   triggerPushNotification,
+  logout: logoutOneSignal,
 };

@@ -1,7 +1,7 @@
 /**
  * AdminScreen – Adminhub for GüttaHütte.
  * Faner: Oversikt, Brukere, Innhold (moderering), Push, Varsler, Feil, Logg.
- * (Shot/tokens/topplister er fjernet fra aktiv admin per byggetrinn 3-QA.)
+ * Historiske spillmoduler er fjernet fra aktiv admin.
  */
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
@@ -80,9 +80,7 @@ export const AdminScreen: React.FC = () => {
           <AdminOverview
             stats={stats}
             users={users}
-            currentUserId={user!.id}
             onNavigate={setTab}
-            onLogAction={logAction}
           />
         )}
 
@@ -107,8 +105,6 @@ export const AdminScreen: React.FC = () => {
         {tab === "push" && (
           <AdminPushTools
             users={users}
-            currentUserId={user!.id}
-            onLogAction={logAction}
           />
         )}
 

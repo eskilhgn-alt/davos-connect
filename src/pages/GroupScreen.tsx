@@ -1,6 +1,6 @@
 /**
  * GroupScreen - Viser alle deltakere i GüttaHütte.
- * Ingen gamification/shot/ski-statistikk vises her (byggetrinn 3-QA).
+ * Viser kun relevant deltakerinformasjon.
  */
 
 import * as React from "react";

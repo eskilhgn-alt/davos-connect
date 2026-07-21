@@ -1,7 +1,7 @@
 /**
  * MoreScreen — "Mer"-fane. Samler alt som ikke er Hjem, Chat eller Kart:
  * agenda, avstemninger, roomies, galleri/stories, innstillinger, admin,
- * og en lavt prioritert seksjon "Fest og spill" for shot/faktasjekker/etc.
+ * og en lavt prioritert seksjon for valgfrie verktøy.
  */
 
 import * as React from "react";
