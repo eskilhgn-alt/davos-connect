@@ -276,7 +276,9 @@ export type Database = {
       debt_settlements: {
         Row: {
           amount: number
+          client_id: string | null
           created_by: string
+          currency: string
           from_user_id: string
           id: string
           note: string | null
@@ -285,7 +287,9 @@ export type Database = {
         }
         Insert: {
           amount: number
+          client_id?: string | null
           created_by: string
+          currency?: string
           from_user_id: string
           id?: string
           note?: string | null
@@ -294,7 +298,9 @@ export type Database = {
         }
         Update: {
           amount?: number
+          client_id?: string | null
           created_by?: string
+          currency?: string
           from_user_id?: string
           id?: string
           note?: string | null
@@ -302,6 +308,38 @@ export type Database = {
           to_user_id?: string
         }
         Relationships: []
+      }
+      email_verification_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          last_sent_at: string
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          last_sent_at?: string
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          last_sent_at?: string
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_verification_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       faktasjekker_messages: {
         Row: {
@@ -612,6 +650,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_dispatches: {
+        Row: {
+          claimed_at: string
+          dedupe_key: string
+          event_type: string
+          kind: string
+          last_error: string | null
+          sent_at: string | null
+          source_id: string | null
+        }
+        Insert: {
+          claimed_at?: string
+          dedupe_key: string
+          event_type: string
+          kind: string
+          last_error?: string | null
+          sent_at?: string | null
+          source_id?: string | null
+        }
+        Update: {
+          claimed_at?: string
+          dedupe_key?: string
+          event_type?: string
+          kind?: string
+          last_error?: string | null
+          sent_at?: string | null
+          source_id?: string | null
+        }
+        Relationships: []
       }
       place_query_cache: {
         Row: {
@@ -1081,39 +1149,51 @@ export type Database = {
       rounds: {
         Row: {
           buyer_id: string
+          client_id: string | null
           cost_per_person: number
           created_at: string
+          currency: string
           drink_quantities: Json
           drink_type: string
           id: string
           is_treated: boolean
           note: string | null
+          push_claimed_at: string | null
+          push_sent_at: string | null
           receipt_image_url: string | null
           receipt_uploaded_by: string | null
           total_cost: number
         }
         Insert: {
           buyer_id: string
+          client_id?: string | null
           cost_per_person?: number
           created_at?: string
+          currency?: string
           drink_quantities?: Json
           drink_type: string
           id?: string
           is_treated?: boolean
           note?: string | null
+          push_claimed_at?: string | null
+          push_sent_at?: string | null
           receipt_image_url?: string | null
           receipt_uploaded_by?: string | null
           total_cost?: number
         }
         Update: {
           buyer_id?: string
+          client_id?: string | null
           cost_per_person?: number
           created_at?: string
+          currency?: string
           drink_quantities?: Json
           drink_type?: string
           id?: string
           is_treated?: boolean
           note?: string | null
+          push_claimed_at?: string | null
+          push_sent_at?: string | null
           receipt_image_url?: string | null
           receipt_uploaded_by?: string | null
           total_cost?: number
@@ -2050,6 +2130,61 @@ export type Database = {
       }
     }
     Functions: {
+      consume_email_verification_token: {
+        Args: { p_token_hash: string }
+        Returns: {
+          status: string
+          verified_user_id: string
+        }[]
+      }
+      create_poll_with_options: {
+        Args: {
+          p_deadline_at?: string
+          p_min_votes?: number
+          p_options: string[]
+          p_question: string
+          p_require_all?: boolean
+          p_send_push_on_create?: boolean
+          p_send_push_on_resolved?: boolean
+        }
+        Returns: string
+      }
+      create_round_with_participants: {
+        Args: {
+          p_client_id: string
+          p_currency?: string
+          p_drink_quantities?: Json
+          p_drink_type: string
+          p_is_treated?: boolean
+          p_note?: string
+          p_participant_ids: string[]
+          p_receipt_path?: string
+          p_total_cost: number
+        }
+        Returns: {
+          buyer_id: string
+          client_id: string | null
+          cost_per_person: number
+          created_at: string
+          currency: string
+          drink_quantities: Json
+          drink_type: string
+          id: string
+          is_treated: boolean
+          note: string | null
+          push_claimed_at: string | null
+          push_sent_at: string | null
+          receipt_image_url: string | null
+          receipt_uploaded_by: string | null
+          total_cost: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rounds"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
