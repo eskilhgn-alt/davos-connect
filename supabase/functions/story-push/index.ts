@@ -72,6 +72,16 @@ Deno.serve(async (req) => {
       return j({ error: 'onesignal_not_configured' }, 500);
     }
 
+    const dedupeKey = `story:${storyId}`;
+    const { error: claimError } = await admin.from('notification_dispatches').insert({
+      dedupe_key: dedupeKey,
+      kind: 'story',
+      source_id: storyId,
+      event_type: 'created',
+    });
+    if (claimError?.code === '23505') return j({ sent: 0, reason: 'already_dispatched' });
+    if (claimError) throw claimError;
+
     const heading = '📸 Ny story';
     const message = `${name} har lagt ut en ${story.type === 'video' ? 'video' : 'bilde'}-story`;
     const url = `${APP_URL}/historier?story=${storyId}`;
@@ -99,8 +109,13 @@ Deno.serve(async (req) => {
     const text = await res.text();
     if (!res.ok) {
       console.warn('[story-push] onesignal error', res.status, text);
+      await admin.from('notification_dispatches').delete().eq('dedupe_key', dedupeKey);
       return j({ error: 'onesignal_failed', status: res.status, body: text }, 502);
     }
+    await admin
+      .from('notification_dispatches')
+      .update({ sent_at: new Date().toISOString(), last_error: null })
+      .eq('dedupe_key', dedupeKey);
     return j({ sent: externalIds.length, ok: true });
   } catch (e) {
     console.error('[story-push] unexpected', e);

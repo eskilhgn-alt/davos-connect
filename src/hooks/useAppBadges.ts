@@ -1,5 +1,5 @@
 /**
- * useAppBadges – Unified badge counts for chat, stories, polls, shot, agenda, runder + PWA app badge
+ * useAppBadges – Unified badge counts for chat, stories, polls, agenda and rounds.
  * 
  * Philosophy: A badge clears when the user has SEEN the content (visited the page).
  * Deep interaction (voting, replying) is NOT required to clear a badge.
@@ -14,7 +14,6 @@ const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 // LocalStorage keys for "last visited" timestamps
 const LS_KEYS = {
   polls: "badge_last_seen_polls",
-  shot: "badge_last_seen_shot",
   runder: "badge_last_seen_runder",
   agenda: "badge_last_seen_agenda",
 } as const;
@@ -23,7 +22,6 @@ export interface AppBadges {
   chat: number;
   stories: number;
   polls: number;
-  shot: number;
   agenda: number;
   runder: number;
   total: number;
@@ -31,26 +29,25 @@ export interface AppBadges {
 
 export function useAppBadges(): AppBadges {
   const { user } = useAuth();
-  const [badges, setBadges] = React.useState<AppBadges>({ chat: 0, stories: 0, polls: 0, shot: 0, agenda: 0, runder: 0, total: 0 });
+  const [badges, setBadges] = React.useState<AppBadges>({ chat: 0, stories: 0, polls: 0, agenda: 0, runder: 0, total: 0 });
 
   const refresh = React.useCallback(async () => {
     if (!user) {
-      setBadges({ chat: 0, stories: 0, polls: 0, shot: 0, agenda: 0, runder: 0, total: 0 });
+      setBadges({ chat: 0, stories: 0, polls: 0, agenda: 0, runder: 0, total: 0 });
       updatePwaBadge(0);
       return;
     }
 
-    const [chatCount, storiesCount, pollsCount, shotCount, agendaCount, runderCount] = await Promise.all([
+    const [chatCount, storiesCount, pollsCount, agendaCount, runderCount] = await Promise.all([
       getUnreadChat(user.id),
       getUnseenStories(user.id),
       getNewPollsSinceLastSeen(),
-      getActiveShotForUser(user.id),
       getNewAgendaSinceLastSeen(),
       getNewRoundsSinceLastSeen(),
     ]);
 
-    const total = chatCount + storiesCount + pollsCount + shotCount + agendaCount + runderCount;
-    setBadges({ chat: chatCount, stories: storiesCount, polls: pollsCount, shot: shotCount, agenda: agendaCount, runder: runderCount, total });
+    const total = chatCount + storiesCount + pollsCount + agendaCount + runderCount;
+    setBadges({ chat: chatCount, stories: storiesCount, polls: pollsCount, agenda: agendaCount, runder: runderCount, total });
     updatePwaBadge(total);
   }, [user]);
 
@@ -65,7 +62,6 @@ export function useAppBadges(): AppBadges {
       .on("postgres_changes", { event: "*", schema: "public", table: "story_views" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "polls" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "poll_votes" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "shot_events" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "agenda_events" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "rounds" }, () => refresh())
       .subscribe();
@@ -150,24 +146,6 @@ async function getNewPollsSinceLastSeen(): Promise<number> {
   return count ?? 0;
 }
 
-// ============ Shot: only badge when YOU are directly involved ============
-
-async function getActiveShotForUser(userId: string): Promise<number> {
-  const { data: events } = await supabase
-    .from("shot_events")
-    .select("id, selected_user_id, chosen_witness_id")
-    .in("status", ["countdown", "selected"]);
-
-  if (!events || events.length === 0) return 0;
-
-  // Only show badge if user is the selected person or the chosen witness
-  const involved = events.filter((e) =>
-    e.selected_user_id === userId || e.chosen_witness_id === userId
-  );
-
-  return involved.length;
-}
-
 // ============ Agenda: new events since last visit ============
 
 async function getNewAgendaSinceLastSeen(): Promise<number> {
@@ -198,11 +176,15 @@ async function getNewRoundsSinceLastSeen(): Promise<number> {
 
 function updatePwaBadge(count: number) {
   try {
-    if ("setAppBadge" in navigator) {
+    const badgeNavigator = navigator as Navigator & {
+      setAppBadge?: (value: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
+    if (badgeNavigator.setAppBadge && badgeNavigator.clearAppBadge) {
       if (count > 0) {
-        (navigator as any).setAppBadge(count);
+        void badgeNavigator.setAppBadge(count);
       } else {
-        (navigator as any).clearAppBadge();
+        void badgeNavigator.clearAppBadge();
       }
     }
   } catch {

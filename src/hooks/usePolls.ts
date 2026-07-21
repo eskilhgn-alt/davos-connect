@@ -10,13 +10,17 @@ import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
 
 const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
-const SYSTEM_SENDER_ID = "00000000-0000-0000-0000-000000000000";
 
-/** Posts a system message in the group chat with poll metadata */
-async function postPollChatMessage(text: string, pollId: string, type: "created" | "ended" | "cancelled" | "reminder") {
+/** Posts a poll event as the authenticated actor so chat INSERT RLS is upheld. */
+async function postPollChatMessage(
+  senderId: string,
+  text: string,
+  pollId: string,
+  type: "created" | "ended" | "cancelled" | "reminder",
+) {
   await supabase.from("messages").insert({
     thread_id: DEFAULT_THREAD_ID,
-    sender_id: SYSTEM_SENDER_ID,
+    sender_id: senderId,
     sender_name: "📊 Avstemming",
     text,
     // Store poll reference in attachments for rendering poll cards
@@ -122,8 +126,8 @@ export function usePolls() {
         creator_name: profileMap.get(p.created_by) || "Ukjent",
         question: p.question,
         require_all: p.require_all,
-        min_votes: (p as any).min_votes ?? null,
-        is_pinned: (p as any).is_pinned ?? false,
+        min_votes: p.min_votes ?? null,
+        is_pinned: p.is_pinned ?? false,
         send_push_on_create: p.send_push_on_create,
         send_push_on_resolved: p.send_push_on_resolved,
         deadline_at: p.deadline_at,
@@ -197,41 +201,25 @@ export function usePolls() {
       ? new Date(Date.now() + settings.deadlineMinutes * 60_000).toISOString()
       : null;
 
-    const { data: poll, error } = await supabase
-      .from("polls")
-      .insert({
-        created_by: user.id,
-        question: question.trim(),
-        require_all: settings.requireAll,
-        send_push_on_create: settings.sendPushOnCreate,
-        send_push_on_resolved: settings.sendPushOnResolved,
-        deadline_at: deadlineAt,
-        min_votes: settings.minVotes,
-      } as any)
-      .select()
-      .single();
+    const { data: pollId, error } = await supabase.rpc("create_poll_with_options", {
+      p_question: question.trim(),
+      p_options: options.map((label) => label.trim()),
+      p_require_all: settings.requireAll,
+      p_send_push_on_create: settings.sendPushOnCreate,
+      p_send_push_on_resolved: settings.sendPushOnResolved,
+      p_deadline_at: deadlineAt,
+      p_min_votes: settings.minVotes,
+    });
 
-    if (error || !poll) {
-      errorToast("Kunne ikke opprette avstemming");
-      return null;
-    }
-
-    const optionRows = options.map((label, i) => ({
-      poll_id: poll.id,
-      label: label.trim(),
-      sort_order: i,
-    }));
-
-    const { error: optError } = await supabase.from("poll_options").insert(optionRows);
-    if (optError) {
-      errorToast("Kunne ikke legge til alternativer");
+    if (error || !pollId) {
+      errorToast(error?.message || "Kunne ikke opprette avstemming");
       return null;
     }
 
     // Push
     if (settings.sendPushOnCreate) {
       supabase.functions.invoke("poll-push", {
-        body: { poll_id: poll.id, type: "created" },
+        body: { poll_id: pollId, type: "created" },
       }).catch(console.warn);
     }
 
@@ -241,13 +229,14 @@ export function usePolls() {
     const { data: prof } = await supabase.from("profiles").select("nickname, full_name").eq("id", user.id).single();
     const creatorName = prof?.nickname || prof?.full_name || "Noen";
     postPollChatMessage(
+      user.id,
       `${creatorName} har startet en avstemming: "${question.trim()}"`,
-      poll.id,
+      pollId,
       "created"
     ).catch(console.warn);
 
     await fetchPolls();
-    return poll.id;
+    return pollId;
   };
 
   const vote = async (pollId: string, optionId: string) => {
@@ -305,7 +294,7 @@ export function usePolls() {
     const totalVotes = votes?.length || 0;
 
     // Check quorum
-    const minVotes = (pollData as any).min_votes;
+    const minVotes = pollData.min_votes;
     if (minVotes && totalVotes < minVotes) return;
 
     // Check require_all
@@ -315,6 +304,7 @@ export function usePolls() {
   };
 
   const resolvePoll = async (pollId: string) => {
+    if (!user) return;
     const { data: votes } = await supabase.from("poll_votes").select("option_id").eq("poll_id", pollId);
     if (!votes || votes.length === 0) {
       // No votes → just close
@@ -362,6 +352,7 @@ export function usePolls() {
 
     if (pollRow && winOpt) {
       postPollChatMessage(
+        user.id,
         `Avstemming avgjort: "${pollRow.question}"\n🏆 Resultat: ${winOpt.label}`,
         pollId,
         "ended"
@@ -394,6 +385,7 @@ export function usePolls() {
 
     const winOpt = poll.options.find((o) => o.id === winningOptionId);
     postPollChatMessage(
+      user.id,
       `Avstemming avgjort: "${poll.question}"\n🏆 Resultat: ${winOpt?.label || "Ukjent"} (oppretter avgjorde uavgjort)`,
       pollId,
       "ended"
@@ -437,6 +429,7 @@ export function usePolls() {
     }).eq("id", pollId);
 
     postPollChatMessage(
+      user.id,
       `Avstemming kansellert: "${poll.question}"`,
       pollId,
       "cancelled"
@@ -454,7 +447,7 @@ export function usePolls() {
   const togglePin = async (pollId: string) => {
     const poll = polls.find((p) => p.id === pollId);
     if (!poll) return;
-    await supabase.from("polls").update({ is_pinned: !poll.is_pinned } as any).eq("id", pollId);
+    await supabase.from("polls").update({ is_pinned: !poll.is_pinned }).eq("id", pollId);
     await fetchPolls();
   };
 

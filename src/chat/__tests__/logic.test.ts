@@ -12,6 +12,7 @@ import {
   attachmentsNeedingUpload,
   attachmentsAlreadyUploaded,
   isSorted,
+  latestSeenOutgoingId,
   sanitizeExtension,
   buildBeforeCursorOrFilter,
 } from '@/chat/logic';
@@ -409,5 +410,26 @@ describe('chat/logic — needing/alreadyUploaded with stable paths', () => {
     const a = { id: 'u4', kind: 'gif' as const, objectUrl: 'https://media.giphy.com/x.gif' };
     expect(attachmentsAlreadyUploaded([a])).toHaveLength(1);
     expect(attachmentsNeedingUpload([a])).toHaveLength(0);
+  });
+});
+
+describe('chat/logic — compact read receipts', () => {
+  it('returns only the newest outgoing message that somebody has seen', () => {
+    const messages = [
+      { id: 'mine-old', senderId: 'me' },
+      { id: 'theirs', senderId: 'them' },
+      { id: 'mine-new', senderId: 'me' },
+    ];
+    const counts = new Map([['mine-old', 2], ['theirs', 4], ['mine-new', 1]]);
+    expect(latestSeenOutgoingId(messages, counts, 'me')).toBe('mine-new');
+  });
+
+  it('ignores deleted, incoming and unread messages', () => {
+    const messages = [
+      { id: 'mine', senderId: 'me', deletedAt: 1 },
+      { id: 'theirs', senderId: 'them' },
+    ];
+    const counts = new Map([['mine', 1], ['theirs', 3]]);
+    expect(latestSeenOutgoingId(messages, counts, 'me')).toBeNull();
   });
 });

@@ -23,9 +23,6 @@ export const TRIP_CENTER: LocationPoint = {
   elevation: ACTIVE_TRIP.center.elevation,
 };
 
-/** Backwards-compat alias. New code should use `TRIP_CENTER`. */
-export const DAVOS: LocationPoint = TRIP_CENTER;
-
 export const MOUNTAIN_AREAS: LocationPoint[] = ACTIVE_TRIP.peaks.map((p) => ({
   id: p.id,
   name: p.name,

@@ -11,7 +11,7 @@ import { markPageSeen } from "@/hooks/useAppBadges";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { BrandInput } from "@/components/ui/brand-input";
-import { Beer, Wine, Plus, ChevronRight, Gift, Pencil, Check, X, Wallet } from "lucide-react";
+import { Beer, Wine, Plus, ChevronRight, Gift, Pencil, Check, X, Wallet, UtensilsCrossed, ShoppingCart, AlertCircle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -21,17 +21,33 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
 import type { Round, DrinkQuantities } from "@/hooks/useRounds";
-import { useSignedUrl } from "@/components/ui/SignedMedia";
+import { useSignedMedia } from "@/components/ui/SignedMedia";
 
 const ReceiptImage: React.FC<{ value: string }> = ({ value }) => {
   // If value looks like a full URL, the resolver parses it and re-signs.
   // Otherwise, it's a bucket-relative storage path in round-receipts.
   const isUrl = /^https?:\/\//.test(value);
-  const url = useSignedUrl(isUrl ? null : 'round-receipts', isUrl ? null : value, isUrl ? value : null);
-  if (!url) return <div className="w-full h-32 rounded-xl border border-border bg-muted/10 animate-pulse" />;
+  const media = useSignedMedia(isUrl ? null : "round-receipts", isUrl ? null : value, isUrl ? value : null);
+  const [decodeFailed, setDecodeFailed] = React.useState(false);
+  const retriedRef = React.useRef(false);
+  React.useEffect(() => { setDecodeFailed(false); retriedRef.current = false; }, [value]);
+
+  const retry = () => { setDecodeFailed(false); retriedRef.current = false; media.retry(); };
+  const onError = () => {
+    if (!retriedRef.current) { retriedRef.current = true; media.retry(); }
+    else setDecodeFailed(true);
+  };
+  if (media.status === "error" || decodeFailed) return (
+    <div role="alert" className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-xl border border-border bg-muted/10 p-3 text-center">
+      <AlertCircle size={20} className="text-destructive" aria-hidden />
+      <p className="text-sm text-muted-foreground">Kunne ikke laste kvitteringen</p>
+      <button type="button" onClick={retry} className="min-h-11 rounded-full border border-border px-4 text-sm">Prøv igjen</button>
+    </div>
+  );
+  if (!media.url) return <div className="w-full h-32 rounded-xl border border-border bg-muted/10 animate-pulse" role="img" aria-label="Laster kvittering" />;
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer">
-      <img src={url} alt="Kvittering" className="w-full max-h-64 object-contain rounded-xl border border-border bg-muted/10" />
+    <a href={media.url} target="_blank" rel="noopener noreferrer">
+      <img src={media.url} onError={onError} alt="Kvittering" className="w-full max-h-64 object-contain rounded-xl border border-border bg-muted/10" />
     </a>
   );
 };
@@ -39,18 +55,28 @@ const ReceiptImage: React.FC<{ value: string }> = ({ value }) => {
 const DRINK_META: Record<string, { icon: React.ElementType; label: string }> = {
   beer: { icon: Beer, label: "Øl" },
   drink: { icon: Wine, label: "Drinker" },
+  food: { icon: UtensilsCrossed, label: "Mat" },
+  grocery: { icon: ShoppingCart, label: "Dagligvarer" },
 };
 
 const drinkSummary = (q: DrinkQuantities): string => {
   const parts: string[] = [];
   if (q.beer) parts.push(`${q.beer} øl`);
   if (q.drink) parts.push(`${q.drink} drink`);
+  if (q.food) parts.push(`${q.food} mat`);
+  if (q.grocery) parts.push(`${q.grocery} dagligvare`);
   return parts.length > 0 ? parts.join(", ") : "–";
 };
 
+const formatMoney = (value: number, currency: string) => new Intl.NumberFormat("nb-NO", {
+  style: "currency",
+  currency,
+  maximumFractionDigits: 2,
+}).format(value);
+
 export const RoundsScreen: React.FC = () => {
   React.useEffect(() => { markPageSeen("runder"); }, []);
-  const { rounds, profiles, loading, addRound, updateRound } = useRounds();
+  const { rounds, profiles, loading, error, addRound, updateRound, refetch } = useRounds();
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [debtOpen, setDebtOpen] = React.useState(false);
   const [detailRound, setDetailRound] = React.useState<Round | null>(null);
@@ -71,6 +97,14 @@ export const RoundsScreen: React.FC = () => {
       <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-10" style={{ WebkitOverflowScrolling: "touch" }}>
         {loading ? (
           <div className="space-y-3">{[1,2,3].map(i => <BrandSkeleton key={i} className="h-16 rounded-xl" />)}</div>
+        ) : error && rounds.length === 0 ? (
+          <div role="alert" className="flex min-h-[45vh] flex-col items-center justify-center gap-3 text-center">
+            <AlertCircle size={30} className="text-destructive" aria-hidden />
+            <p className="text-sm text-muted-foreground">Kunne ikke laste runder</p>
+            <button type="button" onClick={() => void refetch()} className="min-h-11 rounded-full border border-border px-4 text-sm flex items-center gap-2">
+              <RefreshCw size={16} /> Prøv igjen
+            </button>
+          </div>
         ) : rounds.length === 0 ? (
           <BrandEmptyState icon={Beer} title="Ingen runder ennå" description="Trykk + for å registrere den første runden" />
         ) : (
@@ -96,7 +130,7 @@ export const RoundsScreen: React.FC = () => {
                       {summary} · {r.participants.length} pers · {r.is_treated ? "🎁 Spandert" : "Lagt ut"} · {format(new Date(r.created_at), "d. MMM, HH:mm", { locale: nb })}
                     </p>
                   </div>
-                  <p className="font-heading text-sm font-bold text-foreground shrink-0">{r.total_cost} kr</p>
+                  <p className="font-heading text-sm font-bold text-foreground shrink-0">{formatMoney(r.total_cost, r.currency)}</p>
                   <ChevronRight size={14} className="text-muted-foreground shrink-0" />
                 </button>
               );
@@ -117,7 +151,13 @@ const RoundDetailSheet: React.FC<{
   round: Round | null;
   profiles: Record<string, { full_name: string | null; nickname: string | null; avatar_url: string | null }>;
   onClose: () => void;
-  onUpdate: (id: string, updates: any) => Promise<{ error: any }>;
+  onUpdate: (id: string, updates: {
+    drink_quantities?: DrinkQuantities;
+    total_cost?: number;
+    cost_per_person?: number;
+    note?: string | null;
+    is_treated?: boolean;
+  }) => Promise<{ error: { message?: string } | null }>;
 }> = ({ round, profiles, onClose, onUpdate }) => {
   const { user } = useAuth();
   const [editing, setEditing] = React.useState(false);
@@ -231,18 +271,18 @@ const RoundDetailSheet: React.FC<{
           <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
             {editing ? (
               <div className="space-y-2">
-                <BrandInput label="Totalkostnad (kr)" type="number" inputMode="decimal" value={editCost} onChange={e => setEditCost(e.target.value)} />
+              <BrandInput label={`Totalkostnad (${round.currency})`} type="number" inputMode="decimal" value={editCost} onChange={e => setEditCost(e.target.value)} />
               </div>
             ) : (
               <>
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-foreground">Totalt</p>
-                  <p className="font-heading text-lg font-bold text-foreground">{round.total_cost} kr</p>
+                  <p className="font-heading text-lg font-bold text-foreground">{formatMoney(round.total_cost, round.currency)}</p>
                 </div>
                 {!round.is_treated && (
                   <div className="flex justify-between items-center mt-1">
                     <p className="text-sm text-muted-foreground">Per person ({round.participants.length} stk)</p>
-                    <p className="font-heading text-sm font-semibold text-foreground">{round.cost_per_person} kr</p>
+                    <p className="font-heading text-sm font-semibold text-foreground">{formatMoney(round.cost_per_person, round.currency)}</p>
                   </div>
                 )}
               </>

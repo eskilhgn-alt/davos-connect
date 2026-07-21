@@ -19,17 +19,17 @@ interface PushToken {
 
 interface Props {
   users: AdminUser[];
-  currentUserId: string;
-  onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
 }
 
-export const AdminPushTools: React.FC<Props> = ({ users, currentUserId, onLogAction }) => {
+export const AdminPushTools: React.FC<Props> = ({ users }) => {
   const [pushTokens, setPushTokens] = React.useState<PushToken[]>([]);
   const [broadcastMsg, setBroadcastMsg] = React.useState("");
   const [broadcastHeading, setBroadcastHeading] = React.useState("");
   const [loading, setLoading] = React.useState<string | null>(null);
   const [targetUserId, setTargetUserId] = React.useState("");
   const [directMsg, setDirectMsg] = React.useState("");
+  const [sendBroadcastEmail, setSendBroadcastEmail] = React.useState(true);
+  const [sendDirectEmail, setSendDirectEmail] = React.useState(false);
 
   React.useEffect(() => {
     // Admin can read push_tokens via service - but RLS only allows own tokens
@@ -52,43 +52,43 @@ export const AdminPushTools: React.FC<Props> = ({ users, currentUserId, onLogAct
   const sendPush = async (type: "broadcast" | "direct") => {
     setLoading(type);
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) throw new Error("Ikke autentisert");
-
       const heading = type === "broadcast" ? (broadcastHeading || "GüttaHütte 📢") : "Melding fra admin 📢";
       const message = type === "broadcast" ? broadcastMsg : directMsg;
 
       if (!message.trim()) throw new Error("Skriv en melding");
 
-      const body: any = {
-        type: type === "broadcast" ? "broadcast" : "admin_notification",
+      const body: {
+        request_id: string;
+        heading: string;
+        message: string;
+        send_email: boolean;
+        include_user_ids?: string[];
+      } = {
+        request_id: crypto.randomUUID(),
         heading,
         message,
+        send_email: type === "broadcast" ? sendBroadcastEmail : sendDirectEmail,
       };
 
       if (type === "direct" && targetUserId) {
         body.include_user_ids = [targetUserId];
       }
 
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
+      const { data: result, error } = await supabase.functions.invoke("admin-push", {
+        body,
       });
+      if (error || result?.error) throw new Error(result?.error || error?.message || "Varsling feilet");
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Push feilet");
-
-      toast.success(`Push sendt til ${result.sent} bruker(e)`);
-      onLogAction(currentUserId, type === "broadcast" ? "broadcast_push" : "direct_push",
-        type === "direct" ? targetUserId : undefined,
-        { message, sent: result.sent });
+      const summary = [
+        `${result?.push_sent ?? 0} push`,
+        ...(body.send_email ? [`${result?.email_sent ?? 0} e-post`] : []),
+      ].join(" og ");
+      toast.success(`Sendt: ${summary}`);
 
       if (type === "broadcast") { setBroadcastMsg(""); setBroadcastHeading(""); }
       else { setDirectMsg(""); setTargetUserId(""); }
-    } catch (e: any) {
-      errorToast("Feil ved push", { description: e.message });
+    } catch (e: unknown) {
+      errorToast("Feil ved varsling", { description: e instanceof Error ? e.message : String(e) });
     } finally {
       setLoading(null);
     }
@@ -105,6 +105,15 @@ export const AdminPushTools: React.FC<Props> = ({ users, currentUserId, onLogAct
           </div>
           <BrandInput placeholder="Overskrift (valgfritt)" value={broadcastHeading} onChange={e => setBroadcastHeading(e.target.value)} />
           <BrandInput placeholder="Melding..." value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} />
+          <label className="flex min-h-11 items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={sendBroadcastEmail}
+              onChange={(event) => setSendBroadcastEmail(event.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+            Send også som e-post
+          </label>
           <BrandButton onClick={() => sendPush("broadcast")} disabled={!broadcastMsg.trim() || loading === "broadcast"} className="w-full">
             {loading === "broadcast" ? <Loader2 size={14} className="animate-spin mr-2" /> : <Send size={14} className="mr-2" />}
             Send til alle
@@ -130,6 +139,15 @@ export const AdminPushTools: React.FC<Props> = ({ users, currentUserId, onLogAct
             ))}
           </select>
           <BrandInput placeholder="Melding..." value={directMsg} onChange={e => setDirectMsg(e.target.value)} />
+          <label className="flex min-h-11 items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={sendDirectEmail}
+              onChange={(event) => setSendDirectEmail(event.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+            Send også som e-post
+          </label>
           <BrandButton onClick={() => sendPush("direct")} disabled={!targetUserId || !directMsg.trim() || loading === "direct"} className="w-full">
             {loading === "direct" ? <Loader2 size={14} className="animate-spin mr-2" /> : <Bell size={14} className="mr-2" />}
             Send til bruker

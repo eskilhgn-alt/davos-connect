@@ -3,13 +3,14 @@
  */
 
 import * as React from 'react';
-import { Check, X, AlertCircle, RotateCw, FileText, Download, Play } from 'lucide-react';
+import { Check, X, AlertCircle, RotateCw, FileText, Download, Play, Reply } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Message, Attachment } from './types';
 import { ReactionsRow } from './ReactionsRow';
 import { chatStore } from './store';
 import { ChatPollCard } from '@/components/poll/ChatPollCard';
 import { useSignedMedia } from '@/components/ui/SignedMedia';
+import { errorToast } from '@/utils/errorToast';
 
 /**
  * Media attachment renderer with private-URL resolution and robust video fallback.
@@ -270,8 +271,13 @@ interface MessageItemProps {
   showSender: boolean;
   currentUserId: string;
   onShowActions: (message: Message) => void;
+  onReply: (message: Message) => void;
+  onQuickReact: (message: Message) => void;
   onShowReactions: (reactions: Record<string, string[]>) => void;
   onMediaTap?: (src: string, type: 'image' | 'video' | 'gif') => void;
+  editRequested?: boolean;
+  onEditRequestHandled?: () => void;
+  seenCount?: number;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -280,19 +286,21 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   showSender,
   currentUserId,
   onShowActions,
+  onReply,
+  onQuickReact,
   onShowReactions,
   onMediaTap,
+  editRequested = false,
+  onEditRequestHandled,
+  seenCount = 0,
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editText, setEditText] = React.useState(message.text);
+  const [savingEdit, setSavingEdit] = React.useState(false);
+  const [swipeOffset, setSwipeOffset] = React.useState(0);
   const editRef = React.useRef<HTMLTextAreaElement>(null);
-  const lastTapRef = React.useRef(0);
-
-  // Single tap → open combined actions sheet
-  const handleBubbleTap = () => {
-    if (message.deletedAt || isEditing) return;
-    onShowActions(message);
-  };
+  const gestureRef = React.useRef<{ pointerId: number; x: number; y: number; cancelled: boolean } | null>(null);
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Format time
   const time = new Date(message.createdAt).toLocaleTimeString('nb-NO', {
@@ -301,11 +309,20 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   });
 
   // Handle edit save
-  const handleSaveEdit = () => {
-    if (editText.trim()) {
-      chatStore.editMessage(message.id, editText);
+  const handleSaveEdit = async () => {
+    const next = editText.trim();
+    if (!next || savingEdit) return;
+    setSavingEdit(true);
+    try {
+      await chatStore.editMessage(message.id, next);
+      setIsEditing(false);
+    } catch (error) {
+      errorToast('Kunne ikke redigere meldingen', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setSavingEdit(false);
     }
-    setIsEditing(false);
   };
 
   // Handle edit cancel
@@ -328,20 +345,72 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     setIsEditing(true);
   }, [message.text]);
 
-  // Expose startEditing via window (scoped per message id, cleaned up on unmount)
   React.useEffect(() => {
-    const key = `editMessage_${message.id}`;
-    (window as unknown as Record<string, unknown>)[key] = startEditing;
-    return () => {
-      delete (window as unknown as Record<string, unknown>)[key];
+    if (!editRequested) return;
+    startEditing();
+    onEditRequestHandled?.();
+  }, [editRequested, onEditRequestHandled, startEditing]);
+
+  const clearLongPress = React.useCallback(() => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+  }, []);
+
+  React.useEffect(() => clearLongPress, [clearLongPress]);
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || isEditing || message.deletedAt) return;
+    gestureRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      cancelled: false,
     };
-  }, [message.id, startEditing]);
+    clearLongPress();
+    longPressTimerRef.current = setTimeout(() => {
+      const gesture = gestureRef.current;
+      if (!gesture || gesture.cancelled) return;
+      gesture.cancelled = true;
+      setSwipeOffset(0);
+      navigator.vibrate?.(8);
+      onShowActions(message);
+    }, 420);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId || gesture.cancelled) return;
+    const dx = event.clientX - gesture.x;
+    const dy = event.clientY - gesture.y;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+      gesture.cancelled = true;
+      clearLongPress();
+      setSwipeOffset(0);
+      return;
+    }
+    if (dx > 4 && Math.abs(dx) > Math.abs(dy)) {
+      clearLongPress();
+      setSwipeOffset(Math.min(72, dx * 0.72));
+    }
+  };
+
+  const finishGesture = (event: React.PointerEvent<HTMLDivElement>) => {
+    const gesture = gestureRef.current;
+    clearLongPress();
+    gestureRef.current = null;
+    if (gesture && !gesture.cancelled && event.clientX - gesture.x >= 58) {
+      navigator.vibrate?.(6);
+      onReply(message);
+    }
+    setSwipeOffset(0);
+  };
 
   // Deleted message
   if (message.deletedAt) {
     return (
       <div
         id={`msg-${message.id}`}
+        data-chat-message-id={message.id}
         className={cn(
           'flex flex-col gap-1 px-4 py-1',
           isOwn ? 'items-end' : 'items-start'
@@ -364,13 +433,37 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   }
 
   return (
-    <div
-      id={`msg-${message.id}`}
-      className={cn(
-        'flex flex-col gap-1 px-4 py-1',
-        isOwn ? 'items-end' : 'items-start'
-      )}
-    >
+    <div className="relative overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-primary/10 p-2 text-primary"
+        style={{ opacity: Math.min(1, swipeOffset / 46), transform: `translateY(-50%) scale(${0.8 + Math.min(0.2, swipeOffset / 250)})` }}
+      >
+        <Reply size={18} />
+      </div>
+      <div
+        id={`msg-${message.id}`}
+        data-chat-message-id={message.id}
+        className={cn(
+          'flex flex-col gap-1 px-4 py-1 transition-transform duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+          isOwn ? 'items-end' : 'items-start'
+        )}
+        style={{ transform: `translateX(${swipeOffset}px)`, touchAction: 'pan-y', WebkitTapHighlightColor: 'transparent' }}
+        tabIndex={0}
+        aria-label={`Melding fra ${message.senderName}. Hold inne for valg, sveip mot høyre for å svare.`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={finishGesture}
+        onPointerCancel={() => { clearLongPress(); gestureRef.current = null; setSwipeOffset(0); }}
+        onContextMenu={(event) => { event.preventDefault(); onShowActions(message); }}
+        onDoubleClick={() => onQuickReact(message)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || (event.shiftKey && event.key === 'F10')) {
+            event.preventDefault();
+            onShowActions(message);
+          }
+        }}
+      >
 
       {/* Sender name - show for all messages */}
       {showSender && (
@@ -466,6 +559,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 type="button"
                 aria-label="Avbryt redigering"
                 onClick={handleCancelEdit}
+                disabled={savingEdit}
                 className="w-8 h-8 rounded-full bg-muted flex items-center justify-center"
               >
                 <X size={16} aria-hidden="true" />
@@ -474,7 +568,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 type="button"
                 aria-label="Lagre redigering"
                 onClick={handleSaveEdit}
-                className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+                disabled={savingEdit || !editText.trim()}
+                className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-50"
               >
                 <Check size={16} aria-hidden="true" />
               </button>
@@ -482,14 +577,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           </div>
         ) : (
           <div
-            onClick={handleBubbleTap}
             className={cn(
-              'max-w-[75%] rounded-2xl px-4 py-2 cursor-pointer',
+              'max-w-[75%] rounded-2xl px-4 py-2',
               isOwn
                 ? 'bg-primary text-primary-foreground rounded-br-md'
                 : 'bg-muted text-foreground rounded-bl-md'
             )}
-            style={{ WebkitTapHighlightColor: 'transparent', userSelect: 'none' }}
           >
             <p className="text-[15px] leading-snug whitespace-pre-wrap break-words select-text">
               {message.text}
@@ -533,6 +626,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             <span>Prøv igjen</span>
           </button>
         )}
+        {isOwn && seenCount > 0 && message.deliveryState === 'sent' && (
+          <span className="text-[11px] font-medium text-primary" aria-label={`Sett av ${seenCount}`}>
+            Sett{seenCount > 1 ? ` av ${seenCount}` : ''}
+          </span>
+        )}
+      </div>
       </div>
     </div>
   );

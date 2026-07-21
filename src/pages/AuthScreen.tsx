@@ -17,13 +17,13 @@ import { useAuthRateLimit } from "@/hooks/useAuthRateLimit";
 
 const WELCOME_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
-/** Fire-and-forget welcome message in chat */
-function sendWelcomeMessage(displayName: string) {
+/** Fire-and-forget welcome message sent as the newly onboarded user. */
+function sendWelcomeMessage(userId: string, displayName: string) {
   supabase.from("messages").insert({
     text: `${displayName} har blitt med i GüttaHütte! 🏔️ Velkommen!`,
     thread_id: WELCOME_THREAD_ID,
-    sender_id: "system",
-    sender_name: "GüttaHütte",
+    sender_id: userId,
+    sender_name: displayName,
   }).then(({ error }) => {
     if (error) console.warn("Welcome message failed:", error);
   });
@@ -184,7 +184,7 @@ export const AuthScreen: React.FC = () => {
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from("avatars").getPublicUrl(path);
         avatarUrl = `${data.publicUrl}?t=${Date.now()}`;
-      } catch (err: any) {
+      } catch {
         errorToast("Kunne ikke laste opp bilde");
         setIsSubmitting(false);
         setAvatarUploading(false);
@@ -203,7 +203,7 @@ export const AuthScreen: React.FC = () => {
     } else {
       toast.success("Profil klar!");
       // Send welcome message in chat
-      sendWelcomeMessage(nickname.trim() || fullName.split(" ")[0]);
+      if (user) sendWelcomeMessage(user.id, nickname.trim() || fullName.split(" ")[0]);
       navigate(safeNext ?? "/");
     }
     setIsSubmitting(false);
@@ -411,7 +411,7 @@ export const AuthScreen: React.FC = () => {
           <span className="text-[10px] tracking-wide uppercase font-medium">Sikret forbindelse</span>
         </div>
         <p className="text-[10px] text-muted-foreground/60 text-center max-w-xs leading-relaxed">
-          E2E-kryptert auth · RLS-beskyttet data · Rate-limiting på innlogging
+          Kryptert transport · RLS-beskyttet data · Begrensning av innloggingsforsøk
         </p>
       </footer>
     </div>

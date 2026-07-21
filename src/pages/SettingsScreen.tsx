@@ -322,7 +322,7 @@ export const SettingsScreen: React.FC = () => {
                 </li>
                 <li className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4" />
-                  <span><strong>AI:</strong> Gemini</span>
+                  <span><strong>AI:</strong> OpenAI GPT-5.2 via Lovable AI</span>
                 </li>
               </ul>
             </BrandCardContent>
@@ -379,7 +379,7 @@ export const SettingsScreen: React.FC = () => {
                 </ul>
                 <div className="border-t border-border pt-3 mt-3 space-y-1">
                   <p><strong>Tilgang:</strong> Kun ved invitasjon.</p>
-                  <p><strong>Personvern:</strong> Data lagres i Europa (EU/Sveits). Du kan be om sletting når som helst.</p>
+                  <p><strong>Personvern:</strong> Data lagres i appens sikrede backend. Du kan be om sletting når som helst.</p>
                   <p><strong>Kontakt:</strong> Bruk «Rapporter feil»-funksjonen nedenfor, eller kontakt admin direkte.</p>
                 </div>
               </div>

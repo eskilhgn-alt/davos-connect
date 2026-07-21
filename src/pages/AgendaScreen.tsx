@@ -27,7 +27,7 @@ const colorMap: Record<string, string> = {
 
 export const AgendaScreen: React.FC = () => {
   React.useEffect(() => { markPageSeen("agenda"); }, []);
-  const { events, weekStart, weekOffset, setWeekOffset, createEvent, updateEvent, deleteEvent } = useAgenda();
+  const { events, error, weekStart, weekOffset, setWeekOffset, createEvent, updateEvent, deleteEvent } = useAgenda();
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -148,6 +148,11 @@ export const AgendaScreen: React.FC = () => {
       </div>
 
       {/* Day headers */}
+      {error && (
+        <div role="alert" className="border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-xs text-destructive">
+          {error}
+        </div>
+      )}
       <div className="flex border-b border-border" style={{ paddingLeft: 48 }}>
         {days.map((day) => (
           <div

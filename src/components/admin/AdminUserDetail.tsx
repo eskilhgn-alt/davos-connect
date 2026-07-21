@@ -1,6 +1,6 @@
 /**
  * AdminUserDetail – Expandable user detail panel for admin management
- * Edit profile, send password reset, manage roles, notes, award points, toggle admin
+ * Edit profile, send password reset, manage roles and notes.
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,9 +10,9 @@ import { BrandButton } from "@/components/ui/brand-button";
 import { BrandInput } from "@/components/ui/brand-input";
 import { BrandBadge } from "@/components/ui/brand-badge";
 import {
-  UserX, UserCheck, Coins, Ticket, Loader2, Key, Save,
+  UserX, UserCheck, Loader2, Key, Save,
   ChevronDown, ChevronUp, Bell, Edit3, ShieldOff, StickyNote, Send,
-  Mail, CheckCircle, XCircle, Calendar, Shield, Trash2, Star, Crown,
+  Mail, CheckCircle, XCircle, Calendar, Shield, Trash2, Crown,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -36,15 +36,13 @@ interface UserProfile {
   created_at: string;
   updated_at?: string;
   role: "user" | "admin";
-  token_balance?: number;
-  frikort_count?: number;
 }
 
 interface Props {
   user: UserProfile;
   currentUserId: string;
   onRefresh: () => void;
-  onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
+  onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, unknown>) => void;
 }
 
 interface AdminNote {
@@ -62,9 +60,6 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
   const [notes, setNotes] = React.useState<AdminNote[]>([]);
   const [newNote, setNewNote] = React.useState("");
   const [showNotes, setShowNotes] = React.useState(false);
-  const [pointsAmount, setPointsAmount] = React.useState(1);
-  const [pointsReason, setPointsReason] = React.useState("");
-  const [showPoints, setShowPoints] = React.useState(false);
 
   const fetchNotes = React.useCallback(async () => {
     const { data } = await supabase.from("admin_notes")
@@ -119,31 +114,27 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
       toast.success(`Passord endret for ${u.nickname || u.email}`);
       onLogAction(currentUserId, "password_reset", u.id);
       setNewPassword("");
-    } catch (e: any) {
-      errorToast("Kunne ikke endre passord", { description: e.message });
+    } catch (error: unknown) {
+      errorToast("Kunne ikke endre passord", { description: error instanceof Error ? error.message : String(error) });
     } finally { setLoading(null); }
   };
 
   const sendPushNotification = async () => {
     setLoading("push");
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) throw new Error("Ikke autentisert");
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shot-push`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          type: "admin_notification",
+      const { data, error } = await supabase.functions.invoke("admin-push", {
+        body: {
+          request_id: crypto.randomUUID(),
           heading: "Melding fra admin 📢",
           message: "Sjekk innstillingene dine i appen.",
           include_user_ids: [u.id],
-        }),
+          send_email: false,
+        },
       });
+      if (error || data?.error) throw new Error(data?.error || error?.message || "Varsling feilet");
       toast.success("Push-varsel sendt");
-      onLogAction(currentUserId, "push_sent", u.id);
-    } catch {
-      errorToast("Kunne ikke sende push");
+    } catch (error: unknown) {
+      errorToast("Kunne ikke sende push", { description: error instanceof Error ? error.message : String(error) });
     } finally { setLoading(null); }
   };
 
@@ -154,14 +145,14 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
         p_user_id: u.id,
         p_banned: !u.is_banned,
         p_reason: u.is_banned ? null : "Admin-utestengelse",
-      } as any);
+      } as never);
       if (error) throw error;
       const action = u.is_banned ? "user_unbanned" : "user_banned";
       toast.success(u.is_banned ? "Ban opphevet" : "Bruker utestengt");
       onLogAction(currentUserId, action, u.id);
       onRefresh();
-    } catch (e: any) {
-      errorToast("Feil", { description: e.message });
+    } catch (error: unknown) {
+      errorToast("Feil", { description: error instanceof Error ? error.message : String(error) });
     } finally { setLoading(null); }
   };
 
@@ -176,8 +167,8 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
       toast.success(`${u.nickname || u.full_name || u.email} er slettet`);
       onLogAction(currentUserId, "user_deleted", u.id);
       onRefresh();
-    } catch (e: any) {
-      errorToast("Kunne ikke slette bruker", { description: e.message });
+    } catch (error: unknown) {
+      errorToast("Kunne ikke slette bruker", { description: error instanceof Error ? error.message : String(error) });
     } finally { setLoading(null); }
   };
 
@@ -196,27 +187,6 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
       fetchNotes();
     } catch {
       errorToast("Kunne ikke lagre notat");
-    } finally { setLoading(null); }
-  };
-
-  const awardPoints = async () => {
-    if (!pointsReason.trim() || pointsAmount === 0) return;
-    setLoading("points");
-    try {
-      const { error } = await supabase.rpc("rpc_award_points", {
-        p_user_id: u.id,
-        p_points: pointsAmount,
-        p_reason: "admin_award",
-        p_description: pointsReason.trim(),
-      });
-      if (error) throw error;
-      toast.success(`${pointsAmount > 0 ? "+" : ""}${pointsAmount} poeng til ${u.nickname || u.full_name}`);
-      onLogAction(currentUserId, "points_awarded", u.id, { points: pointsAmount, reason: pointsReason });
-      setPointsAmount(1);
-      setPointsReason("");
-      setShowPoints(false);
-    } catch (e: any) {
-      errorToast("Kunne ikke gi poeng", { description: e.message });
     } finally { setLoading(null); }
   };
 
@@ -242,8 +212,8 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
         onLogAction(currentUserId, "admin_role_granted", u.id);
       }
       onRefresh();
-    } catch (e: any) {
-      errorToast("Kunne ikke endre rolle", { description: e.message });
+    } catch (error: unknown) {
+      errorToast("Kunne ikke endre rolle", { description: error instanceof Error ? error.message : String(error) });
     } finally { setLoading(null); }
   };
 
@@ -288,7 +258,7 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                 <p className="font-medium text-foreground">{u.email}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">E-post verifisert</p>
+                <p className="text-muted-foreground">Tilgang godkjent</p>
                 <p className="font-medium flex items-center gap-1">
                   {u.email_verified ? (
                     <><CheckCircle size={12} className="text-green-500" /> Ja</>
@@ -314,14 +284,6 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                 <p className="font-medium">
                   {u.is_banned ? "🚫 Utestengt" : u.is_active ? "✅ Aktiv" : "⏸️ Inaktiv"}
                 </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Tokens</p>
-                <p className="font-medium flex items-center gap-1"><Coins size={12} /> {u.token_balance ?? 5}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Frikort</p>
-                <p className="font-medium flex items-center gap-1"><Ticket size={12} /> {u.frikort_count ?? 0}</p>
               </div>
             </div>
 
@@ -369,9 +331,6 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
               <BrandButton variant="outline" size="sm" onClick={sendPushNotification} disabled={loading === "push"}>
                 {loading === "push" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Bell size={14} className="mr-1" />}
                 Send push
-              </BrandButton>
-              <BrandButton variant="outline" size="sm" onClick={() => setShowPoints(!showPoints)}>
-                <Star size={14} className="mr-1" /> Gi poeng
               </BrandButton>
               <BrandButton
                 variant={u.is_active ? "outline" : "primary"}
@@ -421,18 +380,18 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                     try {
                       const { error } = await supabase.from("profiles").update({ email_verified: true }).eq("id", u.id);
                       if (error) throw error;
-                      toast.success("E-post manuelt verifisert");
-                      onLogAction(currentUserId, "email_manually_verified", u.id);
+                      toast.success("Tilgang godkjent");
+                      onLogAction(currentUserId, "access_manually_approved", u.id);
                       onRefresh();
-                    } catch (e: any) {
-                      errorToast("Kunne ikke verifisere", { description: e.message });
+                    } catch (error: unknown) {
+                      errorToast("Kunne ikke godkjenne", { description: error instanceof Error ? error.message : String(error) });
                     } finally { setLoading(null); }
                   }}
                   disabled={loading === "verify"}
                   className="border-green-500/30 text-green-600 hover:bg-green-500/10"
                 >
                   {loading === "verify" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Mail size={14} className="mr-1" />}
-                  Verifiser e-post
+                  Godkjenn tilgang
                 </BrandButton>
               )}
 
@@ -470,25 +429,6 @@ export const AdminUserDetail: React.FC<Props> = ({ user: u, currentUserId, onRef
                 </AlertDialogContent>
               </AlertDialog>
             </div>
-
-            {/* Points award section */}
-            {showPoints && (
-              <div className="space-y-2 border-t border-border pt-2">
-                <p className="text-xs font-medium text-foreground flex items-center gap-1"><Star size={12} /> Tildel poeng</p>
-                <div className="flex gap-2 items-center">
-                  <BrandButton variant="outline" size="sm" onClick={() => setPointsAmount(a => a - 1)}>−</BrandButton>
-                  <span className="font-mono text-sm font-bold min-w-[40px] text-center text-foreground">
-                    {pointsAmount > 0 ? "+" : ""}{pointsAmount}
-                  </span>
-                  <BrandButton variant="outline" size="sm" onClick={() => setPointsAmount(a => a + 1)}>+</BrandButton>
-                </div>
-                <BrandInput placeholder="Grunn..." value={pointsReason} onChange={e => setPointsReason(e.target.value)} />
-                <BrandButton size="sm" onClick={awardPoints} disabled={!pointsReason.trim() || pointsAmount === 0 || loading === "points"} className="w-full">
-                  {loading === "points" ? <Loader2 size={14} className="animate-spin mr-1" /> : <Star size={14} className="mr-1" />}
-                  Gi {pointsAmount > 0 ? "+" : ""}{pointsAmount} poeng
-                </BrandButton>
-              </div>
-            )}
 
             {/* Admin notes */}
             {showNotes && (

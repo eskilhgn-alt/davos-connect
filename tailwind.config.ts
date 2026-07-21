@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -18,19 +19,13 @@ export default {
       },
     },
     extend: {
-      /* === DAVOS COLORS === */
+      /* === APP COLORS === */
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        
-        /* Primary Davos Colors */
-        davos: {
-          blue: "hsl(var(--davos-blue))",
-          yellow: "hsl(var(--davos-yellow))",
-        },
         
         grey: {
           900: "hsl(var(--grey-900))",
@@ -85,14 +80,14 @@ export default {
         },
       },
 
-      /* === DAVOS TYPOGRAPHY === */
+      /* === APP TYPOGRAPHY === */
       fontFamily: {
         heading: ["Josefin Sans", "sans-serif"],
         body: ["Inter", "system-ui", "sans-serif"],
         mono: ["IBM Plex Mono", "monospace"],
       },
 
-      /* === DAVOS SPACING (8pt grid) === */
+      /* === APP SPACING (8pt grid) === */
       spacing: {
         "unit": "8px",
         "tap": "44px",
@@ -100,7 +95,7 @@ export default {
         "22": "5.5rem",
       },
 
-      /* === DAVOS RADIUS === */
+      /* === APP RADIUS === */
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -109,7 +104,7 @@ export default {
         pill: "var(--radius-pill)",
       },
 
-      /* === DAVOS SHADOWS === */
+      /* === APP SHADOWS === */
       boxShadow: {
         card: "0 1px 3px rgba(0, 0, 0, 0.04)",
         "card-hover": "0 2px 8px rgba(0, 0, 0, 0.06)",
@@ -148,5 +143,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;

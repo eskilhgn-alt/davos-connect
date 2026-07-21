@@ -38,18 +38,19 @@ heller ikke.
 - RLS på alle tabeller. Klientsidig login-throttle er en UX-hjelp, ikke en
   sikkerhetskontroll – reell begrensning kommer fra Supabase Auth.
 - MCP-serveren (`src/lib/mcp/`) eksponerer nå: `get_my_profile`,
-  `list_recent_chat_messages`, `post_chat_message`. Shot-/token-/poeng-verktøy
-  er fjernet.
+  `list_recent_chat_messages`, `post_chat_message`. Verktøy for den gamle
+  gamification-modulen er fjernet.
 
 ## Historikk
 
-Historiske data (chat, bilder, shot-hendelser, ski-målinger, poeng, tokens)
-er bevart urørt. Se `docs/LEGACY.md` for hva som er tatt ut av aktiv bruk.
+Historiske data fra de utgåtte spill- og skimodulene er bevart, men arkivert:
+vanlige brukere og klientappen har ikke lenger tabell- eller RPC-tilgang. Se
+`docs/LEGACY.md` for detaljer.
 
 ## Utvikling
 
-```
-bun install
-bun run dev
-bunx vitest run
+```sh
+npm install
+npm run dev
+npm test
 ```

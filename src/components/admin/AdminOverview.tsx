@@ -6,7 +6,7 @@ import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
 import { BrandButton } from "@/components/ui/brand-button";
 import {
   Users, Bell, BellOff, Zap, Link2, UserPlus, Check,
-  MessageCircle, BarChart3, Image,
+  MessageCircle, BarChart3, Image, type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -16,9 +16,7 @@ import type { AdminStats, AdminUser } from "./useAdminData";
 interface Props {
   stats: AdminStats | null;
   users: AdminUser[];
-  currentUserId: string;
   onNavigate: (tab: string) => void;
-  onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
 }
 
 const APP_URL = "https://guttahutte.lovable.app";
@@ -30,7 +28,7 @@ const SHARE_LINKS = [
   { label: "Vær", path: "/vaer" },
 ];
 
-export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, onNavigate, onLogAction }) => {
+export const AdminOverview: React.FC<Props> = ({ stats, users, onNavigate }) => {
   
   const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
   const [extendedStats, setExtendedStats] = React.useState<{
@@ -94,7 +92,7 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, currentUserId, on
           <StatCard icon={UserPlus} value={todayCount} label="Nye i dag" />
           <StatCard
             icon={stats.pushOk ? Bell : BellOff}
-            value={stats.pushOk ? "OK" : "Feil"}
+            value={`${stats.pushUsers}/${stats.activeUsers}`}
             label="Push"
             accent={stats.pushOk}
           />
@@ -191,7 +189,7 @@ function formatRelative(dateStr: string): string {
   return `${days}d siden`;
 }
 
-const StatCard: React.FC<{ icon: any; value: string | number; label: string; accent?: boolean }> = ({ icon: Icon, value, label, accent }) => (
+const StatCard: React.FC<{ icon: LucideIcon; value: string | number; label: string; accent?: boolean }> = ({ icon: Icon, value, label, accent }) => (
   <BrandCard>
     <BrandCardContent className="p-3 text-center">
       <Icon size={14} className={`mx-auto mb-1 ${accent ? "text-success" : "text-muted-foreground"}`} />

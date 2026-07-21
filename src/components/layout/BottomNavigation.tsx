@@ -15,7 +15,7 @@ export interface NavItem {
 
 /**
  * NAV_ITEMS — sannheten om de fire hovedfanene. Eksportert slik at tester
- * kan låse standardnavigasjonen (ingen shot/tokens-flater i aktiv nav).
+ * kan låse standardnavigasjonen til de generelle turflatene.
  */
 export const NAV_ITEMS: NavItem[] = [
   { icon: Home, label: "Hjem", path: "/hjem" },

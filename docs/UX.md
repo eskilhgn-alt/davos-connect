@@ -1,4 +1,4 @@
-# PWA Design Bible – Lift & Lager (iPhone-first)
+# PWA Design Bible – GüttaHütte (iPhone-first)
 
 ## 1) ÉN scroll-container per skjerm
 
@@ -50,7 +50,7 @@
 
 - Iframes kan bli blokkert (X-Frame-Options/CSP)
 - Hvis en kilde ikke er embeddable: vis et pent fallback-kort med "Åpne i nettleser" knapp
-- `DavosWebEmbed` har `embeddable` prop for dette
+- `BrandWebEmbed` har `embeddable`-støtte for dette
 
 ## 10) Konsistent spacing (8pt grid) + tokens
 

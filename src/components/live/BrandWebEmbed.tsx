@@ -1,7 +1,7 @@
 /**
  * Generic web embed component (sandboxed iframe)
  * Generic iframe embed for external content with error handling
- * Used for webcam video players (feratel webtv) and other embeds
+ * Used for webcam players and other external embeds.
  */
 
 import * as React from "react";

@@ -18,6 +18,13 @@ import { MediaViewer } from '@/components/ui/MediaViewer';
 import { chatStore } from './store';
 import { useMarkAsRead } from './useMarkAsRead';
 import { useAuth } from '@/contexts/AuthContext';
+import { useReadReceipts } from './useReadReceipts';
+import { latestSeenOutgoingId } from './logic';
+import { errorToast } from '@/utils/errorToast';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface MessageListProps {
   messages: Message[];
@@ -75,9 +82,24 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const [emojiPickerMode, setEmojiPickerMode] = React.useState<'reaction' | 'compose'>('reaction');
   const [viewerMedia, setViewerMedia] = React.useState<{ src: string; type: 'image' | 'video' | 'gif' } | null>(null);
+  const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = React.useState<Message | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
 
   const [loadingEarlier, setLoadingEarlier] = React.useState(false);
   const [hasMoreEarlier, setHasMoreEarlier] = React.useState(true);
+
+  const outgoingIds = React.useMemo(
+    () => messages
+      .filter((message) => message.senderId === currentUserId && message.deliveryState === 'sent')
+      .map((message) => message.id),
+    [messages, currentUserId],
+  );
+  const seenCounts = useReadReceipts(outgoingIds, currentUserId);
+  const latestSeenId = React.useMemo(
+    () => latestSeenOutgoingId(messages, seenCounts, currentUserId),
+    [messages, seenCounts, currentUserId],
+  );
 
   // Check if near bottom and trigger pagination on top
   const checkNearBottom = React.useCallback(() => {
@@ -174,7 +196,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   React.useEffect(() => chatStore.subscribeToChannelStatus(setChannelStatus), []);
 
 
-  // Handle showing combined actions sheet (single tap)
+  // Modern chat convention: long-press/context-menu opens message actions.
   const handleShowActions = React.useCallback((message: Message) => {
     setActiveMessage(message);
     setShowActionsSheet(true);
@@ -186,15 +208,24 @@ export const MessageList: React.FC<MessageListProps> = ({
     setShowReactionsDialog(true);
   }, []);
 
-  // Mark messages as read
+  // A receipt means the bubble was actually visible, not merely fetched.
   React.useEffect(() => {
-    if (!user) return;
-    const recentMessages = messages.slice(-20);
-    recentMessages.forEach((msg) => {
-      if (msg.senderId !== user.id && !msg.deletedAt) {
-        markAsRead(msg.id, msg.senderId);
+    const root = scrollRef.current;
+    if (!user || !root || typeof IntersectionObserver === 'undefined') return;
+    const byId = new Map(messages.map((message) => [message.id, message]));
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.6) continue;
+        const id = (entry.target as HTMLElement).dataset.chatMessageId;
+        const message = id ? byId.get(id) : undefined;
+        if (message && message.senderId !== user.id && !message.deletedAt) {
+          markAsRead(message.id, message.senderId);
+          observer.unobserve(entry.target);
+        }
       }
-    });
+    }, { root, threshold: 0.6 });
+    root.querySelectorAll<HTMLElement>('[data-chat-message-id]').forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
   }, [messages, user, markAsRead]);
 
   // Handle reaction from combined sheet
@@ -220,39 +251,60 @@ export const MessageList: React.FC<MessageListProps> = ({
     const msgId = activeMessage?.id;
     setShowActionsSheet(false);
     setActiveMessage(null);
-    if (msgId) {
-      requestAnimationFrame(() => {
-        const editFn = (window as unknown as Record<string, () => void>)[`editMessage_${msgId}`];
-        if (editFn) editFn();
-      });
-    }
+    if (msgId) setEditingMessageId(msgId);
   }, [activeMessage]);
 
   const handleDelete = React.useCallback(() => {
-    const msgId = activeMessage?.id;
+    const message = activeMessage;
     setShowActionsSheet(false);
     setActiveMessage(null);
-    if (msgId) {
-      chatStore.deleteMessage(msgId).catch((err) => {
-        console.error('[Chat] delete failed', err);
-        // Surface error visibly instead of just logging
-        window.alert(err?.message || 'Kunne ikke slette meldingen.');
-      });
-    }
+    if (message) setDeleteCandidate(message);
   }, [activeMessage]);
 
-  const handleReply = React.useCallback(() => {
-    if (activeMessage) {
+  const replyToMessage = React.useCallback((message: Message) => {
+    if (!message.deletedAt) {
       chatStore.setReplyTo({
-        id: activeMessage.id,
-        text: activeMessage.text,
-        senderName: activeMessage.senderName,
-        deleted: !!activeMessage.deletedAt,
+        id: message.id,
+        text: message.text,
+        senderName: message.senderName,
+        deleted: false,
       });
     }
+  }, []);
+
+  const handleReply = React.useCallback(() => {
+    if (activeMessage) replyToMessage(activeMessage);
     setShowActionsSheet(false);
     setActiveMessage(null);
-  }, [activeMessage]);
+  }, [activeMessage, replyToMessage]);
+
+  const handleQuickReact = React.useCallback((message: Message) => {
+    navigator.vibrate?.(6);
+    void chatStore.toggleReaction(message.id, '❤️').catch((error) => {
+      errorToast('Kunne ikke reagere på meldingen', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }, []);
+
+  const confirmDelete = React.useCallback(async () => {
+    if (!deleteCandidate || deleting) return;
+    setDeleting(true);
+    try {
+      if (deleteCandidate.deliveryState === 'failed' && deleteCandidate.clientId) {
+        chatStore.discardFailed(deleteCandidate.clientId);
+      } else {
+        await chatStore.deleteMessage(deleteCandidate.id);
+      }
+      setDeleteCandidate(null);
+    } catch (error) {
+      errorToast('Kunne ikke slette meldingen', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteCandidate, deleting]);
 
   const handleCopy = React.useCallback(async () => {
     const text = activeMessage?.text;
@@ -328,8 +380,13 @@ export const MessageList: React.FC<MessageListProps> = ({
                     showSender={showSender}
                     currentUserId={currentUserId}
                     onShowActions={handleShowActions}
+                    onReply={replyToMessage}
+                    onQuickReact={handleQuickReact}
                     onShowReactions={handleShowReactions}
                     onMediaTap={(src, type) => setViewerMedia({ src, type })}
+                    editRequested={editingMessageId === msg.id}
+                    onEditRequestHandled={() => setEditingMessageId((current) => current === msg.id ? null : current)}
+                    seenCount={latestSeenId === msg.id ? (seenCounts.get(msg.id) ?? 0) : 0}
                   />
                 );
               })}
@@ -405,6 +462,29 @@ export const MessageList: React.FC<MessageListProps> = ({
           onClose={() => setViewerMedia(null)}
         />
       )}
+
+      <AlertDialog open={Boolean(deleteCandidate)} onOpenChange={(open) => { if (!open && !deleting) setDeleteCandidate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slett meldingen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteCandidate?.deliveryState === 'failed'
+                ? 'Den usendte meldingen og eventuelle opplastede filer fjernes.'
+                : 'Meldingen markeres som slettet for hele gruppen.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => { event.preventDefault(); void confirmDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleting ? 'Sletter…' : 'Slett'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

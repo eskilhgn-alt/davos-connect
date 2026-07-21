@@ -1,15 +1,20 @@
 {
   "name": "GüttaHütte",
   "short_name": "GüttaHütte",
-  "start_url": "/",
+  "id": "/",
+  "start_url": "/hjem",
+  "scope": "/",
+  "lang": "nb-NO",
+  "description": "Privat tur- og gruppeapp for GüttaHütte",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#103A5D",
   "theme_color": "#103A5D",
   "icons": [
     {
-      "src": "/app-icon.jpeg",
-      "sizes": "512x512",
-      "type": "image/jpeg",
+      "src": "/app-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
       "purpose": "any"
     }
   ]
