@@ -10,7 +10,7 @@ import { AlertTriangle, ExternalLink, ShieldAlert, Phone } from "lucide-react";
 
 export const AvalancheScreen: React.FC = () => {
   const trip = ACTIVE_TRIP;
-  const weather = trip.officialLinks.weather;
+  const weather = trip.officialLinks.avalanche;
   const safety = trip.officialLinks.safety;
   const skiPatrol = trip.emergency
     .flatMap((g) => g.contacts)

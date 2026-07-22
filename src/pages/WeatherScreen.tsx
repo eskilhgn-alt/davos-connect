@@ -1,6 +1,6 @@
 /**
- * WeatherScreen – kompakt Val Thorens-vær via Open-Meteo.
- * Offisielt fjellvær og skredvarsel lenkes eksternt til Meteo-France.
+ * WeatherScreen – rask prognose fra Open-Meteo kombinert med Val Thorens'
+ * offisielle fjellmålinger fra Lumiplan.
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -8,6 +8,8 @@ import { BackButton } from "@/components/layout/BackButton";
 import { useTripWeather } from "@/hooks/useTripWeather";
 import { describeWeatherCode, type TripDailyForecast } from "@/services/tripWeather";
 import { ACTIVE_TRIP } from "@/config/trip";
+import { useValThorensLive } from "@/hooks/useValThorensLive";
+import { Link } from "react-router-dom";
 import {
   RefreshCw,
   ExternalLink,
@@ -23,6 +25,7 @@ import {
   CloudLightning,
   AlertTriangle,
   Loader2,
+  ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -93,6 +96,7 @@ function DayRow({ day }: { day: TripDailyForecast }) {
 
 export const WeatherScreen: React.FC = () => {
   const { weather, loading, error, refresh } = useTripWeather();
+  const { data: liveData, loading: liveLoading, refresh: refreshLive } = useValThorensLive();
 
   const current = weather?.current;
   const today = weather?.daily?.[0];
@@ -109,11 +113,14 @@ export const WeatherScreen: React.FC = () => {
         leftAction={<BackButton fallbackPath="/hjem" />}
         rightAction={
           <button
-            onClick={refresh}
+            onClick={() => {
+              void refresh();
+              void refreshLive().catch(() => undefined);
+            }}
             aria-label="Oppdater vær"
             className="tap-target flex items-center justify-center text-muted-foreground"
           >
-            <RefreshCw size={18} className={cn(loading && "animate-spin")} />
+            <RefreshCw size={18} className={cn((loading || liveLoading) && "animate-spin")} />
           </button>
         }
       />
@@ -179,6 +186,27 @@ export const WeatherScreen: React.FC = () => {
             )}
           </div>
 
+          {liveData?.weather?.length ? (
+            <section className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className="font-heading text-xs font-semibold uppercase tracking-wider text-muted-foreground">Offisielt fjellvær</h2>
+                <span className="text-[10px] text-muted-foreground">Val Thorens / Lumiplan</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {liveData.weather.slice(0, 2).map((point, index) => (
+                  <div key={`${point.name}-${point.elevationM ?? index}`} className="rounded-2xl border border-border bg-card p-4">
+                    <p className="text-xs font-semibold text-foreground">{point.elevationM ? `${point.elevationM} moh.` : point.name}</p>
+                    <p className="font-heading text-2xl font-bold text-foreground mt-2">{point.afternoonTemperature || point.morningTemperature || "–"}</p>
+                    <div className="mt-2 space-y-1 text-[10px] text-muted-foreground">
+                      <p className="flex items-center gap-1"><Wind size={10} /> {point.wind || "–"} {point.windDirection || ""}</p>
+                      {point.freshSnow && <p className="flex items-center gap-1"><Snowflake size={10} /> Nysnø {point.freshSnow}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           {/* Prognose */}
           {weather?.daily && weather.daily.length > 0 && (
             <div className="rounded-2xl bg-muted/30 border border-border px-4">
@@ -188,33 +216,28 @@ export const WeatherScreen: React.FC = () => {
             </div>
           )}
 
-          {/* Offisielle lenker */}
+          {/* Live status i appen + sikkerhetskilde */}
           <div className="rounded-2xl border border-border p-4 space-y-3">
-            <h3 className="font-heading text-sm font-semibold text-foreground">Offisielt fjellvær og skred</h3>
+            <h3 className="font-heading text-sm font-semibold text-foreground">Snø og sikkerhet</h3>
             <p className="text-xs text-muted-foreground">
-              Bruk Meteo-France for offisielle fjellvarsler og skredfare i Val Thorens. Appens vær er
-              en generell prognose fra Open-Meteo og erstatter ikke offisielle kilder.
+              Se live snø-, heis- og løypestatus uten å forlate appen. For skredfare utenfor preparerte løyper må Meteo-France brukes.
             </p>
             <div className="flex flex-col gap-2">
-              {trip.officialLinks.weather && (
-                <a
-                  href={trip.officialLinks.weather.url}
-                  target="_blank"
-                  rel="noreferrer"
+              <Link
+                  to="/forhold"
                   className="inline-flex items-center justify-between gap-2 rounded-xl bg-muted/60 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors"
                 >
-                  <span>{trip.officialLinks.weather.title}</span>
-                  <ExternalLink size={14} />
-                </a>
-              )}
-              {trip.officialLinks.safety && (
+                  <span>Snø, heiser og løyper</span>
+                  <ChevronRight size={14} />
+              </Link>
+              {trip.officialLinks.avalanche && (
                 <a
-                  href={trip.officialLinks.safety.url}
+                  href={trip.officialLinks.avalanche.url}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center justify-between gap-2 rounded-xl bg-muted/40 px-4 py-3 text-sm text-muted-foreground hover:bg-muted/60 transition-colors"
                 >
-                  <span>{trip.officialLinks.safety.title}</span>
+                  <span>{trip.officialLinks.avalanche.title}</span>
                   <ExternalLink size={13} />
                 </a>
               )}
