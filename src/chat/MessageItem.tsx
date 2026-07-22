@@ -280,7 +280,7 @@ interface MessageItemProps {
   seenCount?: number;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({
+const MessageItemComponent: React.FC<MessageItemProps> = ({
   message,
   isOwn,
   showSender,
@@ -636,3 +636,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     </div>
   );
 };
+
+export const MessageItem = React.memo(MessageItemComponent, (previous, next) => (
+  previous.message === next.message
+  && previous.isOwn === next.isOwn
+  && previous.showSender === next.showSender
+  && previous.currentUserId === next.currentUserId
+  && previous.editRequested === next.editRequested
+  && previous.seenCount === next.seenCount
+));

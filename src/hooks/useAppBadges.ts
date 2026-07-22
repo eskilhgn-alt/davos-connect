@@ -27,56 +27,90 @@ export interface AppBadges {
   total: number;
 }
 
-export function useAppBadges(): AppBadges {
+const EMPTY_BADGES: AppBadges = { chat: 0, stories: 0, polls: 0, agenda: 0, runder: 0, total: 0 };
+const AppBadgesContext = React.createContext<AppBadges>(EMPTY_BADGES);
+
+export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [badges, setBadges] = React.useState<AppBadges>({ chat: 0, stories: 0, polls: 0, agenda: 0, runder: 0, total: 0 });
+  const userId = user?.id;
+  const [badges, setBadges] = React.useState<AppBadges>(EMPTY_BADGES);
+  const inFlight = React.useRef<Promise<void> | null>(null);
+  const refreshAgain = React.useRef(false);
+  const debounceTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = React.useCallback(async () => {
-    if (!user) {
-      setBadges({ chat: 0, stories: 0, polls: 0, agenda: 0, runder: 0, total: 0 });
+    if (!userId) {
+      setBadges(EMPTY_BADGES);
       updatePwaBadge(0);
       return;
     }
 
-    const [chatCount, storiesCount, pollsCount, agendaCount, runderCount] = await Promise.all([
-      getUnreadChat(user.id),
-      getUnseenStories(user.id),
-      getNewPollsSinceLastSeen(),
-      getNewAgendaSinceLastSeen(),
-      getNewRoundsSinceLastSeen(),
-    ]);
+    if (inFlight.current) {
+      refreshAgain.current = true;
+      return inFlight.current;
+    }
 
-    const total = chatCount + storiesCount + pollsCount + agendaCount + runderCount;
-    setBadges({ chat: chatCount, stories: storiesCount, polls: pollsCount, agenda: agendaCount, runder: runderCount, total });
-    updatePwaBadge(total);
-  }, [user]);
+    const request = (async () => {
+      do {
+        refreshAgain.current = false;
+        const [chatCount, storiesCount, pollsCount, agendaCount, runderCount] = await Promise.all([
+          getUnreadChat(userId),
+          getUnseenStories(userId),
+          getNewPollsSinceLastSeen(),
+          getNewAgendaSinceLastSeen(),
+          getNewRoundsSinceLastSeen(),
+        ]);
+
+        const total = chatCount + storiesCount + pollsCount + agendaCount + runderCount;
+        setBadges({ chat: chatCount, stories: storiesCount, polls: pollsCount, agenda: agendaCount, runder: runderCount, total });
+        updatePwaBadge(total);
+      } while (refreshAgain.current);
+    })().finally(() => {
+      inFlight.current = null;
+    });
+    inFlight.current = request;
+    return request;
+  }, [userId]);
+
+  const scheduleRefresh = React.useCallback(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => void refresh(), 180);
+  }, [refresh]);
 
   React.useEffect(() => {
-    refresh();
+    void refresh();
 
     const channel = supabase
       .channel("app-badges")
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `thread_id=eq.${DEFAULT_THREAD_ID}` }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "chat_reads" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "story_views" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "polls" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "poll_votes" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "agenda_events" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "rounds" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `thread_id=eq.${DEFAULT_THREAD_ID}` }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "chat_reads" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "story_views" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "polls" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "poll_votes" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "agenda_events" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "rounds" }, scheduleRefresh)
       .subscribe();
 
     // Listen for "page visited" events to clear badges instantly
-    const handleBadgeClear = () => refresh();
+    const handleBadgeClear = () => scheduleRefresh();
+    const handleVisible = () => document.visibilityState === "visible" && scheduleRefresh();
     window.addEventListener("badge:clear", handleBadgeClear);
+    document.addEventListener("visibilitychange", handleVisible);
 
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener("badge:clear", handleBadgeClear);
+      document.removeEventListener("visibilitychange", handleVisible);
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
-  }, [refresh]);
+  }, [refresh, scheduleRefresh]);
 
-  return badges;
+  return React.createElement(AppBadgesContext.Provider, { value: badges }, children);
+};
+
+export function useAppBadges(): AppBadges {
+  return React.useContext(AppBadgesContext);
 }
 
 // ============ Mark page as seen (call from page components) ============

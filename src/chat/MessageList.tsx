@@ -66,9 +66,11 @@ export const MessageList: React.FC<MessageListProps> = ({
   deepLinkMessageId,
 }) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const contentRef = React.useRef<HTMLDivElement>(null);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const [showJump, setShowJump] = React.useState(false);
   const isNearBottomRef = React.useRef(true);
+  const stickToBottomRef = React.useRef(true);
 
   // Auth and mark-as-read
   const { user } = useAuth();
@@ -108,6 +110,7 @@ export const MessageList: React.FC<MessageListProps> = ({
     const threshold = 150;
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
     isNearBottomRef.current = nearBottom;
+    stickToBottomRef.current = nearBottom;
     setShowJump(!nearBottom);
 
     // Load earlier when scrolled near top
@@ -142,31 +145,51 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   const hasInitialScrolled = React.useRef(false);
 
-  React.useEffect(() => {
-    if (messages.length > 0 && !hasInitialScrolled.current) {
-      hasInitialScrolled.current = true;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollToBottom(false);
-          setTimeout(() => scrollToBottom(false), 100);
-          setTimeout(() => scrollToBottom(false), 500);
-        });
-      });
-    }
-  }, [messages.length, scrollToBottom]);
-
-  React.useEffect(() => {
-    hasInitialScrolled.current = false;
-    requestAnimationFrame(() => scrollToBottom(false));
-    setTimeout(() => scrollToBottom(false), 200);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useLayoutEffect(() => {
+    if (messages.length === 0 || deepLinkMessageId || hasInitialScrolled.current) return;
+    hasInitialScrolled.current = true;
+    stickToBottomRef.current = true;
+    scrollToBottom(false);
+    const frame = requestAnimationFrame(() => {
+      scrollToBottom(false);
+      requestAnimationFrame(() => scrollToBottom(false));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [messages.length, deepLinkMessageId, scrollToBottom]);
 
   React.useEffect(() => {
     if (!hasInitialScrolled.current) return;
-    if (isNearBottomRef.current) {
+    if (stickToBottomRef.current) {
       requestAnimationFrame(() => scrollToBottom(true));
     }
   }, [messages.length, scrollToBottom]);
+
+  // Late image dimensions and iOS PWA restoration used to pull the viewport
+  // away from the newest message. Keep the bottom anchored until the user
+  // intentionally scrolls upward.
+  React.useEffect(() => {
+    const content = contentRef.current;
+    if (!content || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (stickToBottomRef.current && !deepLinkMessageId) scrollToBottom(false);
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [deepLinkMessageId, scrollToBottom]);
+
+  React.useEffect(() => {
+    const restoreNewest = () => {
+      if (document.visibilityState !== 'visible' || deepLinkMessageId) return;
+      stickToBottomRef.current = true;
+      requestAnimationFrame(() => scrollToBottom(false));
+    };
+    window.addEventListener('pageshow', restoreNewest);
+    document.addEventListener('visibilitychange', restoreNewest);
+    return () => {
+      window.removeEventListener('pageshow', restoreNewest);
+      document.removeEventListener('visibilitychange', restoreNewest);
+    };
+  }, [deepLinkMessageId, scrollToBottom]);
 
   // Deep-link: bounded load-earlier loop until the message is present,
   // then scroll and briefly highlight.
@@ -331,7 +354,7 @@ export const MessageList: React.FC<MessageListProps> = ({
     return msg?.senderName || 'Ukjent';
   }, [messages, currentUserId]);
 
-  const groups = groupMessagesByDate(messages);
+  const groups = React.useMemo(() => groupMessagesByDate(messages), [messages]);
   const paddingBottom = composerHeight + 16;
 
   return (
@@ -351,7 +374,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         className="h-full overflow-y-auto overscroll-contain"
         style={{ paddingBottom, WebkitOverflowScrolling: 'touch' }}
       >
-        <div className="py-4">
+        <div ref={contentRef} className="py-4">
           {groups.length === 0 && (
             <div className="text-center text-muted-foreground py-12">
               <p>Ingen meldinger ennå</p>
@@ -403,7 +426,12 @@ export const MessageList: React.FC<MessageListProps> = ({
         <button
           type="button"
           aria-label="Bla til nyeste meldinger"
-          onClick={() => scrollToBottom(true)}
+          onClick={() => {
+            stickToBottomRef.current = true;
+            isNearBottomRef.current = true;
+            setShowJump(false);
+            scrollToBottom(true);
+          }}
           className={cn(
             'absolute bottom-4 right-4 z-10',
             'w-10 h-10 rounded-full',

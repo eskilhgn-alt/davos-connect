@@ -9,6 +9,7 @@ import { AppLayout } from "@/components/layout";
 import { ChatLayout } from "@/layouts/ChatLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { AppBadgesProvider } from "@/hooks/useAppBadges";
 
 import { errorToast } from "@/utils/errorToast";
 
@@ -32,6 +33,7 @@ const RoundsScreen = React.lazy(() => import("./pages/RoundsScreen"));
 const RoomiesScreen = React.lazy(() => import("./pages/RoomiesScreen"));
 const SettingsScreen = React.lazy(() => import("./pages/SettingsScreen"));
 const WebcamsScreen = React.lazy(() => import("./pages/WebcamsScreen"));
+const SnowInfoScreen = React.lazy(() => import("./pages/SnowInfoScreen"));
 const AuthScreen = React.lazy(() => import("./pages/AuthScreen"));
 const AdminScreen = React.lazy(() => import("./pages/AdminScreen"));
 const GroupScreen = React.lazy(() => import("./pages/GroupScreen"));
@@ -125,6 +127,7 @@ const AppRoutes = () => (
       
       <Route path="/mer" element={<MoreScreen />} />
       <Route path="/webcams" element={<WebcamsScreen />} />
+      <Route path="/forhold" element={<SnowInfoScreen />} />
       <Route path="/galleri" element={<GalleryScreen />} />
       <Route path="/innstillinger" element={<SettingsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
@@ -186,8 +189,9 @@ const AppShell = () => {
       <OfflineIndicator />
       <BrowserRouter>
         <AuthProvider>
-          
-          <AppRoutes />
+          <AppBadgesProvider>
+            <AppRoutes />
+          </AppBadgesProvider>
         </AuthProvider>
       </BrowserRouter>
     </>

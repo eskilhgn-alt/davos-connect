@@ -34,6 +34,7 @@ import {
   replaceOptimisticWithServer,
   type LikeAction,
 } from "./helpers";
+import { signBatch } from "@/lib/mediaUrl";
 
 const PAGE_SIZE = 30;
 const COMMENT_PAGE_SIZE = 30;
@@ -104,6 +105,13 @@ export function useGalleryFeed(): UseGalleryFeed {
     const { data, error: err } = await q;
     if (err) throw err;
     const rows = (data as unknown as GalleryRow[]) || [];
+    const mediaByBucket = new Map<GalleryRow["storage_bucket"], string[]>();
+    for (const row of rows) {
+      const paths = mediaByBucket.get(row.storage_bucket) ?? [];
+      paths.push(row.thumbnail_path || row.storage_path);
+      mediaByBucket.set(row.storage_bucket, paths);
+    }
+    void Promise.all(Array.from(mediaByBucket, ([bucket, paths]) => signBatch(bucket, paths))).catch(() => undefined);
     setHasMore(rows.length >= PAGE_SIZE);
 
     const merged = opts.reset ? rows : mergeCursorPage(itemsRef.current, rows);

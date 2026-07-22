@@ -98,9 +98,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     setIsProfileLoading(true);
     try {
-      const profileData = await fetchProfile(user.id);
+      const [profileData, admin] = await Promise.all([
+        fetchProfile(user.id),
+        checkAdminRole(user.id),
+      ]);
       setProfile(profileData);
-      const admin = await checkAdminRole(user.id);
       setIsAdmin(admin);
     } finally {
       setIsProfileLoading(false);
@@ -141,7 +143,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTimeout(async () => {
           if (!isMounted) return;
 
-          const profileData = await fetchProfile(currentSession.user.id);
+          const [profileData, admin] = await Promise.all([
+            fetchProfile(currentSession.user.id),
+            checkAdminRole(currentSession.user.id),
+          ]);
           if (!isMounted) return;
 
           if (event === "TOKEN_REFRESHED") {
@@ -151,7 +156,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setProfile(profileData);
           }
 
-          const admin = await checkAdminRole(currentSession.user.id);
           if (isMounted) setIsAdmin(admin);
 
           if (shouldBlockForProfile && isMounted) setIsProfileLoading(false);
@@ -201,11 +205,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (initialSession?.user) {
         setIsProfileLoading(true);
 
-        const profileData = await fetchProfile(initialSession.user.id);
+        const [profileData, admin] = await Promise.all([
+          fetchProfile(initialSession.user.id),
+          checkAdminRole(initialSession.user.id),
+        ]);
         if (!isMounted) return;
         setProfile(profileData);
-
-        const admin = await checkAdminRole(initialSession.user.id);
         if (isMounted) setIsAdmin(admin);
 
         if (isMounted) setIsProfileLoading(false);

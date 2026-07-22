@@ -36,6 +36,42 @@ export interface DeleteResult {
   storageCleanupWarning?: string;
 }
 
+const STORY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function storyCacheKey(userId: string) {
+  return `guttahutte:stories:${userId}:v1`;
+}
+
+function readStoryCache(userId: string): StoryGroup[] | null {
+  try {
+    const raw = localStorage.getItem(storyCacheKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { savedAt: number; groups: StoryGroup[] };
+    if (!Array.isArray(parsed.groups) || Date.now() - parsed.savedAt > STORY_CACHE_TTL_MS) return null;
+    const now = Date.now();
+    return parsed.groups
+      .map((group) => ({
+        ...group,
+        stories: group.stories.filter((story) => new Date(story.expiresAt).getTime() > now).map((story) => ({ ...story, publicUrl: "", signError: false })),
+      }))
+      .filter((group) => group.stories.length > 0);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoryCache(userId: string, groups: StoryGroup[]): void {
+  try {
+    const serializable = groups.map((group) => ({
+      ...group,
+      stories: group.stories.map((story) => ({ ...story, publicUrl: "", signError: false })),
+    }));
+    localStorage.setItem(storyCacheKey(userId), JSON.stringify({ savedAt: Date.now(), groups: serializable }));
+  } catch {
+    // Non-fatal on constrained/private storage.
+  }
+}
+
 export function useStories() {
   const { user } = useAuth();
   const [groups, setGroups] = React.useState<StoryGroup[]>([]);
@@ -66,14 +102,16 @@ export function useStories() {
       const storyIds = storiesData.map((s: any) => s.id);
       const paths = [...new Set(storiesData.map((s: any) => s.storage_path))];
 
-      const [profilesRes, viewsRes, signedMap] = await Promise.all([
+      // Start signing immediately, but don't block rings and metadata on it.
+      // The viewer reuses the same inflight promise when opened.
+      const signedPromise = signBatch("stories", paths);
+      const [profilesRes, viewsRes] = await Promise.all([
         userIds.length > 0
           ? supabase.from("profiles").select("id, nickname, full_name").in("id", userIds)
           : Promise.resolve({ data: [], error: null } as { data: any[]; error: null }),
         storyIds.length > 0
           ? supabase.from("story_views").select("story_id").eq("user_id", user.id).in("story_id", storyIds)
           : Promise.resolve({ data: [], error: null } as { data: any[]; error: null }),
-        signBatch("stories", paths),
       ]);
 
       // Do NOT silently build a feed with missing profile/view data — surface via retry state.
@@ -89,7 +127,6 @@ export function useStories() {
 
       const groupMap = new Map<string, StoryGroup>();
       for (const row of storiesData as any[]) {
-        const signed = signedMap.get(row.storage_path);
         const story: Story = {
           id: row.id,
           userId: row.user_id,
@@ -98,9 +135,9 @@ export function useStories() {
           durationSec: row.duration_sec || 0,
           createdAt: row.created_at,
           expiresAt: row.expires_at,
-          publicUrl: signed || "",
+          publicUrl: "",
           viewed: viewedIds.has(row.id),
-          signError: !signed,
+          signError: false,
         };
 
         if (!groupMap.has(row.user_id)) {
@@ -127,7 +164,18 @@ export function useStories() {
       });
 
       setGroups(allGroups);
+      writeStoryCache(user.id, allGroups);
       setError(null);
+      void signedPromise.then((signedMap) => {
+        setGroups((current) => current.map((group) => ({
+          ...group,
+          stories: group.stories.map((story) => ({
+            ...story,
+            publicUrl: signedMap.get(story.storagePath) || story.publicUrl,
+            signError: !signedMap.has(story.storagePath),
+          })),
+        })));
+      });
     } catch (err) {
       console.error("[stories] fetch error:", err);
       setError((err as Error)?.message || "Kunne ikke laste historier");
@@ -136,7 +184,16 @@ export function useStories() {
     }
   }, [user]);
 
-  React.useEffect(() => { fetchStories(); }, [fetchStories]);
+  React.useEffect(() => {
+    if (!user) return;
+    const cached = readStoryCache(user.id);
+    if (cached) {
+      setGroups(cached);
+      setLoading(false);
+      void signBatch("stories", cached.flatMap((group) => group.stories.map((story) => story.storagePath)));
+    }
+    void fetchStories();
+  }, [fetchStories, user]);
 
   React.useEffect(() => {
     const channel = supabase

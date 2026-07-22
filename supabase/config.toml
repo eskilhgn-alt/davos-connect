@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.story-push]
 verify_jwt = true
+
+[functions.val-thorens-live]
+verify_jwt = true
