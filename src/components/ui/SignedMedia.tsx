@@ -23,6 +23,7 @@ import {
   invalidateMediaUrl,
   isKnownBucket,
   parsePublicStorageUrl,
+  peekMediaUrl,
   PRIVATE_BUCKETS,
   __TEST__,
   type Bucket,
@@ -69,9 +70,10 @@ export function useSignedMedia(
   path?: string | null,
   url?: string | null,
 ): SignedMediaState {
-  const [state, setState] = React.useState<{ url: string | undefined; status: SignedStatus; error: string | null }>(
-    { url: undefined, status: 'idle', error: null },
-  );
+  const immediate = peekMediaUrl({ bucket, path, url });
+  const [state, setState] = React.useState<{ url: string | undefined; status: SignedStatus; error: string | null }>(() => (
+    { url: immediate, status: immediate ? 'ready' : 'idle', error: null }
+  ));
   // Bump this counter to force a re-resolve (retry).
   const [nonce, setNonce] = React.useState(0);
 
@@ -84,7 +86,8 @@ export function useSignedMedia(
     }
     let live = true;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    setState((s) => ({ ...s, status: 'loading', error: null }));
+    const warm = peekMediaUrl({ bucket, path, url });
+    setState({ url: warm, status: warm ? 'ready' : 'loading', error: null });
 
     const startedAt = Date.now();
     const ttlSec = __TEST__.DEFAULT_TTL_SEC;

@@ -47,6 +47,15 @@ export default defineConfig(({ mode }) => ({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          {
+            urlPattern: /^https:\/\/(?:api\.skaping\.com|www\.trinum\.com)\//,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "trip-webcams",
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
     }),

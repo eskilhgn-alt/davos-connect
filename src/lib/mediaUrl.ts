@@ -142,6 +142,32 @@ export function msUntilRefresh(entry: CacheEntry, now = Date.now()): number {
   return Math.max(0, entry.signedAt + entry.ttlMs * REFRESH_THRESHOLD - now);
 }
 
+/**
+ * Synchronous best-effort lookup used by renderers to avoid a one-frame
+ * skeleton when a signed URL is already warm. It never starts network work.
+ */
+export function peekMediaUrl(input: {
+  bucket?: Bucket | null | string;
+  path?: string | null;
+  url?: string | null;
+}): string | undefined {
+  let bucket: Bucket | undefined;
+  let path: string | undefined;
+  if (input.bucket && input.path && isKnownBucket(input.bucket)) {
+    bucket = input.bucket;
+    path = input.path;
+  } else if (input.url) {
+    const parsed = parsePublicStorageUrl(input.url);
+    if (!parsed) return input.url;
+    bucket = parsed.bucket;
+    path = parsed.path;
+  }
+  if (!bucket || !path) return undefined;
+  if (PUBLIC_BUCKETS.has(bucket)) return publicResolver(bucket, path);
+  const cached = cache.get(keyFor(bucket, path));
+  return cached && !isExpired(cached) ? cached.url : undefined;
+}
+
 // ---------- Core sign ----------
 async function ensureSigned(bucket: Bucket, path: string, ttlSec: number): Promise<string> {
   const k = keyFor(bucket, path);

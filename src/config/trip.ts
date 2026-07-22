@@ -78,6 +78,8 @@ export interface TripConfig {
   officialLinks: {
     trailMap?: TripLink;
     weather?: TripLink;
+    snowInfo?: TripLink;
+    avalanche?: TripLink;
     safety?: TripLink;
     webcams?: TripLink;
   };
@@ -118,9 +120,23 @@ export const VAL_THORENS_2027: TripConfig = {
     },
     weather: {
       id: "weather",
-      title: "Vær & skred (Meteo-France)",
+      title: "Val Thorens fjellvær",
+      url: "https://www.valthorens.com/en/meteo/",
+      description: "Offisiell fjellprognose for Val Thorens",
+      embeddable: false,
+    },
+    snowInfo: {
+      id: "snow-info",
+      title: "Snø, heiser og løyper",
+      url: "https://www.valthorens.com/en/infos-neige/",
+      description: "Live åpningstider og status fra skiområdet",
+      embeddable: false,
+    },
+    avalanche: {
+      id: "avalanche",
+      title: "Fjellvær & skred (Meteo-France)",
       url: "https://meteofrance.com/meteo-montagne/val-thorens/732573",
-      description: "Offisiell fjellprognose og skredvarsel",
+      description: "Offisielt skredvarsel",
       embeddable: false,
     },
     safety: {
@@ -138,10 +154,53 @@ export const VAL_THORENS_2027: TripConfig = {
   },
   webcams: [
     {
-      id: "valthorens-official",
-      name: "Val Thorens live",
+      id: "prosneige",
+      name: "Prosneige",
+      area: "Val Thorens",
+      externalUrl: "https://www.valthorens.com/en/webcams/",
+      snapshotUrl: "https://api.skaping.com/EdhD-J696-lZPd-i0xE-CqXk/media/latest/mini.jpg",
+    },
+    {
+      id: "la-maison",
+      name: "La Maison",
       area: "Sentrum",
       externalUrl: "https://www.valthorens.com/en/webcams/",
+      snapshotUrl: "https://api.skaping.com/0qmB-W208-FhUp-eDJW-695z/media/latest/mini.jpg",
+    },
+    {
+      id: "la-bee",
+      name: "La Bee",
+      area: "Val Thorens",
+      externalUrl: "https://www.valthorens.com/en/webcams/",
+      snapshotUrl: "https://api.skaping.com/3hF6T-pqbOx-AFvLe-dpMgD/media/latest/mini.jpg",
+    },
+    {
+      id: "plan-bouchet",
+      name: "Plan Bouchet",
+      area: "Orelle",
+      externalUrl: "https://www.valthorens.com/en/webcams/",
+      snapshotUrl: "https://www.trinum.com/ibox/FTPCam/mega_orelle_sommet-tc-orelle.jpg",
+    },
+    {
+      id: "pointe-bouchet",
+      name: "Pointe du Bouchet",
+      area: "Orelle",
+      externalUrl: "https://www.valthorens.com/en/webcams/",
+      snapshotUrl: "https://www.trinum.com/ibox/FTPCam/mega_val_thorens_tyrolienne.jpg",
+    },
+    {
+      id: "rond-point",
+      name: "Rond-point des pistes",
+      area: "Val Thorens",
+      externalUrl: "https://www.valthorens.com/en/webcams/",
+      snapshotUrl: "https://api.skaping.com/tHCTk-f4ZXm-e4NYt-ZfRkr/media/latest/mini.jpg",
+    },
+    {
+      id: "cime-caron",
+      name: "Cime Caron",
+      area: "3 200 moh.",
+      externalUrl: "https://www.valthorens.com/en/webcams/",
+      snapshotUrl: "https://api.skaping.com/QzlPb-9TgDQ-UcTxH-xv8KW/media/latest/large.jpg",
     },
   ],
   emergency: [
@@ -172,7 +231,7 @@ export const VAL_THORENS_2027: TripConfig = {
       ],
     },
   ],
-  integrationsPending: true,
+  integrationsPending: false,
 };
 
 /**

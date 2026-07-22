@@ -751,20 +751,18 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
 
       // Gallery sync handled by database trigger (sync_story_to_gallery)
 
-      // Send story push (best effort — inspect resolved error).
+      // Success UI must not wait for push delivery. Notification is best-effort
+      // background work after the durable story row exists.
       if (inserted?.id) {
-        try {
-          const { error: pushErr } = await supabase.functions.invoke("story-push", {
+        void supabase.functions.invoke("story-push", {
             body: { story_id: inserted.id },
-          });
+          }).then(({ error: pushErr }) => {
           if (pushErr) {
             console.warn("[story-push] failed:", pushErr);
-            toast.warning("Story publisert, men varsel ble ikke sendt");
           }
-        } catch (e) {
+          }).catch((e) => {
           console.warn("[story-push] failed:", e);
-          toast.warning("Story publisert, men varsel ble ikke sendt");
-        }
+          });
       }
 
       toast.success("Story publisert! 🎉");

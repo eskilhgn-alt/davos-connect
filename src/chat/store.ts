@@ -23,6 +23,7 @@ import {
   serializeAttachmentForPersist,
   type Cursor,
 } from './logic';
+import { isKnownBucket, signBatch, type Bucket } from '@/lib/mediaUrl';
 
 
 const DEFAULT_THREAD_ID = '00000000-0000-0000-0000-000000000001';
@@ -32,6 +33,8 @@ const TYPING_TTL_MS = 3000;
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 // Bounded deep-link paging: at most this many extra pages to find the target id.
 const MAX_DEEP_LINK_PAGES = 40;
+const CHAT_CACHE_KEY = 'guttahutte:chat-latest:v2';
+const CHAT_CACHE_LIMIT = 50;
 
 // ============ Auth ============
 async function getCurrentUserId(): Promise<string> {
@@ -97,6 +100,63 @@ const subs = new Set<Sub>();
 const statusSubs = new Set<StatusSub>();
 let replyTo: ReplyPreview | null = null;
 const replySubs = new Set<(r: ReplyPreview | null) => void>();
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function hydrateMessageCache(): void {
+  if (state.byId.size > 0) return;
+  try {
+    const raw = localStorage.getItem(CHAT_CACHE_KEY);
+    if (!raw) return;
+    const cached = JSON.parse(raw) as { messages?: Message[] };
+    if (!Array.isArray(cached.messages)) return;
+    for (const message of cached.messages) {
+      if (!message?.id || typeof message.createdAt !== 'number') continue;
+      state.byId.set(message.id, { ...message, deliveryState: 'sent' });
+    }
+    state.cursor = oldestCursor(Array.from(state.byId.values()));
+    state.hasMore = true;
+  } catch {
+    // A broken/blocked local cache must never prevent online chat loading.
+  }
+}
+
+function schedulePersist(): void {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    try {
+      const messages = sortedMessages()
+        .filter((message) => message.deliveryState === 'sent')
+        .slice(-CHAT_CACHE_LIMIT)
+        .map((message) => ({
+          ...message,
+          attachments: message.attachments.map((attachment) => ({
+            ...attachment,
+            file: undefined,
+            objectUrl: attachment.objectUrl?.startsWith('blob:') ? '' : attachment.objectUrl,
+            thumbUrl: attachment.thumbUrl?.startsWith('blob:') ? undefined : attachment.thumbUrl,
+          })),
+        }));
+      localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), messages }));
+    } catch {
+      // Safari private mode can reject writes; in-memory chat continues.
+    }
+  }, 220);
+}
+
+function primeMessageMedia(messages: Message[]): void {
+  const paths = new Map<Bucket, string[]>();
+  for (const message of messages) {
+    for (const attachment of message.attachments) {
+      if (!attachment.storageBucket || !attachment.storagePath || !isKnownBucket(attachment.storageBucket)) continue;
+      const list = paths.get(attachment.storageBucket) ?? [];
+      list.push(attachment.storagePath);
+      if (attachment.thumbnailPath) list.push(attachment.thumbnailPath);
+      paths.set(attachment.storageBucket, list);
+    }
+  }
+  void Promise.all(Array.from(paths, ([bucket, bucketPaths]) => signBatch(bucket, bucketPaths))).catch(() => undefined);
+}
 
 function withResolvedReactions(m: Message): Message {
   const normalized = state.reactionsByMessage.get(m.id);
@@ -114,6 +174,7 @@ function sortedMessages(): Message[] {
 function notify() {
   const snapshot = sortedMessages();
   subs.forEach((s) => s(snapshot));
+  schedulePersist();
 }
 function notifyStatus(next: ChannelStatus) {
   state.channelStatus = next;
@@ -213,9 +274,19 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
     }
     filtered = keep;
     filteredRows = keepRows;
+  } else if (messages.length > 0) {
+    // A latest-page refresh is authoritative for the visible window. Drop an
+    // old cached/paginated tail before resetting the cursor, otherwise a user
+    // who was away for >50 messages could retain an unfillable gap.
+    const fetchedIds = new Set(messages.map((message) => message.id));
+    const newestFetchedAt = Math.max(...messages.map((message) => message.createdAt));
+    for (const [id, existing] of state.byId) {
+      if (!fetchedIds.has(id) && existing.createdAt <= newestFetchedAt) state.byId.delete(id);
+    }
+    state.cursor = null;
   }
-  await fetchReplyPreviews(filtered, filteredRows);
   for (const m of filtered) state.byId.set(m.id, m);
+  primeMessageMedia(filtered);
   const newCursor = oldestCursor(filtered.length ? filtered : []);
   if (newCursor) {
     if (!state.cursor || isBeforeCursor(newCursor, state.cursor)) {
@@ -224,7 +295,14 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
   }
   // If the query returned fewer rows than the limit, there is nothing older.
   state.hasMore = messages.length >= limit;
-  await fetchReactionsFor(filtered.map((m) => m.id));
+  // Render message bodies immediately. Reply previews and reactions are
+  // enrichment and must not delay the first useful chat frame.
+  notify();
+  await Promise.all([
+    fetchReplyPreviews(filtered, filteredRows),
+    fetchReactionsFor(filtered.map((m) => m.id)),
+  ]);
+  notify();
   return filtered.length;
 }
 
@@ -234,7 +312,6 @@ export async function loadEarlier(): Promise<{ loaded: number; hasMore: boolean 
     return { loaded: 0, hasMore: state.hasMore };
   }
   const loaded = await loadPage(state.cursor);
-  notify();
   return { loaded, hasMore: state.hasMore };
 }
 
@@ -256,12 +333,13 @@ export async function ensureMessageLoaded(messageId: string): Promise<boolean> {
 // ============ Realtime ============
 async function applyInsert(row: Record<string, unknown>) {
   const msg = dbToMessage(row);
-  await fetchReplyPreviews([msg], [row]);
   state.byId.set(msg.id, msg);
   for (const [cid, opt] of state.optimistic) {
     if (opt.id === msg.id) state.optimistic.delete(cid);
   }
-  await fetchReactionsFor([msg.id]);
+  primeMessageMedia([msg]);
+  notify();
+  await Promise.all([fetchReplyPreviews([msg], [row]), fetchReactionsFor([msg.id])]);
   notify();
 }
 function applyUpdate(row: Record<string, unknown>) {
@@ -314,15 +392,29 @@ function applyReactionChange(evt: string, row: Record<string, unknown> | null, o
 
 // ============ Subscribe ============
 let messageChannel: ReturnType<typeof supabase.channel> | null = null;
+let latestLoad: Promise<number> | null = null;
+
+function revalidateLatest(): Promise<number> {
+  if (latestLoad) return latestLoad;
+  latestLoad = loadPage().finally(() => { latestLoad = null; });
+  return latestLoad;
+}
+
+const handleChatWake = () => {
+  if (subs.size > 0 && document.visibilityState === 'visible') {
+    void revalidateLatest().catch((error) => console.warn('[chat] wake refresh failed', error));
+  }
+};
+
 export function subscribeToMessages(callback: Sub): () => void {
   subs.add(callback);
-  if (state.byId.size === 0 && !state.loading) {
-    loadPage().then(() => notify()).catch((e) => console.error('[chat] initial load', e));
-  } else {
-    callback(sortedMessages());
-  }
+  hydrateMessageCache();
+  callback(sortedMessages());
+  void revalidateLatest().catch((e) => console.error('[chat] latest load', e));
 
   if (!messageChannel) {
+    window.addEventListener('pageshow', handleChatWake);
+    document.addEventListener('visibilitychange', handleChatWake);
     notifyStatus('connecting');
     messageChannel = supabase
       .channel('chat-messages-rt')
@@ -339,7 +431,10 @@ export function subscribeToMessages(callback: Sub): () => void {
         { event: '*', schema: 'public', table: 'message_reactions' },
         (p) => applyReactionChange(p.eventType, p.new as Record<string, unknown> | null, p.old as Record<string, unknown> | null))
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') notifyStatus('connected');
+        if (status === 'SUBSCRIBED') {
+          notifyStatus('connected');
+          void revalidateLatest().catch((error) => console.warn('[chat] reconnect refresh failed', error));
+        }
         else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') notifyStatus('reconnecting');
         else if (status === 'CLOSED') notifyStatus('offline');
       });
@@ -350,6 +445,8 @@ export function subscribeToMessages(callback: Sub): () => void {
     if (subs.size === 0 && messageChannel) {
       supabase.removeChannel(messageChannel);
       messageChannel = null;
+      window.removeEventListener('pageshow', handleChatWake);
+      document.removeEventListener('visibilitychange', handleChatWake);
       notifyStatus('idle');
     }
   };
@@ -506,14 +603,18 @@ async function uploadOne(att: Attachment, senderId: string): Promise<Attachment>
 async function uploadAttachmentsForPending(p: PendingSend): Promise<Attachment[]> {
   // Snapshot original order.
   const originalOrder = p.attachments.map((a) => a.id);
-  // Work sequentially so per-item persistence is trivially correct.
-  for (const att of [...p.attachments]) {
-    const stillPending = attachmentsNeedingUpload([att]).length > 0;
-    if (!stillPending) continue;
-    const uploaded = await uploadOne(att, p.senderId);
-    // Rewrite the single entry in place, preserving order.
-    p.attachments = p.attachments.map((a) => (a.id === att.id ? uploaded : a));
-  }
+  const queue = [...p.attachments].filter((att) => attachmentsNeedingUpload([att]).length > 0);
+  // Two workers keeps mobile memory bounded while avoiding one full network
+  // round-trip per attachment when several photos are sent together.
+  const worker = async () => {
+    while (queue.length > 0) {
+      const att = queue.shift();
+      if (!att) return;
+      const uploaded = await uploadOne(att, p.senderId);
+      p.attachments = p.attachments.map((item) => (item.id === att.id ? uploaded : item));
+    }
+  };
+  await Promise.all([worker(), worker()]);
   const done = attachmentsAlreadyUploaded(p.attachments);
   const byId = new Map<string, Attachment>();
   done.forEach((a) => byId.set(a.id, a));
