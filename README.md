@@ -12,9 +12,10 @@ ikke i UI.
 - **Chat** – gruppechat med bilder og realtime.
 - **Kart** – offisielt Val Thorens-løypekart og (via egen inngang) frivillig
   crew-posisjon på `/crew`.
-- **Mer** – agenda, roomies, avstemninger, runder, galleri, historier,
+- **Mer** – agenda, avstemninger, runder, galleri, historier,
   Gütta-oversikt, innstillinger, admin. En lavt prioritert seksjon "Fest og
-  spill" samler frivillige tilleggsfunksjoner (faktasjekker).
+  spill" samler frivillige tilleggsfunksjoner. Faktasjekk bruker GPT-5.6 Sol
+  med ekstra høy resonnering, serverstyrt historikk og aktivt nettsøk.
 
 ## Vær og skred
 
@@ -22,7 +23,8 @@ ikke i UI.
   sentrert på `ACTIVE_TRIP.center` og `ACTIVE_TRIP.timezone`. Ingen API-nøkkel.
 - Offisielt fjellvær og skredvarsel lenker eksternt til **Meteo-France** via
   `ACTIVE_TRIP.officialLinks.weather`. Vi presenterer ikke oppdiktet faregrad.
-- Webkameraer og løypekart lenker til `valthorens.com`.
+- Webkameraer vises som direktebilder. Det offisielle interaktive løypekartet
+  åpnes inne i appen, med live heis- og løypestatus i samme skjerm.
 
 ## Posisjon (crew)
 

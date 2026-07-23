@@ -22,7 +22,6 @@ const HomeScreen = React.lazy(() => import("./pages/HomeScreen"));
 const MoreScreen = React.lazy(() => import("./pages/MoreScreen"));
 const MapScreen = React.lazy(() => import("./pages/MapScreen"));
 const CrewMapScreen = React.lazy(() => import("./pages/CrewMapScreen"));
-const LiveScreen = React.lazy(() => import("./pages/LiveScreen"));
 const GalleryScreen = React.lazy(() => import("./pages/GalleryScreen"));
 const WeatherScreen = React.lazy(() => import("./pages/WeatherScreen"));
 const AgendaScreen = React.lazy(() => import("./pages/AgendaScreen"));
@@ -30,14 +29,11 @@ const FaktasjekkerScreen = React.lazy(() => import("./pages/FaktasjekkerScreen")
 const StoriesScreen = React.lazy(() => import("./pages/StoriesScreen"));
 const PollScreen = React.lazy(() => import("./pages/PollScreen"));
 const RoundsScreen = React.lazy(() => import("./pages/RoundsScreen"));
-const RoomiesScreen = React.lazy(() => import("./pages/RoomiesScreen"));
 const SettingsScreen = React.lazy(() => import("./pages/SettingsScreen"));
 const WebcamsScreen = React.lazy(() => import("./pages/WebcamsScreen"));
-const SnowInfoScreen = React.lazy(() => import("./pages/SnowInfoScreen"));
 const AuthScreen = React.lazy(() => import("./pages/AuthScreen"));
 const AdminScreen = React.lazy(() => import("./pages/AdminScreen"));
 const GroupScreen = React.lazy(() => import("./pages/GroupScreen"));
-const AvalancheScreen = React.lazy(() => import("./pages/AvalancheScreen"));
 const ResetPasswordScreen = React.lazy(() => import("./pages/ResetPasswordScreen"));
 const VerifyEmailScreen = React.lazy(() => import("./pages/VerifyEmailScreen"));
 const OAuthConsent = React.lazy(() => import("./pages/OAuthConsent"));
@@ -121,13 +117,13 @@ const AppRoutes = () => (
       <Route path="/" element={<Navigate to="/hjem" replace />} />
       <Route path="/hjem" element={<HomeScreen />} />
       <Route path="/vaer" element={<WeatherScreen />} />
-      <Route path="/live" element={<LiveScreen />} />
+      <Route path="/live" element={<Navigate to="/kart?vis=status" replace />} />
       <Route path="/kart" element={<MapScreen />} />
       <Route path="/crew" element={<CrewMapScreen />} />
       
       <Route path="/mer" element={<MoreScreen />} />
       <Route path="/webcams" element={<WebcamsScreen />} />
-      <Route path="/forhold" element={<SnowInfoScreen />} />
+      <Route path="/forhold" element={<Navigate to="/kart?vis=status" replace />} />
       <Route path="/galleri" element={<GalleryScreen />} />
       <Route path="/innstillinger" element={<SettingsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
@@ -137,14 +133,14 @@ const AppRoutes = () => (
       <Route path="/historier" element={<StoriesScreen />} />
       <Route path="/poll" element={<PollScreen />} />
       <Route path="/runder" element={<RoundsScreen />} />
-      <Route path="/roomies" element={<RoomiesScreen />} />
+      <Route path="/roomies" element={<Navigate to="/mer" replace />} />
       <Route path="/alle" element={<GroupScreen />} />
       <Route path="/shot" element={<Navigate to="/hjem" replace />} />
       <Route path="/tokens" element={<Navigate to="/hjem" replace />} />
       <Route path="/regler" element={<Navigate to="/hjem" replace />} />
       <Route path="/nodinfo" element={<Navigate to="/hjem" replace />} />
       <Route path="/casino" element={<Navigate to="/hjem" replace />} />
-      <Route path="/skred" element={<AvalancheScreen />} />
+      <Route path="/skred" element={<Navigate to="/vaer#sikkerhet" replace />} />
 
     </Route>
     
@@ -153,10 +149,9 @@ const AppRoutes = () => (
   </React.Suspense>
 );
 
-// Global PWA hardening — prevents silent async crashes + browser context menu
-const useGlobalPwaHardening = () => {
+// Prevent silent async crashes without overriding normal browser/mobile gestures.
+const useGlobalErrorHandling = () => {
   React.useEffect(() => {
-    // Unhandled promise rejections
     const rejectionHandler = (event: PromiseRejectionEvent) => {
       console.error("Unhandled promise rejection:", event.reason);
       errorToast("En uventet feil oppstod");
@@ -164,24 +159,14 @@ const useGlobalPwaHardening = () => {
     };
     window.addEventListener("unhandledrejection", rejectionHandler);
 
-    // Block browser context menu globally (long-press on mobile)
-    const contextHandler = (e: MouseEvent) => {
-      // Allow context menu on inputs/textareas for paste functionality
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
-      e.preventDefault();
-    };
-    document.addEventListener("contextmenu", contextHandler);
-
     return () => {
       window.removeEventListener("unhandledrejection", rejectionHandler);
-      document.removeEventListener("contextmenu", contextHandler);
     };
   }, []);
 };
 
 const AppShell = () => {
-  useGlobalPwaHardening();
+  useGlobalErrorHandling();
   return (
     <>
       <Toaster />

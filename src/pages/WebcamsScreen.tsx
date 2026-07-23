@@ -35,7 +35,7 @@ export const WebcamsScreen: React.FC = () => {
       <AppHeader
         title="Webkameraer"
         subtitle={`${trip.destination} · oppdateres hvert minutt`}
-        leftAction={<BackButton fallbackPath="/live" />}
+        leftAction={<BackButton fallbackPath="/hjem" />}
         rightAction={
           <button type="button" onClick={refresh} className="tap-target flex items-center justify-center text-muted-foreground" aria-label="Oppdater webkameraer">
             <RefreshCw size={18} />

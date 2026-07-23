@@ -100,6 +100,7 @@ export const ChatScreen: React.FC = () => {
         messages={messages}
         currentUserId={userId}
         composerHeight={composerHeight}
+        viewportHeight={vvh}
         isTyping={typingState.isTyping}
         deepLinkMessageId={deepLinkMessageId}
       />

@@ -21,7 +21,7 @@ import { ACTIVE_TRIP, tripDaysUntilStart } from "@/config/trip";
 import {
   MessageCircle,
   CloudSun,
-  Radio,
+  Camera,
   Map as MapIcon,
   CalendarDays,
   MoreHorizontal,
@@ -70,7 +70,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/chat", label: "Chat", icon: MessageCircle, badge: badges.chat },
       { to: "/kart", label: "Kart", icon: MapIcon },
       { to: "/vaer", label: "Vær", icon: CloudSun },
-      { to: "/live", label: "Live", icon: Radio },
+      { to: "/webcams", label: "Webkamera", icon: Camera },
       { to: "/agenda", label: "Agenda", icon: CalendarDays, badge: badges.agenda },
       { to: "/mer", label: "Mer", icon: MoreHorizontal },
     ],

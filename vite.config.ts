@@ -20,10 +20,14 @@ export default defineConfig(({ mode }) => ({
     mcpPlugin(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "script-defer",
+      // Registration is handled in main.tsx so Lovable preview can never be
+      // trapped behind a service worker from an older build.
+      injectRegister: null,
       manifest: false,
       includeAssets: ["favicon.ico", "app-icon.png", "app-icon.jpeg"],
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         cleanupOutdatedCaches: true,
         navigateFallback: "/index.html",
         globPatterns: ["**/*.{js,css,html,ico,png,jpeg,svg,woff,woff2}"],
