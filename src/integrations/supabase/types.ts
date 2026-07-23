@@ -279,6 +279,38 @@ export type Database = {
         }
         Relationships: []
       }
+      email_verification_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          last_sent_at: string
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          last_sent_at?: string
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          last_sent_at?: string
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_verification_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faktasjekker_messages: {
         Row: {
           completed_at: string | null
@@ -337,6 +369,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      faktasjekker_rate_limits: {
+        Row: {
+          request_count: number
+          updated_at: string
+          user_id: string
+          window_start: string
+          window_type: string
+        }
+        Insert: {
+          request_count?: number
+          updated_at?: string
+          user_id: string
+          window_start: string
+          window_type: string
+        }
+        Update: {
+          request_count?: number
+          updated_at?: string
+          user_id?: string
+          window_start?: string
+          window_type?: string
+        }
+        Relationships: []
       }
       faktasjekker_threads: {
         Row: {
@@ -633,6 +689,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_dispatches: {
+        Row: {
+          claimed_at: string
+          dedupe_key: string
+          event_type: string
+          kind: string
+          last_error: string | null
+          sent_at: string | null
+          source_id: string | null
+        }
+        Insert: {
+          claimed_at?: string
+          dedupe_key: string
+          event_type: string
+          kind: string
+          last_error?: string | null
+          sent_at?: string | null
+          source_id?: string | null
+        }
+        Update: {
+          claimed_at?: string
+          dedupe_key?: string
+          event_type?: string
+          kind?: string
+          last_error?: string | null
+          sent_at?: string | null
+          source_id?: string | null
+        }
+        Relationships: []
       }
       place_query_cache: {
         Row: {
@@ -1022,30 +1108,6 @@ export type Database = {
           player_id?: string
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      faktasjekker_rate_limits: {
-        Row: {
-          request_count: number
-          updated_at: string
-          user_id: string
-          window_start: string
-          window_type: string
-        }
-        Insert: {
-          request_count?: number
-          updated_at?: string
-          user_id: string
-          window_start: string
-          window_type: string
-        }
-        Update: {
-          request_count?: number
-          updated_at?: string
-          user_id?: string
-          window_start?: string
-          window_type?: string
         }
         Relationships: []
       }
@@ -2062,14 +2124,21 @@ export type Database = {
       }
     }
     Functions: {
+      consume_email_verification_token: {
+        Args: { p_token_hash: string }
+        Returns: {
+          status: string
+          verified_user_id: string
+        }[]
+      }
       consume_faktasjekker_quota: {
         Args: { p_user_id: string }
         Returns: boolean
       }
       create_poll_with_options: {
         Args: {
-          p_deadline_at?: string | null
-          p_min_votes?: number | null
+          p_deadline_at?: string
+          p_min_votes?: number
           p_options: string[]
           p_question: string
           p_require_all?: boolean
@@ -2085,12 +2154,34 @@ export type Database = {
           p_drink_quantities?: Json
           p_drink_type: string
           p_is_treated?: boolean
-          p_note?: string | null
+          p_note?: string
           p_participant_ids: string[]
-          p_receipt_path?: string | null
+          p_receipt_path?: string
           p_total_cost: number
         }
-        Returns: Database["public"]["Tables"]["rounds"]["Row"]
+        Returns: {
+          buyer_id: string
+          client_id: string | null
+          cost_per_person: number
+          created_at: string
+          currency: string
+          drink_quantities: Json
+          drink_type: string
+          id: string
+          is_treated: boolean
+          note: string | null
+          push_claimed_at: string | null
+          push_sent_at: string | null
+          receipt_image_url: string | null
+          receipt_uploaded_by: string | null
+          total_cost: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rounds"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       has_role: {
         Args: {
@@ -2100,21 +2191,6 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
-      start_faktasjekk: {
-        Args: {
-          p_claim: string
-          p_request_id: string
-          p_thread_id: string | null
-          p_user_id: string
-        }
-        Returns: {
-          assistant_message_id: string
-          created_at: string
-          existing: boolean
-          thread_id: string
-          user_message_id: string | null
-        }[]
-      }
       rpc_admin_adjust_tokens: {
         Args: { p_delta: number; p_reason: string; p_user_id: string }
         Returns: Json
@@ -2184,6 +2260,21 @@ export type Database = {
       rpc_start_shot_round: { Args: { p_group_id?: string }; Returns: Json }
       rpc_start_shot_simple: { Args: { p_group_id?: string }; Returns: Json }
       rpc_use_frikort: { Args: { p_event_id: string }; Returns: Json }
+      start_faktasjekk: {
+        Args: {
+          p_claim: string
+          p_request_id: string
+          p_thread_id: string
+          p_user_id: string
+        }
+        Returns: {
+          assistant_message_id: string
+          created_at: string
+          existing: boolean
+          thread_id: string
+          user_message_id: string
+        }[]
+      }
     }
     Enums: {
       app_role: "user" | "admin"
