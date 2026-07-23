@@ -1,0 +1,6 @@
+-- Lovable recorded the Roomies/Faktasjekker migration under this generated
+-- version when it applied the canonical 20260723080202 migration.
+--
+-- This intentionally remains a no-op in source control. The canonical
+-- migration contains the schema changes, while keeping this version prevents
+-- local/remote migration-history drift and duplicate policy creation.
