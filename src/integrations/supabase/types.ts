@@ -243,36 +243,6 @@ export type Database = {
           },
         ]
       }
-      checklist_items: {
-        Row: {
-          checked: boolean
-          checked_by: string | null
-          created_at: string
-          created_by: string
-          id: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          checked?: boolean
-          checked_by?: string | null
-          created_at?: string
-          created_by: string
-          id?: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          checked?: boolean
-          checked_by?: string | null
-          created_at?: string
-          created_by?: string
-          id?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       debt_settlements: {
         Row: {
           amount: number
@@ -311,25 +281,52 @@ export type Database = {
       }
       faktasjekker_messages: {
         Row: {
+          completed_at: string | null
+          confidence: number | null
           content: string
           created_at: string
+          error_code: string | null
           id: string
+          model: string | null
+          request_id: string | null
+          response_id: string | null
           role: string
+          sources: Json
+          status: string
           thread_id: string
+          verdict: string | null
         }
         Insert: {
+          completed_at?: string | null
+          confidence?: number | null
           content?: string
           created_at?: string
+          error_code?: string | null
           id?: string
+          model?: string | null
+          request_id?: string | null
+          response_id?: string | null
           role: string
+          sources?: Json
+          status?: string
           thread_id: string
+          verdict?: string | null
         }
         Update: {
+          completed_at?: string | null
+          confidence?: number | null
           content?: string
           created_at?: string
+          error_code?: string | null
           id?: string
+          model?: string | null
+          request_id?: string | null
+          response_id?: string | null
           role?: string
+          sources?: Json
+          status?: string
           thread_id?: string
+          verdict?: string | null
         }
         Relationships: [
           {
@@ -343,22 +340,40 @@ export type Database = {
       }
       faktasjekker_threads: {
         Row: {
+          completed_at: string | null
           created_at: string
           id: string
+          last_error: string | null
+          model: string | null
+          status: string
           title: string
+          updated_at: string
           user_id: string
+          visibility: string
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
           id?: string
+          last_error?: string | null
+          model?: string | null
+          status?: string
           title: string
+          updated_at?: string
           user_id: string
+          visibility?: string
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
           id?: string
+          last_error?: string | null
+          model?: string | null
+          status?: string
           title?: string
+          updated_at?: string
           user_id?: string
+          visibility?: string
         }
         Relationships: []
       }
@@ -1010,48 +1025,27 @@ export type Database = {
         }
         Relationships: []
       }
-      roomie_draws: {
+      faktasjekker_rate_limits: {
         Row: {
-          countdown_ends_at: string | null
-          created_at: string
-          created_by: string
-          id: string
-          pairs: Json
-          status: string
-        }
-        Insert: {
-          countdown_ends_at?: string | null
-          created_at?: string
-          created_by: string
-          id?: string
-          pairs?: Json
-          status?: string
-        }
-        Update: {
-          countdown_ends_at?: string | null
-          created_at?: string
-          created_by?: string
-          id?: string
-          pairs?: Json
-          status?: string
-        }
-        Relationships: []
-      }
-      roomie_rooms: {
-        Row: {
-          room_label: string
+          request_count: number
           updated_at: string
           user_id: string
+          window_start: string
+          window_type: string
         }
         Insert: {
-          room_label?: string
+          request_count?: number
           updated_at?: string
           user_id: string
+          window_start: string
+          window_type: string
         }
         Update: {
-          room_label?: string
+          request_count?: number
           updated_at?: string
           user_id?: string
+          window_start?: string
+          window_type?: string
         }
         Relationships: []
       }
@@ -2068,6 +2062,10 @@ export type Database = {
       }
     }
     Functions: {
+      consume_faktasjekker_quota: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       create_poll_with_options: {
         Args: {
           p_deadline_at?: string | null
@@ -2102,6 +2100,21 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      start_faktasjekk: {
+        Args: {
+          p_claim: string
+          p_request_id: string
+          p_thread_id: string | null
+          p_user_id: string
+        }
+        Returns: {
+          assistant_message_id: string
+          created_at: string
+          existing: boolean
+          thread_id: string
+          user_message_id: string | null
+        }[]
+      }
       rpc_admin_adjust_tokens: {
         Args: { p_delta: number; p_reason: string; p_user_id: string }
         Returns: Json

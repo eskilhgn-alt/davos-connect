@@ -30,7 +30,6 @@ export const NAV_ITEMS: NavItem[] = [
       "/agenda",
       "/poll",
       "/runder",
-      "/roomies",
       "/galleri",
       "/historier",
       "/innstillinger",

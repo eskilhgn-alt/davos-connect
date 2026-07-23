@@ -13,7 +13,9 @@ export const OFFICIAL_PISTE_MAP_URL =
   "https://lumiplay.link/interactive-map/les-3-vallees/fr";
 
 export const MapScreen: React.FC = () => {
-  const [tab, setTab] = React.useState<MapTab>("map");
+  const [tab, setTab] = React.useState<MapTab>(() =>
+    new URLSearchParams(window.location.search).get("vis") === "status" ? "status" : "map",
+  );
   const trip = ACTIVE_TRIP;
 
   return (

@@ -85,7 +85,8 @@ Deno.serve(async (req) => {
       { table: "poll_votes", col: "user_id" },
       { table: "story_views", col: "user_id" },
       { table: "bug_reports", col: "user_id" },
-      { table: "checklist_items", col: "created_by" },
+      { table: "faktasjekker_threads", col: "user_id" },
+      { table: "faktasjekker_rate_limits", col: "user_id" },
       { table: "admin_notes", col: "target_user_id" },
     ];
 
