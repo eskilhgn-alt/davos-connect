@@ -1,15 +1,33 @@
-/**
- * useFaktasjekker — manages conversation threads with the AI fact-checker
- * Threads are stored in the database and shared across all users.
- */
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { parseSseJson, takeSseFrames } from "@/features/fact-checker/sse";
+
+export type FaktaVerdict =
+  | "sant"
+  | "hovedsakelig_sant"
+  | "misvisende"
+  | "hovedsakelig_feil"
+  | "feil"
+  | "ikke_verifiserbart";
+
+export type FaktaStage = "searching" | "comparing" | "writing";
+
+export interface FaktaSource {
+  url: string;
+  title: string;
+}
 
 export interface FaktaMessage {
-  id?: string;
+  id: string;
   role: "user" | "assistant";
   content: string;
+  status: "processing" | "completed" | "failed";
+  verdict: FaktaVerdict | null;
+  confidence: number | null;
+  sources: FaktaSource[];
+  model: string | null;
+  createdAt: string;
 }
 
 export interface FaktaThread {
@@ -17,301 +35,466 @@ export interface FaktaThread {
   title: string;
   messages: FaktaMessage[];
   createdAt: string;
+  updatedAt: string;
   userId: string;
   userName?: string;
+  status: "draft" | "processing" | "completed" | "failed";
+  visibility: "private" | "group";
+  model: string | null;
+  messageCount: number;
+}
+
+interface ThreadEvent {
+  threadId: string;
+  userMessageId: string | null;
+  assistantMessageId: string;
+  createdAt: string;
+}
+
+interface StageEvent {
+  stage: FaktaStage;
+  label: string;
+}
+
+interface FinalEvent {
+  messageId: string;
+  content: string;
+  verdict: FaktaVerdict;
+  confidence: number;
+  sources: FaktaSource[];
+  model: string;
+  createdAt: string;
+}
+
+interface ErrorEvent {
+  message: string;
+  code?: string;
+}
+
+function toSourceArray(value: unknown): FaktaSource[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (
+      item
+      && typeof item === "object"
+      && "url" in item
+      && typeof item.url === "string"
+    ) {
+      return [{
+        url: item.url,
+        title: "title" in item && typeof item.title === "string" ? item.title : item.url,
+      }];
+    }
+    return [];
+  });
+}
+
+function newAssistantMessage(event: ThreadEvent): FaktaMessage {
+  return {
+    id: event.assistantMessageId,
+    role: "assistant",
+    content: "",
+    status: "processing",
+    verdict: null,
+    confidence: null,
+    sources: [],
+    model: "gpt-5.6-sol",
+    createdAt: event.createdAt,
+  };
 }
 
 export function useFaktasjekker() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [threads, setThreads] = useState<FaktaThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
+  const [stage, setStage] = useState<StageEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
-  const activeThread = threads.find((t) => t.id === activeThreadId) ?? null;
+  const activeThread = useMemo(
+    () => threads.find((thread) => thread.id === activeThreadId) ?? null,
+    [activeThreadId, threads],
+  );
 
-  // Load all threads from DB
-  const fetchThreads = useCallback(async () => {
-    try {
-      const { data: threadRows, error: thErr } = await supabase
-        .from("faktasjekker_threads")
-        .select("id, user_id, title, created_at")
-        .order("created_at", { ascending: false });
-
-      if (thErr) throw thErr;
-      if (!threadRows?.length) {
-        setThreads([]);
-        setLoading(false);
-        return;
-      }
-
-      // Get all user ids for display names
-      const userIds = [...new Set(threadRows.map((t) => t.user_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, nickname, full_name, email")
-        .in("id", userIds);
-
-      const nameMap: Record<string, string> = {};
-      profiles?.forEach((p) => {
-        nameMap[p.id] = p.nickname || p.full_name || p.email || "Ukjent";
-      });
-
-      // Get message counts per thread (we don't load all messages upfront for perf)
-      const { data: msgCounts } = await supabase
-        .from("faktasjekker_messages")
-        .select("thread_id, id")
-        .in("thread_id", threadRows.map((t) => t.id));
-
-      const countMap: Record<string, number> = {};
-      msgCounts?.forEach((m) => {
-        countMap[m.thread_id] = (countMap[m.thread_id] || 0) + 1;
-      });
-
-      const mapped: FaktaThread[] = threadRows.map((t) => ({
-        id: t.id,
-        title: t.title,
-        messages: [], // lazy loaded
-        createdAt: t.created_at,
-        userId: t.user_id,
-        userName: nameMap[t.user_id] || "Ukjent",
-        _msgCount: countMap[t.id] || 0,
-      })) as any;
-
-      setThreads(mapped);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchThreads();
-  }, [fetchThreads]);
-
-  // Load messages for a specific thread
   const loadThreadMessages = useCallback(async (threadId: string) => {
-    const { data: msgs } = await supabase
+    const { data, error: messageError } = await supabase
       .from("faktasjekker_messages")
-      .select("id, role, content, created_at")
+      .select(
+        "id, role, content, status, verdict, confidence, sources, model, created_at",
+      )
       .eq("thread_id", threadId)
       .order("created_at", { ascending: true });
 
-    if (msgs) {
-      setThreads((prev) =>
-        prev.map((t) =>
-          t.id === threadId
-            ? { ...t, messages: msgs.map((m) => ({ id: m.id, role: m.role as "user" | "assistant", content: m.content })) }
-            : t
-        )
-      );
-    }
+    if (messageError) throw messageError;
+
+    const messages: FaktaMessage[] = (data ?? []).map((message) => ({
+      id: message.id,
+      role: message.role as "user" | "assistant",
+      content: message.content,
+      status: message.status as FaktaMessage["status"],
+      verdict: message.verdict as FaktaVerdict | null,
+      confidence: message.confidence,
+      sources: toSourceArray(message.sources),
+      model: message.model,
+      createdAt: message.created_at,
+    }));
+
+    setThreads((previous) =>
+      previous.map((thread) =>
+        thread.id === threadId
+          ? { ...thread, messages, messageCount: messages.length }
+          : thread,
+      ),
+    );
   }, []);
 
+  const fetchThreads = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: threadRows, error: threadError } = await supabase
+        .from("faktasjekker_threads")
+        .select(
+          "id, user_id, title, created_at, updated_at, status, visibility, model",
+        )
+        .order("updated_at", { ascending: false });
+      if (threadError) throw threadError;
+
+      const userIds = [...new Set((threadRows ?? []).map((thread) => thread.user_id))];
+      const { data: profiles } = userIds.length
+        ? await supabase
+            .from("profiles")
+            .select("id, nickname, full_name")
+            .in("id", userIds)
+        : { data: [] };
+
+      const nameMap = new Map(
+        (profiles ?? []).map((item) => [
+          item.id,
+          item.nickname || item.full_name || "Ukjent",
+        ]),
+      );
+
+      const threadIds = (threadRows ?? []).map((thread) => thread.id);
+      const { data: messageRows } = threadIds.length
+        ? await supabase
+            .from("faktasjekker_messages")
+            .select("id, thread_id")
+            .in("thread_id", threadIds)
+        : { data: [] };
+      const countMap = new Map<string, number>();
+      for (const message of messageRows ?? []) {
+        countMap.set(message.thread_id, (countMap.get(message.thread_id) ?? 0) + 1);
+      }
+
+      setThreads(
+        (threadRows ?? []).map((thread) => ({
+          id: thread.id,
+          title: thread.title,
+          messages: [],
+          createdAt: thread.created_at,
+          updatedAt: thread.updated_at,
+          userId: thread.user_id,
+          userName: thread.user_id === user?.id
+            ? "Deg"
+            : nameMap.get(thread.user_id) ?? "Ukjent",
+          status: thread.status as FaktaThread["status"],
+          visibility: thread.visibility as FaktaThread["visibility"],
+          model: thread.model,
+          messageCount: countMap.get(thread.id) ?? 0,
+        })),
+      );
+    } catch (caught) {
+      console.error("Kunne ikke laste faktasjekker", caught);
+      setError("Kunne ikke laste faktasjekk-historikken");
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    void fetchThreads();
+  }, [fetchThreads]);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   const startNewThread = useCallback(() => {
+    abortRef.current?.abort();
     setActiveThreadId(null);
+    setStage(null);
     setError(null);
   }, []);
 
   const openThread = useCallback(
     async (id: string) => {
       setActiveThreadId(id);
+      setStage(null);
       setError(null);
-      await loadThreadMessages(id);
+      try {
+        await loadThreadMessages(id);
+      } catch (caught) {
+        console.error("Kunne ikke laste faktasjekk", caught);
+        setError("Kunne ikke laste faktasjekken");
+      }
     },
-    [loadThreadMessages]
+    [loadThreadMessages],
   );
 
   const deleteThread = useCallback(
     async (id: string) => {
-      await supabase.from("faktasjekker_threads").delete().eq("id", id);
-      setThreads((prev) => prev.filter((t) => t.id !== id));
+      const { error: deleteError } = await supabase
+        .from("faktasjekker_threads")
+        .delete()
+        .eq("id", id);
+      if (deleteError) {
+        setError("Kunne ikke slette faktasjekken");
+        return;
+      }
+      setThreads((previous) => previous.filter((thread) => thread.id !== id));
       if (activeThreadId === id) setActiveThreadId(null);
     },
-    [activeThreadId]
+    [activeThreadId],
   );
 
+  const shareThread = useCallback(async (id: string, shared: boolean) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      setError("Du må være logget inn");
+      return false;
+    }
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/faktasjekker`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ action: "share", thread_id: id, shared }),
+      },
+    );
+    const result = await response.json().catch(() => ({})) as {
+      error?: string;
+      visibility?: "private" | "group";
+    };
+    if (!response.ok || !result.visibility) {
+      setError(result.error ?? "Kunne ikke endre deling");
+      return false;
+    }
+
+    setThreads((previous) =>
+      previous.map((thread) =>
+        thread.id === id ? { ...thread, visibility: result.visibility! } : thread,
+      ),
+    );
+    return true;
+  }, []);
+
   const send = useCallback(
-    async (input: string) => {
-      if (!user) return;
-      setError(null);
-      const userMsg: FaktaMessage = { role: "user", content: input };
+    async (rawInput: string) => {
+      const input = rawInput.trim();
+      if (!user || !input || streaming) return;
 
-      let threadId = activeThreadId;
-
-      // Create or reuse thread
-      if (!threadId) {
-        const { data: newThread, error: insertErr } = await supabase
-          .from("faktasjekker_threads")
-          .insert({ user_id: user.id, title: input.slice(0, 60) })
-          .select("id, created_at")
-          .single();
-
-        if (insertErr || !newThread) {
-          setError("Kunne ikke opprette samtale");
-          return;
-        }
-        threadId = newThread.id;
-        setActiveThreadId(threadId);
-        setThreads((prev) => [
-          {
-            id: threadId!,
-            title: input.slice(0, 60),
-            messages: [],
-            createdAt: newThread.created_at,
-            userId: user.id,
-            userName: "Deg",
-          },
-          ...prev,
-        ]);
-      }
-
-      // Insert user message
-      const { data: userMsgRow } = await supabase
-        .from("faktasjekker_messages")
-        .insert({ thread_id: threadId, role: "user", content: input })
-        .select("id")
-        .single();
-
-      // Update local state with user message
-      setThreads((prev) =>
-        prev.map((t) =>
-          t.id === threadId
-            ? { ...t, messages: [...t.messages, { ...userMsg, id: userMsgRow?.id }] }
-            : t
-        )
-      );
-
-      // Get all messages for context
-      const currentThread = threads.find((t) => t.id === threadId);
-      const allMessages = [...(currentThread?.messages || []), userMsg].map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      setStreaming(true);
-      abortRef.current?.abort();
+      const requestId = crypto.randomUUID();
       const ac = new AbortController();
+      abortRef.current?.abort();
       abortRef.current = ac;
+      setStreaming(true);
+      setError(null);
+      setStage({ stage: "searching", label: "Søker etter kilder" });
+
+      let resolvedThreadId = activeThreadId;
+      let finalReceived = false;
+      let streamError: string | null = null;
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const jwt = session?.access_token;
-        if (!jwt) throw new Error("Du må være logget inn");
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error("Du må være logget inn");
 
-        const resp = await fetch(
+        const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/faktasjekker`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${jwt}`,
+              Authorization: `Bearer ${session.access_token}`,
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             },
-            body: JSON.stringify({ messages: allMessages }),
+            body: JSON.stringify({
+              action: "check",
+              thread_id: activeThreadId,
+              claim: input,
+              request_id: requestId,
+            }),
             signal: ac.signal,
-          }
+          },
         );
 
-        if (!resp.ok) {
-          const errData = await resp.json().catch(() => ({}));
-          throw new Error(errData.error || `Feil ${resp.status}`);
+        if (!response.ok) {
+          const details = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(details.error ?? `Faktasjekk feilet (${response.status})`);
         }
-        if (!resp.body) throw new Error("Ingen respons");
+        if (!response.body) throw new Error("Faktasjekk ga ingen respons");
 
-        // Insert empty assistant message in DB
-        const { data: assistantRow } = await supabase
-          .from("faktasjekker_messages")
-          .insert({ thread_id: threadId, role: "assistant", content: "" })
-          .select("id")
-          .single();
-
-        const assistantMsgId = assistantRow?.id;
-
-        // Add empty assistant message locally
-        setThreads((prev) =>
-          prev.map((t) =>
-            t.id === threadId
-              ? {
-                  ...t,
-                  messages: [...t.messages, { id: assistantMsgId, role: "assistant" as const, content: "" }],
-                }
-              : t
-          )
-        );
-
-        const reader = resp.body.getReader();
+        const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let textBuffer = "";
-        let assistantContent = "";
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          textBuffer += decoder.decode(value, { stream: true });
 
-          let newlineIdx: number;
-          while ((newlineIdx = textBuffer.indexOf("\n")) !== -1) {
-            let line = textBuffer.slice(0, newlineIdx);
-            textBuffer = textBuffer.slice(newlineIdx + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (!line.startsWith("data: ")) continue;
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === "[DONE]") break;
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const delta = parsed.choices?.[0]?.delta?.content;
-              if (delta) {
-                assistantContent += delta;
-                setThreads((prev) =>
-                  prev.map((t) => {
-                    if (t.id !== threadId) return t;
-                    const msgs = [...t.messages];
-                    msgs[msgs.length - 1] = {
-                      id: assistantMsgId,
-                      role: "assistant",
-                      content: assistantContent,
-                    };
-                    return { ...t, messages: msgs };
-                  })
+          textBuffer += decoder.decode(value, { stream: true });
+          const parsed = takeSseFrames(textBuffer);
+          textBuffer = parsed.rest;
+
+          for (const event of parsed.events) {
+            if (event.event === "thread") {
+              const payload = parseSseJson<ThreadEvent>(event.data);
+              if (!payload) continue;
+              resolvedThreadId = payload.threadId;
+              setActiveThreadId(payload.threadId);
+
+              setThreads((previous) => {
+                const found = previous.find((thread) => thread.id === payload.threadId);
+                const userMessage: FaktaMessage | null = payload.userMessageId
+                  ? {
+                      id: payload.userMessageId,
+                      role: "user",
+                      content: input,
+                      status: "completed",
+                      verdict: null,
+                      confidence: null,
+                      sources: [],
+                      model: null,
+                      createdAt: new Date().toISOString(),
+                    }
+                  : null;
+                const assistantMessage = newAssistantMessage(payload);
+
+                if (!found) {
+                  return [
+                    {
+                      id: payload.threadId,
+                      title: input.slice(0, 80),
+                      messages: userMessage
+                        ? [userMessage, assistantMessage]
+                        : [assistantMessage],
+                      createdAt: payload.createdAt,
+                      updatedAt: payload.createdAt,
+                      userId: user.id,
+                      userName: profile?.nickname || profile?.full_name || "Deg",
+                      status: "processing",
+                      visibility: "private",
+                      model: "gpt-5.6-sol",
+                      messageCount: userMessage ? 2 : 1,
+                    },
+                    ...previous,
+                  ];
+                }
+
+                const withoutPlaceholder = found.messages.filter(
+                  (message) => message.id !== payload.assistantMessageId,
                 );
-              }
-            } catch {
-              /* partial JSON */
+                const additions = userMessage
+                  ? [userMessage, assistantMessage]
+                  : [assistantMessage];
+                return previous.map((thread) =>
+                  thread.id === payload.threadId
+                    ? {
+                        ...thread,
+                        messages: [...withoutPlaceholder, ...additions],
+                        status: "processing",
+                        model: "gpt-5.6-sol",
+                        messageCount: withoutPlaceholder.length + additions.length,
+                      }
+                    : thread,
+                );
+              });
+            }
+
+            if (event.event === "stage") {
+              const payload = parseSseJson<StageEvent>(event.data);
+              if (payload) setStage(payload);
+            }
+
+            if (event.event === "final") {
+              const payload = parseSseJson<FinalEvent>(event.data);
+              if (!payload || !resolvedThreadId) continue;
+              finalReceived = true;
+              setThreads((previous) =>
+                previous.map((thread) =>
+                  thread.id === resolvedThreadId
+                    ? {
+                        ...thread,
+                        status: "completed",
+                        model: payload.model,
+                        updatedAt: new Date().toISOString(),
+                        messages: thread.messages.map((message) =>
+                          message.id === payload.messageId
+                            ? {
+                                ...message,
+                                content: payload.content,
+                                status: "completed",
+                                verdict: payload.verdict,
+                                confidence: payload.confidence,
+                                sources: payload.sources,
+                                model: payload.model,
+                              }
+                            : message,
+                        ),
+                      }
+                    : thread,
+                ),
+              );
+            }
+
+            if (event.event === "error") {
+              const payload = parseSseJson<ErrorEvent>(event.data);
+              streamError = payload?.message ?? "Faktasjekken kunne ikke fullføres";
             }
           }
         }
 
-        // Save final content to DB
-        if (assistantMsgId && assistantContent) {
-          await supabase
-            .from("faktasjekker_messages")
-            .update({ content: assistantContent })
-            .eq("id", assistantMsgId);
-        }
-      } catch (e: any) {
-        if (e.name !== "AbortError") {
-          setError(e.message || "Noe gikk galt");
+        if (streamError) throw new Error(streamError);
+        if (!finalReceived) throw new Error("Faktasjekken ble avbrutt før den var ferdig");
+        if (resolvedThreadId) await loadThreadMessages(resolvedThreadId);
+      } catch (caught) {
+        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        const message = caught instanceof Error ? caught.message : "Noe gikk galt";
+        setError(message);
+        if (resolvedThreadId) {
+          setThreads((previous) =>
+            previous.map((thread) =>
+              thread.id === resolvedThreadId
+                ? {
+                    ...thread,
+                    status: "failed",
+                    messages: thread.messages.map((item) =>
+                      item.status === "processing" ? { ...item, status: "failed" } : item,
+                    ),
+                  }
+                : thread,
+            ),
+          );
         }
       } finally {
+        if (abortRef.current === ac) abortRef.current = null;
         setStreaming(false);
+        setStage(null);
       }
     },
-    [activeThreadId, threads, user]
-  );
-
-  // Get message count for a thread (from the fetched data)
-  const getMessageCount = useCallback(
-    (threadId: string) => {
-      const t = threads.find((th) => th.id === threadId) as any;
-      return t?.messages?.length || t?._msgCount || 0;
-    },
-    [threads]
+    [
+      activeThreadId,
+      loadThreadMessages,
+      profile?.full_name,
+      profile?.nickname,
+      streaming,
+      user,
+    ],
   );
 
   return {
@@ -319,13 +502,15 @@ export function useFaktasjekker() {
     activeThread,
     activeThreadId,
     streaming,
+    stage,
     error,
     loading,
     send,
     startNewThread,
     openThread,
     deleteThread,
-    getMessageCount,
+    shareThread,
     userId: user?.id,
+    refresh: fetchThreads,
   };
 }

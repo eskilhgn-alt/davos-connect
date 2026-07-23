@@ -19,7 +19,7 @@ import { chatStore } from './store';
 import { useMarkAsRead } from './useMarkAsRead';
 import { useAuth } from '@/contexts/AuthContext';
 import { useReadReceipts } from './useReadReceipts';
-import { latestSeenOutgoingId } from './logic';
+import { compareMessages, latestSeenOutgoingId } from './logic';
 import { errorToast } from '@/utils/errorToast';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -30,6 +30,7 @@ interface MessageListProps {
   messages: Message[];
   currentUserId: string;
   composerHeight: number;
+  viewportHeight: number;
   isTyping: boolean;
   deepLinkMessageId?: string | null;
 }
@@ -62,6 +63,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   messages,
   currentUserId,
   composerHeight,
+  viewportHeight,
   isTyping,
   deepLinkMessageId,
 }) => {
@@ -71,6 +73,12 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [showJump, setShowJump] = React.useState(false);
   const isNearBottomRef = React.useRef(true);
   const stickToBottomRef = React.useRef(true);
+  const userHasScrolledRef = React.useRef(false);
+  const userScrollGestureRef = React.useRef(false);
+  const programmaticScrollRef = React.useRef(false);
+  const settleTimersRef = React.useRef<number[]>([]);
+  const settleFramesRef = React.useRef<number[]>([]);
+  const clearInitialSettleRef = React.useRef<() => void>(() => undefined);
 
   // Auth and mark-as-read
   const { user } = useAuth();
@@ -91,16 +99,25 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [loadingEarlier, setLoadingEarlier] = React.useState(false);
   const [hasMoreEarlier, setHasMoreEarlier] = React.useState(true);
 
+  // Keep rendering deterministic even if cache, realtime and optimistic rows
+  // happen to arrive in different orders.
+  const orderedMessages = React.useMemo(
+    () => [...messages].sort(compareMessages),
+    [messages],
+  );
+  const hasMessages = orderedMessages.length > 0;
+  const latestMessageId = orderedMessages.at(-1)?.id;
+
   const outgoingIds = React.useMemo(
-    () => messages
+    () => orderedMessages
       .filter((message) => message.senderId === currentUserId && message.deliveryState === 'sent')
       .map((message) => message.id),
-    [messages, currentUserId],
+    [orderedMessages, currentUserId],
   );
   const seenCounts = useReadReceipts(outgoingIds, currentUserId);
   const latestSeenId = React.useMemo(
-    () => latestSeenOutgoingId(messages, seenCounts, currentUserId),
-    [messages, seenCounts, currentUserId],
+    () => latestSeenOutgoingId(orderedMessages, seenCounts, currentUserId),
+    [orderedMessages, seenCounts, currentUserId],
   );
 
   // Check if near bottom and trigger pagination on top
@@ -110,11 +127,22 @@ export const MessageList: React.FC<MessageListProps> = ({
     const threshold = 150;
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
     isNearBottomRef.current = nearBottom;
-    stickToBottomRef.current = nearBottom;
+    if (userScrollGestureRef.current && !nearBottom) {
+      userHasScrolledRef.current = true;
+      clearInitialSettleRef.current();
+    }
+    // Safari can emit a scroll event while restoring an old PWA position.
+    // Only an actual pointer/touch/wheel interaction is allowed to unpin the
+    // conversation from its newest message.
+    if (programmaticScrollRef.current || !userHasScrolledRef.current) {
+      if (nearBottom) stickToBottomRef.current = true;
+    } else {
+      stickToBottomRef.current = nearBottom;
+    }
     setShowJump(!nearBottom);
 
     // Load earlier when scrolled near top
-    if (el.scrollTop < 80 && !loadingEarlier && hasMoreEarlier) {
+    if (userHasScrolledRef.current && el.scrollTop < 80 && !loadingEarlier && hasMoreEarlier) {
       setLoadingEarlier(true);
       const prevHeight = el.scrollHeight;
       chatStore.loadEarlier()
@@ -136,52 +164,103 @@ export const MessageList: React.FC<MessageListProps> = ({
   const scrollToBottom = React.useCallback((smooth = true) => {
     const el = scrollRef.current;
     if (!el) return;
+    programmaticScrollRef.current = true;
     if (smooth) {
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     } else {
-      el.scrollTop = el.scrollHeight;
+      el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
     }
+    isNearBottomRef.current = true;
+    setShowJump(false);
+    requestAnimationFrame(() => { programmaticScrollRef.current = false; });
   }, []);
 
   const hasInitialScrolled = React.useRef(false);
 
+  const clearInitialSettle = React.useCallback(() => {
+    settleTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    settleFramesRef.current.forEach((frame) => cancelAnimationFrame(frame));
+    settleTimersRef.current = [];
+    settleFramesRef.current = [];
+  }, []);
+  clearInitialSettleRef.current = clearInitialSettle;
+
+  const markUserScrollIntent = React.useCallback(() => {
+    userHasScrolledRef.current = true;
+    clearInitialSettle();
+  }, [clearInitialSettle]);
+
+  const beginUserScrollGesture = React.useCallback(() => {
+    userScrollGestureRef.current = true;
+  }, []);
+
+  const endUserScrollGesture = React.useCallback(() => {
+    userScrollGestureRef.current = false;
+  }, []);
+
   React.useLayoutEffect(() => {
-    if (messages.length === 0 || deepLinkMessageId || hasInitialScrolled.current) return;
+    if (!hasMessages || deepLinkMessageId || hasInitialScrolled.current) return;
     hasInitialScrolled.current = true;
     stickToBottomRef.current = true;
-    scrollToBottom(false);
-    const frame = requestAnimationFrame(() => {
+    userHasScrolledRef.current = false;
+    isNearBottomRef.current = true;
+    setShowJump(false);
+
+    const settleAtNewest = () => {
+      if (!stickToBottomRef.current || userHasScrolledRef.current) return;
       scrollToBottom(false);
-      requestAnimationFrame(() => scrollToBottom(false));
+    };
+
+    // iOS restores scroll and settles the VisualViewport in several phases.
+    // Reassert the newest position for a short, bounded window, while still
+    // yielding immediately if the user starts scrolling intentionally.
+    settleAtNewest();
+    const firstFrame = requestAnimationFrame(() => {
+      settleAtNewest();
+      settleFramesRef.current.push(requestAnimationFrame(settleAtNewest));
     });
-    return () => cancelAnimationFrame(frame);
-  }, [messages.length, deepLinkMessageId, scrollToBottom]);
+    settleFramesRef.current.push(firstFrame);
+    settleTimersRef.current = [80, 240, 600, 1_000].map((delay) =>
+      window.setTimeout(settleAtNewest, delay),
+    );
+
+    return clearInitialSettle;
+  }, [hasMessages, deepLinkMessageId, scrollToBottom, clearInitialSettle]);
 
   React.useEffect(() => {
     if (!hasInitialScrolled.current) return;
-    if (stickToBottomRef.current) {
-      requestAnimationFrame(() => scrollToBottom(true));
+    if (stickToBottomRef.current && !deepLinkMessageId) {
+      const frame = requestAnimationFrame(() => scrollToBottom(false));
+      return () => cancelAnimationFrame(frame);
     }
-  }, [messages.length, scrollToBottom]);
+  }, [latestMessageId, deepLinkMessageId, scrollToBottom]);
 
   // Late image dimensions and iOS PWA restoration used to pull the viewport
   // away from the newest message. Keep the bottom anchored until the user
   // intentionally scrolls upward.
   React.useEffect(() => {
     const content = contentRef.current;
-    if (!content || typeof ResizeObserver === 'undefined') return;
+    const viewport = scrollRef.current;
+    if (!content || !viewport || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
       if (stickToBottomRef.current && !deepLinkMessageId) scrollToBottom(false);
     });
     observer.observe(content);
+    observer.observe(viewport);
     return () => observer.disconnect();
   }, [deepLinkMessageId, scrollToBottom]);
+
+  React.useLayoutEffect(() => {
+    if (!hasInitialScrolled.current || deepLinkMessageId || !stickToBottomRef.current) return;
+    scrollToBottom(false);
+    const frame = requestAnimationFrame(() => scrollToBottom(false));
+    return () => cancelAnimationFrame(frame);
+  }, [viewportHeight, composerHeight, deepLinkMessageId, scrollToBottom]);
 
   React.useEffect(() => {
     const restoreNewest = () => {
       if (document.visibilityState !== 'visible' || deepLinkMessageId) return;
-      stickToBottomRef.current = true;
-      requestAnimationFrame(() => scrollToBottom(false));
+      if (stickToBottomRef.current) requestAnimationFrame(() => scrollToBottom(false));
     };
     window.addEventListener('pageshow', restoreNewest);
     document.addEventListener('visibilitychange', restoreNewest);
@@ -212,7 +291,7 @@ export const MessageList: React.FC<MessageListProps> = ({
       });
     })();
     return () => { cancelled = true; };
-  }, [deepLinkMessageId, messages.length]);
+  }, [deepLinkMessageId, orderedMessages.length]);
 
   // Channel status for a small, unobtrusive banner
   const [channelStatus, setChannelStatus] = React.useState<'idle' | 'connecting' | 'connected' | 'reconnecting' | 'offline'>('idle');
@@ -235,7 +314,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   React.useEffect(() => {
     const root = scrollRef.current;
     if (!user || !root || typeof IntersectionObserver === 'undefined') return;
-    const byId = new Map(messages.map((message) => [message.id, message]));
+    const byId = new Map(orderedMessages.map((message) => [message.id, message]));
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting || entry.intersectionRatio < 0.6) continue;
@@ -249,7 +328,7 @@ export const MessageList: React.FC<MessageListProps> = ({
     }, { root, threshold: 0.6 });
     root.querySelectorAll<HTMLElement>('[data-chat-message-id]').forEach((element) => observer.observe(element));
     return () => observer.disconnect();
-  }, [messages, user, markAsRead]);
+  }, [orderedMessages, user, markAsRead]);
 
   // Handle reaction from combined sheet
   const handleReact = React.useCallback((emoji: string) => {
@@ -350,11 +429,11 @@ export const MessageList: React.FC<MessageListProps> = ({
   // Get user name for reactions dialog
   const getUserName = React.useCallback((uid: string) => {
     if (uid === currentUserId) return 'Du';
-    const msg = messages.find(m => m.senderId === uid);
+    const msg = orderedMessages.find(m => m.senderId === uid);
     return msg?.senderName || 'Ukjent';
-  }, [messages, currentUserId]);
+  }, [orderedMessages, currentUserId]);
 
-  const groups = React.useMemo(() => groupMessagesByDate(messages), [messages]);
+  const groups = React.useMemo(() => groupMessagesByDate(orderedMessages), [orderedMessages]);
   const paddingBottom = composerHeight + 16;
 
   return (
@@ -371,8 +450,16 @@ export const MessageList: React.FC<MessageListProps> = ({
       <div
         ref={scrollRef}
         onScroll={checkNearBottom}
+        onPointerDown={beginUserScrollGesture}
+        onPointerUp={endUserScrollGesture}
+        onPointerCancel={endUserScrollGesture}
+        onTouchStart={beginUserScrollGesture}
+        onTouchMove={markUserScrollIntent}
+        onTouchEnd={endUserScrollGesture}
+        onWheel={markUserScrollIntent}
+        data-testid="message-scroll"
         className="h-full overflow-y-auto overscroll-contain"
-        style={{ paddingBottom, WebkitOverflowScrolling: 'touch' }}
+        style={{ paddingBottom, WebkitOverflowScrolling: 'touch', overflowAnchor: 'none' }}
       >
         <div ref={contentRef} className="py-4">
           {groups.length === 0 && (
@@ -418,7 +505,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
           {isTyping && isNearBottomRef.current && <TypingBubble />}
         </div>
-        <div ref={bottomRef} />
+        <div ref={bottomRef} data-testid="message-bottom" style={{ height: 1, overflowAnchor: 'auto' }} />
       </div>
 
       {/* Jump to bottom */}
@@ -428,6 +515,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           aria-label="Bla til nyeste meldinger"
           onClick={() => {
             stickToBottomRef.current = true;
+            userHasScrolledRef.current = false;
             isNearBottomRef.current = true;
             setShowJump(false);
             scrollToBottom(true);

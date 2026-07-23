@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   Loader2,
   ChevronRight,
+  Phone,
 } from "lucide-react";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -102,6 +103,9 @@ export const WeatherScreen: React.FC = () => {
   const today = weather?.daily?.[0];
   const info = describeWeatherCode(current?.weatherCode ?? today?.weatherCode);
   const trip = ACTIVE_TRIP;
+  const skiPatrol = trip.emergency
+    .flatMap((group) => group.contacts)
+    .find((contact) => contact.label.toLowerCase().includes("skipatrulje"));
 
   const updatedAt = weather?.fetchedAt ? new Date(weather.fetchedAt) : null;
 
@@ -217,14 +221,14 @@ export const WeatherScreen: React.FC = () => {
           )}
 
           {/* Live status i appen + sikkerhetskilde */}
-          <div className="rounded-2xl border border-border p-4 space-y-3">
+          <div id="sikkerhet" className="rounded-2xl border border-border p-4 space-y-3 scroll-mt-4">
             <h3 className="font-heading text-sm font-semibold text-foreground">Snø og sikkerhet</h3>
             <p className="text-xs text-muted-foreground">
               Se live snø-, heis- og løypestatus uten å forlate appen. For skredfare utenfor preparerte løyper må Meteo-France brukes.
             </p>
             <div className="flex flex-col gap-2">
               <Link
-                  to="/forhold"
+                  to="/kart?vis=status"
                   className="inline-flex items-center justify-between gap-2 rounded-xl bg-muted/60 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors"
                 >
                   <span>Snø, heiser og løyper</span>
@@ -239,6 +243,26 @@ export const WeatherScreen: React.FC = () => {
                 >
                   <span>{trip.officialLinks.avalanche.title}</span>
                   <ExternalLink size={13} />
+                </a>
+              )}
+              {trip.officialLinks.safety && (
+                <a
+                  href={trip.officialLinks.safety.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-between gap-2 rounded-xl bg-muted/40 px-4 py-3 text-sm text-muted-foreground hover:bg-muted/60 transition-colors"
+                >
+                  <span>{trip.officialLinks.safety.title}</span>
+                  <ExternalLink size={13} />
+                </a>
+              )}
+              {skiPatrol?.href && (
+                <a
+                  href={skiPatrol.href}
+                  className="inline-flex items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-medium text-foreground"
+                >
+                  <span>{skiPatrol.label} · {skiPatrol.value}</span>
+                  <Phone size={13} className="text-primary" />
                 </a>
               )}
             </div>

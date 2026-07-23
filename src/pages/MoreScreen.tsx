@@ -1,6 +1,6 @@
 /**
  * MoreScreen — "Mer"-fane. Samler alt som ikke er Hjem, Chat eller Kart:
- * agenda, avstemninger, roomies, galleri/stories, innstillinger, admin,
+ * agenda, avstemninger, galleri/stories, innstillinger, admin,
  * og en lavt prioritert seksjon for valgfrie verktøy.
  */
 
@@ -13,7 +13,6 @@ import { useAppBadges } from "@/hooks/useAppBadges";
 import {
   CalendarDays,
   Vote,
-  Home as HomeIcon,
   Film,
   Users,
   Settings,
@@ -51,7 +50,6 @@ const MoreScreen: React.FC = () => {
     const planning: Tile[] = [
       { to: "/agenda", label: "Agenda", icon: CalendarDays, badge: badges.agenda },
       { to: "/poll", label: "Avstemninger", icon: Vote, badge: badges.polls },
-      { to: "/roomies", label: "Roomies", icon: HomeIcon },
       { to: "/runder", label: "Runder", icon: Beer, badge: badges.runder },
     ];
 

@@ -1,2 +1,1 @@
-export { BrandWebEmbed } from "./BrandWebEmbed";
-export { WindyEmbed } from "./WindyEmbed";
+export { ValThorensStatus } from "./ValThorensStatus";
