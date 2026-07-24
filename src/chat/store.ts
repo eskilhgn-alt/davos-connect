@@ -1029,9 +1029,10 @@ function typingSnapshot(): TypingState {
 }
 
 function ensureTypingChannel() {
+  if (!currentTripId) return null;
   if (typingChannel) return typingChannel;
   typingChannel = supabase.channel(
-    `chat-typing-${DEFAULT_THREAD_ID}`,
+    `chat-typing:${currentTripId}`,
     { config: { broadcast: { self: false }, private: true } as never },
   );
   typingChannel.on('broadcast', { event: 'typing' }, (payload) => {
@@ -1056,7 +1057,9 @@ function ensureTypingChannel() {
 }
 
 function teardownTypingIfIdle() {
-  if (typingSubs.size !== 0) return;
+  // Always tear down when there are no subscribers OR when called explicitly
+  // during a trip switch — the caller (setTrip) has already cleared state.
+  if (typingSubs.size !== 0 && currentTripId) return;
   if (typingSweepTimer) { clearInterval(typingSweepTimer); typingSweepTimer = null; }
   if (typingChannel) {
     supabase.removeChannel(typingChannel);
