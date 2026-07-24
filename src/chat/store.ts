@@ -418,6 +418,7 @@ let messageChannel: ReturnType<typeof supabase.channel> | null = null;
 let latestLoad: Promise<number> | null = null;
 
 function revalidateLatest(): Promise<number> {
+  if (!currentTripId) return Promise.resolve(0);
   if (latestLoad) return latestLoad;
   latestLoad = loadPage().finally(() => { latestLoad = null; });
   return latestLoad;
@@ -429,45 +430,115 @@ const handleChatWake = () => {
   }
 };
 
+function teardownMessageChannel(): void {
+  if (messageChannel) {
+    supabase.removeChannel(messageChannel);
+    messageChannel = null;
+  }
+}
+
+function ensureMessageChannel(): void {
+  if (!currentTripId) return;
+  if (messageChannel) return;
+  const tripId = currentTripId;
+  notifyStatus('connecting');
+  messageChannel = supabase
+    .channel(`chat-messages-rt:${tripId}`)
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages', filter: `trip_id=eq.${tripId}` },
+      (p) => {
+        const row = p.new as Record<string, unknown>;
+        if (row.trip_id !== currentTripId) return; // guard vs stale channel
+        applyInsert(row).catch(console.error);
+      })
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'messages', filter: `trip_id=eq.${tripId}` },
+      (p) => {
+        const row = p.new as Record<string, unknown>;
+        if (row.trip_id !== currentTripId) return;
+        applyUpdate(row);
+      })
+    .on('postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'messages' },
+      (p) => {
+        const row = p.old as Record<string, unknown>;
+        // DELETE payloads may not carry trip_id — only apply if we already track it.
+        if (row?.id && state.byId.has(row.id as string)) applyDelete(row);
+      })
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'message_reactions' },
+      (p) => {
+        const rec = (p.new as Record<string, unknown> | null) || (p.old as Record<string, unknown> | null);
+        const mid = rec?.message_id as string | undefined;
+        // Only apply reactions for messages we've loaded (i.e. current trip).
+        if (!mid || !state.byId.has(mid)) return;
+        applyReactionChange(p.eventType, p.new as Record<string, unknown> | null, p.old as Record<string, unknown> | null);
+      })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        notifyStatus('connected');
+        void revalidateLatest().catch((error) => console.warn('[chat] reconnect refresh failed', error));
+      }
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') notifyStatus('reconnecting');
+      else if (status === 'CLOSED') notifyStatus('offline');
+    });
+}
+
+/**
+ * Bind the chat store to a trip. Idempotent for same tripId. Switching trip
+ * tears down realtime, clears in-memory state and reloads the new trip so
+ * messages from another trip can never leak into the UI.
+ */
+export function setTrip(tripId: string | null, isArchive = false): void {
+  currentIsArchive = isArchive;
+  if (tripId === currentTripId) return;
+  // Teardown and clear.
+  teardownMessageChannel();
+  teardownTypingIfIdle();
+  state.byId.clear();
+  state.optimistic.clear();
+  state.reactionsByMessage.clear();
+  state.everHadNormalized.clear();
+  state.cursor = null;
+  state.hasMore = true;
+  state.loading = false;
+  replyTo = null;
+  replySubs.forEach((s) => s(null));
+  currentTripId = tripId;
+  notify();
+  if (tripId && subs.size > 0) {
+    hydrateMessageCache();
+    notify();
+    ensureMessageChannel();
+    void revalidateLatest().catch((e) => console.error('[chat] setTrip revalidate', e));
+  } else {
+    notifyStatus('idle');
+  }
+}
+
+export function getCurrentTripId(): string | null { return currentTripId; }
+export function isArchiveMode(): boolean { return currentIsArchive; }
+
 export function subscribeToMessages(callback: Sub): () => void {
   subs.add(callback);
-  hydrateMessageCache();
+  if (currentTripId) {
+    hydrateMessageCache();
+  }
   callback(sortedMessages());
-  void revalidateLatest().catch((e) => console.error('[chat] latest load', e));
+  if (currentTripId) {
+    void revalidateLatest().catch((e) => console.error('[chat] latest load', e));
+  }
 
-  if (!messageChannel) {
+  if (subs.size === 1) {
     window.addEventListener('pageshow', handleChatWake);
     document.addEventListener('visibilitychange', handleChatWake);
-    notifyStatus('connecting');
-    messageChannel = supabase
-      .channel('chat-messages-rt')
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `thread_id=eq.${DEFAULT_THREAD_ID}` },
-        (p) => { applyInsert(p.new as Record<string, unknown>).catch(console.error); })
-      .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `thread_id=eq.${DEFAULT_THREAD_ID}` },
-        (p) => applyUpdate(p.new as Record<string, unknown>))
-      .on('postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'messages' },
-        (p) => applyDelete(p.old as Record<string, unknown>))
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'message_reactions' },
-        (p) => applyReactionChange(p.eventType, p.new as Record<string, unknown> | null, p.old as Record<string, unknown> | null))
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          notifyStatus('connected');
-          void revalidateLatest().catch((error) => console.warn('[chat] reconnect refresh failed', error));
-        }
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') notifyStatus('reconnecting');
-        else if (status === 'CLOSED') notifyStatus('offline');
-      });
   }
+  ensureMessageChannel();
 
   return () => {
     subs.delete(callback);
-    if (subs.size === 0 && messageChannel) {
-      supabase.removeChannel(messageChannel);
-      messageChannel = null;
+    if (subs.size === 0) {
+      teardownMessageChannel();
       window.removeEventListener('pageshow', handleChatWake);
       document.removeEventListener('visibilitychange', handleChatWake);
       notifyStatus('idle');
