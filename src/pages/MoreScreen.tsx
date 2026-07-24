@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmergencyInfoSheet } from "@/components/home/EmergencyInfoSheet";
+import { TripSwitcher } from "@/components/trip/TripSwitcher";
 
 interface Tile {
   to: string;
@@ -105,6 +106,8 @@ const MoreScreen: React.FC = () => {
           className="px-4 pt-4 space-y-6"
           style={{ paddingBottom: "calc(var(--bottom-nav-h-effective) + 32px)" }}
         >
+          <TripSwitcher />
+
           {sections.map((section) => (
             <section key={section.title} className={cn(section.quiet && "opacity-95")}>
               <div className="mb-2">

@@ -2,6 +2,7 @@ import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrip } from "@/contexts/TripContext";
 import { startOfWeek, endOfWeek, addWeeks } from "date-fns";
 
 export interface AgendaEvent {
@@ -17,6 +18,7 @@ export interface AgendaEvent {
 
 export function useAgenda() {
   const { user } = useAuth();
+  const { selectedTripId, isArchive } = useTrip();
   const [weekOffset, setWeekOffset] = useState(0);
   const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,11 +34,12 @@ export function useAgenda() {
   );
 
   const fetchEvents = useCallback(async () => {
-    if (!user) return;
+    if (!user || !selectedTripId) return;
     setLoading(true);
     const { data, error: fetchError } = await supabase
       .from("agenda_events")
       .select("*")
+      .eq("trip_id" as never, selectedTripId as never)
       .gte("start_at", weekStart.toISOString())
       .lte("start_at", weekEnd.toISOString())
       .order("start_at");
@@ -47,25 +50,38 @@ export function useAgenda() {
       setError(null);
     }
     setLoading(false);
-  }, [user, weekStart, weekEnd]);
+  }, [user, selectedTripId, weekStart, weekEnd]);
 
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
 
-  // Realtime
+  // Realtime — filter på valgt tur.
   useEffect(() => {
+    if (!selectedTripId) return;
     const channel = supabase
-      .channel("agenda_realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "agenda_events" }, () => {
-        fetchEvents();
-      })
+      .channel(`agenda_realtime_${selectedTripId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "agenda_events",
+          filter: `trip_id=eq.${selectedTripId}`,
+        },
+        () => {
+          fetchEvents();
+        },
+      )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [fetchEvents]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchEvents, selectedTripId]);
 
   const createEvent = async (title: string, description: string, startAt: Date, endAt: Date, color: string) => {
-    if (!user) return;
+    if (!user || !selectedTripId) return;
+    if (isArchive) throw new Error("Arkivmodus – kan ikke opprette hendelser");
     const { error: createError } = await supabase.from("agenda_events").insert({
       title,
       description: description || null,
@@ -73,16 +89,19 @@ export function useAgenda() {
       end_at: endAt.toISOString(),
       color,
       created_by: user.id,
-    });
+      trip_id: selectedTripId,
+    } as never);
     if (createError) throw createError;
   };
 
   const updateEvent = async (id: string, updates: Partial<{ title: string; description: string; start_at: string; end_at: string; color: string }>) => {
+    if (isArchive) throw new Error("Arkivmodus – kan ikke endre hendelser");
     const { error: updateError } = await supabase.from("agenda_events").update(updates).eq("id", id);
     if (updateError) throw updateError;
   };
 
   const deleteEvent = async (id: string) => {
+    if (isArchive) throw new Error("Arkivmodus – kan ikke slette hendelser");
     const { error: deleteError } = await supabase.from("agenda_events").delete().eq("id", id);
     if (deleteError) throw deleteError;
   };

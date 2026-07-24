@@ -16,8 +16,10 @@ import { EmergencyInfoSheet } from "@/components/home/EmergencyInfoSheet";
 import { useStories } from "@/hooks/useStories";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppBadges } from "@/hooks/useAppBadges";
+import { useTrip } from "@/contexts/TripContext";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
 import { ACTIVE_TRIP, tripDaysUntilStart } from "@/config/trip";
+
 import {
   MessageCircle,
   CloudSun,
@@ -41,9 +43,11 @@ interface TileItem {
 export const HomeScreen: React.FC = () => {
   const { signOut } = useAuth();
   const badges = useAppBadges();
+  const { refreshTrip } = useTrip();
   const { groups, loading: storiesLoading, refetch: refetchStories, markViewed } = useStories();
 
   const [refreshKey, setRefreshKey] = React.useState(0);
+
   const [viewerOpen, setViewerOpen] = React.useState(false);
   const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
   const [captureOpen, setCaptureOpen] = React.useState(false);
@@ -97,8 +101,13 @@ export const HomeScreen: React.FC = () => {
 
       <PullToRefreshWrapper
         onRefresh={async () => {
+          // Koordinert refresh: invaliderer alle turfølsomme queries og venter
+          // på at de er ferdige. Ingen remount av komponenttreet.
+          await refreshTrip();
+          await refetchStories();
           setRefreshKey((k) => k + 1);
         }}
+
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >

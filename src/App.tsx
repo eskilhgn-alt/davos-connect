@@ -11,6 +11,8 @@ import { ChatLayout } from "@/layouts/ChatLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { AppBadgesProvider } from "@/hooks/useAppBadges";
+import { TripProvider } from "@/contexts/TripContext";
+
 
 import { errorToast } from "@/utils/errorToast";
 
@@ -170,14 +172,10 @@ const AppRoutes = () => (
       <Route path="/historier" element={<StoriesScreen />} />
       <Route path="/poll" element={<PollScreen />} />
       <Route path="/runder" element={<RoundsScreen />} />
-      <Route path="/roomies" element={<Navigate to="/mer" replace />} />
       <Route path="/alle" element={<GroupScreen />} />
-      <Route path="/shot" element={<Navigate to="/hjem" replace />} />
-      <Route path="/tokens" element={<Navigate to="/hjem" replace />} />
-      <Route path="/regler" element={<Navigate to="/hjem" replace />} />
-      <Route path="/nodinfo" element={<Navigate to="/hjem" replace />} />
-      <Route path="/casino" element={<Navigate to="/hjem" replace />} />
-      <Route path="/skred" element={<Navigate to="/vaer#sikkerhet" replace />} />
+      {/* Fjernet permanent: /shot /tokens /casino /skred /forhold /live /webcams-redirect
+          /roomies /regler /nodinfo /magnus — se prosjektkontrakt. Ukjente ruter går til NotFound. */}
+
 
     </Route>
     
@@ -211,11 +209,14 @@ const AppShell = () => {
       <OfflineIndicator />
       <BrowserRouter>
         <AuthProvider>
-          <AppBadgesProvider>
-            <AppRoutes />
-          </AppBadgesProvider>
+          <TripProvider>
+            <AppBadgesProvider>
+              <AppRoutes />
+            </AppBadgesProvider>
+          </TripProvider>
         </AuthProvider>
       </BrowserRouter>
+
     </>
   );
 };
