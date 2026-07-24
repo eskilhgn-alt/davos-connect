@@ -942,6 +942,7 @@ export async function editMessage(messageId: string, newText: string): Promise<v
 }
 
 export async function deleteMessage(messageId: string): Promise<void> {
+  if (currentIsArchive) throw new Error('Arkiv – skrivebeskyttet');
   const previous = state.byId.get(messageId);
   const deletedAt = Date.now();
   if (previous) {
