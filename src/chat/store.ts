@@ -1056,10 +1056,8 @@ function ensureTypingChannel() {
   return typingChannel;
 }
 
-function teardownTypingIfIdle() {
-  // Always tear down when there are no subscribers OR when called explicitly
-  // during a trip switch — the caller (setTrip) has already cleared state.
-  if (typingSubs.size !== 0 && currentTripId) return;
+function teardownTypingIfIdle(force = false) {
+  if (!force && typingSubs.size !== 0) return;
   if (typingSweepTimer) { clearInterval(typingSweepTimer); typingSweepTimer = null; }
   if (typingChannel) {
     supabase.removeChannel(typingChannel);
