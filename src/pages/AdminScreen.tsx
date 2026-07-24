@@ -79,12 +79,10 @@ export const AdminScreen: React.FC = () => {
         </div>
 
         {tab === "overview" && (
-          <AdminOverview
-            stats={stats}
-            users={users}
-            onNavigate={setTab}
-          />
+          <AdminOverview stats={stats} users={users} onNavigate={setTab} />
         )}
+
+        {tab === "trips" && <AdminTrips />}
 
         {tab === "users" && (
           <AdminUserList
