@@ -96,7 +96,7 @@ export const ChatScreen: React.FC = () => {
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="font-heading text-base font-semibold text-foreground tracking-tight leading-tight truncate">
-            Chat{selectedTrip ? ` · ${selectedTrip.label}` : ''}
+            Chat{selectedTrip ? ` · ${selectedTrip.name}` : ''}
           </h1>
           {isArchive && (
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1 mt-0.5">
