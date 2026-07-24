@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     const storyId = String(body?.story_id ?? '');
     if (!storyId) return j({ error: 'story_id_required' }, 400);
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+    // admin client already created above
 
     // Load story + verify ownership
     const { data: story, error: sErr } = await admin
