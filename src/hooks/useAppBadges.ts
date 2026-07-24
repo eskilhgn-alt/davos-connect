@@ -8,6 +8,7 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrip } from "@/contexts/TripContext";
 
 const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
