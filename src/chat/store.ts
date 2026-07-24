@@ -494,7 +494,7 @@ export function setTrip(tripId: string | null, isArchive = false): void {
   if (tripId === currentTripId) return;
   // Teardown and clear.
   teardownMessageChannel();
-  teardownTypingIfIdle();
+  teardownTypingIfIdle(true);
   state.byId.clear();
   state.optimistic.clear();
   state.reactionsByMessage.clear();
