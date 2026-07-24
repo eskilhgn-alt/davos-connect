@@ -725,6 +725,8 @@ export async function sendMessage(
   senderId?: string,
   senderName?: string,
 ): Promise<Message> {
+  if (!currentTripId) throw new Error('Ingen aktiv tur valgt');
+  if (currentIsArchive) throw new Error('Arkiv – skrivebeskyttet');
   const sid = senderId || (await getCurrentUserId());
   let sname = senderName;
   if (!sname) {
