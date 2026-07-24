@@ -2357,6 +2357,31 @@ export type Database = {
         Args: { _trip_id: string; _user_id: string }
         Returns: boolean
       }
+      rpc_admin_activate_trip: {
+        Args: { p_trip_id: string }
+        Returns: {
+          country: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          destination: string
+          destination_config: Json
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["trip_status"]
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "trips"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rpc_admin_add_trip_member: {
         Args: { p_trip_id: string; p_user_id: string }
         Returns: boolean
