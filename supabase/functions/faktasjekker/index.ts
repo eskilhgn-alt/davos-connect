@@ -196,6 +196,11 @@ async function authenticate(req: Request): Promise<{
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // Valid JWT is not enough — require approved+active+not-banned membership.
+  const { data: approved, error: apprErr } = await admin.rpc("is_approved_member", { _uid: data.user.id });
+  if (apprErr || approved !== true) throw new Error("not_approved");
+
   return { userId: data.user.id, admin };
 }
 
