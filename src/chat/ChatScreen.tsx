@@ -94,7 +94,16 @@ export const ChatScreen: React.FC = () => {
         >
           <ArrowLeft size={22} strokeWidth={1.8} />
         </button>
-        <h1 className="font-heading text-base font-semibold text-foreground tracking-tight flex-1">Chat</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="font-heading text-base font-semibold text-foreground tracking-tight leading-tight truncate">
+            Chat{selectedTrip ? ` · ${selectedTrip.label}` : ''}
+          </h1>
+          {isArchive && (
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1 mt-0.5">
+              <Lock size={10} /> Arkiv – skrivebeskyttet
+            </p>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => navigate('/hjem')}
@@ -104,22 +113,41 @@ export const ChatScreen: React.FC = () => {
         </button>
       </header>
 
-      <MessageList
-        messages={messages}
-        currentUserId={userId}
-        composerHeight={composerHeight}
-        viewportHeight={vvh}
-        isTyping={typingState.isTyping}
-        deepLinkMessageId={deepLinkMessageId}
-      />
+      {!selectedTripId ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground px-6 text-center">
+          Ingen tur er valgt. Velg en tur i «Mer» for å se chatten.
+        </div>
+      ) : (
+        <MessageList
+          messages={messages}
+          currentUserId={userId}
+          composerHeight={isArchive ? 56 : composerHeight}
+          viewportHeight={vvh}
+          isTyping={typingState.isTyping}
+          deepLinkMessageId={deepLinkMessageId}
+        />
+      )}
 
 
-      <div
-        className="fixed left-0 right-0 z-10"
-        style={{ bottom: `${kb}px` }}
-      >
-        <Composer onSend={handleSend} onHeightChange={handleComposerHeight} />
-      </div>
+      {selectedTripId && !isArchive && (
+        <div
+          className="fixed left-0 right-0 z-10"
+          style={{ bottom: `${kb}px` }}
+        >
+          <Composer onSend={handleSend} onHeightChange={handleComposerHeight} />
+        </div>
+      )}
+      {selectedTripId && isArchive && (
+        <div
+          className="fixed left-0 right-0 z-10 bg-muted/90 backdrop-blur border-t border-border px-4 py-3 flex items-center justify-center gap-2 text-xs text-muted-foreground"
+          style={{ bottom: `${kb}px` }}
+          role="status"
+          aria-label="Arkiv – skrivebeskyttet"
+        >
+          <Lock size={12} />
+          <span>Arkiv – skrivebeskyttet. Du kan lese, men ikke skrive nye meldinger.</span>
+        </div>
+      )}
     </div>
   );
 };
