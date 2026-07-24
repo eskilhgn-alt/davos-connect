@@ -208,11 +208,14 @@ export const HomeScreen: React.FC = () => {
             refetchStories();
           }}
           onViewed={markViewed}
+          isArchive={isArchive}
         />
       )}
 
-      {captureOpen && (
+      {captureOpen && !isArchive && selectedTripId && (
         <StoryCapture
+          tripId={selectedTripId}
+          isArchive={isArchive}
           onClose={() => setCaptureOpen(false)}
           onPublished={() => {
             setCaptureOpen(false);
