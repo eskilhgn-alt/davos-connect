@@ -58,16 +58,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = React.useState(true);
   const [isProfileLoading, setIsProfileLoading] = React.useState(false);
 
-  const fetchProfile = React.useCallback(async (userId: string) => {
+  const fetchProfile = React.useCallback(async (_userId: string) => {
     try {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      // Uses SECURITY DEFINER RPC scoped to auth.uid(). Regular authenticated
+      // grants on public.profiles no longer expose sensitive columns
+      // (email, ban_reason, email_verified, approved_by, …) for OTHER users;
+      // this RPC returns the full row only for the caller's own account.
+      const { data, error } = await supabase.rpc("rpc_get_own_profile" as never);
 
       if (error) {
         console.error("Error fetching profile:", error);
         return null;
       }
-
-      return data as Profile | null;
+      const row = Array.isArray(data) ? data[0] : data;
+      return (row ?? null) as Profile | null;
     } catch (err) {
       console.error("Profile fetch error:", err);
       return null;
