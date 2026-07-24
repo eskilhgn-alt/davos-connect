@@ -575,6 +575,7 @@ export function listMessages(): Message[] { return sortedMessages(); }
 // ============ Send / Retry ============
 interface PendingSend {
   clientId: string;
+  tripId: string;
   text: string;
   attachments: Attachment[]; // updated in place as uploads complete on retry
   senderId: string;
