@@ -20,9 +20,11 @@ import { AdminAuditLog } from "@/components/admin/AdminAuditLog";
 import { AdminBugReports } from "@/components/admin/AdminBugReports";
 import { AdminAnnouncements } from "@/components/admin/AdminAnnouncements";
 import { AdminModeration } from "@/components/admin/AdminModeration";
+import { AdminTrips } from "@/components/admin/AdminTrips";
 
 const TAB_OPTIONS: SegmentOption[] = [
   { value: "overview", label: "Oversikt" },
+  { value: "trips", label: "Turer" },
   { value: "users", label: "Brukere" },
   { value: "moderate", label: "Innhold" },
   { value: "push", label: "Push" },
@@ -77,12 +79,10 @@ export const AdminScreen: React.FC = () => {
         </div>
 
         {tab === "overview" && (
-          <AdminOverview
-            stats={stats}
-            users={users}
-            onNavigate={setTab}
-          />
+          <AdminOverview stats={stats} users={users} onNavigate={setTab} />
         )}
+
+        {tab === "trips" && <AdminTrips />}
 
         {tab === "users" && (
           <AdminUserList

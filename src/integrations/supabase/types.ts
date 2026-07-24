@@ -111,6 +111,7 @@ export type Database = {
           id: string
           start_at: string
           title: string
+          trip_id: string
           updated_at: string
         }
         Insert: {
@@ -122,6 +123,7 @@ export type Database = {
           id?: string
           start_at: string
           title: string
+          trip_id?: string
           updated_at?: string
         }
         Update: {
@@ -133,9 +135,18 @@ export type Database = {
           id?: string
           start_at?: string
           title?: string
+          trip_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agenda_events_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       attachments: {
         Row: {
@@ -491,6 +502,7 @@ export type Database = {
           storage_bucket: string
           storage_path: string
           thumbnail_path: string | null
+          trip_id: string
           type: string
           uploaded_by: string
           width: number | null
@@ -507,6 +519,7 @@ export type Database = {
           storage_bucket: string
           storage_path: string
           thumbnail_path?: string | null
+          trip_id?: string
           type: string
           uploaded_by: string
           width?: number | null
@@ -523,6 +536,7 @@ export type Database = {
           storage_bucket?: string
           storage_path?: string
           thumbnail_path?: string | null
+          trip_id?: string
           type?: string
           uploaded_by?: string
           width?: number | null
@@ -540,6 +554,13 @@ export type Database = {
             columns: ["source_story_id"]
             isOneToOne: false
             referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gallery_items_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
             referencedColumns: ["id"]
           },
         ]
@@ -653,6 +674,7 @@ export type Database = {
           sender_name: string
           text: string
           thread_id: string
+          trip_id: string
         }
         Insert: {
           attachments?: Json | null
@@ -666,6 +688,7 @@ export type Database = {
           sender_name: string
           text?: string
           thread_id: string
+          trip_id?: string
         }
         Update: {
           attachments?: Json | null
@@ -679,6 +702,7 @@ export type Database = {
           sender_name?: string
           text?: string
           thread_id?: string
+          trip_id?: string
         }
         Relationships: [
           {
@@ -693,6 +717,13 @@ export type Database = {
             columns: ["thread_id"]
             isOneToOne: false
             referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
             referencedColumns: ["id"]
           },
         ]
@@ -1003,6 +1034,7 @@ export type Database = {
           send_push_on_create: boolean
           send_push_on_resolved: boolean
           status: string
+          trip_id: string
           updated_at: string
           winning_option_id: string | null
         }
@@ -1019,6 +1051,7 @@ export type Database = {
           send_push_on_create?: boolean
           send_push_on_resolved?: boolean
           status?: string
+          trip_id?: string
           updated_at?: string
           winning_option_id?: string | null
         }
@@ -1035,10 +1068,19 @@ export type Database = {
           send_push_on_create?: boolean
           send_push_on_resolved?: boolean
           status?: string
+          trip_id?: string
           updated_at?: string
           winning_option_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "polls_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1173,6 +1215,7 @@ export type Database = {
           receipt_image_url: string | null
           receipt_uploaded_by: string | null
           total_cost: number
+          trip_id: string
         }
         Insert: {
           buyer_id: string
@@ -1190,6 +1233,7 @@ export type Database = {
           receipt_image_url?: string | null
           receipt_uploaded_by?: string | null
           total_cost?: number
+          trip_id?: string
         }
         Update: {
           buyer_id?: string
@@ -1207,8 +1251,17 @@ export type Database = {
           receipt_image_url?: string | null
           receipt_uploaded_by?: string | null
           total_cost?: number
+          trip_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rounds_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shot_event_log: {
         Row: {
@@ -1525,6 +1578,7 @@ export type Database = {
           expires_at: string
           id: string
           storage_path: string
+          trip_id: string
           type: string
           user_id: string
         }
@@ -1534,6 +1588,7 @@ export type Database = {
           expires_at?: string
           id?: string
           storage_path: string
+          trip_id?: string
           type?: string
           user_id: string
         }
@@ -1543,10 +1598,19 @@ export type Database = {
           expires_at?: string
           id?: string
           storage_path?: string
+          trip_id?: string
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stories_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       story_likes: {
         Row: {
@@ -1672,6 +1736,86 @@ export type Database = {
           id?: string
           reason?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      trip_members: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          trip_id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          trip_id: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          trip_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_members_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trips: {
+        Row: {
+          country: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          destination: string
+          destination_config: Json
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["trip_status"]
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          destination: string
+          destination_config?: Json
+          end_date?: string | null
+          id?: string
+          name: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["trip_status"]
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          destination?: string
+          destination_config?: Json
+          end_date?: string | null
+          id?: string
+          name?: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["trip_status"]
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -2138,6 +2282,7 @@ export type Database = {
       }
     }
     Functions: {
+      active_trip_id: { Args: never; Returns: string }
       consume_email_verification_token: {
         Args: { p_token_hash: string }
         Returns: {
@@ -2189,6 +2334,7 @@ export type Database = {
           receipt_image_url: string | null
           receipt_uploaded_by: string | null
           total_cost: number
+          trip_id: string
         }
         SetofOptions: {
           from: "*"
@@ -2206,11 +2352,82 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_approved_member: { Args: { _uid: string }; Returns: boolean }
+      is_trip_member: {
+        Args: { _trip_id: string; _user_id: string }
+        Returns: boolean
+      }
+      rpc_admin_add_trip_member: {
+        Args: { p_trip_id: string; p_user_id: string }
+        Returns: boolean
+      }
       rpc_admin_adjust_tokens: {
         Args: { p_delta: number; p_reason: string; p_user_id: string }
         Returns: Json
       }
       rpc_admin_approve_member: { Args: { p_user_id: string }; Returns: Json }
+      rpc_admin_archive_trip: {
+        Args: { p_trip_id: string }
+        Returns: {
+          country: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          destination: string
+          destination_config: Json
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["trip_status"]
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "trips"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rpc_admin_create_trip: {
+        Args: {
+          p_country?: string
+          p_currency?: string
+          p_destination: string
+          p_destination_config?: Json
+          p_end_date?: string
+          p_name: string
+          p_start_date?: string
+          p_timezone?: string
+        }
+        Returns: {
+          country: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          destination: string
+          destination_config: Json
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["trip_status"]
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "trips"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rpc_admin_remove_trip_member: {
+        Args: { p_trip_id: string; p_user_id: string }
+        Returns: boolean
+      }
       rpc_admin_reset_shot_event: {
         Args: { p_event_id: string }
         Returns: Json
@@ -2219,11 +2436,71 @@ export type Database = {
         Args: { p_event_id: string; p_reason?: string; p_verdict: string }
         Returns: Json
       }
+      rpc_admin_set_active_trip: {
+        Args: { p_trip_id: string }
+        Returns: {
+          country: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          destination: string
+          destination_config: Json
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["trip_status"]
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "trips"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rpc_admin_set_ban: {
         Args: { p_banned: boolean; p_reason?: string; p_user_id: string }
         Returns: Json
       }
       rpc_admin_unban_shot: { Args: { p_user_id: string }; Returns: Json }
+      rpc_admin_update_trip: {
+        Args: {
+          p_country?: string
+          p_currency?: string
+          p_destination?: string
+          p_destination_config?: Json
+          p_end_date?: string
+          p_name?: string
+          p_start_date?: string
+          p_timezone?: string
+          p_trip_id: string
+        }
+        Returns: {
+          country: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          destination: string
+          destination_config: Json
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["trip_status"]
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "trips"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rpc_apply_overdue: { Args: { p_event_id: string }; Returns: Json }
       rpc_apply_punishment_ban: { Args: { p_event_id: string }; Returns: Json }
       rpc_award_points: {
@@ -2323,6 +2600,7 @@ export type Database = {
     Enums: {
       app_role: "user" | "admin"
       membership_status_type: "pending" | "approved" | "banned"
+      trip_status: "active" | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2452,6 +2730,7 @@ export const Constants = {
     Enums: {
       app_role: ["user", "admin"],
       membership_status_type: ["pending", "approved", "banned"],
+      trip_status: ["active", "archived"],
     },
   },
 } as const

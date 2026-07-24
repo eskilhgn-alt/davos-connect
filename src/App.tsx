@@ -126,6 +126,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+/** Admin-only wrapper — brukes for interne verktøy som Crew-kart. */
+const AdminOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAdmin, isLoading, isProfileLoading } = useAuth();
+  if (isLoading || isProfileLoading) return <RouteLoading />;
+  if (!isAdmin) return <Navigate to="/hjem" replace />;
+  return <>{children}</>;
+};
+
 const AppRoutes = () => (
   <React.Suspense fallback={<RouteLoading />}>
     <Routes>
@@ -148,7 +156,7 @@ const AppRoutes = () => (
       <Route path="/vaer" element={<WeatherScreen />} />
       <Route path="/live" element={<Navigate to="/kart?vis=status" replace />} />
       <Route path="/kart" element={<MapScreen />} />
-      <Route path="/crew" element={<CrewMapScreen />} />
+      <Route path="/crew" element={<AdminOnly><CrewMapScreen /></AdminOnly>} />
       
       <Route path="/mer" element={<MoreScreen />} />
       <Route path="/webcams" element={<WebcamsScreen />} />
