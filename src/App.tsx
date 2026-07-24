@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/layout";
 import { ChatLayout } from "@/layouts/ChatLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
