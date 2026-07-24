@@ -1119,4 +1119,7 @@ export const chatStore = {
   setReplyTo,
   getReplyTo,
   subscribeToReplyTo,
+  setTrip,
+  getCurrentTripId,
+  isArchiveMode,
 };
