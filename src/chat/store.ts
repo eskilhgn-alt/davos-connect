@@ -253,6 +253,8 @@ async function fetchReplyPreviews(messages: Message[], rows: Record<string, unkn
 
 // ============ Initial load / pagination ============
 async function loadPage(beforeCursor?: Cursor): Promise<number> {
+  if (!currentTripId) return 0; // Ingen tur valgt → ingen globale spørringer.
+  const tripAtStart = currentTripId;
   state.loading = true;
   const limit = beforeCursor ? PAGE_SIZE : INITIAL_PAGE;
 
@@ -263,6 +265,7 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
     .from('messages')
     .select('*')
     .eq('thread_id', DEFAULT_THREAD_ID)
+    .eq('trip_id', tripAtStart)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(limit);
@@ -271,6 +274,8 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
   }
   const { data, error } = await q;
   state.loading = false;
+  // Ignore results if trip was switched mid-flight.
+  if (tripAtStart !== currentTripId) return 0;
   if (error) {
     console.error('[chat] loadPage failed', error);
     return 0;
