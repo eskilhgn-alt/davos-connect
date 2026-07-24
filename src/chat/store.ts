@@ -738,7 +738,7 @@ export async function sendMessage(
   const replyToId = replyTo?.id || null;
   if (replyTo) setReplyTo(null);
 
-  const pending: PendingSend = { clientId, text, attachments, senderId: sid, senderName: sname, replyToId };
+  const pending: PendingSend = { clientId, tripId: currentTripId, text, attachments, senderId: sid, senderName: sname, replyToId };
   pendingByClientId.set(clientId, pending);
 
   const now = Date.now();
