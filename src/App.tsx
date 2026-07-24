@@ -94,6 +94,34 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     );
   }
 
+  // Membership must be approved before private app data is reachable.
+  // Server-side RLS also enforces this — this branch just gives clear UI.
+  const membershipStatus = (profile as unknown as { membership_status?: string }).membership_status;
+  if (!isAdmin && membershipStatus && membershipStatus !== "approved") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-8 text-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+          <span className="text-3xl">⏳</span>
+        </div>
+        <h1 className="font-heading text-xl font-bold text-foreground">
+          {membershipStatus === "banned" ? "Tilgang avvist" : "Venter på godkjenning"}
+        </h1>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          {membershipStatus === "banned"
+            ? "Kontoen din er avvist. Kontakt en admin hvis du mener dette er feil."
+            : "En administrator må godkjenne kontoen din før du får tilgang. Du vil bli varslet så snart det er gjort."}
+        </p>
+        <button
+          type="button"
+          onClick={() => void supabase.auth.signOut()}
+          className="text-xs text-muted-foreground underline underline-offset-2"
+        >
+          Logg ut
+        </button>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 };
 
