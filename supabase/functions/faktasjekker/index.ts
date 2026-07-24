@@ -656,6 +656,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
     if (message === "unauthorized") return json({ error: "Du må være logget inn" }, 401);
+    if (message === "not_approved") return json({ error: "Kontoen din venter på godkjenning" }, 403);
     console.error("faktasjekker request error", error);
     return json({ error: "Faktasjekk er midlertidig utilgjengelig" }, 500);
   }
