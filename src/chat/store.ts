@@ -787,6 +787,7 @@ async function performSend(clientId: string): Promise<Message | null> {
         id: insertId,
         text: p.text.trim(),
         thread_id: DEFAULT_THREAD_ID,
+        trip_id: p.tripId,
         sender_id: p.senderId,
         sender_name: p.senderName,
         attachments: serializedAtts as unknown as never,
