@@ -924,6 +924,7 @@ export function discardFailed(clientId: string): void {
 
 // ============ Edit / Delete ============
 export async function editMessage(messageId: string, newText: string): Promise<void> {
+  if (currentIsArchive) throw new Error('Arkiv – skrivebeskyttet');
   const previous = state.byId.get(messageId);
   const editedAt = Date.now();
   if (previous) {
