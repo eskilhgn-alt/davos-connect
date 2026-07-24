@@ -961,6 +961,7 @@ export async function deleteMessage(messageId: string): Promise<void> {
 
 // ============ Reactions (table-backed) ============
 export async function toggleReaction(messageId: string, emoji: string): Promise<void> {
+  if (currentIsArchive) throw new Error('Arkiv – skrivebeskyttet');
   const uid = await getCurrentUserId();
   let map = state.reactionsByMessage.get(messageId);
   const current = map?.get(uid);
