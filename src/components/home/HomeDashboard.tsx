@@ -42,7 +42,12 @@ function windArrowRotation(deg: number | null | undefined) {
   return { transform: `rotate(${deg ?? 0}deg)` };
 }
 
-export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey }) => {
+export interface HomeDashboardHandle {
+  /** Refetch weather + next event + FX rate. Called by parent pull-to-refresh. */
+  refresh: () => Promise<void>;
+}
+
+export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
   const { user } = useAuth();
   const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
   const [rateDate, setRateDate] = React.useState<string | null>(null);
@@ -53,44 +58,44 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
   const { weather, loading: weatherLoading, refresh: refreshWeather } = useTripWeather();
   const currency = ACTIVE_TRIP.currency;
 
-  // EUR → NOK via ECB (Frankfurter). Ingen CHF-kurs mer.
-  React.useEffect(() => {
-    let cancelled = false;
-    fetch(`https://api.frankfurter.dev/v1/latest?base=${currency}&symbols=NOK`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled) return;
-        setRate({ rate: d?.rates?.NOK ?? null, loading: false });
-        setRateDate(d?.date ?? null);
-        setRateFetchedAt(new Date());
-      })
-      .catch(() => {
-        if (!cancelled) setRate({ rate: null, loading: false });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshKey, currency]);
+  const fetchRate = React.useCallback(async () => {
+    try {
+      const d = await fetch(`https://api.frankfurter.dev/v1/latest?base=${currency}&symbols=NOK`).then((r) => r.json());
+      setRate({ rate: d?.rates?.NOK ?? null, loading: false });
+      setRateDate(d?.date ?? null);
+      setRateFetchedAt(new Date());
+    } catch {
+      setRate({ rate: null, loading: false });
+    }
+  }, [currency]);
 
-  React.useEffect(() => {
+  const fetchNextEvent = React.useCallback(async () => {
     if (!user) return;
-    supabase
+    // Secondary fetch — a failure here must not surface as a full-screen error.
+    const { data } = await supabase
       .from("agenda_events")
       .select("title, start_at")
       .gte("start_at", new Date().toISOString())
       .order("start_at", { ascending: true })
-      .limit(1)
-      .then(({ data }) => {
-        if (data && data.length > 0) setNextEvent(data[0] as NextEvent);
-        else setNextEvent(null);
-      });
-  }, [user, refreshKey]);
+      .limit(1);
+    if (data && data.length > 0) setNextEvent(data[0] as NextEvent);
+    else setNextEvent(null);
+  }, [user]);
 
-  // Refresh weather when parent bumps refreshKey (pull-to-refresh).
   React.useEffect(() => {
-    if (refreshKey && refreshKey > 0) refreshWeather();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
+    void fetchRate();
+  }, [fetchRate]);
+
+  React.useEffect(() => {
+    void fetchNextEvent();
+  }, [fetchNextEvent]);
+
+  React.useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      await Promise.allSettled([fetchRate(), fetchNextEvent(), refreshWeather()]);
+    },
+  }), [fetchRate, fetchNextEvent, refreshWeather]);
+
 
   const current = weather?.current;
   const today = weather?.daily?.[0];
@@ -189,4 +194,6 @@ export const HomeDashboard: React.FC<{ refreshKey?: number }> = ({ refreshKey })
       )}
     </section>
   );
-};
+});
+HomeDashboard.displayName = "HomeDashboard";
+

@@ -11,6 +11,7 @@ import { StoryCapture } from "@/components/stories/StoryCapture";
 import { StoryRing } from "@/components/stories/StoryRing";
 import { useStories } from "@/hooks/useStories";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrip } from "@/contexts/TripContext";
 import { Film, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
@@ -20,7 +21,8 @@ import { toast } from "sonner";
 
 export const StoriesScreen: React.FC = () => {
   const { user } = useAuth();
-  const { groups, loading, error, refetch, markViewed, deleteStory, setRefetchPaused } = useStories();
+  const { selectedTripId, isArchive } = useTrip();
+  const { groups, loading, error, refetch, markViewed, deleteStory, setRefetchPaused } = useStories(selectedTripId, isArchive);
   const [viewerOpen, setViewerOpen] = React.useState(false);
   const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
   const [viewerStoryIdx, setViewerStoryIdx] = React.useState(0);
@@ -201,12 +203,15 @@ export const StoriesScreen: React.FC = () => {
             refetch();
           }}
           onViewed={markViewed}
-          onDelete={deleteStory}
+          onDelete={isArchive ? undefined : deleteStory}
+          isArchive={isArchive}
         />
       )}
 
-      {captureOpen && (
+      {captureOpen && !isArchive && selectedTripId && (
         <StoryCapture
+          tripId={selectedTripId}
+          isArchive={isArchive}
           onClose={() => setCaptureOpen(false)}
           onPublished={() => {
             setCaptureOpen(false);

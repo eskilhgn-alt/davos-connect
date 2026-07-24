@@ -36,15 +36,18 @@ export interface DeleteResult {
   storageCleanupWarning?: string;
 }
 
+import {
+  buildStoryCacheKey,
+  storyChannelName,
+  storyChannelFilter,
+  canWriteStory,
+} from "@/features/stories/tripScoping";
+
 const STORY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-function storyCacheKey(userId: string) {
-  return `guttahutte:stories:${userId}:v1`;
-}
-
-function readStoryCache(userId: string): StoryGroup[] | null {
+function readStoryCache(userId: string, tripId: string): StoryGroup[] | null {
   try {
-    const raw = localStorage.getItem(storyCacheKey(userId));
+    const raw = localStorage.getItem(buildStoryCacheKey(userId, tripId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { savedAt: number; groups: StoryGroup[] };
     if (!Array.isArray(parsed.groups) || Date.now() - parsed.savedAt > STORY_CACHE_TTL_MS) return null;
@@ -60,19 +63,27 @@ function readStoryCache(userId: string): StoryGroup[] | null {
   }
 }
 
-function writeStoryCache(userId: string, groups: StoryGroup[]): void {
+function writeStoryCache(userId: string, tripId: string, groups: StoryGroup[]): void {
   try {
     const serializable = groups.map((group) => ({
       ...group,
       stories: group.stories.map((story) => ({ ...story, publicUrl: "", signError: false })),
     }));
-    localStorage.setItem(storyCacheKey(userId), JSON.stringify({ savedAt: Date.now(), groups: serializable }));
+    localStorage.setItem(
+      buildStoryCacheKey(userId, tripId),
+      JSON.stringify({ savedAt: Date.now(), groups: serializable }),
+    );
   } catch {
     // Non-fatal on constrained/private storage.
   }
 }
 
-export function useStories() {
+/**
+ * Trip-scoped stories. `tripId=null` yields an empty, disabled state
+ * (no fetches, no subscriptions, no writes). Switching trip resets state
+ * and tears down realtime cleanly to prevent cross-trip flashes.
+ */
+export function useStories(tripId: string | null, isArchive: boolean = false) {
   const { user } = useAuth();
   const [groups, setGroups] = React.useState<StoryGroup[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -80,14 +91,32 @@ export function useStories() {
   /** Refetch is paused while the viewer is actively open, to avoid resetting playback. */
   const pauseRefetchRef = React.useRef(false);
 
+  /** Monotonic request token — mid-flight results from stale trips are discarded. */
+  const requestTokenRef = React.useRef(0);
+  /** Last trip we actually fetched for; used to guard cache writes and stale results. */
+  const activeTripRef = React.useRef<string | null>(null);
+  activeTripRef.current = tripId;
+
   const fetchStories = React.useCallback(async () => {
     if (!user) return;
+    if (!tripId) {
+      setGroups([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    const token = ++requestTokenRef.current;
+    const requestTrip = tripId;
     try {
       const { data: storiesData, error: fetchErr } = await supabase
         .from("stories")
         .select("id, user_id, storage_path, type, duration_sec, created_at, expires_at")
+        .eq("trip_id", requestTrip)
         .gt("expires_at", new Date().toISOString())
         .order("created_at", { ascending: true });
+
+      // Discard results from an earlier trip if the user switched mid-flight.
+      if (token !== requestTokenRef.current || requestTrip !== activeTripRef.current) return;
 
       if (fetchErr) throw fetchErr;
 
@@ -102,8 +131,6 @@ export function useStories() {
       const storyIds = storiesData.map((s: any) => s.id);
       const paths = [...new Set(storiesData.map((s: any) => s.storage_path))];
 
-      // Start signing immediately, but don't block rings and metadata on it.
-      // The viewer reuses the same inflight promise when opened.
       const signedPromise = signBatch("stories", paths);
       const [profilesRes, viewsRes] = await Promise.all([
         userIds.length > 0
@@ -114,7 +141,8 @@ export function useStories() {
           : Promise.resolve({ data: [], error: null } as { data: any[]; error: null }),
       ]);
 
-      // Do NOT silently build a feed with missing profile/view data — surface via retry state.
+      if (token !== requestTokenRef.current || requestTrip !== activeTripRef.current) return;
+
       if ((profilesRes as any).error) throw (profilesRes as any).error;
       if ((viewsRes as any).error) throw (viewsRes as any).error;
 
@@ -164,9 +192,11 @@ export function useStories() {
       });
 
       setGroups(allGroups);
-      writeStoryCache(user.id, allGroups);
+      writeStoryCache(user.id, requestTrip, allGroups);
       setError(null);
       void signedPromise.then((signedMap) => {
+        // Only apply signed URLs when the trip hasn't switched under us.
+        if (requestTrip !== activeTripRef.current) return;
         setGroups((current) => current.map((group) => ({
           ...group,
           stories: group.stories.map((story) => ({
@@ -177,34 +207,50 @@ export function useStories() {
         })));
       });
     } catch (err) {
+      if (token !== requestTokenRef.current) return;
       console.error("[stories] fetch error:", err);
       setError((err as Error)?.message || "Kunne ikke laste historier");
     } finally {
-      setLoading(false);
+      if (token === requestTokenRef.current) setLoading(false);
     }
-  }, [user]);
+  }, [user, tripId]);
 
   React.useEffect(() => {
-    if (!user) return;
-    const cached = readStoryCache(user.id);
+    if (!user || !tripId) {
+      // No trip selected → clear any lingering state so no cross-trip flash.
+      setGroups([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const cached = readStoryCache(user.id, tripId);
     if (cached) {
       setGroups(cached);
       setLoading(false);
       void signBatch("stories", cached.flatMap((group) => group.stories.map((story) => story.storagePath)));
+    } else {
+      // Wipe previous trip's rings immediately to prevent flash.
+      setGroups([]);
     }
     void fetchStories();
-  }, [fetchStories, user]);
+  }, [fetchStories, user, tripId]);
 
   React.useEffect(() => {
+    if (!tripId) return;
     const channel = supabase
-      .channel("stories-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
-        if (pauseRefetchRef.current) return; // avoid resetting an open viewer
-        fetchStories();
-      })
+      .channel(storyChannelName(tripId))
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "stories", filter: storyChannelFilter(tripId) },
+        () => {
+          if (pauseRefetchRef.current) return; // avoid resetting an open viewer
+          fetchStories();
+        },
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchStories]);
+  }, [fetchStories, tripId]);
+
 
   // Ref mirror of `groups` so markViewed can read a deterministic snapshot
   // without relying on in-updater mutation (which is not concurrent-safe).
@@ -220,6 +266,8 @@ export function useStories() {
     storyId: string,
   ): Promise<{ ok: boolean; error?: string }> => {
     if (!user) return { ok: false, error: "no_user" };
+    if (!canWriteStory({ tripId, isArchive })) return { ok: false, error: "archive" };
+
 
     // Deterministic pre-state lookup from the ref snapshot.
     let alreadyViewed = false;
@@ -256,7 +304,8 @@ export function useStories() {
       return { ok: false, error: err.message };
     }
     return { ok: true };
-  }, [user]);
+  }, [user, tripId, isArchive]);
+
 
   /**
    * Delete own story.
@@ -265,6 +314,7 @@ export function useStories() {
    */
   const deleteStory = React.useCallback(async (story: Story): Promise<DeleteResult> => {
     if (!user || story.userId !== user.id) throw new Error("Ikke din story");
+    if (!canWriteStory({ tripId, isArchive })) throw new Error("Arkivmodus – kan ikke slette");
     const { error: dbErr } = await supabase.from("stories").delete().eq("id", story.id);
     if (dbErr) throw dbErr;
     // Optimistically drop from local groups (also removes the row for the current viewer).
@@ -278,7 +328,7 @@ export function useStories() {
       return { ok: true, storageCleanupWarning: storageErr.message || "Filen ble ikke fjernet" };
     }
     return { ok: true };
-  }, [user]);
+  }, [user, tripId, isArchive]);
 
   const setRefetchPaused = React.useCallback((paused: boolean) => {
     pauseRefetchRef.current = paused;

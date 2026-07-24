@@ -34,6 +34,10 @@ import { validateStoryFile, MAX_STORY_VIDEO_SEC } from "@/features/stories/helpe
 interface StoryCaptureProps {
   onClose: () => void;
   onPublished: () => void;
+  /** Trip the story belongs to. Required — publish is disabled when null. */
+  tripId: string | null;
+  /** When true (archive trip), the composer refuses to publish. */
+  isArchive?: boolean;
 }
 
 interface TextOverlay {
@@ -54,7 +58,7 @@ interface DrawPath {
 const TEXT_COLORS = ["#ffffff", "#000000", "#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#ec4899"];
 const DRAW_COLORS = ["#ffffff", "#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#000000"];
 
-export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished }) => {
+export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished, tripId, isArchive = false }) => {
   const { user } = useAuth();
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const streamRef = React.useRef<MediaStream | null>(null);
@@ -691,6 +695,10 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
   // ─── Publish ───
   const publish = async () => {
     if (!capturedMedia || !user) return;
+    if (!tripId || isArchive) {
+      errorToast("Kan ikke publisere i arkivmodus");
+      return;
+    }
     setUploading(true);
 
     let uploadedPath: string | null = null;
@@ -743,6 +751,7 @@ export const StoryCapture: React.FC<StoryCaptureProps> = ({ onClose, onPublished
         storage_path: path,
         type: capturedMedia.type,
         duration_sec: persistDuration,
+        trip_id: tripId,
       }).select("id").maybeSingle();
       if (insertErr) throw insertErr;
 
