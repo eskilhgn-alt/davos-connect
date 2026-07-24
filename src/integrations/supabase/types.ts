@@ -2257,6 +2257,34 @@ export type Database = {
       rpc_finalize_countdown: { Args: { p_event_id: string }; Returns: Json }
       rpc_get_all_shot_tokens: { Args: never; Returns: Json }
       rpc_get_gamification_leaderboard: { Args: never; Returns: Json }
+      rpc_get_own_profile: {
+        Args: never
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          avatar_url: string | null
+          ban_reason: string | null
+          banned_at: string | null
+          created_at: string
+          email: string
+          email_verification_expires_at: string | null
+          email_verification_token: string | null
+          email_verified: boolean
+          full_name: string | null
+          id: string
+          is_active: boolean
+          is_banned: boolean
+          membership_status: Database["public"]["Enums"]["membership_status_type"]
+          nickname: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       rpc_get_points_leaderboard: { Args: { p_days?: number }; Returns: Json }
       rpc_get_shot_leaderboard: {
         Args: { p_days?: number; p_group_id?: string }

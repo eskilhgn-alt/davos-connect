@@ -36,6 +36,14 @@ serve(async (req) => {
   const { data: { user }, error: authError } = await callerClient.auth.getUser();
   if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
+  const approvalClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: approved, error: apprErr } = await approvalClient.rpc(
+    "is_approved_member", { _uid: user.id },
+  );
+  if (apprErr || approved !== true) return json({ error: "not_approved" }, 403);
+
   let roundId = "";
   try {
     const body = await req.json();

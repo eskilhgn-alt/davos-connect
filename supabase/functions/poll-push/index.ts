@@ -45,6 +45,19 @@ serve(async (req) => {
     }
     const callerUserId = authUser.id;
 
+    // Approved membership check (JWT alone is not sufficient authorization).
+    const approvalClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: approved, error: apprErr } = await approvalClient.rpc(
+      "is_approved_member", { _uid: callerUserId },
+    );
+    if (apprErr || approved !== true) {
+      return new Response(JSON.stringify({ error: "not_approved" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { poll_id, type } = await req.json();
     if (!poll_id || !type) {
       return new Response(JSON.stringify({ error: "Missing poll_id or type" }), {

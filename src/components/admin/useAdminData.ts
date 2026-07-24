@@ -131,7 +131,7 @@ export function useAdminData() {
       admin_id: adminId,
       action,
       target_user_id: targetUserId || null,
-      details: details || {},
+      details: (details ?? {}) as never,
     });
   }, []);
 

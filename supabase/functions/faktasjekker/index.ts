@@ -196,6 +196,11 @@ async function authenticate(req: Request): Promise<{
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // Valid JWT is not enough — require approved+active+not-banned membership.
+  const { data: approved, error: apprErr } = await admin.rpc("is_approved_member", { _uid: data.user.id });
+  if (apprErr || approved !== true) throw new Error("not_approved");
+
   return { userId: data.user.id, admin };
 }
 
@@ -651,6 +656,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
     if (message === "unauthorized") return json({ error: "Du må være logget inn" }, 401);
+    if (message === "not_approved") return json({ error: "Kontoen din venter på godkjenning" }, 403);
     console.error("faktasjekker request error", error);
     return json({ error: "Faktasjekk er midlertidig utilgjengelig" }, 500);
   }

@@ -23,8 +23,9 @@ async function postPollChatMessage(
     sender_id: senderId,
     sender_name: "📊 Avstemming",
     text,
-    // Store poll reference in attachments for rendering poll cards
-    attachments: JSON.stringify([{ kind: "poll", poll_id: pollId, poll_event: type }]),
+    // Store poll reference in attachments as a real JSON array (jsonb column).
+    // Passing a string would double-encode and break clients that expect an array.
+    attachments: [{ kind: "poll", poll_id: pollId, poll_event: type }] as never,
   });
 }
 
