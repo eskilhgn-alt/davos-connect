@@ -72,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       const rows = (data as unknown as Profile[] | Profile | null) ?? null;
       const row = Array.isArray(rows) ? rows[0] ?? null : rows;
+      return row;
     } catch (err) {
       console.error("Profile fetch error:", err);
       return null;
