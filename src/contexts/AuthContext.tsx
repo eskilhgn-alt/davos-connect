@@ -70,8 +70,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error("Error fetching profile:", error);
         return null;
       }
-      const row = Array.isArray(data) ? data[0] : data;
-      return (row ?? null) as Profile | null;
+      const rows = (data as unknown as Profile[] | Profile | null) ?? null;
+      const row = Array.isArray(rows) ? rows[0] ?? null : rows;
     } catch (err) {
       console.error("Profile fetch error:", err);
       return null;
