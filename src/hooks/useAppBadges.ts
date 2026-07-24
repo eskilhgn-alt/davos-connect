@@ -33,6 +33,7 @@ const AppBadgesContext = React.createContext<AppBadges>(EMPTY_BADGES);
 
 export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { selectedTripId } = useTrip();
   const userId = user?.id;
   const [badges, setBadges] = React.useState<AppBadges>(EMPTY_BADGES);
   const inFlight = React.useRef<Promise<void> | null>(null);
@@ -40,7 +41,7 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const debounceTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = React.useCallback(async () => {
-    if (!userId) {
+    if (!userId || !selectedTripId) {
       setBadges(EMPTY_BADGES);
       updatePwaBadge(0);
       return;
@@ -55,11 +56,11 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       do {
         refreshAgain.current = false;
         const [chatCount, storiesCount, pollsCount, agendaCount, runderCount] = await Promise.all([
-          getUnreadChat(userId),
-          getUnseenStories(userId),
-          getNewPollsSinceLastSeen(),
-          getNewAgendaSinceLastSeen(),
-          getNewRoundsSinceLastSeen(),
+          getUnreadChat(userId, selectedTripId),
+          getUnseenStories(userId, selectedTripId),
+          getNewPollsSinceLastSeen(selectedTripId),
+          getNewAgendaSinceLastSeen(selectedTripId),
+          getNewRoundsSinceLastSeen(selectedTripId),
         ]);
 
         const total = chatCount + storiesCount + pollsCount + agendaCount + runderCount;
@@ -71,7 +72,7 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
     inFlight.current = request;
     return request;
-  }, [userId]);
+  }, [userId, selectedTripId]);
 
   const scheduleRefresh = React.useCallback(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
