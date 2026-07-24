@@ -33,8 +33,24 @@ const TYPING_TTL_MS = 3000;
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 // Bounded deep-link paging: at most this many extra pages to find the target id.
 const MAX_DEEP_LINK_PAGES = 40;
-const CHAT_CACHE_KEY = 'guttahutte:chat-latest:v2';
+const CHAT_CACHE_KEY_BASE = 'guttahutte:chat-latest:v3';
 const CHAT_CACHE_LIMIT = 50;
+
+// ============ Trip scoping ============
+// The chat store is a module singleton bound to ONE trip at a time. The
+// currently selected trip is set from TripContext via setTrip(). All fetches,
+// realtime channels, cache keys and inserts are trip-scoped. Switching trip
+// tears down the channel, clears in-memory state and reloads the new trip so
+// messages from another trip can never leak into the UI.
+let currentTripId: string | null = null;
+let currentIsArchive = false;
+function cacheKey(tripId: string): string {
+  return `${CHAT_CACHE_KEY_BASE}:${tripId}`;
+}
+function requireTripId(): string {
+  if (!currentTripId) throw new Error('Ingen aktiv tur valgt for chat');
+  return currentTripId;
+}
 
 // ============ Auth ============
 async function getCurrentUserId(): Promise<string> {
