@@ -306,6 +306,13 @@ export type Database = {
             foreignKeyName: "email_verification_tokens_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "members_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_verification_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1035,6 +1042,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           avatar_url: string | null
           ban_reason: string | null
           banned_at: string | null
@@ -1047,10 +1056,13 @@ export type Database = {
           id: string
           is_active: boolean
           is_banned: boolean
+          membership_status: Database["public"]["Enums"]["membership_status_type"]
           nickname: string | null
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           avatar_url?: string | null
           ban_reason?: string | null
           banned_at?: string | null
@@ -1063,10 +1075,13 @@ export type Database = {
           id: string
           is_active?: boolean
           is_banned?: boolean
+          membership_status?: Database["public"]["Enums"]["membership_status_type"]
           nickname?: string | null
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           avatar_url?: string | null
           ban_reason?: string | null
           banned_at?: string | null
@@ -1079,6 +1094,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_banned?: boolean
+          membership_status?: Database["public"]["Enums"]["membership_status_type"]
           nickname?: string | null
           updated_at?: string
         }
@@ -2092,35 +2108,33 @@ export type Database = {
     Views: {
       members_safe: {
         Row: {
-          created_at: string | null
-          display_name: string | null
+          avatar_url: string | null
+          full_name: string | null
           id: string | null
-          thread_id: string | null
-          user_id: string | null
+          membership_status:
+            | Database["public"]["Enums"]["membership_status_type"]
+            | null
+          nickname: string | null
         }
         Insert: {
-          created_at?: string | null
-          display_name?: string | null
+          avatar_url?: string | null
+          full_name?: string | null
           id?: string | null
-          thread_id?: string | null
-          user_id?: string | null
+          membership_status?:
+            | Database["public"]["Enums"]["membership_status_type"]
+            | null
+          nickname?: string | null
         }
         Update: {
-          created_at?: string | null
-          display_name?: string | null
+          avatar_url?: string | null
+          full_name?: string | null
           id?: string | null
-          thread_id?: string | null
-          user_id?: string | null
+          membership_status?:
+            | Database["public"]["Enums"]["membership_status_type"]
+            | null
+          nickname?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "members_thread_id_fkey"
-            columns: ["thread_id"]
-            isOneToOne: false
-            referencedRelation: "threads"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
@@ -2191,10 +2205,12 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_approved_member: { Args: { _uid: string }; Returns: boolean }
       rpc_admin_adjust_tokens: {
         Args: { p_delta: number; p_reason: string; p_user_id: string }
         Returns: Json
       }
+      rpc_admin_approve_member: { Args: { p_user_id: string }; Returns: Json }
       rpc_admin_reset_shot_event: {
         Args: { p_event_id: string }
         Returns: Json
@@ -2278,6 +2294,7 @@ export type Database = {
     }
     Enums: {
       app_role: "user" | "admin"
+      membership_status_type: "pending" | "approved" | "banned"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2406,6 +2423,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["user", "admin"],
+      membership_status_type: ["pending", "approved", "banned"],
     },
   },
 } as const
