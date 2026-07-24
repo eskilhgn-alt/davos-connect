@@ -156,7 +156,7 @@ const AppRoutes = () => (
       <Route path="/vaer" element={<WeatherScreen />} />
       <Route path="/live" element={<Navigate to="/kart?vis=status" replace />} />
       <Route path="/kart" element={<MapScreen />} />
-      <Route path="/crew" element={<CrewMapScreen />} />
+      <Route path="/crew" element={<AdminOnly><CrewMapScreen /></AdminOnly>} />
       
       <Route path="/mer" element={<MoreScreen />} />
       <Route path="/webcams" element={<WebcamsScreen />} />
