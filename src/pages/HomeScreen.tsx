@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { HomeDashboard } from "@/components/home/HomeDashboard";
+import { HomeDashboard, type HomeDashboardHandle } from "@/components/home/HomeDashboard";
 import { StoryRing } from "@/components/stories/StoryRing";
 import { StoryViewer } from "@/components/stories/StoryViewer";
 import { StoryCapture } from "@/components/stories/StoryCapture";
@@ -18,7 +18,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAppBadges } from "@/hooks/useAppBadges";
 import { useTrip } from "@/contexts/TripContext";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
-import { ACTIVE_TRIP, tripDaysUntilStart } from "@/config/trip";
 
 import {
   MessageCircle,
@@ -43,10 +42,9 @@ interface TileItem {
 export const HomeScreen: React.FC = () => {
   const { signOut } = useAuth();
   const badges = useAppBadges();
-  const { refreshTrip } = useTrip();
-  const { groups, loading: storiesLoading, refetch: refetchStories, markViewed } = useStories();
-
-  const [refreshKey, setRefreshKey] = React.useState(0);
+  const { refreshTrip, selectedTrip, selectedTripId, isArchive } = useTrip();
+  const { groups, loading: storiesLoading, refetch: refetchStories, markViewed } = useStories(selectedTripId, isArchive);
+  const dashboardRef = React.useRef<HomeDashboardHandle>(null);
 
   const [viewerOpen, setViewerOpen] = React.useState(false);
   const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
@@ -58,16 +56,18 @@ export const HomeScreen: React.FC = () => {
     setViewerOpen(true);
   };
 
-  const trip = ACTIVE_TRIP;
-  const daysUntil = tripDaysUntilStart(trip);
-  const hasDates = trip.startDate && trip.endDate;
+  // Bruk valgt tur fra TripContext (ingen hardkodet ACTIVE_TRIP).
+  const tripName = selectedTrip?.name ?? "Ingen tur valgt";
+  const tripDestination = selectedTrip?.destination ?? "";
+  const startDate = selectedTrip?.start_date ?? null;
+  const endDate = selectedTrip?.end_date ?? null;
+  const hasDates = !!startDate && !!endDate;
   const dateLabel = hasDates
-    ? `${format(new Date(trip.startDate!), "d. MMM", { locale: nb })} – ${format(
-        new Date(trip.endDate!),
-        "d. MMM yyyy",
-        { locale: nb },
-      )}`
-    : "Datoer bekreftes";
+    ? `${format(new Date(startDate!), "d. MMM", { locale: nb })} – ${format(new Date(endDate!), "d. MMM yyyy", { locale: nb })}`
+    : "Datoer ikke satt";
+  const daysUntil = hasDates
+    ? Math.max(0, Math.ceil((new Date(startDate!).getTime() - Date.now()) / 86_400_000))
+    : null;
 
   const primaryTiles: TileItem[] = React.useMemo(
     () => [
@@ -101,12 +101,14 @@ export const HomeScreen: React.FC = () => {
 
       <PullToRefreshWrapper
         onRefresh={async () => {
-          // Koordinert refresh: invaliderer alle turfølsomme queries og venter
-          // på at de er ferdige. Ingen remount av komponenttreet.
-          await refreshTrip();
-          await refetchStories();
-          setRefreshKey((k) => k + 1);
+          // Koordinert refresh: turfølsomme queries + stories + dashboard uten remount.
+          await Promise.allSettled([
+            refreshTrip(),
+            refetchStories(),
+            dashboardRef.current?.refresh() ?? Promise.resolve(),
+          ]);
         }}
+
 
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
@@ -126,10 +128,11 @@ export const HomeScreen: React.FC = () => {
                 <span>Aktiv tur</span>
               </div>
               <h2 className="font-heading text-lg font-bold text-foreground leading-tight mt-0.5 truncate">
-                {trip.label}
+                {tripName}
               </h2>
               <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                {trip.destination}, {trip.country} · {dateLabel}
+                {tripDestination ? `${tripDestination} · ${dateLabel}` : dateLabel}
+                {isArchive ? " · Arkiv" : ""}
               </p>
             </div>
             <div className="shrink-0 text-right">
@@ -159,7 +162,7 @@ export const HomeScreen: React.FC = () => {
           />
 
           {/* Mini dashboard: valuta, neste event, vær */}
-          <HomeDashboard refreshKey={refreshKey} />
+          <HomeDashboard ref={dashboardRef} />
 
           {/* Kompakte innganger */}
           <nav className="grid grid-cols-3 gap-2.5">
@@ -205,11 +208,14 @@ export const HomeScreen: React.FC = () => {
             refetchStories();
           }}
           onViewed={markViewed}
+          isArchive={isArchive}
         />
       )}
 
-      {captureOpen && (
+      {captureOpen && !isArchive && selectedTripId && (
         <StoryCapture
+          tripId={selectedTripId}
+          isArchive={isArchive}
           onClose={() => setCaptureOpen(false)}
           onPublished={() => {
             setCaptureOpen(false);

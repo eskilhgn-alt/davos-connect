@@ -23,6 +23,8 @@ interface StoryViewerProps {
   onClose: () => void;
   onViewed: (storyId: string) => Promise<{ ok: boolean; error?: string }> | void;
   onDelete?: (story: Story) => Promise<DeleteResult>;
+  /** When true, all write actions (like/delete) are disabled and hidden. */
+  isArchive?: boolean;
 }
 
 export const StoryViewer: React.FC<StoryViewerProps> = ({
@@ -32,6 +34,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   onClose,
   onViewed,
   onDelete,
+  isArchive = false,
 }) => {
   const { user } = useAuth();
   const [groupIdx, setGroupIdx] = React.useState(initialGroupIndex);
@@ -448,7 +451,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {isOwnStory && onDelete && (
+          {!isArchive && isOwnStory && onDelete && (
             <div className="relative">
               <button
                 type="button"
@@ -642,29 +645,38 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
         className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-between px-4"
         style={{ paddingBottom: "max(calc(env(safe-area-inset-bottom, 0px) + 12px), 20px)" }}
       >
-        <button
-          type="button"
-          onClick={handleLike}
-          onPointerDown={stop}
-          onPointerUp={(e) => { stop(e); e.preventDefault(); }}
-          disabled={likePending}
-          aria-label={liked ? "Fjern hjerte" : "Gi hjerte"}
-          aria-pressed={liked}
-          className="flex items-center gap-1.5 py-2 px-3 min-h-[44px] rounded-full bg-black/40 backdrop-blur-sm active:scale-95 transition-transform disabled:opacity-70"
-        >
-          <Heart
-            size={20}
-            aria-hidden
-            className={cn(
-              "transition-all",
-              liked ? "fill-red-500 text-red-500" : "text-white",
-              likeAnimating && "scale-125"
+        {isArchive ? (
+          <span
+            data-story-control="1"
+            className="text-white/70 text-xs px-3 py-2 rounded-full bg-black/40 backdrop-blur-sm"
+          >
+            Arkiv – skrivebeskyttet
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={handleLike}
+            onPointerDown={stop}
+            onPointerUp={(e) => { stop(e); e.preventDefault(); }}
+            disabled={likePending}
+            aria-label={liked ? "Fjern hjerte" : "Gi hjerte"}
+            aria-pressed={liked}
+            className="flex items-center gap-1.5 py-2 px-3 min-h-[44px] rounded-full bg-black/40 backdrop-blur-sm active:scale-95 transition-transform disabled:opacity-70"
+          >
+            <Heart
+              size={20}
+              aria-hidden
+              className={cn(
+                "transition-all",
+                liked ? "fill-red-500 text-red-500" : "text-white",
+                likeAnimating && "scale-125"
+              )}
+            />
+            {likeCount > 0 && (
+              <span className="text-white text-xs font-medium">{likeCount}</span>
             )}
-          />
-          {likeCount > 0 && (
-            <span className="text-white text-xs font-medium">{likeCount}</span>
-          )}
-        </button>
+          </button>
+        )}
 
         {story && user && (
           <StoryViewers storyId={story.id} isOwner={story.userId === user.id} />
