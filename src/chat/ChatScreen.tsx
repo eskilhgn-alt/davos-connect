@@ -4,18 +4,17 @@
  */
 
 import * as React from 'react';
-import { ArrowLeft, Home } from 'lucide-react';
+import { ArrowLeft, Home, Lock } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useVisualViewport } from './useVisualViewport';
 import { chatStore } from './store';
 import { oneSignalService } from '@/services/onesignal';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTrip } from '@/contexts/TripContext';
 import type { Message, Attachment, TypingState } from './types';
 import { MessageList } from './MessageList';
 import { Composer } from './Composer';
-
-const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
 export const ChatScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +22,7 @@ export const ChatScreen: React.FC = () => {
   const deepLinkMessageId = searchParams.get('message');
   const { vvh, kb } = useVisualViewport();
   const { user, profile } = useAuth();
+  const { selectedTripId, selectedTrip, isArchive } = useTrip();
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [composerHeight, setComposerHeight] = React.useState(80);
   const [typingState, setTypingState] = React.useState<TypingState>({ isTyping: false, lastTypedAt: 0 });
@@ -45,13 +45,21 @@ export const ChatScreen: React.FC = () => {
     };
   }, []);
 
+  // Bind the chat store to the currently selected trip. Switching trip clears
+  // the store, tears down realtime and reloads the new trip's messages.
   React.useEffect(() => {
-    return chatStore.subscribeToMessages(setMessages);
-  }, []);
+    chatStore.setTrip(selectedTripId, isArchive);
+  }, [selectedTripId, isArchive]);
 
   React.useEffect(() => {
+    if (!selectedTripId) return;
+    return chatStore.subscribeToMessages(setMessages);
+  }, [selectedTripId]);
+
+  React.useEffect(() => {
+    if (!selectedTripId || isArchive) return;
     return chatStore.subscribeToTyping(setTypingState);
-  }, []);
+  }, [selectedTripId, isArchive]);
 
   const handleSend = React.useCallback(async (text: string, attachments: Attachment[]) => {
     if (!userId) return;
@@ -86,7 +94,16 @@ export const ChatScreen: React.FC = () => {
         >
           <ArrowLeft size={22} strokeWidth={1.8} />
         </button>
-        <h1 className="font-heading text-base font-semibold text-foreground tracking-tight flex-1">Chat</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="font-heading text-base font-semibold text-foreground tracking-tight leading-tight truncate">
+            Chat{selectedTrip ? ` · ${selectedTrip.name}` : ''}
+          </h1>
+          {isArchive && (
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1 mt-0.5">
+              <Lock size={10} /> Arkiv – skrivebeskyttet
+            </p>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => navigate('/hjem')}
@@ -96,22 +113,41 @@ export const ChatScreen: React.FC = () => {
         </button>
       </header>
 
-      <MessageList
-        messages={messages}
-        currentUserId={userId}
-        composerHeight={composerHeight}
-        viewportHeight={vvh}
-        isTyping={typingState.isTyping}
-        deepLinkMessageId={deepLinkMessageId}
-      />
+      {!selectedTripId ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground px-6 text-center">
+          Ingen tur er valgt. Velg en tur i «Mer» for å se chatten.
+        </div>
+      ) : (
+        <MessageList
+          messages={messages}
+          currentUserId={userId}
+          composerHeight={isArchive ? 56 : composerHeight}
+          viewportHeight={vvh}
+          isTyping={typingState.isTyping}
+          deepLinkMessageId={deepLinkMessageId}
+        />
+      )}
 
 
-      <div
-        className="fixed left-0 right-0 z-10"
-        style={{ bottom: `${kb}px` }}
-      >
-        <Composer onSend={handleSend} onHeightChange={handleComposerHeight} />
-      </div>
+      {selectedTripId && !isArchive && (
+        <div
+          className="fixed left-0 right-0 z-10"
+          style={{ bottom: `${kb}px` }}
+        >
+          <Composer onSend={handleSend} onHeightChange={handleComposerHeight} />
+        </div>
+      )}
+      {selectedTripId && isArchive && (
+        <div
+          className="fixed left-0 right-0 z-10 bg-muted/90 backdrop-blur border-t border-border px-4 py-3 flex items-center justify-center gap-2 text-xs text-muted-foreground"
+          style={{ bottom: `${kb}px` }}
+          role="status"
+          aria-label="Arkiv – skrivebeskyttet"
+        >
+          <Lock size={12} />
+          <span>Arkiv – skrivebeskyttet. Du kan lese, men ikke skrive nye meldinger.</span>
+        </div>
+      )}
     </div>
   );
 };

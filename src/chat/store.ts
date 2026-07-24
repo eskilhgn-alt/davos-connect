@@ -33,8 +33,24 @@ const TYPING_TTL_MS = 3000;
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 // Bounded deep-link paging: at most this many extra pages to find the target id.
 const MAX_DEEP_LINK_PAGES = 40;
-const CHAT_CACHE_KEY = 'guttahutte:chat-latest:v2';
+const CHAT_CACHE_KEY_BASE = 'guttahutte:chat-latest:v3';
 const CHAT_CACHE_LIMIT = 50;
+
+// ============ Trip scoping ============
+// The chat store is a module singleton bound to ONE trip at a time. The
+// currently selected trip is set from TripContext via setTrip(). All fetches,
+// realtime channels, cache keys and inserts are trip-scoped. Switching trip
+// tears down the channel, clears in-memory state and reloads the new trip so
+// messages from another trip can never leak into the UI.
+let currentTripId: string | null = null;
+let currentIsArchive = false;
+function cacheKey(tripId: string): string {
+  return `${CHAT_CACHE_KEY_BASE}:${tripId}`;
+}
+function requireTripId(): string {
+  if (!currentTripId) throw new Error('Ingen aktiv tur valgt for chat');
+  return currentTripId;
+}
 
 // ============ Auth ============
 async function getCurrentUserId(): Promise<string> {
@@ -104,8 +120,9 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 function hydrateMessageCache(): void {
   if (state.byId.size > 0) return;
+  if (!currentTripId) return;
   try {
-    const raw = localStorage.getItem(CHAT_CACHE_KEY);
+    const raw = localStorage.getItem(cacheKey(currentTripId));
     if (!raw) return;
     const cached = JSON.parse(raw) as { messages?: Message[] };
     if (!Array.isArray(cached.messages)) return;
@@ -124,6 +141,7 @@ function schedulePersist(): void {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
     persistTimer = null;
+    if (!currentTripId) return;
     try {
       const messages = sortedMessages()
         .filter((message) => message.deliveryState === 'sent')
@@ -137,7 +155,7 @@ function schedulePersist(): void {
             thumbUrl: attachment.thumbUrl?.startsWith('blob:') ? undefined : attachment.thumbUrl,
           })),
         }));
-      localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), messages }));
+      localStorage.setItem(cacheKey(currentTripId), JSON.stringify({ savedAt: Date.now(), messages }));
     } catch {
       // Safari private mode can reject writes; in-memory chat continues.
     }
@@ -235,6 +253,8 @@ async function fetchReplyPreviews(messages: Message[], rows: Record<string, unkn
 
 // ============ Initial load / pagination ============
 async function loadPage(beforeCursor?: Cursor): Promise<number> {
+  if (!currentTripId) return 0; // Ingen tur valgt → ingen globale spørringer.
+  const tripAtStart = currentTripId;
   state.loading = true;
   const limit = beforeCursor ? PAGE_SIZE : INITIAL_PAGE;
 
@@ -245,6 +265,7 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
     .from('messages')
     .select('*')
     .eq('thread_id', DEFAULT_THREAD_ID)
+    .eq('trip_id', tripAtStart)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(limit);
@@ -253,6 +274,8 @@ async function loadPage(beforeCursor?: Cursor): Promise<number> {
   }
   const { data, error } = await q;
   state.loading = false;
+  // Ignore results if trip was switched mid-flight.
+  if (tripAtStart !== currentTripId) return 0;
   if (error) {
     console.error('[chat] loadPage failed', error);
     return 0;
@@ -395,6 +418,7 @@ let messageChannel: ReturnType<typeof supabase.channel> | null = null;
 let latestLoad: Promise<number> | null = null;
 
 function revalidateLatest(): Promise<number> {
+  if (!currentTripId) return Promise.resolve(0);
   if (latestLoad) return latestLoad;
   latestLoad = loadPage().finally(() => { latestLoad = null; });
   return latestLoad;
@@ -406,45 +430,115 @@ const handleChatWake = () => {
   }
 };
 
+function teardownMessageChannel(): void {
+  if (messageChannel) {
+    supabase.removeChannel(messageChannel);
+    messageChannel = null;
+  }
+}
+
+function ensureMessageChannel(): void {
+  if (!currentTripId) return;
+  if (messageChannel) return;
+  const tripId = currentTripId;
+  notifyStatus('connecting');
+  messageChannel = supabase
+    .channel(`chat-messages-rt:${tripId}`)
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages', filter: `trip_id=eq.${tripId}` },
+      (p) => {
+        const row = p.new as Record<string, unknown>;
+        if (row.trip_id !== currentTripId) return; // guard vs stale channel
+        applyInsert(row).catch(console.error);
+      })
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'messages', filter: `trip_id=eq.${tripId}` },
+      (p) => {
+        const row = p.new as Record<string, unknown>;
+        if (row.trip_id !== currentTripId) return;
+        applyUpdate(row);
+      })
+    .on('postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'messages' },
+      (p) => {
+        const row = p.old as Record<string, unknown>;
+        // DELETE payloads may not carry trip_id — only apply if we already track it.
+        if (row?.id && state.byId.has(row.id as string)) applyDelete(row);
+      })
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'message_reactions' },
+      (p) => {
+        const rec = (p.new as Record<string, unknown> | null) || (p.old as Record<string, unknown> | null);
+        const mid = rec?.message_id as string | undefined;
+        // Only apply reactions for messages we've loaded (i.e. current trip).
+        if (!mid || !state.byId.has(mid)) return;
+        applyReactionChange(p.eventType, p.new as Record<string, unknown> | null, p.old as Record<string, unknown> | null);
+      })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        notifyStatus('connected');
+        void revalidateLatest().catch((error) => console.warn('[chat] reconnect refresh failed', error));
+      }
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') notifyStatus('reconnecting');
+      else if (status === 'CLOSED') notifyStatus('offline');
+    });
+}
+
+/**
+ * Bind the chat store to a trip. Idempotent for same tripId. Switching trip
+ * tears down realtime, clears in-memory state and reloads the new trip so
+ * messages from another trip can never leak into the UI.
+ */
+export function setTrip(tripId: string | null, isArchive = false): void {
+  currentIsArchive = isArchive;
+  if (tripId === currentTripId) return;
+  // Teardown and clear.
+  teardownMessageChannel();
+  teardownTypingIfIdle(true);
+  state.byId.clear();
+  state.optimistic.clear();
+  state.reactionsByMessage.clear();
+  state.everHadNormalized.clear();
+  state.cursor = null;
+  state.hasMore = true;
+  state.loading = false;
+  replyTo = null;
+  replySubs.forEach((s) => s(null));
+  currentTripId = tripId;
+  notify();
+  if (tripId && subs.size > 0) {
+    hydrateMessageCache();
+    notify();
+    ensureMessageChannel();
+    void revalidateLatest().catch((e) => console.error('[chat] setTrip revalidate', e));
+  } else {
+    notifyStatus('idle');
+  }
+}
+
+export function getCurrentTripId(): string | null { return currentTripId; }
+export function isArchiveMode(): boolean { return currentIsArchive; }
+
 export function subscribeToMessages(callback: Sub): () => void {
   subs.add(callback);
-  hydrateMessageCache();
+  if (currentTripId) {
+    hydrateMessageCache();
+  }
   callback(sortedMessages());
-  void revalidateLatest().catch((e) => console.error('[chat] latest load', e));
+  if (currentTripId) {
+    void revalidateLatest().catch((e) => console.error('[chat] latest load', e));
+  }
 
-  if (!messageChannel) {
+  if (subs.size === 1) {
     window.addEventListener('pageshow', handleChatWake);
     document.addEventListener('visibilitychange', handleChatWake);
-    notifyStatus('connecting');
-    messageChannel = supabase
-      .channel('chat-messages-rt')
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `thread_id=eq.${DEFAULT_THREAD_ID}` },
-        (p) => { applyInsert(p.new as Record<string, unknown>).catch(console.error); })
-      .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `thread_id=eq.${DEFAULT_THREAD_ID}` },
-        (p) => applyUpdate(p.new as Record<string, unknown>))
-      .on('postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'messages' },
-        (p) => applyDelete(p.old as Record<string, unknown>))
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'message_reactions' },
-        (p) => applyReactionChange(p.eventType, p.new as Record<string, unknown> | null, p.old as Record<string, unknown> | null))
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          notifyStatus('connected');
-          void revalidateLatest().catch((error) => console.warn('[chat] reconnect refresh failed', error));
-        }
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') notifyStatus('reconnecting');
-        else if (status === 'CLOSED') notifyStatus('offline');
-      });
   }
+  ensureMessageChannel();
 
   return () => {
     subs.delete(callback);
-    if (subs.size === 0 && messageChannel) {
-      supabase.removeChannel(messageChannel);
-      messageChannel = null;
+    if (subs.size === 0) {
+      teardownMessageChannel();
       window.removeEventListener('pageshow', handleChatWake);
       document.removeEventListener('visibilitychange', handleChatWake);
       notifyStatus('idle');
@@ -481,6 +575,7 @@ export function listMessages(): Message[] { return sortedMessages(); }
 // ============ Send / Retry ============
 interface PendingSend {
   clientId: string;
+  tripId: string;
   text: string;
   attachments: Attachment[]; // updated in place as uploads complete on retry
   senderId: string;
@@ -631,6 +726,8 @@ export async function sendMessage(
   senderId?: string,
   senderName?: string,
 ): Promise<Message> {
+  if (!currentTripId) throw new Error('Ingen aktiv tur valgt');
+  if (currentIsArchive) throw new Error('Arkiv – skrivebeskyttet');
   const sid = senderId || (await getCurrentUserId());
   let sname = senderName;
   if (!sname) {
@@ -641,7 +738,7 @@ export async function sendMessage(
   const replyToId = replyTo?.id || null;
   if (replyTo) setReplyTo(null);
 
-  const pending: PendingSend = { clientId, text, attachments, senderId: sid, senderName: sname, replyToId };
+  const pending: PendingSend = { clientId, tripId: currentTripId, text, attachments, senderId: sid, senderName: sname, replyToId };
   pendingByClientId.set(clientId, pending);
 
   const now = Date.now();
@@ -690,6 +787,7 @@ async function performSend(clientId: string): Promise<Message | null> {
         id: insertId,
         text: p.text.trim(),
         thread_id: DEFAULT_THREAD_ID,
+        trip_id: p.tripId,
         sender_id: p.senderId,
         sender_name: p.senderName,
         attachments: serializedAtts as unknown as never,
@@ -826,6 +924,7 @@ export function discardFailed(clientId: string): void {
 
 // ============ Edit / Delete ============
 export async function editMessage(messageId: string, newText: string): Promise<void> {
+  if (currentIsArchive) throw new Error('Arkiv – skrivebeskyttet');
   const previous = state.byId.get(messageId);
   const editedAt = Date.now();
   if (previous) {
@@ -843,6 +942,7 @@ export async function editMessage(messageId: string, newText: string): Promise<v
 }
 
 export async function deleteMessage(messageId: string): Promise<void> {
+  if (currentIsArchive) throw new Error('Arkiv – skrivebeskyttet');
   const previous = state.byId.get(messageId);
   const deletedAt = Date.now();
   if (previous) {
@@ -861,6 +961,7 @@ export async function deleteMessage(messageId: string): Promise<void> {
 
 // ============ Reactions (table-backed) ============
 export async function toggleReaction(messageId: string, emoji: string): Promise<void> {
+  if (currentIsArchive) throw new Error('Arkiv – skrivebeskyttet');
   const uid = await getCurrentUserId();
   let map = state.reactionsByMessage.get(messageId);
   const current = map?.get(uid);
@@ -931,9 +1032,10 @@ function typingSnapshot(): TypingState {
 }
 
 function ensureTypingChannel() {
+  if (!currentTripId) return null;
   if (typingChannel) return typingChannel;
   typingChannel = supabase.channel(
-    `chat-typing-${DEFAULT_THREAD_ID}`,
+    `chat-typing:${currentTripId}`,
     { config: { broadcast: { self: false }, private: true } as never },
   );
   typingChannel.on('broadcast', { event: 'typing' }, (payload) => {
@@ -957,8 +1059,8 @@ function ensureTypingChannel() {
   return typingChannel;
 }
 
-function teardownTypingIfIdle() {
-  if (typingSubs.size !== 0) return;
+function teardownTypingIfIdle(force = false) {
+  if (!force && typingSubs.size !== 0) return;
   if (typingSweepTimer) { clearInterval(typingSweepTimer); typingSweepTimer = null; }
   if (typingChannel) {
     supabase.removeChannel(typingChannel);
@@ -1017,4 +1119,7 @@ export const chatStore = {
   setReplyTo,
   getReplyTo,
   subscribeToReplyTo,
+  setTrip,
+  getCurrentTripId,
+  isArchiveMode,
 };

@@ -8,6 +8,7 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrip } from "@/contexts/TripContext";
 
 const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -32,6 +33,7 @@ const AppBadgesContext = React.createContext<AppBadges>(EMPTY_BADGES);
 
 export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { selectedTripId } = useTrip();
   const userId = user?.id;
   const [badges, setBadges] = React.useState<AppBadges>(EMPTY_BADGES);
   const inFlight = React.useRef<Promise<void> | null>(null);
@@ -39,7 +41,7 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const debounceTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = React.useCallback(async () => {
-    if (!userId) {
+    if (!userId || !selectedTripId) {
       setBadges(EMPTY_BADGES);
       updatePwaBadge(0);
       return;
@@ -54,11 +56,11 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       do {
         refreshAgain.current = false;
         const [chatCount, storiesCount, pollsCount, agendaCount, runderCount] = await Promise.all([
-          getUnreadChat(userId),
-          getUnseenStories(userId),
-          getNewPollsSinceLastSeen(),
-          getNewAgendaSinceLastSeen(),
-          getNewRoundsSinceLastSeen(),
+          getUnreadChat(userId, selectedTripId),
+          getUnseenStories(userId, selectedTripId),
+          getNewPollsSinceLastSeen(selectedTripId),
+          getNewAgendaSinceLastSeen(selectedTripId),
+          getNewRoundsSinceLastSeen(selectedTripId),
         ]);
 
         const total = chatCount + storiesCount + pollsCount + agendaCount + runderCount;
@@ -70,7 +72,7 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
     inFlight.current = request;
     return request;
-  }, [userId]);
+  }, [userId, selectedTripId]);
 
   const scheduleRefresh = React.useCallback(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -122,7 +124,7 @@ export function markPageSeen(page: keyof typeof LS_KEYS) {
 
 // ============ Chat: unread messages since last visit ============
 
-async function getUnreadChat(userId: string): Promise<number> {
+async function getUnreadChat(userId: string, tripId: string): Promise<number> {
   // Get the latest chat_reads entry for this user to find "last seen" time
   const { data: reads } = await supabase
     .from("chat_reads")
@@ -137,6 +139,7 @@ async function getUnreadChat(userId: string): Promise<number> {
     .from("messages")
     .select("id", { count: "exact", head: true })
     .eq("thread_id", DEFAULT_THREAD_ID)
+    .eq("trip_id", tripId)
     .is("deleted_at", null)
     .neq("sender_id", userId)
     .gt("created_at", lastReadAt);
@@ -146,12 +149,13 @@ async function getUnreadChat(userId: string): Promise<number> {
 
 // ============ Stories: unseen stories ============
 
-async function getUnseenStories(userId: string): Promise<number> {
+async function getUnseenStories(userId: string, tripId: string): Promise<number> {
   const now = new Date().toISOString();
 
   const { data: stories } = await supabase
     .from("stories")
     .select("id")
+    .eq("trip_id", tripId)
     .gt("expires_at", now)
     .neq("user_id", userId);
 
@@ -168,12 +172,13 @@ async function getUnseenStories(userId: string): Promise<number> {
 
 // ============ Polls: new polls since last visit to polls page ============
 
-async function getNewPollsSinceLastSeen(): Promise<number> {
+async function getNewPollsSinceLastSeen(tripId: string): Promise<number> {
   const lastSeen = localStorage.getItem(LS_KEYS.polls) || "1970-01-01T00:00:00Z";
 
   const { count } = await supabase
     .from("polls")
     .select("id", { count: "exact", head: true })
+    .eq("trip_id", tripId)
     .eq("status", "active")
     .gt("created_at", lastSeen);
 
@@ -182,12 +187,13 @@ async function getNewPollsSinceLastSeen(): Promise<number> {
 
 // ============ Agenda: new events since last visit ============
 
-async function getNewAgendaSinceLastSeen(): Promise<number> {
+async function getNewAgendaSinceLastSeen(tripId: string): Promise<number> {
   const lastSeen = localStorage.getItem(LS_KEYS.agenda) || "1970-01-01T00:00:00Z";
 
   const { count } = await supabase
     .from("agenda_events")
     .select("id", { count: "exact", head: true })
+    .eq("trip_id", tripId)
     .gt("created_at", lastSeen);
 
   return count ?? 0;
@@ -195,12 +201,13 @@ async function getNewAgendaSinceLastSeen(): Promise<number> {
 
 // ============ Runder: new rounds since last visit ============
 
-async function getNewRoundsSinceLastSeen(): Promise<number> {
+async function getNewRoundsSinceLastSeen(tripId: string): Promise<number> {
   const lastSeen = localStorage.getItem(LS_KEYS.runder) || "1970-01-01T00:00:00Z";
 
   const { count } = await supabase
     .from("rounds")
     .select("id", { count: "exact", head: true })
+    .eq("trip_id", tripId)
     .gt("created_at", lastSeen);
 
   return count ?? 0;
