@@ -120,8 +120,9 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 function hydrateMessageCache(): void {
   if (state.byId.size > 0) return;
+  if (!currentTripId) return;
   try {
-    const raw = localStorage.getItem(CHAT_CACHE_KEY);
+    const raw = localStorage.getItem(cacheKey(currentTripId));
     if (!raw) return;
     const cached = JSON.parse(raw) as { messages?: Message[] };
     if (!Array.isArray(cached.messages)) return;
@@ -140,6 +141,7 @@ function schedulePersist(): void {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
     persistTimer = null;
+    if (!currentTripId) return;
     try {
       const messages = sortedMessages()
         .filter((message) => message.deliveryState === 'sent')
@@ -153,7 +155,7 @@ function schedulePersist(): void {
             thumbUrl: attachment.thumbUrl?.startsWith('blob:') ? undefined : attachment.thumbUrl,
           })),
         }));
-      localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), messages }));
+      localStorage.setItem(cacheKey(currentTripId), JSON.stringify({ savedAt: Date.now(), messages }));
     } catch {
       // Safari private mode can reject writes; in-memory chat continues.
     }
