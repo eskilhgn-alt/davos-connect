@@ -4,18 +4,17 @@
  */
 
 import * as React from 'react';
-import { ArrowLeft, Home } from 'lucide-react';
+import { ArrowLeft, Home, Lock } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useVisualViewport } from './useVisualViewport';
 import { chatStore } from './store';
 import { oneSignalService } from '@/services/onesignal';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTrip } from '@/contexts/TripContext';
 import type { Message, Attachment, TypingState } from './types';
 import { MessageList } from './MessageList';
 import { Composer } from './Composer';
-
-const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
 export const ChatScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +22,7 @@ export const ChatScreen: React.FC = () => {
   const deepLinkMessageId = searchParams.get('message');
   const { vvh, kb } = useVisualViewport();
   const { user, profile } = useAuth();
+  const { selectedTripId, selectedTrip, isArchive } = useTrip();
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [composerHeight, setComposerHeight] = React.useState(80);
   const [typingState, setTypingState] = React.useState<TypingState>({ isTyping: false, lastTypedAt: 0 });
@@ -45,13 +45,21 @@ export const ChatScreen: React.FC = () => {
     };
   }, []);
 
+  // Bind the chat store to the currently selected trip. Switching trip clears
+  // the store, tears down realtime and reloads the new trip's messages.
   React.useEffect(() => {
-    return chatStore.subscribeToMessages(setMessages);
-  }, []);
+    chatStore.setTrip(selectedTripId, isArchive);
+  }, [selectedTripId, isArchive]);
 
   React.useEffect(() => {
+    if (!selectedTripId) return;
+    return chatStore.subscribeToMessages(setMessages);
+  }, [selectedTripId]);
+
+  React.useEffect(() => {
+    if (!selectedTripId || isArchive) return;
     return chatStore.subscribeToTyping(setTypingState);
-  }, []);
+  }, [selectedTripId, isArchive]);
 
   const handleSend = React.useCallback(async (text: string, attachments: Attachment[]) => {
     if (!userId) return;
