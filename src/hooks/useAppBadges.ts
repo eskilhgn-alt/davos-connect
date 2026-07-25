@@ -1,8 +1,12 @@
 /**
  * useAppBadges – Unified badge counts for chat, stories, polls, agenda and rounds.
- * 
+ *
  * Philosophy: A badge clears when the user has SEEN the content (visited the page).
  * Deep interaction (voting, replying) is NOT required to clear a badge.
+ *
+ * Trip-scoping: all counts and "last seen" localStorage keys are namespaced per
+ * selected trip. Concurrent refreshes for different trips are generation-guarded
+ * so a stale trip-A response can never overwrite trip-B counts or the PWA badge.
  */
 
 import * as React from "react";
@@ -12,12 +16,16 @@ import { useTrip } from "@/contexts/TripContext";
 
 const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
-// LocalStorage keys for "last visited" timestamps
-const LS_KEYS = {
+// LocalStorage key bases (per-trip suffix appended at runtime).
+const LS_BASES = {
   polls: "badge_last_seen_polls",
   runder: "badge_last_seen_runder",
   agenda: "badge_last_seen_agenda",
 } as const;
+
+function lsKey(page: keyof typeof LS_BASES, tripId: string): string {
+  return `${LS_BASES[page]}:${tripId}`;
+}
 
 export interface AppBadges {
   chat: number;
@@ -36,8 +44,9 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const { selectedTripId } = useTrip();
   const userId = user?.id;
   const [badges, setBadges] = React.useState<AppBadges>(EMPTY_BADGES);
-  const inFlight = React.useRef<Promise<void> | null>(null);
-  const refreshAgain = React.useRef(false);
+  // Generation counter — increments on every trip change so in-flight A results
+  // can be discarded when B is now selected.
+  const generation = React.useRef(0);
   const debounceTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = React.useCallback(async () => {
@@ -46,32 +55,20 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       updatePwaBadge(0);
       return;
     }
-
-    if (inFlight.current) {
-      refreshAgain.current = true;
-      return inFlight.current;
-    }
-
-    const request = (async () => {
-      do {
-        refreshAgain.current = false;
-        const [chatCount, storiesCount, pollsCount, agendaCount, runderCount] = await Promise.all([
-          getUnreadChat(userId, selectedTripId),
-          getUnseenStories(userId, selectedTripId),
-          getNewPollsSinceLastSeen(selectedTripId),
-          getNewAgendaSinceLastSeen(selectedTripId),
-          getNewRoundsSinceLastSeen(selectedTripId),
-        ]);
-
-        const total = chatCount + storiesCount + pollsCount + agendaCount + runderCount;
-        setBadges({ chat: chatCount, stories: storiesCount, polls: pollsCount, agenda: agendaCount, runder: runderCount, total });
-        updatePwaBadge(total);
-      } while (refreshAgain.current);
-    })().finally(() => {
-      inFlight.current = null;
-    });
-    inFlight.current = request;
-    return request;
+    const gen = ++generation.current;
+    const trip = selectedTripId;
+    const [chatCount, storiesCount, pollsCount, agendaCount, runderCount] = await Promise.all([
+      getUnreadChat(userId, trip),
+      getUnseenStories(userId, trip),
+      getNewPollsSinceLastSeen(trip),
+      getNewAgendaSinceLastSeen(trip),
+      getNewRoundsSinceLastSeen(trip),
+    ]);
+    // Discard results if trip changed or another refresh started.
+    if (gen !== generation.current || trip !== selectedTripId) return;
+    const total = chatCount + storiesCount + pollsCount + agendaCount + runderCount;
+    setBadges({ chat: chatCount, stories: storiesCount, polls: pollsCount, agenda: agendaCount, runder: runderCount, total });
+    updatePwaBadge(total);
   }, [userId, selectedTripId]);
 
   const scheduleRefresh = React.useCallback(() => {
@@ -80,6 +77,10 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [refresh]);
 
   React.useEffect(() => {
+    // On trip change, immediately clear stale counts to prevent flashing A's
+    // badges while B loads. New refresh runs right after.
+    setBadges(EMPTY_BADGES);
+    updatePwaBadge(0);
     void refresh();
 
     const channel = supabase
@@ -94,7 +95,6 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .on("postgres_changes", { event: "*", schema: "public", table: "rounds" }, scheduleRefresh)
       .subscribe();
 
-    // Listen for "page visited" events to clear badges instantly
     const handleBadgeClear = () => scheduleRefresh();
     const handleVisible = () => document.visibilityState === "visible" && scheduleRefresh();
     window.addEventListener("badge:clear", handleBadgeClear);
@@ -116,11 +116,17 @@ export function useAppBadges(): AppBadges {
 }
 
 // ============ Mark page as seen (call from page components) ============
-
-export function markPageSeen(page: keyof typeof LS_KEYS) {
-  localStorage.setItem(LS_KEYS[page], new Date().toISOString());
+// Requires tripId so a "seen" marker on trip A cannot silence trip B's badges.
+export function markPageSeen(page: keyof typeof LS_BASES, tripId: string | null | undefined) {
+  if (!tripId) return;
+  try {
+    localStorage.setItem(lsKey(page, tripId), new Date().toISOString());
+  } catch {
+    /* Safari private mode */
+  }
   window.dispatchEvent(new CustomEvent("badge:clear"));
 }
+
 
 // ============ Chat: unread messages since last visit ============
 
