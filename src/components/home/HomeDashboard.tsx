@@ -20,6 +20,7 @@ import {
 import { Link } from "react-router-dom";
 import { useTripWeather } from "@/hooks/useTripWeather";
 import { describeWeatherCode } from "@/services/tripWeather";
+import { useTrip } from "@/contexts/TripContext";
 import { ACTIVE_TRIP } from "@/config/trip";
 import { CurrencyCalculator } from "./CurrencyCalculator";
 
@@ -49,6 +50,10 @@ export interface HomeDashboardHandle {
 
 export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
   const { user } = useAuth();
+  const { selectedTrip, selectedTripId } = useTrip();
+  // Currency comes from the selected trip (not the hardcoded ACTIVE_TRIP), so
+  // switching to an archived trip in a different currency displays correctly.
+  const currency = selectedTrip?.currency ?? ACTIVE_TRIP.currency;
   const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
   const [rateDate, setRateDate] = React.useState<string | null>(null);
   const [rateFetchedAt, setRateFetchedAt] = React.useState<Date | null>(null);
@@ -56,7 +61,6 @@ export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
   const [calcOpen, setCalcOpen] = React.useState(false);
 
   const { weather, loading: weatherLoading, refresh: refreshWeather } = useTripWeather();
-  const currency = ACTIVE_TRIP.currency;
 
   const fetchRate = React.useCallback(async () => {
     try {
@@ -70,17 +74,21 @@ export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
   }, [currency]);
 
   const fetchNextEvent = React.useCallback(async () => {
-    if (!user) return;
-    // Secondary fetch — a failure here must not surface as a full-screen error.
+    if (!user || !selectedTripId) { setNextEvent(null); return; }
+    // Trip-scoped: never leak an event from another trip. Snapshot tripId at
+    // the start of the async call and discard the result if trip changed.
+    const tripAtStart = selectedTripId;
     const { data } = await supabase
       .from("agenda_events")
       .select("title, start_at")
+      .eq("trip_id", tripAtStart)
       .gte("start_at", new Date().toISOString())
       .order("start_at", { ascending: true })
       .limit(1);
+    if (tripAtStart !== selectedTripId) return;
     if (data && data.length > 0) setNextEvent(data[0] as NextEvent);
     else setNextEvent(null);
-  }, [user]);
+  }, [user, selectedTripId]);
 
   React.useEffect(() => {
     void fetchRate();
