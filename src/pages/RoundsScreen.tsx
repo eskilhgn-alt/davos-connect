@@ -18,6 +18,7 @@ import { nb } from "date-fns/locale";
 import { AddRoundSheet } from "@/components/rounds/AddRoundSheet";
 import { DebtCalculator } from "@/components/rounds/DebtCalculator";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrip } from "@/contexts/TripContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
 import type { Round, DrinkQuantities } from "@/hooks/useRounds";
@@ -75,7 +76,8 @@ const formatMoney = (value: number, currency: string) => new Intl.NumberFormat("
 }).format(value);
 
 export const RoundsScreen: React.FC = () => {
-  React.useEffect(() => { markPageSeen("runder"); }, []);
+  const { selectedTripId } = useTrip();
+  React.useEffect(() => { markPageSeen("runder", selectedTripId); }, [selectedTripId]);
   const { rounds, profiles, loading, error, addRound, updateRound, refetch } = useRounds();
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [debtOpen, setDebtOpen] = React.useState(false);
