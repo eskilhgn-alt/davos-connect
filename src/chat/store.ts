@@ -900,10 +900,13 @@ async function performSend(clientId: string): Promise<Message | null> {
     return msg;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Ukjent feil';
-    const opt = state.optimistic.get(clientId);
-    if (opt) {
-      state.optimistic.set(clientId, { ...opt, deliveryState: 'failed', errorMessage });
-      notify();
+    // Only surface failure into the store if we are still on the same trip.
+    if (p.tripId === currentTripId) {
+      const opt = state.optimistic.get(clientId);
+      if (opt) {
+        state.optimistic.set(clientId, { ...opt, deliveryState: 'failed', errorMessage });
+        notify();
+      }
     }
     console.error('[chat] send failed', err);
     return null;
