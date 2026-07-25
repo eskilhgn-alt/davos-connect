@@ -208,7 +208,7 @@ async function getNewAgendaSinceLastSeen(tripId: string): Promise<number> {
 // ============ Runder: new rounds since last visit ============
 
 async function getNewRoundsSinceLastSeen(tripId: string): Promise<number> {
-  const lastSeen = localStorage.getItem(LS_KEYS.runder) || "1970-01-01T00:00:00Z";
+  const lastSeen = localStorage.getItem(lsKey("runder", tripId)) || "1970-01-01T00:00:00Z";
 
   const { count } = await supabase
     .from("rounds")
