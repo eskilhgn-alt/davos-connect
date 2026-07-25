@@ -831,6 +831,16 @@ async function performSend(clientId: string): Promise<Message | null> {
 
     const row = data!;
     const msg = dbToMessage(row);
+    // Trip-guard: if user switched trips while we uploaded/inserted, do NOT
+    // mutate the store — it is now bound to a different trip. The row exists
+    // in DB and will show up on that trip's next load; the pending record is
+    // dropped here so we don't leak state across trips.
+    if (p.tripId !== currentTripId) {
+      state.optimistic.delete(clientId);
+      pendingByClientId.delete(clientId);
+      revokeLocalObjectUrls(p.attachments);
+      return msg;
+    }
     if (p.replyToId) {
       const src = state.byId.get(p.replyToId);
       msg.replyTo = mapReplyPreview(
