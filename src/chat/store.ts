@@ -415,13 +415,19 @@ function applyReactionChange(evt: string, row: Record<string, unknown> | null, o
 
 // ============ Subscribe ============
 let messageChannel: ReturnType<typeof supabase.channel> | null = null;
-let latestLoad: Promise<number> | null = null;
+// Per-trip in-flight latest load. A pending load from trip A must never be
+// returned to a caller now bound to trip B; instead B starts its own load.
+let latestLoad: { tripId: string; promise: Promise<number> } | null = null;
 
 function revalidateLatest(): Promise<number> {
   if (!currentTripId) return Promise.resolve(0);
-  if (latestLoad) return latestLoad;
-  latestLoad = loadPage().finally(() => { latestLoad = null; });
-  return latestLoad;
+  const tripId = currentTripId;
+  if (latestLoad && latestLoad.tripId === tripId) return latestLoad.promise;
+  const promise = loadPage().finally(() => {
+    if (latestLoad && latestLoad.tripId === tripId) latestLoad = null;
+  });
+  latestLoad = { tripId, promise };
+  return promise;
 }
 
 const handleChatWake = () => {
