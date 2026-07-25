@@ -179,7 +179,7 @@ async function getUnseenStories(userId: string, tripId: string): Promise<number>
 // ============ Polls: new polls since last visit to polls page ============
 
 async function getNewPollsSinceLastSeen(tripId: string): Promise<number> {
-  const lastSeen = localStorage.getItem(LS_KEYS.polls) || "1970-01-01T00:00:00Z";
+  const lastSeen = localStorage.getItem(lsKey("polls", tripId)) || "1970-01-01T00:00:00Z";
 
   const { count } = await supabase
     .from("polls")
