@@ -355,6 +355,8 @@ export async function ensureMessageLoaded(messageId: string): Promise<boolean> {
 
 // ============ Realtime ============
 async function applyInsert(row: Record<string, unknown>) {
+  const rowTripId = row.trip_id as string | undefined;
+  if (rowTripId && rowTripId !== currentTripId) return;
   const msg = dbToMessage(row);
   state.byId.set(msg.id, msg);
   for (const [cid, opt] of state.optimistic) {
@@ -362,7 +364,9 @@ async function applyInsert(row: Record<string, unknown>) {
   }
   primeMessageMedia([msg]);
   notify();
+  const tripAtStart = currentTripId;
   await Promise.all([fetchReplyPreviews([msg], [row]), fetchReactionsFor([msg.id])]);
+  if (tripAtStart !== currentTripId) return; // trip switched mid-enrichment
   notify();
 }
 function applyUpdate(row: Record<string, unknown>) {
