@@ -12,6 +12,7 @@ import { AgendaEventDialog } from "@/components/agenda/AgendaEventDialog";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { markPageSeen } from "@/hooks/useAppBadges";
+import { useTrip } from "@/contexts/TripContext";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_HEIGHT = 56;
@@ -26,7 +27,8 @@ const colorMap: Record<string, string> = {
 };
 
 export const AgendaScreen: React.FC = () => {
-  React.useEffect(() => { markPageSeen("agenda"); }, []);
+  const { selectedTripId } = useTrip();
+  React.useEffect(() => { markPageSeen("agenda", selectedTripId); }, [selectedTripId]);
   const { events, error, weekStart, weekOffset, setWeekOffset, createEvent, updateEvent, deleteEvent } = useAgenda();
   const scrollRef = React.useRef<HTMLDivElement>(null);
 

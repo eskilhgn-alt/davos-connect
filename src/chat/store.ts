@@ -355,6 +355,8 @@ export async function ensureMessageLoaded(messageId: string): Promise<boolean> {
 
 // ============ Realtime ============
 async function applyInsert(row: Record<string, unknown>) {
+  const rowTripId = row.trip_id as string | undefined;
+  if (rowTripId && rowTripId !== currentTripId) return;
   const msg = dbToMessage(row);
   state.byId.set(msg.id, msg);
   for (const [cid, opt] of state.optimistic) {
@@ -362,7 +364,9 @@ async function applyInsert(row: Record<string, unknown>) {
   }
   primeMessageMedia([msg]);
   notify();
+  const tripAtStart = currentTripId;
   await Promise.all([fetchReplyPreviews([msg], [row]), fetchReactionsFor([msg.id])]);
+  if (tripAtStart !== currentTripId) return; // trip switched mid-enrichment
   notify();
 }
 function applyUpdate(row: Record<string, unknown>) {
@@ -415,13 +419,19 @@ function applyReactionChange(evt: string, row: Record<string, unknown> | null, o
 
 // ============ Subscribe ============
 let messageChannel: ReturnType<typeof supabase.channel> | null = null;
-let latestLoad: Promise<number> | null = null;
+// Per-trip in-flight latest load. A pending load from trip A must never be
+// returned to a caller now bound to trip B; instead B starts its own load.
+let latestLoad: { tripId: string; promise: Promise<number> } | null = null;
 
 function revalidateLatest(): Promise<number> {
   if (!currentTripId) return Promise.resolve(0);
-  if (latestLoad) return latestLoad;
-  latestLoad = loadPage().finally(() => { latestLoad = null; });
-  return latestLoad;
+  const tripId = currentTripId;
+  if (latestLoad && latestLoad.tripId === tripId) return latestLoad.promise;
+  const promise = loadPage().finally(() => {
+    if (latestLoad && latestLoad.tripId === tripId) latestLoad = null;
+  });
+  latestLoad = { tripId, promise };
+  return promise;
 }
 
 const handleChatWake = () => {
@@ -821,6 +831,16 @@ async function performSend(clientId: string): Promise<Message | null> {
 
     const row = data!;
     const msg = dbToMessage(row);
+    // Trip-guard: if user switched trips while we uploaded/inserted, do NOT
+    // mutate the store — it is now bound to a different trip. The row exists
+    // in DB and will show up on that trip's next load; the pending record is
+    // dropped here so we don't leak state across trips.
+    if (p.tripId !== currentTripId) {
+      state.optimistic.delete(clientId);
+      pendingByClientId.delete(clientId);
+      revokeLocalObjectUrls(p.attachments);
+      return msg;
+    }
     if (p.replyToId) {
       const src = state.byId.get(p.replyToId);
       msg.replyTo = mapReplyPreview(
@@ -880,10 +900,13 @@ async function performSend(clientId: string): Promise<Message | null> {
     return msg;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Ukjent feil';
-    const opt = state.optimistic.get(clientId);
-    if (opt) {
-      state.optimistic.set(clientId, { ...opt, deliveryState: 'failed', errorMessage });
-      notify();
+    // Only surface failure into the store if we are still on the same trip.
+    if (p.tripId === currentTripId) {
+      const opt = state.optimistic.get(clientId);
+      if (opt) {
+        state.optimistic.set(clientId, { ...opt, deliveryState: 'failed', errorMessage });
+        notify();
+      }
     }
     console.error('[chat] send failed', err);
     return null;

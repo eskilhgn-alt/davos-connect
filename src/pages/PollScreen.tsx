@@ -14,11 +14,13 @@ import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { Plus, Vote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { markPageSeen } from "@/hooks/useAppBadges";
+import { useTrip } from "@/contexts/TripContext";
 
 type Filter = "active" | "resolved" | "mine";
 
 export const PollScreen: React.FC = () => {
-  React.useEffect(() => { markPageSeen("polls"); }, []);
+  const { selectedTripId } = useTrip();
+  React.useEffect(() => { markPageSeen("polls", selectedTripId); }, [selectedTripId]);
   const {
     polls,
     loading,
