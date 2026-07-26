@@ -37,11 +37,19 @@ export interface TripWebcamRef {
   id: string;
   name: string;
   area?: string;
-  /** External page (fallback for `open in browser`). */
+  /** External page (fallback / secondary link, ideally the camera's own page). */
   externalUrl: string;
   /** Direct snapshot image URL, when we have one that we control. Optional. */
   snapshotUrl?: string;
+  /** Direct embeddable player URL (Skaping / vendor). When set the UI renders
+   *  it as a live iframe instead of a still snapshot. */
+  playerUrl?: string;
+  /** Provider label shown to users (e.g. "Skaping", "Trinum"). */
+  provider?: string;
+  /** How this camera is presented. "interactive" implies a live vendor player. */
+  mode?: "interactive" | "snapshot";
 }
+
 
 export interface EmergencyContact {
   label: string;
@@ -156,53 +164,104 @@ export const VAL_THORENS_2027: TripConfig = {
     {
       id: "prosneige",
       name: "Prosneige",
-      area: "Val Thorens",
-      externalUrl: "https://www.valthorens.com/en/webcams/",
-      snapshotUrl: "https://api.skaping.com/EdhD-J696-lZPd-i0xE-CqXk/media/latest/mini.jpg",
+      area: "Val Thorens sentrum",
+      externalUrl: "https://www.skaping.com/valthorens/prosneige",
+      playerUrl: "https://www.skaping.com/valthorens/prosneige",
+      provider: "Skaping",
+      mode: "interactive",
     },
     {
       id: "la-maison",
       name: "La Maison",
-      area: "Sentrum",
-      externalUrl: "https://www.valthorens.com/en/webcams/",
-      snapshotUrl: "https://api.skaping.com/0qmB-W208-FhUp-eDJW-695z/media/latest/mini.jpg",
+      area: "Val Thorens sentrum",
+      externalUrl: "https://www.skaping.com/valthorens/lamaison",
+      playerUrl: "https://www.skaping.com/valthorens/lamaison",
+      provider: "Skaping",
+      mode: "interactive",
     },
     {
       id: "la-bee",
-      name: "La Bee",
+      name: "La Bee (Tyrolienne)",
       area: "Val Thorens",
-      externalUrl: "https://www.valthorens.com/en/webcams/",
-      snapshotUrl: "https://api.skaping.com/3hF6T-pqbOx-AFvLe-dpMgD/media/latest/mini.jpg",
-    },
-    {
-      id: "plan-bouchet",
-      name: "Plan Bouchet",
-      area: "Orelle",
-      externalUrl: "https://www.valthorens.com/en/webcams/",
-      snapshotUrl: "https://www.trinum.com/ibox/FTPCam/mega_orelle_sommet-tc-orelle.jpg",
-    },
-    {
-      id: "pointe-bouchet",
-      name: "Pointe du Bouchet",
-      area: "Orelle",
-      externalUrl: "https://www.valthorens.com/en/webcams/",
-      snapshotUrl: "https://www.trinum.com/ibox/FTPCam/mega_val_thorens_tyrolienne.jpg",
-    },
-    {
-      id: "rond-point",
-      name: "Rond-point des pistes",
-      area: "Val Thorens",
-      externalUrl: "https://www.valthorens.com/en/webcams/",
-      snapshotUrl: "https://api.skaping.com/tHCTk-f4ZXm-e4NYt-ZfRkr/media/latest/mini.jpg",
+      externalUrl: "https://www.skaping.com/val-thorens/tyrolienne-la-bee",
+      playerUrl: "https://www.skaping.com/val-thorens/tyrolienne-la-bee",
+      provider: "Skaping",
+      mode: "interactive",
     },
     {
       id: "cime-caron",
       name: "Cime Caron",
       area: "3 200 moh.",
-      externalUrl: "https://www.valthorens.com/en/webcams/",
-      snapshotUrl: "https://api.skaping.com/QzlPb-9TgDQ-UcTxH-xv8KW/media/latest/large.jpg",
+      externalUrl: "https://www.skaping.com/val-thorens/cime-caron",
+      playerUrl: "https://www.skaping.com/val-thorens/cime-caron",
+      provider: "Skaping",
+      mode: "interactive",
+    },
+    {
+      id: "station",
+      name: "Val Thorens Station",
+      area: "Panorama",
+      externalUrl: "https://www.skaping.com/valthorens/station",
+      playerUrl: "https://www.skaping.com/valthorens/station",
+      provider: "Skaping",
+      mode: "interactive",
+    },
+    {
+      id: "3vallees",
+      name: "Les 3 Vallées",
+      area: "Områdeoversikt",
+      externalUrl: "https://www.skaping.com/valthorens/3vallees",
+      playerUrl: "https://www.skaping.com/valthorens/3vallees",
+      provider: "Skaping",
+      mode: "interactive",
+    },
+    {
+      id: "funitel-thorens",
+      name: "Funitel de Thorens",
+      area: "Heis",
+      externalUrl: "https://www.skaping.com/valthorens/funitelthorens",
+      playerUrl: "https://www.skaping.com/valthorens/funitelthorens",
+      provider: "Skaping",
+      mode: "interactive",
+    },
+    {
+      id: "boismint",
+      name: "Boismint",
+      area: "Val Thorens",
+      externalUrl: "https://www.skaping.com/valthorens/boismint",
+      playerUrl: "https://www.skaping.com/valthorens/boismint",
+      provider: "Skaping",
+      mode: "interactive",
+    },
+    {
+      id: "lac-blanc",
+      name: "Lac Blanc (Stade)",
+      area: "Val Thorens",
+      externalUrl: "https://www.skaping.com/valthorens/stade",
+      playerUrl: "https://www.skaping.com/valthorens/stade",
+      provider: "Skaping",
+      mode: "interactive",
+    },
+    {
+      id: "plan-bouchet",
+      name: "Plan Bouchet",
+      area: "Orelle",
+      externalUrl: "https://www.valthorens.com/en/webcams/plan-bouchet/",
+      snapshotUrl: "https://www.trinum.com/ibox/FTPCam/mega_orelle_sommet-tc-orelle.jpg",
+      provider: "Trinum",
+      mode: "snapshot",
+    },
+    {
+      id: "pointe-bouchet",
+      name: "Pointe du Bouchet",
+      area: "Orelle",
+      externalUrl: "https://www.valthorens.com/en/webcams/pointe-du-bouchet/",
+      snapshotUrl: "https://www.trinum.com/ibox/FTPCam/mega_val_thorens_tyrolienne.jpg",
+      provider: "Trinum",
+      mode: "snapshot",
     },
   ],
+
   emergency: [
     {
       id: "emergency-numbers",
