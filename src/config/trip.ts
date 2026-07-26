@@ -37,11 +37,19 @@ export interface TripWebcamRef {
   id: string;
   name: string;
   area?: string;
-  /** External page (fallback for `open in browser`). */
+  /** External page (fallback / secondary link, ideally the camera's own page). */
   externalUrl: string;
   /** Direct snapshot image URL, when we have one that we control. Optional. */
   snapshotUrl?: string;
+  /** Direct embeddable player URL (Skaping / vendor). When set the UI renders
+   *  it as a live iframe instead of a still snapshot. */
+  playerUrl?: string;
+  /** Provider label shown to users (e.g. "Skaping", "Trinum"). */
+  provider?: string;
+  /** How this camera is presented. "interactive" implies a live vendor player. */
+  mode?: "interactive" | "snapshot";
 }
+
 
 export interface EmergencyContact {
   label: string;
