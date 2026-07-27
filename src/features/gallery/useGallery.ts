@@ -188,51 +188,65 @@ export function useGalleryFeed(): UseGalleryFeed {
     catch (e) { console.error(e); setError((e as Error).message || "Kunne ikke laste flere"); }
   }, [hasMore, state, loadPage]);
 
-  // Run the initial fetch exactly once per mount — never chained to
-  // profiles/state changes.
-  const didInitRef = React.useRef(false);
+  // Hent på nytt ved mount og hver gang valgt tur endres. Gammel tur tømmes
+  // først slik at media fra en annen tur aldri vises.
   React.useEffect(() => {
-    if (didInitRef.current) return;
-    didInitRef.current = true;
+    setItems([]);
+    setLikes(new Map());
+    setCommentCounts(new Map());
+    setHasMore(true);
+    if (!selectedTripId) { setState("loaded"); return; }
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedTripId]);
 
-  // Incremental realtime.
+  // Incremental realtime — kanal og filter er scopet til valgt tur.
   React.useEffect(() => {
+    if (!selectedTripId) return;
     const ch = supabase
-      .channel("gallery-rt")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_items" }, (payload) => {
+      .channel(`gallery-rt-${selectedTripId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_items", filter: `trip_id=eq.${selectedTripId}` }, (payload) => {
         const row = payload.new as unknown as GalleryRow;
+        if (tripRef.current !== selectedTripId) return;
         setItems((cur) => applyInsert(cur, row));
         void loadProfiles([row.uploaded_by]);
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "gallery_items" }, (payload) => {
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "gallery_items", filter: `trip_id=eq.${selectedTripId}` }, (payload) => {
+        if (tripRef.current !== selectedTripId) return;
         setItems((cur) => applyUpdate(cur, payload.new as unknown as GalleryRow));
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "gallery_items" }, (payload) => {
+        // DELETE-payload mangler ofte trip_id — vi fjerner bare rader vi
+        // allerede viser for valgt tur.
         const oldRow = payload.old as { id?: string };
         if (oldRow?.id) setItems((cur) => applyDelete(cur, oldRow.id!));
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_likes" }, (payload) => {
         const l = payload.new as { item_id: string; user_id: string };
+        if (!itemsRef.current.some((i) => i.id === l.item_id)) return;
         setLikes((prev) => applyOptimisticLike(prev, l.item_id, l.user_id, "like"));
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "gallery_likes" }, (payload) => {
         const l = payload.old as { item_id?: string; user_id?: string };
-        if (l?.item_id && l?.user_id) setLikes((prev) => applyOptimisticLike(prev, l.item_id!, l.user_id!, "unlike"));
+        if (!l?.item_id || !l?.user_id) return;
+        if (!itemsRef.current.some((i) => i.id === l.item_id)) return;
+        setLikes((prev) => applyOptimisticLike(prev, l.item_id!, l.user_id!, "unlike"));
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_comments" }, (payload) => {
         const c = payload.new as { item_id: string };
+        if (!itemsRef.current.some((i) => i.id === c.item_id)) return;
         setCommentCounts((prev) => new Map(prev).set(c.item_id, (prev.get(c.item_id) ?? 0) + 1));
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "gallery_comments" }, (payload) => {
         const c = payload.old as { item_id?: string };
-        if (c?.item_id) setCommentCounts((prev) => new Map(prev).set(c.item_id!, Math.max(0, (prev.get(c.item_id!) ?? 1) - 1)));
+        if (!c?.item_id) return;
+        if (!itemsRef.current.some((i) => i.id === c.item_id)) return;
+        setCommentCounts((prev) => new Map(prev).set(c.item_id!, Math.max(0, (prev.get(c.item_id!) ?? 1) - 1)));
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [loadProfiles]);
+  }, [loadProfiles, selectedTripId]);
+
 
   const applyLocalDelete = React.useCallback((id: string) => {
     setItems((cur) => applyDelete(cur, id));
