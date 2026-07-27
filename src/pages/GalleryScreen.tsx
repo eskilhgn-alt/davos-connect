@@ -32,7 +32,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useTrip } from "@/contexts/TripContext";
+import { useTrip, useIsArchive } from "@/contexts/TripContext";
 import { useGalleryFeed, useGalleryLikes, useGalleryComments } from "@/features/gallery/useGallery";
 import type { GalleryRow, ProfileLite } from "@/features/gallery/types";
 import { decideDeleteMode, nextViewerIndex, videoPosterFallback } from "@/features/gallery/helpers";
@@ -597,7 +597,9 @@ const ViewerSheet: React.FC<{
   const displayName = profile?.nickname || profile?.full_name || "Ukjent";
   const likeSet = likes.get(item.id) ?? new Set<string>();
   const liked = currentUserId ? likeSet.has(currentUserId) : false;
-  const canDelete = currentUserId === item.uploaded_by || isAdmin;
+  const archiveMode = useIsArchive();
+  // Arkivmodus: lesbart, men ingen sletting.
+  const canDelete = !archiveMode && (currentUserId === item.uploaded_by || isAdmin);
 
   const handleDownload = () => {
     if (!media.url || media.status !== "ready" || decodeFailed) return;
