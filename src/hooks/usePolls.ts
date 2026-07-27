@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
+import { useTrip } from "@/contexts/TripContext";
 
 const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -17,16 +18,18 @@ async function postPollChatMessage(
   text: string,
   pollId: string,
   type: "created" | "ended" | "cancelled" | "reminder",
+  tripId: string | null,
 ) {
   await supabase.from("messages").insert({
     thread_id: DEFAULT_THREAD_ID,
+    trip_id: tripId,
     sender_id: senderId,
     sender_name: "📊 Avstemming",
     text,
     // Store poll reference in attachments as a real JSON array (jsonb column).
     // Passing a string would double-encode and break clients that expect an array.
     attachments: [{ kind: "poll", poll_id: pollId, poll_event: type }] as never,
-  });
+  } as never);
 }
 
 export interface PollOption {
@@ -68,14 +71,28 @@ const RATE_LIMIT_MAX = 2;
 
 export function usePolls() {
   const { user } = useAuth();
+  // Turgrense: avstemminger tilhører valgt tur. Arkiverte turer er lesbare,
+  // men all skriving blokkeres her i tillegg til i databasen.
+  const { selectedTripId, isArchive } = useTrip();
+  const tripRef = React.useRef<string | null>(selectedTripId);
+  tripRef.current = selectedTripId;
+  const blockedByArchive = React.useCallback(() => {
+    if (isArchive) {
+      errorToast("Arkivert tur – kan ikke endre avstemminger");
+      return true;
+    }
+    return false;
+  }, [isArchive]);
   const [polls, setPolls] = React.useState<Poll[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const fetchPolls = React.useCallback(async () => {
+    const tripAtStart = selectedTripId;
+    if (!tripAtStart) { setPolls([]); setLoading(false); return; }
     const [pollsRes, optionsRes, votesRes, profilesRes] = await Promise.all([
-      supabase.from("polls").select("*").order("created_at", { ascending: false }),
+      supabase.from("polls").select("*").eq("trip_id" as never, tripAtStart as never).order("created_at", { ascending: false }),
       supabase.from("poll_options").select("*").order("sort_order"),
-      supabase.from("poll_votes").select("*"),
+      supabase.from("poll_votes").select("*").eq("trip_id" as never, tripAtStart as never),
       supabase.from("profiles").select("id, nickname, full_name, is_active").eq("is_active", true),
     ]);
 
@@ -146,22 +163,24 @@ export function usePolls() {
       };
     });
 
+    if (tripRef.current !== tripAtStart) return; // tur byttet under lasting
     setPolls(enriched);
     setLoading(false);
-  }, [user]);
+  }, [user, selectedTripId]);
 
   // Initial fetch + realtime
   React.useEffect(() => {
     fetchPolls();
 
+    if (!selectedTripId) return;
     const channel = supabase
-      .channel("polls-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "poll_votes" }, () => fetchPolls())
-      .on("postgres_changes", { event: "*", schema: "public", table: "polls" }, () => fetchPolls())
+      .channel(`polls-realtime-${selectedTripId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "poll_votes", filter: `trip_id=eq.${selectedTripId}` }, () => fetchPolls())
+      .on("postgres_changes", { event: "*", schema: "public", table: "polls", filter: `trip_id=eq.${selectedTripId}` }, () => fetchPolls())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [fetchPolls]);
+  }, [fetchPolls, selectedTripId]);
 
   // Auto-resolve: check deadlines every 30s
   React.useEffect(() => {
@@ -187,7 +206,8 @@ export function usePolls() {
       minVotes: number | null;
     }
   ) => {
-    if (!user) return;
+    if (!user || !selectedTripId) return null;
+    if (blockedByArchive()) return null;
 
     // Rate limit check
     const recentPolls = polls.filter(
@@ -210,7 +230,8 @@ export function usePolls() {
       p_send_push_on_resolved: settings.sendPushOnResolved,
       p_deadline_at: deadlineAt,
       p_min_votes: settings.minVotes,
-    });
+      p_trip_id: selectedTripId,
+    } as never);
 
     if (error || !pollId) {
       errorToast(error?.message || "Kunne ikke opprette avstemming");
@@ -233,7 +254,8 @@ export function usePolls() {
       user.id,
       `${creatorName} har startet en avstemming: "${question.trim()}"`,
       pollId,
-      "created"
+      "created",
+      selectedTripId,
     ).catch(console.warn);
 
     await fetchPolls();
@@ -242,6 +264,7 @@ export function usePolls() {
 
   const vote = async (pollId: string, optionId: string) => {
     if (!user) return;
+    if (blockedByArchive()) return;
 
     const poll = polls.find((p) => p.id === pollId);
     if (!poll || poll.status !== "active") {
@@ -271,7 +294,7 @@ export function usePolls() {
     } else {
       ({ error } = await supabase
         .from("poll_votes")
-        .insert({ poll_id: pollId, option_id: optionId, user_id: user.id }));
+        .insert({ poll_id: pollId, option_id: optionId, user_id: user.id, trip_id: tripRef.current } as never));
     }
 
     if (error) {
@@ -372,6 +395,7 @@ export function usePolls() {
   /** Creator resolves a tie by choosing the winning option */
   const resolveTie = async (pollId: string, winningOptionId: string) => {
     if (!user) return;
+    if (blockedByArchive()) return;
     const poll = polls.find((p) => p.id === pollId);
     if (!poll || poll.created_by !== user.id) {
       errorToast("Bare oppretteren kan avgjøre uavgjort");
@@ -389,7 +413,8 @@ export function usePolls() {
       user.id,
       `Avstemming avgjort: "${poll.question}"\n🏆 Resultat: ${winOpt?.label || "Ukjent"} (oppretter avgjorde uavgjort)`,
       pollId,
-      "ended"
+      "ended",
+      tripRef.current,
     ).catch(console.warn);
 
     if (poll.send_push_on_resolved) {
@@ -405,6 +430,7 @@ export function usePolls() {
   /** Force close by creator with warning about missing voters */
   const forceClose = async (pollId: string) => {
     if (!user) return;
+    if (blockedByArchive()) return;
     const poll = polls.find((p) => p.id === pollId);
     if (!poll) return;
     if (poll.created_by !== user.id) {
@@ -418,6 +444,7 @@ export function usePolls() {
   /** Cancel poll (only creator) */
   const cancelPoll = async (pollId: string) => {
     if (!user) return;
+    if (blockedByArchive()) return;
     const poll = polls.find((p) => p.id === pollId);
     if (!poll || poll.created_by !== user.id) {
       errorToast("Bare oppretteren kan kansellere");
@@ -433,7 +460,8 @@ export function usePolls() {
       user.id,
       `Avstemming kansellert: "${poll.question}"`,
       pollId,
-      "cancelled"
+      "cancelled",
+      tripRef.current,
     ).catch(console.warn);
 
     supabase.functions.invoke("poll-push", {
@@ -446,6 +474,7 @@ export function usePolls() {
 
   /** Toggle pin (creator or admin) */
   const togglePin = async (pollId: string) => {
+    if (blockedByArchive()) return;
     const poll = polls.find((p) => p.id === pollId);
     if (!poll) return;
     await supabase.from("polls").update({ is_pinned: !poll.is_pinned }).eq("id", pollId);
@@ -455,6 +484,7 @@ export function usePolls() {
   /** Send reminder push to non-voters */
   const sendReminder = async (pollId: string) => {
     if (!user) return;
+    if (blockedByArchive()) return;
     const poll = polls.find((p) => p.id === pollId);
     if (!poll || poll.status !== "active") return;
 
