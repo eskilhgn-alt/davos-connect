@@ -9,6 +9,8 @@
 
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTrip } from "@/contexts/TripContext";
+
 import type {
   AnyComment,
   CommentCursor,
