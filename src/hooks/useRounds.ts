@@ -6,6 +6,7 @@ import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrip } from "@/contexts/TripContext";
 
 export type DrinkQuantities = Record<string, number>;
 
@@ -58,6 +59,11 @@ type RoundRow = Database["public"]["Tables"]["rounds"]["Row"];
 
 export function useRounds() {
   const { user } = useAuth();
+  // Turgrense: utlegg tilhører valgt tur. Arkiverte turer kan leses, men
+  // ikke skrives til (samme regel håndheves i databasen).
+  const { selectedTripId, isArchive } = useTrip();
+  const tripRef = React.useRef<string | null>(selectedTripId);
+  tripRef.current = selectedTripId;
   const [rounds, setRounds] = React.useState<Round[]>([]);
   const [profiles, setProfiles] = React.useState<Record<string, { full_name: string | null; nickname: string | null; avatar_url: string | null }>>({});
   const [loading, setLoading] = React.useState(true);
@@ -74,14 +80,18 @@ export function useRounds() {
   }, []);
 
   const fetchRounds = React.useCallback(async () => {
+    const tripAtStart = selectedTripId;
+    if (!tripAtStart) { setRounds([]); setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
       const { data: roundsData, error: roundsError } = await supabase
         .from("rounds")
         .select("*")
+        .eq("trip_id" as never, tripAtStart as never)
         .order("created_at", { ascending: false });
       if (roundsError) throw roundsError;
+      if (tripRef.current !== tripAtStart) return; // tur byttet under lasting
 
       const roundIds = (roundsData || []).map((r) => r.id);
       const partsResult = roundIds.length > 0
@@ -107,7 +117,7 @@ export function useRounds() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedTripId]);
 
   React.useEffect(() => {
     void Promise.all([fetchProfiles(), fetchRounds()]).catch((e) => {
@@ -122,19 +132,22 @@ export function useRounds() {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
       refreshTimerRef.current = setTimeout(() => void fetchRounds(), 80);
     };
+    if (!selectedTripId) return;
     const channel = supabase
-      .channel("rounds-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "rounds" }, scheduleRefresh)
+      .channel(`rounds-realtime-${selectedTripId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "rounds", filter: `trip_id=eq.${selectedTripId}` }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "round_participants" }, scheduleRefresh)
       .subscribe();
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [fetchRounds]);
+  }, [fetchRounds, selectedTripId]);
 
   const addRound = React.useCallback(async (input: CreateRoundInput): Promise<CreateRoundResult> => {
     if (!user) return { error: { message: "Ikke innlogget" }, canCleanupReceipt: false };
+    if (!selectedTripId) return { error: { message: "Ingen tur valgt" }, canCleanupReceipt: true };
+    if (isArchive) return { error: { message: "Arkivert tur – kan ikke registrere utlegg" }, canCleanupReceipt: true };
     const { data, error: rpcError } = await supabase.rpc("create_round_with_participants", {
       p_client_id: input.clientId,
       p_currency: input.currency,
@@ -145,7 +158,8 @@ export function useRounds() {
       p_participant_ids: input.participantIds,
       p_receipt_path: input.receiptPath || null,
       p_total_cost: input.totalCost,
-    });
+      p_trip_id: selectedTripId,
+    } as never);
 
     let round = data;
     if (rpcError) {
@@ -185,7 +199,7 @@ export function useRounds() {
     }
     await fetchRounds();
     return { error: null, roundId: round.id, canCleanupReceipt: false };
-  }, [user, fetchRounds]);
+  }, [user, fetchRounds, selectedTripId, isArchive]);
 
   const updateRound = React.useCallback(async (
     roundId: string,
@@ -197,13 +211,14 @@ export function useRounds() {
       is_treated?: boolean;
     },
   ) => {
+    if (isArchive) return { error: { message: "Arkivert tur – kan ikke endre utlegg" } };
     const { error: updateError } = await supabase.from("rounds").update({
       ...updates,
       drink_quantities: updates.drink_quantities as Json | undefined,
     }).eq("id", roundId);
     if (!updateError) await fetchRounds();
     return { error: updateError };
-  }, [fetchRounds]);
+  }, [fetchRounds, isArchive]);
 
   const summaries = React.useMemo((): RoundSummary[] => {
     const userMap: Record<string, { rounds_bought: number; total_spent: number; rounds_received: number }> = {};
