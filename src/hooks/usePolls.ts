@@ -379,8 +379,10 @@ export function usePolls() {
         user.id,
         `Avstemming avgjort: "${pollRow.question}"\n🏆 Resultat: ${winOpt.label}`,
         pollId,
-        "ended"
+        "ended",
+        tripRef.current,
       ).catch(console.warn);
+
     }
 
     if (pollRow?.send_push_on_resolved) {
