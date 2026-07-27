@@ -19,7 +19,7 @@ import { useTrip } from "@/contexts/TripContext";
 type Filter = "active" | "resolved" | "mine";
 
 export const PollScreen: React.FC = () => {
-  const { selectedTripId } = useTrip();
+  const { selectedTripId, isArchive } = useTrip();
   React.useEffect(() => { markPageSeen("polls", selectedTripId); }, [selectedTripId]);
   const {
     polls,
@@ -66,14 +66,14 @@ export const PollScreen: React.FC = () => {
         title="Avstemminger"
         subtitle="Demokrati i aksjon"
         leftAction={<BackButton fallbackPath="/hjem" />}
-        rightAction={
+        rightAction={isArchive ? undefined : (
           <button
             onClick={() => setCreateOpen(true)}
             className="tap-target flex items-center justify-center text-foreground"
           >
             <Plus size={22} strokeWidth={1.8} />
           </button>
-        }
+        )}
       />
 
       {/* Filter tabs */}

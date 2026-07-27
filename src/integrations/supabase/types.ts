@@ -2314,6 +2314,7 @@ export type Database = {
           p_require_all?: boolean
           p_send_push_on_create?: boolean
           p_send_push_on_resolved?: boolean
+          p_trip_id?: string
         }
         Returns: string
       }
@@ -2328,6 +2329,7 @@ export type Database = {
           p_participant_ids: string[]
           p_receipt_path?: string
           p_total_cost: number
+          p_trip_id?: string
         }
         Returns: {
           buyer_id: string

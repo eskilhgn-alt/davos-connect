@@ -32,6 +32,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useTrip, useIsArchive } from "@/contexts/TripContext";
 import { useGalleryFeed, useGalleryLikes, useGalleryComments } from "@/features/gallery/useGallery";
 import type { GalleryRow, ProfileLite } from "@/features/gallery/types";
 import { decideDeleteMode, nextViewerIndex, videoPosterFallback } from "@/features/gallery/helpers";
@@ -115,7 +116,9 @@ const UploadSheet: React.FC<{
   open: boolean;
   onClose: () => void;
   userId: string;
-}> = ({ open, onClose, userId }) => {
+  tripId: string;
+}> = ({ open, onClose, userId, tripId }) => {
+
   const [file, setFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [caption, setCaption] = React.useState("");
@@ -229,7 +232,8 @@ const UploadSheet: React.FC<{
         size_bytes: uploadBlob.size,
         width, height,
         caption: caption.trim() || null,
-      });
+        trip_id: tripId,
+      } as never);
       if (insErr) throw insErr;
       toast.success("Delt i galleriet");
       attemptPaths.current = [];
@@ -593,7 +597,9 @@ const ViewerSheet: React.FC<{
   const displayName = profile?.nickname || profile?.full_name || "Ukjent";
   const likeSet = likes.get(item.id) ?? new Set<string>();
   const liked = currentUserId ? likeSet.has(currentUserId) : false;
-  const canDelete = currentUserId === item.uploaded_by || isAdmin;
+  const archiveMode = useIsArchive();
+  // Arkivmodus: lesbart, men ingen sletting.
+  const canDelete = !archiveMode && (currentUserId === item.uploaded_by || isAdmin);
 
   const handleDownload = () => {
     if (!media.url || media.status !== "ready" || decodeFailed) return;
@@ -729,6 +735,9 @@ const ViewerSheet: React.FC<{
 // ─── Main page ────────────────────────────────────────────────────────────
 export const GalleryScreen: React.FC = () => {
   const { user, isAdmin } = useAuth();
+  // Turgrense: galleriet følger valgt tur, og arkiverte turer er lesbare men
+  // skrivebeskyttet (ingen opplasting, ingen sletting).
+  const { selectedTripId, isArchive } = useTrip();
   const feed = useGalleryFeed();
   const { view: likeView, toggle: toggleLike } = useGalleryLikes(feed.likes, user?.id);
   const [uploadOpen, setUploadOpen] = React.useState(false);
@@ -740,13 +749,13 @@ export const GalleryScreen: React.FC = () => {
         title="Galleri"
         subtitle="Bilder, videoer og stories"
         leftAction={<BackButton fallbackPath="/hjem" />}
-        rightAction={
+        rightAction={isArchive ? undefined : (
           <button type="button" onClick={() => setUploadOpen(true)}
                   className="min-h-11 min-w-11 rounded-full flex items-center justify-center bg-primary text-primary-foreground"
                   aria-label="Last opp bilde eller video">
             <Plus size={20} />
           </button>
-        }
+        )}
       />
 
       <PullToRefreshWrapper
@@ -798,9 +807,9 @@ export const GalleryScreen: React.FC = () => {
         )}
       </PullToRefreshWrapper>
 
-      {user && (
+      {user && selectedTripId && !isArchive && (
         <UploadSheet open={uploadOpen} onClose={() => setUploadOpen(false)}
-                     userId={user.id} />
+                     userId={user.id} tripId={selectedTripId} />
       )}
 
       {viewerStart && (

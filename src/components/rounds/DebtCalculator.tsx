@@ -5,6 +5,7 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrip } from "@/contexts/TripContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -21,6 +22,8 @@ interface Profile {
 
 export const DebtCalculator: React.FC<{ open: boolean; onOpenChange: (o: boolean) => void }> = ({ open, onOpenChange }) => {
   const { user } = useAuth();
+  // Turgrense: gjeld beregnes kun av utlegg og oppgjør for valgt tur.
+  const { selectedTripId, isArchive } = useTrip();
   const [debts, setDebts] = React.useState<DebtEdge[]>([]);
   const [profiles, setProfiles] = React.useState<Map<string, Profile>>(new Map());
   const [loading, setLoading] = React.useState(true);
@@ -28,15 +31,16 @@ export const DebtCalculator: React.FC<{ open: boolean; onOpenChange: (o: boolean
   const [settlingKey, setSettlingKey] = React.useState<string | null>(null);
 
   const loadDebts = React.useCallback(async () => {
+    if (!selectedTripId) { setDebts([]); setLoading(false); return; }
     setLoading(true);
     setError(null);
-    
-    // Fetch all non-treated rounds with participants
+
+    // Fetch all non-treated rounds with participants for the selected trip
     const [roundsRes, partsRes, profilesRes, settlementsRes] = await Promise.all([
-      supabase.from("rounds").select("*").eq("is_treated", false),
+      supabase.from("rounds").select("*").eq("trip_id" as never, selectedTripId as never).eq("is_treated", false),
       supabase.from("round_participants").select("round_id, user_id"),
       supabase.from("profiles").select("id, nickname, full_name, avatar_url"),
-      supabase.from("debt_settlements").select("*"),
+      supabase.from("debt_settlements").select("*").eq("trip_id" as never, selectedTripId as never),
     ]);
 
     const rounds = roundsRes.data || [];
@@ -59,7 +63,7 @@ export const DebtCalculator: React.FC<{ open: boolean; onOpenChange: (o: boolean
 
     setDebts(calculateDebts(rounds, parts, settlements));
     setLoading(false);
-  }, []);
+  }, [selectedTripId]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -68,6 +72,8 @@ export const DebtCalculator: React.FC<{ open: boolean; onOpenChange: (o: boolean
 
   const handleSettle = async (debt: DebtEdge) => {
     if (!user || settlingKey) return;
+    if (isArchive) { toast.error("Arkivert tur – kan ikke gjøre opp"); return; }
+    if (!selectedTripId) return;
     const key = `${debt.currency}:${debt.from}:${debt.to}`;
     setSettlingKey(key);
     const { error } = await supabase.from("debt_settlements").insert({
@@ -78,7 +84,8 @@ export const DebtCalculator: React.FC<{ open: boolean; onOpenChange: (o: boolean
       client_id: crypto.randomUUID(),
       created_by: user.id,
       note: "Markert som betalt",
-    });
+      trip_id: selectedTripId,
+    } as never);
     if (error) {
       toast.error("Kunne ikke markere som betalt");
       setSettlingKey(null);
