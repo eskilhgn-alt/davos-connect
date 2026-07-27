@@ -106,15 +106,24 @@ export function useGalleryFeed(): UseGalleryFeed {
   }, []);
 
   const loadPage = React.useCallback(async (opts: { reset: boolean }) => {
+    const tripAtStart = tripRef.current;
+    if (!tripAtStart) {
+      setItems([]); setHasMore(false);
+      return;
+    }
+    const gen = ++generationRef.current;
     const cursor = opts.reset ? null : cursorFromLast(itemsRef.current);
     let q = supabase.from("gallery_items").select("*")
+      .eq("trip_id" as never, tripAtStart as never)
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(PAGE_SIZE);
     if (cursor) q = q.or(cursorPredicate(cursor));
     const { data, error: err } = await q;
+    if (gen !== generationRef.current || tripRef.current !== tripAtStart) return;
     if (err) throw err;
     const rows = (data as unknown as GalleryRow[]) || [];
+
     const mediaByBucket = new Map<GalleryRow["storage_bucket"], string[]>();
     for (const row of rows) {
       const paths = mediaByBucket.get(row.storage_bucket) ?? [];
