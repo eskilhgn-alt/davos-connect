@@ -115,7 +115,9 @@ const UploadSheet: React.FC<{
   open: boolean;
   onClose: () => void;
   userId: string;
-}> = ({ open, onClose, userId }) => {
+  tripId: string;
+}> = ({ open, onClose, userId, tripId }) => {
+
   const [file, setFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [caption, setCaption] = React.useState("");
