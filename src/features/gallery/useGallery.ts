@@ -146,8 +146,10 @@ export function useGalleryFeed(): UseGalleryFeed {
         ? supabase.from("gallery_comments").select("item_id").in("item_id", itemIds)
         : Promise.resolve({ data: [] as { item_id: string }[], error: null }),
     ]);
+    if (gen !== generationRef.current || tripRef.current !== tripAtStart) return;
     if (likeRes.error) throw likeRes.error;
     if (cntRes.error) throw cntRes.error;
+
 
     // Replace only the entries for the refreshed IDs; preserve older items.
     setLikes((prev) => {
