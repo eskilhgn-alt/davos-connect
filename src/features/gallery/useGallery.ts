@@ -56,6 +56,10 @@ export interface UseGalleryFeed {
 }
 
 export function useGalleryFeed(): UseGalleryFeed {
+  // Turgrense: galleriet viser kun media for valgt tur. Alle spørringer og
+  // Realtime-kanaler er scopet til selectedTripId, og resultater fra en
+  // tidligere tur forkastes via generasjonstelleren.
+  const { selectedTripId } = useTrip();
   const [items, setItems] = React.useState<GalleryRow[]>([]);
   const [profiles, setProfiles] = React.useState<Record<string, ProfileLite>>({});
   const [likes, setLikes] = React.useState<Map<string, Set<string>>>(new Map());
@@ -63,6 +67,10 @@ export function useGalleryFeed(): UseGalleryFeed {
   const [state, setState] = React.useState<LoadState>("idle");
   const [error, setError] = React.useState<string | null>(null);
   const [hasMore, setHasMore] = React.useState(true);
+  const tripRef = React.useRef<string | null>(selectedTripId);
+  tripRef.current = selectedTripId;
+  const generationRef = React.useRef(0);
+
 
   // Refs mirror current state for use inside stable callbacks so we don't
   // recreate loadPage/refresh on every profiles update — that was the source
