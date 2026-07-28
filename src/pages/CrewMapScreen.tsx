@@ -106,6 +106,20 @@ export const CrewMapScreen: React.FC = () => {
   } = useLocationTracker();
   const [stopping, setStopping] = React.useState(false);
 
+  // Kartsenter følger VALGT tur (TripContext) – ingen hardkodet destinasjon.
+  const { selectedTrip } = useTrip();
+  const dest = React.useMemo(() => resolveDestination(selectedTrip), [selectedTrip]);
+  const tripCenterRef = React.useRef<[number, number] | null>(null);
+  tripCenterRef.current = dest.center ? [dest.center.lat, dest.center.lon] : null;
+
+  React.useEffect(() => {
+    const c = tripCenterRef.current;
+    if (c && leafletMap.current && !hasCenteredRef.current) {
+      leafletMap.current.setView(c, dest.zoom ?? 14);
+    }
+  }, [dest.tripId, dest.zoom]);
+
+
   const handleStart = React.useCallback(async () => {
     await startSharing();
   }, [startSharing]);
