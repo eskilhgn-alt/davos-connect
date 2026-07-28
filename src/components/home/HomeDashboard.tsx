@@ -21,7 +21,6 @@ import { Link } from "react-router-dom";
 import { useTripWeather } from "@/hooks/useTripWeather";
 import { describeWeatherCode } from "@/services/tripWeather";
 import { useTrip } from "@/contexts/TripContext";
-import { ACTIVE_TRIP } from "@/config/trip";
 import { CurrencyCalculator } from "./CurrencyCalculator";
 
 interface NextEvent {
@@ -51,9 +50,9 @@ export interface HomeDashboardHandle {
 export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
   const { user } = useAuth();
   const { selectedTrip, selectedTripId } = useTrip();
-  // Currency comes from the selected trip (not the hardcoded ACTIVE_TRIP), so
+  // Currency comes from the selected trip (not a hardcoded trip constant), so
   // switching to an archived trip in a different currency displays correctly.
-  const currency = selectedTrip?.currency ?? ACTIVE_TRIP.currency;
+  const currency = selectedTrip?.currency ?? "";
   const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
   const [rateDate, setRateDate] = React.useState<string | null>(null);
   const [rateFetchedAt, setRateFetchedAt] = React.useState<Date | null>(null);

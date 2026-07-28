@@ -7,7 +7,8 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { useTripWeather } from "@/hooks/useTripWeather";
 import { describeWeatherCode, type TripDailyForecast } from "@/services/tripWeather";
-import { ACTIVE_TRIP } from "@/config/trip";
+import { useTrip } from "@/contexts/TripContext";
+import { resolveDestination } from "@/features/destination/resolveDestination";
 import { useValThorensLive } from "@/hooks/useValThorensLive";
 import { Link } from "react-router-dom";
 import {
@@ -96,13 +97,15 @@ function DayRow({ day }: { day: TripDailyForecast }) {
 }
 
 export const WeatherScreen: React.FC = () => {
-  const { weather, loading, error, refresh } = useTripWeather();
-  const { data: liveData, loading: liveLoading, refresh: refreshLive } = useValThorensLive();
+  const { selectedTrip } = useTrip();
+  const trip = React.useMemo(() => resolveDestination(selectedTrip), [selectedTrip]);
+  const { weather, loading, error, unavailable, refresh } = useTripWeather();
+  const liveSupported = trip.liveProvider === "lumiplan";
+  const { data: liveData, loading: liveLoading, refresh: refreshLive } = useValThorensLive(liveSupported);
 
   const current = weather?.current;
   const today = weather?.daily?.[0];
   const info = describeWeatherCode(current?.weatherCode ?? today?.weatherCode);
-  const trip = ACTIVE_TRIP;
   const skiPatrol = trip.emergency
     .flatMap((group) => group.contacts)
     .find((contact) => contact.label.toLowerCase().includes("skipatrulje"));
@@ -113,7 +116,7 @@ export const WeatherScreen: React.FC = () => {
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
       <AppHeader
         title="Vær"
-        subtitle={`${trip.destination}, ${trip.country}`}
+        subtitle={trip.destination ? `${trip.destination}${trip.country ? `, ${trip.country}` : ""}` : "Ingen tur valgt"}
         leftAction={<BackButton fallbackPath="/hjem" />}
         rightAction={
           <button
@@ -136,7 +139,14 @@ export const WeatherScreen: React.FC = () => {
         <div className="p-4 space-y-4">
           {/* Hero */}
           <div className="rounded-2xl bg-muted/50 border border-border p-5">
-            {loading && !weather ? (
+            {unavailable ? (
+              <div className="flex flex-col items-center text-center gap-2 py-4">
+                <AlertTriangle className="text-muted-foreground" size={22} />
+                <p className="text-sm text-muted-foreground">
+                  Vær er ikke konfigurert for denne turen. Admin må legge inn koordinater i destinasjonsoppsettet.
+                </p>
+              </div>
+            ) : loading && !weather ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="animate-spin" size={24} />
               </div>
@@ -194,7 +204,7 @@ export const WeatherScreen: React.FC = () => {
             <section className="space-y-2">
               <div className="flex items-center justify-between">
                 <h2 className="font-heading text-xs font-semibold uppercase tracking-wider text-muted-foreground">Offisielt fjellvær</h2>
-                <span className="text-[10px] text-muted-foreground">Val Thorens / Lumiplan</span>
+                <span className="text-[10px] text-muted-foreground">{trip.destination} / Lumiplan</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {liveData.weather.slice(0, 2).map((point, index) => (
@@ -227,6 +237,7 @@ export const WeatherScreen: React.FC = () => {
               Se live snø-, heis- og løypestatus uten å forlate appen. For skredfare utenfor preparerte løyper må Meteo-France brukes.
             </p>
             <div className="flex flex-col gap-2">
+              {liveSupported && (
               <Link
                   to="/kart?vis=status"
                   className="inline-flex items-center justify-between gap-2 rounded-xl bg-muted/60 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors"
@@ -234,6 +245,7 @@ export const WeatherScreen: React.FC = () => {
                   <span>Snø, heiser og løyper</span>
                   <ChevronRight size={14} />
               </Link>
+              )}
               {trip.officialLinks.avalanche && (
                 <a
                   href={trip.officialLinks.avalanche.url}

@@ -16,7 +16,8 @@ import { formatDistanceToNow } from "date-fns";
 import { nb } from "date-fns/locale";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ACTIVE_TRIP } from "@/config/trip";
+import { useTrip } from "@/contexts/TripContext";
+import { resolveDestination } from "@/features/destination/resolveDestination";
 
 const MARKER_COLORS = [
   "#ef4444", "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6",
@@ -45,7 +46,7 @@ function formatDist(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
-const TRIP_CENTER: [number, number] = [ACTIVE_TRIP.center.lat, ACTIVE_TRIP.center.lon];
+const DEFAULT_CENTER: [number, number] = [0, 0];
 
 interface SearchResult {
   display_name: string;
@@ -105,6 +106,20 @@ export const CrewMapScreen: React.FC = () => {
   } = useLocationTracker();
   const [stopping, setStopping] = React.useState(false);
 
+  // Kartsenter følger VALGT tur (TripContext) – ingen hardkodet destinasjon.
+  const { selectedTrip } = useTrip();
+  const dest = React.useMemo(() => resolveDestination(selectedTrip), [selectedTrip]);
+  const tripCenterRef = React.useRef<[number, number] | null>(null);
+  tripCenterRef.current = dest.center ? [dest.center.lat, dest.center.lon] : null;
+
+  React.useEffect(() => {
+    const c = tripCenterRef.current;
+    if (c && leafletMap.current && !hasCentered.current) {
+      leafletMap.current.setView(c, dest.zoom ?? 14);
+    }
+  }, [dest.tripId, dest.zoom]);
+
+
   const handleStart = React.useCallback(async () => {
     await startSharing();
   }, [startSharing]);
@@ -154,7 +169,7 @@ export const CrewMapScreen: React.FC = () => {
   // Initialize map
   React.useEffect(() => {
     if (!mapRef.current || leafletMap.current) return;
-    const center: [number, number] = myLoc ? [myLoc.lat, myLoc.lon] : TRIP_CENTER;
+    const center: [number, number] = myLoc ? [myLoc.lat, myLoc.lon] : tripCenterRef.current ?? DEFAULT_CENTER;
     const map = L.map(mapRef.current, { center, zoom: 14, zoomControl: false, attributionControl: false });
     L.control.zoom({ position: "topright" }).addTo(map);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
@@ -212,10 +227,10 @@ export const CrewMapScreen: React.FC = () => {
     searchTimeout.current = setTimeout(async () => {
       try {
         // Generer viewbox rundt aktiv trip-senter (~0.25° radius) for lokale treff.
-        const c = ACTIVE_TRIP.center;
+        const c = tripCenterRef.current;
         const d = 0.25;
-        const viewbox = `${c.lon - d},${c.lat + d},${c.lon + d},${c.lat - d}`;
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=${viewbox}&bounded=1&limit=5`);
+        const bounded = c ? `&viewbox=${c[1] - d},${c[0] + d},${c[1] + d},${c[0] - d}&bounded=1` : "";
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}${bounded}&limit=5`);
         const data: SearchResult[] = await res.json();
         setSearchResults(data);
       } catch { setSearchResults([]); }

@@ -6,14 +6,15 @@ import {
   type ValThorensLiveData,
 } from "@/services/valThorensLive";
 
-export function useValThorensLive() {
+export function useValThorensLive(enabled = true) {
   const cachedAtMount = React.useMemo(() => readValThorensLiveCache(), []);
   const [data, setData] = React.useState<ValThorensLiveData | null>(cachedAtMount?.data ?? null);
-  const [loading, setLoading] = React.useState(!cachedAtMount);
+  const [loading, setLoading] = React.useState(enabled && !cachedAtMount);
   const [error, setError] = React.useState<string | null>(null);
   const inFlight = React.useRef<Promise<ValThorensLiveData> | null>(null);
 
-  const refresh = React.useCallback(async () => {
+  const refresh = React.useCallback(async (): Promise<ValThorensLiveData | undefined> => {
+    if (!enabled) return undefined;
     if (inFlight.current) return inFlight.current;
     setLoading(true);
     setError(null);
@@ -39,9 +40,10 @@ export function useValThorensLive() {
       });
     inFlight.current = request;
     return request;
-  }, []);
+  }, [enabled]);
 
   React.useEffect(() => {
+    if (!enabled) return;
     if (!isValThorensCacheFresh(cachedAtMount)) {
       void refresh().catch(() => undefined);
     }
@@ -57,7 +59,7 @@ export function useValThorensLive() {
       window.removeEventListener("online", handleOnline);
       document.removeEventListener("visibilitychange", handleVisible);
     };
-  }, [cachedAtMount, refresh]);
+  }, [cachedAtMount, refresh, enabled]);
 
-  return { data, loading, error, refresh };
+  return { data: enabled ? data : null, loading: enabled ? loading : false, error: enabled ? error : null, refresh, enabled };
 }
