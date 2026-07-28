@@ -114,7 +114,7 @@ export const CrewMapScreen: React.FC = () => {
 
   React.useEffect(() => {
     const c = tripCenterRef.current;
-    if (c && leafletMap.current && !hasCenteredRef.current) {
+    if (c && leafletMap.current && !hasCentered.current) {
       leafletMap.current.setView(c, dest.zoom ?? 14);
     }
   }, [dest.tripId, dest.zoom]);
