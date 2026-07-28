@@ -40,10 +40,34 @@ export interface TripWeather {
 
 const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
 
+export interface WeatherPoint {
+  lat: number;
+  lon: number;
+  timezone: string;
+  label: string;
+}
+
 export async function fetchTripWeather(
   trip: TripConfig = ACTIVE_TRIP,
   signal?: AbortSignal,
 ): Promise<TripWeather> {
+  return fetchWeatherAt(
+    { lat: trip.center.lat, lon: trip.center.lon, timezone: trip.timezone, label: trip.destination },
+    signal,
+  );
+}
+
+/** Henter vær for et eksplisitt punkt (valgt turs senter). */
+export async function fetchWeatherAt(
+  point: WeatherPoint,
+  signal?: AbortSignal,
+): Promise<TripWeather> {
+  const trip = {
+    center: { lat: point.lat, lon: point.lon },
+    timezone: point.timezone,
+    destination: point.label,
+  };
+
   const params = new URLSearchParams({
     latitude: String(trip.center.lat),
     longitude: String(trip.center.lon),
