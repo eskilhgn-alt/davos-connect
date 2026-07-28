@@ -21,8 +21,11 @@ function statusColor(status: LiftStatus) {
   return "bg-muted-foreground";
 }
 
-export const ValThorensStatus: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
-  const { data, loading, error, refresh } = useValThorensLive();
+export const ValThorensStatus: React.FC<{ compact?: boolean; supported?: boolean }> = ({
+  compact = false,
+  supported = true,
+}) => {
+  const { data, loading, error, refresh } = useValThorensLive(supported);
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<Filter>("all");
 
@@ -32,6 +35,17 @@ export const ValThorensStatus: React.FC<{ compact?: boolean }> = ({ compact = fa
       .filter((item) => filter === "all" || (filter === "open" ? item.status === "open" : item.kind === filter))
       .filter((item) => !needle || `${item.name} ${item.sector}`.toLowerCase().includes(needle));
   }, [data?.groups, filter, query]);
+
+  if (!supported) {
+    return (
+      <div className="rounded-2xl border border-border bg-muted/30 p-5 text-center space-y-1">
+        <p className="font-heading text-sm font-semibold text-foreground">Live status er ikke konfigurert</p>
+        <p className="text-xs text-muted-foreground">
+          Denne turen har ingen live heis-/løypekilde. Legg inn en leverandør i turens destinasjonsoppsett.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
