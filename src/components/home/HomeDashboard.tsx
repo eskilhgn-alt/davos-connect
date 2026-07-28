@@ -50,7 +50,7 @@ export interface HomeDashboardHandle {
 export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
   const { user } = useAuth();
   const { selectedTrip, selectedTripId } = useTrip();
-  // Currency comes from the selected trip (not the hardcoded ACTIVE_TRIP), so
+  // Currency comes from the selected trip (not a hardcoded trip constant), so
   // switching to an archived trip in a different currency displays correctly.
   const currency = selectedTrip?.currency ?? "";
   const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
