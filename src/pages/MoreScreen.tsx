@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAppBadges } from "@/hooks/useAppBadges";
 import {
   CalendarDays,
+  Compass,
   Vote,
   Film,
   Users,
