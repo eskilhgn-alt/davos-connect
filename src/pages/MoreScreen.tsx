@@ -50,6 +50,7 @@ const MoreScreen: React.FC = () => {
   const sections: Section[] = React.useMemo(() => {
     const planning: Tile[] = [
       { to: "/agenda", label: "Agenda", icon: CalendarDays, badge: badges.agenda },
+      { to: "/oppdag", label: "Oppdag", icon: Compass },
       { to: "/poll", label: "Avstemninger", icon: Vote, badge: badges.polls },
       { to: "/runder", label: "Runder", icon: Beer, badge: badges.runder },
     ];
