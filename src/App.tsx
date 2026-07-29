@@ -28,6 +28,7 @@ const CrewMapScreen = React.lazy(() => import("./pages/CrewMapScreen"));
 const GalleryScreen = React.lazy(() => import("./pages/GalleryScreen"));
 const WeatherScreen = React.lazy(() => import("./pages/WeatherScreen"));
 const AgendaScreen = React.lazy(() => import("./pages/AgendaScreen"));
+const DiscoverScreen = React.lazy(() => import("./pages/DiscoverScreen"));
 const FaktasjekkerScreen = React.lazy(() => import("./pages/FaktasjekkerScreen"));
 const StoriesScreen = React.lazy(() => import("./pages/StoriesScreen"));
 const PollScreen = React.lazy(() => import("./pages/PollScreen"));
@@ -168,6 +169,7 @@ const AppRoutes = () => (
       <Route path="/admin" element={<AdminScreen />} />
       
       <Route path="/agenda" element={<AgendaScreen />} />
+      <Route path="/oppdag" element={<DiscoverScreen />} />
       <Route path="/faktasjekker" element={<FaktasjekkerScreen />} />
       <Route path="/historier" element={<StoriesScreen />} />
       <Route path="/poll" element={<PollScreen />} />
