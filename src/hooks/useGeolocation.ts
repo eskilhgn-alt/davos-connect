@@ -13,10 +13,12 @@ import { useLocationSharing, type GeoPosition } from "@/contexts/LocationSharing
 export type { GeoPosition };
 
 export function useGeolocation() {
-  const { enabled, position, loading, error, startSharing, stopSharing } = useLocationSharing();
+  const { enabled, position, positionUpdatedAt, loading, error, startSharing, stopSharing } =
+    useLocationSharing();
   return {
     enabled,
     position,
+    positionUpdatedAt,
     loading,
     error,
     request: startSharing,

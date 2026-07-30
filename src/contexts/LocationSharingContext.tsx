@@ -30,11 +30,19 @@ export interface GeoPosition {
   altitude?: number | null;
   altitudeAccuracy?: number | null;
   speed?: number | null;
+  /**
+   * Tidspunkt (ms) for den FAKTISKE geolokasjonsmålingen
+   * (`GeolocationPosition.timestamp`). Settes kun ved en reell suksess.
+   * Aldri `Date.now()` ved rerender av en allerede lagret posisjon.
+   */
+  timestamp: number;
 }
 
 interface LocationSharingContextValue {
   enabled: boolean;
   position: GeoPosition | null;
+  /** Måletidspunkt for `position`, eller null når vi ikke har en fersk måling. */
+  positionUpdatedAt: number | null;
   loading: boolean;
   error: string | null;
   /** Returnerer `true` når deling faktisk ble aktivert. */
@@ -114,6 +122,7 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
             altitude: geo.coords.altitude,
             altitudeAccuracy: geo.coords.altitudeAccuracy,
             speed: geo.coords.speed,
+            timestamp: typeof geo.timestamp === "number" ? geo.timestamp : Date.now(),
           });
         },
         (err) => reject(err),
@@ -266,7 +275,17 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
   }, [user?.id, enabled, stopTimers]);
 
   const value = React.useMemo<LocationSharingContextValue>(
-    () => ({ enabled, position, loading, error, startSharing, stopSharing }),
+    () => ({
+      enabled,
+      position,
+      // Utledet av den faktiske målingen — nullstilles automatisk når
+      // posisjonen fjernes ved stopp eller feil.
+      positionUpdatedAt: position ? position.timestamp : null,
+      loading,
+      error,
+      startSharing,
+      stopSharing,
+    }),
     [enabled, position, loading, error, startSharing, stopSharing]
   );
 

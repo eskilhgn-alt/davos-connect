@@ -28,6 +28,9 @@ import { Compass, ExternalLink, Loader2, MapPin, RefreshCw, Star } from "lucide-
 
 const ERROR_TEXT: Record<string, string> = {
   provider_not_configured: "Stedsdata er ikke satt opp for denne turen ennå.",
+  discovery_not_configured: "Oppdag er ikke konfigurert for denne turen ennå.",
+  category_not_enabled: "Denne kategorien er ikke slått på for turen.",
+  trip_archived: "Denne turen er arkivert. Oppdag henter ikke nye anbefalinger.",
   destination_not_configured: "Denne turen mangler et verifisert destinasjonssenter.",
   not_trip_member: "Du er ikke medlem av denne turen.",
   rate_limited: "For mange forespørsler. Prøv igjen om litt.",
@@ -101,17 +104,19 @@ const DiscoverScreen: React.FC = () => {
   const { selectedTrip } = useTrip();
   const [category, setCategory] = React.useState<DiscoverCategory>("spise");
   const [view, setView] = React.useState<"liste" | "kart">("liste");
-  const { places, attribution, loading, error, notConfigured, refetch } = useDiscover(category);
-  const { enabled, position } = useLocationSharing();
+  const { places, attribution, loading, error, notConfigured, archived, refetch } =
+    useDiscover(category);
+  const { enabled, position, positionUpdatedAt } = useLocationSharing();
 
   // Personlig avstand: kun egen posisjon, aldri andre brukere.
   const own = React.useMemo(
     () => ({
       enabled,
       position: position ? { lat: position.lat, lon: position.lon } : null,
-      updatedAt: position ? Date.now() : null,
+      // Faktisk måletidspunkt. Aldri Date.now() ved rerender.
+      updatedAt: positionUpdatedAt,
     }),
-    [enabled, position],
+    [enabled, position, positionUpdatedAt],
   );
 
   return (
@@ -174,7 +179,15 @@ const DiscoverScreen: React.FC = () => {
             <p className="text-[11px] text-muted-foreground">{DISTANCE_UNAVAILABLE_TEXT}.</p>
           )}
 
-          {view === "kart" ? (
+          {archived ? (
+            <div className="rounded-2xl border border-border bg-muted/40 p-6 text-center text-xs text-muted-foreground">
+              <p className="font-semibold text-foreground">Arkivert tur</p>
+              <p className="mt-1">
+                Oppdag er skrivebeskyttet her og henter ingen nye anbefalinger. Dette er ikke
+                lagrede steder fra turen — bare live-anbefalinger som er slått av for arkiv.
+              </p>
+            </div>
+          ) : view === "kart" ? (
             <div className="rounded-2xl border border-border bg-muted/40 p-6 text-center">
               <Compass size={20} strokeWidth={1.6} className="mx-auto text-muted-foreground" />
               <p className="mt-2 text-xs text-muted-foreground">

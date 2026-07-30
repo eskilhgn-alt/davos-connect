@@ -4,7 +4,10 @@
  * Kontrakt:
  *  - Klienten sender kun `tripId` + `category`. Aldri koordinater.
  *  - Race/generation-guard: resultat fra tur A forkastes etter bytte til B.
- *  - Cache per trip_id + kategori (delt data). Egen posisjon inngår aldri.
+ *  - Den DELTE cachen bor på serveren (`discover_place_cache`, service role).
+ *    Denne modulens Map er kun en kortlevd lokal memoisering per fane for å
+ *    unngå duplikate kall — den er ikke, og skal ikke fremstilles som, delt.
+ *  - Arkiverte turer henter aldri dynamisk providerfeed.
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,12 +38,15 @@ export interface UseDiscoverResult {
   error: string | null;
   /** True når turen mangler verifisert destinasjonssenter. */
   notConfigured: boolean;
+  /** True når valgt tur er arkivert — skrivebeskyttet, ingen dynamisk feed. */
+  archived: boolean;
   refetch: () => Promise<void>;
 }
 
 export function useDiscover(category: DiscoverCategory): UseDiscoverResult {
   const { selectedTrip, selectedTripId } = useTrip();
   const destination = React.useMemo(() => resolveDestination(selectedTrip), [selectedTrip]);
+  const archived = selectedTrip ? selectedTrip.status !== "active" : false;
 
   const [state, setState] = React.useState<{
     places: DiscoverPlace[];
@@ -55,6 +61,13 @@ export function useDiscover(category: DiscoverCategory): UseDiscoverResult {
   const load = React.useCallback(
     async (force: boolean) => {
       const tripId = selectedTripId;
+      // Arkivgrense: aldri dynamisk providerfeed for en arkivert tur.
+      if (archived) {
+        setState({ places: [], provider: null, attribution: null });
+        setError(null);
+        setLoading(false);
+        return;
+      }
       if (!tripId || !destination.configured) {
         setState({ places: [], provider: null, attribution: null });
         setError(null);
@@ -108,7 +121,7 @@ export function useDiscover(category: DiscoverCategory): UseDiscoverResult {
       });
       setLoading(false);
     },
-    [selectedTripId, category, destination.configured],
+    [selectedTripId, category, destination.configured, archived],
   );
 
   React.useEffect(() => {
@@ -122,6 +135,7 @@ export function useDiscover(category: DiscoverCategory): UseDiscoverResult {
     loading,
     error,
     notConfigured: !destination.configured,
+    archived,
     refetch: () => load(true),
   };
 }
