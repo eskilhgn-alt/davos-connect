@@ -3,17 +3,25 @@
  *
  * Sikkerhet:
  *  - Krever gyldig JWT + godkjent, aktivt medlem (`requireApprovedMember`).
- *  - Krever medlemskap i oppgitt `trip_id`.
- *  - Klienten kan ALDRI sende koordinater/radius. Senter, radius, radius,
- *    språk og tillatte kategorier leses server-side fra turens
- *    `destination_config`.
+ *  - Krever medlemskap i oppgitt `trip_id` FØR cache leses.
+ *  - Arkiverte turer (`trips.status != 'active'`) utløser aldri providerfeed.
+ *  - Klienten kan ALDRI sende koordinater/radius/filtre. Senter kommer fra
+ *    `destination_config.center`, resten fra `destination_config.discovery`.
  *  - API-nøkkel (`GOOGLE_PLACES_API_KEY`) forlater aldri serveren og logges aldri.
+ *  - Providerrespons logges aldri i sin helhet — kun status/kode.
+ *  - Servercache er delt per tur og lagrer aldri brukerposisjon.
  */
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { requireApprovedMember, authErrorResponse, AuthError } from "../_shared/auth.ts";
+import {
+  applyFilters,
+  buildCacheKey,
+  isCategory,
+  resolveDiscovery,
+  type Category,
+} from "./discovery.ts";
 
-const CATEGORIES = ["spise", "afterski", "aktiviteter", "praktisk"] as const;
-type Category = (typeof CATEGORIES)[number];
+const CACHE_TABLE = "discover_place_cache";
 
 const CATEGORY_TYPES: Record<Category, string[]> = {
   spise: ["restaurant", "cafe", "bakery"],
@@ -22,8 +30,6 @@ const CATEGORY_TYPES: Record<Category, string[]> = {
   praktisk: ["supermarket", "pharmacy", "atm"],
 };
 
-const DEFAULT_RADIUS_M = 3000;
-const MAX_RADIUS_M = 15000;
 const MAX_RESULTS = 20;
 const PROVIDER_TIMEOUT_MS = 8000;
 
@@ -70,12 +76,12 @@ const PRICE_MAP: Record<string, number> = {
   PRICE_LEVEL_VERY_EXPENSIVE: 4,
 };
 
-/** Stabil, ikke-hemmelig cacheversjon av destinasjonskonfigurasjonen. */
-function configVersion(cfg: unknown): string {
-  const s = JSON.stringify(cfg ?? {});
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h).toString(36);
+const ATTRIBUTION = "Stedsdata fra Google Maps";
+
+/** Manglende cachetabell skal aldri felle forespørselen eller lekke detaljer. */
+function isMissingTable(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return err.code === "42P01" || /does not exist|schema cache/i.test(err.message ?? "");
 }
 
 Deno.serve(async (req) => {
@@ -89,9 +95,9 @@ Deno.serve(async (req) => {
     const tripId = typeof body?.tripId === "string" ? body.tripId : "";
     const category = body?.category as Category;
     if (!tripId) throw new AuthError(400, "invalid_trip");
-    if (!CATEGORIES.includes(category)) return json({ error: "invalid_category" }, 400);
+    if (!isCategory(category)) return json({ error: "invalid_category" }, 400);
 
-    // Medlemskap i akkurat denne turen.
+    // Medlemskap i akkurat denne turen — alltid før cache leses.
     const { data: member } = await admin
       .from("trip_members")
       .select("trip_id")
@@ -102,22 +108,49 @@ Deno.serve(async (req) => {
 
     const { data: trip } = await admin
       .from("trips")
-      .select("id, destination_config")
+      .select("id, status, destination_config")
       .eq("id", tripId)
       .maybeSingle();
+    if (!trip) return json({ error: "invalid_trip" }, 404);
 
-    const cfg = (trip?.destination_config ?? {}) as Record<string, unknown>;
-    const center = cfg.center as { lat?: number; lon?: number } | undefined;
-    if (typeof center?.lat !== "number" || typeof center?.lon !== "number") {
-      return json({ error: "destination_not_configured" }, 200);
+    // Arkivgrense: ingen dynamisk providerfeed for arkiverte turer.
+    if (trip.status !== "active") {
+      return json({ tripId, category, archived: true, places: [], error: "trip_archived" }, 200);
     }
-    const radius = Math.min(
-      MAX_RADIUS_M,
-      typeof cfg.discoverRadiusM === "number" ? cfg.discoverRadiusM : DEFAULT_RADIUS_M,
-    );
-    const language = typeof cfg.language === "string" ? cfg.language : "en";
 
-    const cacheKey = `${tripId}:${configVersion(cfg)}:google-places:${category}`;
+    const discovery = resolveDiscovery(trip.destination_config);
+    if (!discovery.configured) {
+      return json({ tripId, category, places: [], error: discovery.error }, 200);
+    }
+    if (!discovery.categories.includes(category)) {
+      return json({ error: "category_not_enabled" }, 400);
+    }
+
+    const provider = discovery.providers.find((p) => p === "google-places");
+    if (!provider) return json({ tripId, category, places: [], error: "provider_not_configured" }, 200);
+
+    const cacheKey = buildCacheKey({
+      tripId,
+      discoveryVersion: discovery.version,
+      provider,
+      category,
+      filterVersion: discovery.filterVersion,
+    });
+
+    // 1) Delt servercache (service role only).
+    const { data: cached, error: cacheErr } = await admin
+      .from(CACHE_TABLE)
+      .select("payload, expires_at")
+      .eq("cache_key", cacheKey)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    if (cacheErr && !isMissingTable(cacheErr)) {
+      console.error(`discover cache read failed [${cacheErr.code ?? "unknown"}]`);
+    }
+    if (cached?.payload) {
+      return json({ ...(cached.payload as Record<string, unknown>), cached: true });
+    }
+
     const apiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
     if (!apiKey) {
       return json({
@@ -157,9 +190,12 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           includedTypes: CATEGORY_TYPES[category],
           maxResultCount: MAX_RESULTS,
-          languageCode: language,
+          languageCode: discovery.language,
           locationRestriction: {
-            circle: { center: { latitude: center.lat, longitude: center.lon }, radius },
+            circle: {
+              center: { latitude: discovery.center.lat, longitude: discovery.center.lon },
+              radius: discovery.radiusM,
+            },
           },
         }),
       });
@@ -171,13 +207,13 @@ Deno.serve(async (req) => {
     clearTimeout(timer);
 
     if (!res.ok) {
-      const text = await res.text();
-      console.error(`Places request failed [${res.status}]: ${text.slice(0, 500)}`);
+      // Kun sikker statuskode logges — aldri providerens kropp.
+      console.error(`Places request failed with status ${res.status}`);
       return json({ error: "provider_error", status: res.status }, res.status);
     }
 
     const data = (await res.json()) as { places?: GooglePlace[] };
-    const places = (data.places ?? [])
+    const normalized = (data.places ?? [])
       .filter((p) => p.id && typeof p.location?.latitude === "number")
       .map((p) => ({
         id: `google:${p.id}`,
@@ -193,16 +229,38 @@ Deno.serve(async (req) => {
         photoUrl: null,
         providerUrl: p.googleMapsUri ?? null,
       }));
+    const places = applyFilters(normalized, discovery.filters);
 
-    return json({
+    const payload = {
       tripId,
       category,
       cacheKey,
-      provider: "google-places",
-      attribution: "Stedsdata fra Google Maps",
+      provider,
+      attribution: ATTRIBUTION,
       places,
       fetchedAt: new Date().toISOString(),
-    });
+    };
+
+    // 2) Skriv normalisert payload til delt cache med TTL. Ingen rå providerdata,
+    //    ingen brukerposisjon, ingen bruker-id.
+    const { error: writeErr } = await admin.from(CACHE_TABLE).upsert(
+      {
+        cache_key: cacheKey,
+        trip_id: tripId,
+        provider,
+        category,
+        discovery_version: discovery.version,
+        filter_version: discovery.filterVersion,
+        payload,
+        expires_at: new Date(Date.now() + discovery.ttlSeconds * 1000).toISOString(),
+      },
+      { onConflict: "cache_key" },
+    );
+    if (writeErr && !isMissingTable(writeErr)) {
+      console.error(`discover cache write failed [${writeErr.code ?? "unknown"}]`);
+    }
+
+    return json({ ...payload, cached: false });
   } catch (err) {
     return authErrorResponse(err, corsHeaders);
   }
