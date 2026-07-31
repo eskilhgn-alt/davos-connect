@@ -13,7 +13,7 @@ import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTrip } from "@/contexts/TripContext";
 import { resolveDestination } from "@/features/destination/resolveDestination";
-import { sortByGuttaMatch } from "./guttaMatch";
+import { orderPlaces } from "./guttaMatch";
 import type { DiscoverCategory, DiscoverPlace, DiscoverResponse } from "./types";
 
 type CacheEntry = { at: number; data: DiscoverResponse };
