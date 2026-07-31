@@ -79,7 +79,7 @@ export function useDiscover(category: DiscoverCategory): UseDiscoverResult {
       const cached = cache.get(key);
       if (!force && cached && Date.now() - cached.at < CACHE_TTL_MS) {
         setState({
-          places: sortByGuttaMatch(cached.data.places),
+          places: orderPlaces(cached.data.places),
           provider: cached.data.provider,
           attribution: cached.data.attribution,
         });
@@ -115,7 +115,7 @@ export function useDiscover(category: DiscoverCategory): UseDiscoverResult {
 
       cache.set(key, { at: Date.now(), data: payload });
       setState({
-        places: sortByGuttaMatch(payload.places ?? []),
+        places: orderPlaces(payload.places ?? []),
         provider: payload.provider,
         attribution: payload.attribution,
       });
