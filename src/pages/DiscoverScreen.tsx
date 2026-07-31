@@ -12,6 +12,7 @@ import { useTrip } from "@/contexts/TripContext";
 import { useLocationSharing } from "@/contexts/LocationSharingContext";
 import { useDiscover } from "@/features/discover/useDiscover";
 import { guttaMatch, matchLabel } from "@/features/discover/guttaMatch";
+import { MAP_BLOCKED_TEXT, resolveMapCapability } from "@/features/discover/mapCapability";
 import {
   DISTANCE_UNAVAILABLE_TEXT,
   formatDistance,
@@ -110,8 +111,10 @@ const DiscoverScreen: React.FC = () => {
   const { selectedTrip } = useTrip();
   const [category, setCategory] = React.useState<DiscoverCategory>("spise");
   const [view, setView] = React.useState<"liste" | "kart">("liste");
-  const { places, attribution, loading, error, notConfigured, archived, refetch } =
+  const { places, provider, attribution, loading, error, notConfigured, archived, refetch } =
     useDiscover(category);
+  // EØS: providerinnhold kan ikke rendres i den generiske kartadapteren.
+  const mapCapability = React.useMemo(() => resolveMapCapability({ provider }), [provider]);
   const { enabled, position, positionUpdatedAt } = useLocationSharing();
 
   // Personlig avstand: kun egen posisjon, aldri andre brukere.
