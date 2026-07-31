@@ -13,7 +13,7 @@ import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTrip } from "@/contexts/TripContext";
 import { resolveDestination } from "@/features/destination/resolveDestination";
-import { sortByGuttaMatch } from "./guttaMatch";
+import { orderPlaces } from "./guttaMatch";
 import type { DiscoverCategory, DiscoverPlace, DiscoverResponse } from "./types";
 
 type CacheEntry = { at: number; data: DiscoverResponse };
@@ -79,7 +79,7 @@ export function useDiscover(category: DiscoverCategory): UseDiscoverResult {
       const cached = cache.get(key);
       if (!force && cached && Date.now() - cached.at < CACHE_TTL_MS) {
         setState({
-          places: sortByGuttaMatch(cached.data.places),
+          places: orderPlaces(cached.data.places),
           provider: cached.data.provider,
           attribution: cached.data.attribution,
         });
@@ -115,7 +115,7 @@ export function useDiscover(category: DiscoverCategory): UseDiscoverResult {
 
       cache.set(key, { at: Date.now(), data: payload });
       setState({
-        places: sortByGuttaMatch(payload.places ?? []),
+        places: orderPlaces(payload.places ?? []),
         provider: payload.provider,
         attribution: payload.attribution,
       });

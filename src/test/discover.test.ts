@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { guttaMatch, sortByGuttaMatch } from "@/features/discover/guttaMatch";
+import { guttaMatch, orderPlaces, MATCH_UNAVAILABLE_TEXT, matchLabel } from "@/features/discover/guttaMatch";
 import {
   personalDistanceMeters,
   formatDistance,
@@ -27,33 +27,35 @@ const place = (over: Partial<DiscoverPlace>): DiscoverPlace => ({
 });
 
 describe("Gütta-match", () => {
-  it("er deterministisk og uavhengig av brukerposisjon", () => {
-    const p = place({});
-    expect(guttaMatch(p)).toEqual(guttaMatch(p));
-    expect(JSON.stringify(guttaMatch(p))).not.toContain("avstand");
+  it("er aldri avledet av Google-innhold", () => {
+    const strong = place({ rating: 4.9, ratingCount: 5000, openNow: true, priceLevel: 2 });
+    const weak = place({ id: "google:b", rating: 1.1, ratingCount: 1, openNow: false, priceLevel: 4 });
+    expect(guttaMatch(strong, null)).toEqual({ available: false, reason: "not_enough_group_data" });
+    expect(guttaMatch(weak, null)).toEqual(guttaMatch(strong, null));
+    expect(matchLabel(guttaMatch(strong, null))).toBe(MATCH_UNAVAILABLE_TEXT);
   });
 
-  it("gir samme rekkefølge uansett hvem som ser listen", () => {
+  it("beholder providerens rekkefølge uten gruppesignaler", () => {
     const list = [
       place({ id: "google:b", rating: 3.6, ratingCount: 20 }),
       place({ id: "google:a", rating: 4.8, ratingCount: 900 }),
       place({ id: "google:c", rating: 4.3, ratingCount: 120 }),
     ];
-    const order = sortByGuttaMatch(list).map((p) => p.id);
-    expect(order).toEqual(["google:a", "google:c", "google:b"]);
-    expect(sortByGuttaMatch([...list].reverse()).map((p) => p.id)).toEqual(order);
+    expect(orderPlaces(list).map((p) => p.id)).toEqual(["google:b", "google:a", "google:c"]);
   });
 
-  it("forklarer signalene konkret", () => {
-    const m = guttaMatch(place({}));
-    expect(m.reasons).toContain("svært godt vurdert av mange");
-    expect(m.reasons).toContain("åpent nå");
-  });
-
-  it("markerer få vurderinger som usikkert", () => {
-    expect(guttaMatch(place({ rating: 5, ratingCount: 2 })).reasons).toContain(
-      "få vurderinger – usikkert",
+  it("scorer kun på førsteparts gruppesignaler", () => {
+    const p = place({});
+    const m = guttaMatch(p, { saved: 3, voted: 2, visited: 1 });
+    expect(m.available).toBe(true);
+    if (!m.available) return;
+    expect(m.score).toBe(46);
+    expect(m.reasons.join(" ")).toContain("lagret av 3");
+    const ordered = orderPlaces(
+      [place({ id: "google:a" }), place({ id: "google:b" })],
+      { "google:b": { saved: 2, voted: 0, visited: 0 } },
     );
+    expect(ordered.map((x) => x.id)).toEqual(["google:b", "google:a"]);
   });
 });
 
