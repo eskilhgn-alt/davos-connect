@@ -197,7 +197,9 @@ const DiscoverScreen: React.FC = () => {
             <div className="rounded-2xl border border-border bg-muted/40 p-6 text-center">
               <Compass size={20} strokeWidth={1.6} className="mx-auto text-muted-foreground" />
               <p className="mt-2 text-xs text-muted-foreground">
-                Kartvisning for Oppdag er ikke klar ennå. Listen viser alle stedene.
+                {mapCapability.allowed
+                  ? "Kartvisning via Places UI Kit kommer her."
+                  : MAP_BLOCKED_TEXT[mapCapability.reason]}
               </p>
             </div>
           ) : notConfigured ? (
