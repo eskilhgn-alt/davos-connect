@@ -23,6 +23,12 @@ import {
 
 const CACHE_TABLE = "discover_place_cache";
 
+/**
+ * EØS-grense: delt snapshot av place_id/koordinater kan aldri leve lenger enn
+ * 30 dager, uansett hva turens discovery-TTL sier.
+ */
+export const MAX_SNAPSHOT_TTL_SECONDS = 30 * 24 * 60 * 60;
+
 const CATEGORY_TYPES: Record<Category, string[]> = {
   spise: ["restaurant", "cafe", "bakery"],
   afterski: ["bar", "night_club"],
