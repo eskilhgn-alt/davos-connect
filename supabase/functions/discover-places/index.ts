@@ -137,19 +137,25 @@ Deno.serve(async (req) => {
       filterVersion: discovery.filterVersion,
     });
 
-    // 1) Delt servercache (service role only).
-    const { data: cached, error: cacheErr } = await admin
+    // 1) Delt server-snapshot (service role only).
+    //    EØS: snapshotet lagrer BARE place_id + koordinater, provider og
+    //    cacheversjon — aldri navn, adresse, rating, åpningstid, pris, bilder
+    //    eller reviewdata, og aldri brukerposisjon.
+    const { data: snapshot, error: cacheErr } = await admin
       .from(CACHE_TABLE)
-      .select("payload, expires_at")
+      .select("place_refs, expires_at")
       .eq("cache_key", cacheKey)
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
     if (cacheErr && !isMissingTable(cacheErr)) {
-      console.error(`discover cache read failed [${cacheErr.code ?? "unknown"}]`);
+      console.error(`discover snapshot read failed [${cacheErr.code ?? "unknown"}]`);
     }
-    if (cached?.payload) {
-      return json({ ...(cached.payload as Record<string, unknown>), cached: true });
-    }
+    const snapshotRefs = Array.isArray(snapshot?.place_refs)
+      ? (snapshot!.place_refs as Array<{ id?: string }>)
+          .map((r) => (typeof r?.id === "string" ? r.id : null))
+          .filter((x): x is string => !!x)
+      : null;
+
 
     const apiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
     if (!apiKey) {
