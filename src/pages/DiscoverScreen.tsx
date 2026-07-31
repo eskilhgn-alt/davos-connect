@@ -42,7 +42,9 @@ const PlaceRow: React.FC<{ place: DiscoverPlace; distance: number | null }> = ({
   place,
   distance,
 }) => {
-  const match = guttaMatch(place);
+  // Gütta-match kommer kun fra førsteparts gruppesignaler. Uten slike signaler
+  // vises en ærlig «Ikke nok gruppedata» — aldri en score fra Google-innhold.
+  const match = guttaMatch(place, null);
   return (
     <li className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
@@ -65,11 +67,15 @@ const PlaceRow: React.FC<{ place: DiscoverPlace; distance: number | null }> = ({
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-foreground">
-          {matchLabel(match.score)}
+          {matchLabel(match)}
         </span>
       </div>
 
-      <p className="mt-2 text-xs text-muted-foreground">{match.reasons.join(" · ")}</p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        {match.available
+          ? match.reasons.join(" · ")
+          : "Gütta-match krever gruppedata (lagret, stemt eller besøkt) fra turen."}
+      </p>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         {place.rating != null && (
