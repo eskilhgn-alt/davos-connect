@@ -235,7 +235,15 @@ Deno.serve(async (req) => {
         photoUrl: null,
         providerUrl: p.googleMapsUri ?? null,
       }));
-    const places = applyFilters(normalized, discovery.filters);
+    const filtered = applyFilters(normalized, discovery.filters);
+
+    // Delt rekkefølge: finnes et snapshot, følger alle medlemmer snapshotets
+    // kandidatsett og rekkefølge. Ellers providerens egen rekkefølge.
+    const places = snapshotRefs
+      ? snapshotRefs
+          .map((id) => filtered.find((p) => p.id === id))
+          .filter((p): p is (typeof filtered)[number] => !!p)
+      : filtered;
 
     const payload = {
       tripId,
@@ -247,26 +255,31 @@ Deno.serve(async (req) => {
       fetchedAt: new Date().toISOString(),
     };
 
-    // 2) Skriv normalisert payload til delt cache med TTL. Ingen rå providerdata,
-    //    ingen brukerposisjon, ingen bruker-id.
-    const { error: writeErr } = await admin.from(CACHE_TABLE).upsert(
-      {
-        cache_key: cacheKey,
-        trip_id: tripId,
-        provider,
-        category,
-        discovery_version: discovery.version,
-        filter_version: discovery.filterVersion,
-        payload,
-        expires_at: new Date(Date.now() + discovery.ttlSeconds * 1000).toISOString(),
-      },
-      { onConflict: "cache_key" },
-    );
-    if (writeErr && !isMissingTable(writeErr)) {
-      console.error(`discover cache write failed [${writeErr.code ?? "unknown"}]`);
+    // 2) Skriv KUN place_id + koordinater til delt snapshot. Ingen navn,
+    //    adresser, ratings, åpningstid, pris, bilder eller reviewdata.
+    //    Ingen brukerposisjon, ingen bruker-id. TTL alltid <= 30 dager.
+    if (!snapshotRefs) {
+      const placeRefs = places.map((p) => ({ id: p.id, lat: p.lat, lon: p.lon }));
+      const ttlMs = Math.min(discovery.ttlSeconds, MAX_SNAPSHOT_TTL_SECONDS) * 1000;
+      const { error: writeErr } = await admin.from(CACHE_TABLE).upsert(
+        {
+          cache_key: cacheKey,
+          trip_id: tripId,
+          provider,
+          category,
+          discovery_version: discovery.version,
+          filter_version: discovery.filterVersion,
+          place_refs: placeRefs,
+          expires_at: new Date(Date.now() + ttlMs).toISOString(),
+        },
+        { onConflict: "cache_key" },
+      );
+      if (writeErr && !isMissingTable(writeErr)) {
+        console.error(`discover snapshot write failed [${writeErr.code ?? "unknown"}]`);
+      }
     }
 
-    return json({ ...payload, cached: false });
+    return json({ ...payload, cached: !!snapshotRefs });
   } catch (err) {
     return authErrorResponse(err, corsHeaders);
   }
