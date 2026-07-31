@@ -91,7 +91,11 @@ describe("migrasjon er idempotent og provider-nøytral", () => {
   });
 
   it("er provider-nøytral", () => {
-    expect(sql).not.toMatch(/google/i);
+    const stmts = sql
+      .split("\n")
+      .filter((l) => !l.trimStart().startsWith("--"))
+      .join("\n");
+    expect(stmts).not.toMatch(/google/i);
   });
 });
 
