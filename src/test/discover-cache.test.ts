@@ -126,10 +126,11 @@ describe("edge function: cache, arkiv og sikkerhet", () => {
     );
   });
 
-  it("skriver normalisert payload med TTL og uten posisjon/bruker", () => {
-    expect(fnSrc).toContain("expires_at: new Date(Date.now() + discovery.ttlSeconds * 1000)");
-    const upsert = fnSrc.slice(fnSrc.indexOf("CACHE_TABLE).upsert"), fnSrc.indexOf("cached: false"));
-    expect(upsert).not.toMatch(/user_id|userId|lat|lon/);
+  it("skriver kun place-referanser med kappet TTL og uten posisjon/bruker", () => {
+    expect(fnSrc).toContain("Math.min(discovery.ttlSeconds, MAX_SNAPSHOT_TTL_SECONDS)");
+    expect(fnSrc).toContain("expires_at: new Date(Date.now() + ttlMs)");
+    const upsert = fnSrc.slice(fnSrc.indexOf("CACHE_TABLE).upsert"), fnSrc.indexOf("cached: !!"));
+    expect(upsert).not.toMatch(/user_id|userId|position/);
     expect(fnSrc).not.toMatch(/raw_?payload|rawResponse/i);
   });
 
