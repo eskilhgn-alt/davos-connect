@@ -39,6 +39,8 @@ GRANT ALL ON public.discover_place_cache TO service_role;
 ALTER TABLE public.discover_place_cache ENABLE ROW LEVEL SECURITY;
 -- Bevisst ingen policyer: tabellen er låst for alle klientroller.
 
+CREATE UNIQUE INDEX IF NOT EXISTS discover_place_cache_key_uidx
+  ON public.discover_place_cache (cache_key);
 CREATE INDEX IF NOT EXISTS discover_place_cache_trip_expires_idx
   ON public.discover_place_cache (trip_id, expires_at DESC);
 
