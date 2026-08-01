@@ -31,6 +31,8 @@ interface TripContextValue {
   /** Koordinert refresh: invaliderer bare kritiske, turspesifikke queries
    *  og venter på at de er ferdige. Erstatter component-remount. */
   refreshTrip: () => Promise<void>;
+  /** Tvinger ny lesing av turer/medlemskap fra databasen (etter adminlagring). */
+  reloadTrips: () => Promise<void>;
 }
 
 const TripContext = React.createContext<TripContextValue | undefined>(undefined);
@@ -144,6 +146,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     selectTrip,
     refreshTrip,
+    reloadTrips: loadTripsAndMembership,
   };
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>;

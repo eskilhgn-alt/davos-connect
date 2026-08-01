@@ -80,10 +80,11 @@ describe("EØS: delt snapshot", () => {
 });
 
 describe("migrasjon er idempotent og provider-nøytral", () => {
-  it("bruker IF NOT EXISTS og drop-if-exists på trigger", () => {
+  it("bruker IF NOT EXISTS og ikke-destruktiv triggerguard", () => {
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS public.discover_place_cache");
-    expect(sql).toContain("DROP TRIGGER IF EXISTS discover_place_cache_guard_trg");
-    expect(sql).toContain("DROP TRIGGER IF EXISTS discover_place_cache_set_updated_at");
+    // Ingen DROP TRIGGER: idempotens via pg_trigger-guard, ikke destruktivt.
+    expect(sql).not.toMatch(/DROP TRIGGER/);
+    expect(sql).toContain("FROM pg_trigger t");
     expect(sql).toContain("CREATE OR REPLACE FUNCTION public.discover_place_cache_guard");
     expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
     expect(sql).toContain("GRANT ALL ON public.discover_place_cache TO service_role");

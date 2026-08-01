@@ -4,7 +4,7 @@
  * Historiske spillmoduler er fjernet fra aktiv admin.
  */
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
@@ -36,7 +36,13 @@ const TAB_OPTIONS: SegmentOption[] = [
 export const AdminScreen: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin, isLoading: authLoading, user } = useAuth();
-  const [tab, setTab] = React.useState("overview");
+  const [searchParams] = useSearchParams();
+  // Deep-link fra Oppdag: /admin?tab=trips&trip=<id>
+  const initialTab = TAB_OPTIONS.some((o) => o.value === searchParams.get("tab"))
+    ? (searchParams.get("tab") as string)
+    : "overview";
+  const [tab, setTab] = React.useState(initialTab);
+  const deepLinkTripId = searchParams.get("trip");
 
   const isAuthorized = isAdmin;
 
@@ -82,7 +88,7 @@ export const AdminScreen: React.FC = () => {
           <AdminOverview stats={stats} users={users} onNavigate={setTab} />
         )}
 
-        {tab === "trips" && <AdminTrips />}
+        {tab === "trips" && <AdminTrips initialTripId={deepLinkTripId} />}
 
         {tab === "users" && (
           <AdminUserList
