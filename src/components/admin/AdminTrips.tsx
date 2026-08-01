@@ -4,18 +4,48 @@
  * Enkel admin-flate for turadministrasjon. Bruker RPC-er som ligger bak
  * has_role/is_admin, så vanlige brukere kan ikke kalle disse selv om UI-et
  * skulle bli eksponert ved uhell.
+ *
+ * Lagringskontrakt (viktig):
+ *  - `destination_config` sendes ALLTID som full, merge-bevart blokk. Vi rører
+ *    aldri weather/map/webcam-felter.
+ *  - Suksess vises først etter at RPC-ens returnerte rad (eller en eksplisitt
+ *    kontroll-lesing) bekrefter at datoer og discovery faktisk ble persistert.
+ *  - Etter lagring invalideres ["trips","list"] og TripContext lastes på nytt,
+ *    slik at UI aldri viser en gammel rad i opptil 60 sekunder.
  */
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Archive, CheckCircle2, Pencil } from "lucide-react";
+import { Loader2, Plus, Archive, CheckCircle2, Pencil, Wand2 } from "lucide-react";
 import { useActiveTrip, type Trip } from "@/hooks/useActiveTrip";
+import { useTrip } from "@/contexts/TripContext";
+import { CATEGORY_LABELS, DISCOVER_CATEGORIES, type DiscoverCategory } from "@/features/discover/types";
+import {
+  discoveryDraftFromConfig,
+  mergeDiscoveryIntoConfig,
+  resolveDiscoveryConfig,
+  validateDiscoveryDraft,
+  valThorensDiscoveryPreset,
+  SUPPORTED_PROVIDERS,
+  type DiscoveryDraft,
+} from "@/features/discover/discoveryConfig";
 
-export const AdminTrips: React.FC = () => {
+export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initialTripId }) => {
   const { trips, activeTripId, isLoading, refetch } = useActiveTrip();
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<Trip | null>(null);
+  const openedDeepLink = React.useRef(false);
+
+  React.useEffect(() => {
+    if (openedDeepLink.current || !initialTripId || trips.length === 0) return;
+    const t = trips.find((x) => x.id === initialTripId);
+    if (t) {
+      openedDeepLink.current = true;
+      setEditing(t);
+    }
+  }, [initialTripId, trips]);
 
   const runRpc = React.useCallback(
     async (label: string, fn: () => Promise<{ error: unknown }>) => {
@@ -70,6 +100,7 @@ export const AdminTrips: React.FC = () => {
       <ul className="space-y-2">
         {trips.map((t) => {
           const isActive = t.id === activeTripId;
+          const discovery = resolveDiscoveryConfig(t.destination_config);
           return (
             <li
               key={t.id}
@@ -94,6 +125,16 @@ export const AdminTrips: React.FC = () => {
                     {t.destination}
                     {t.start_date && ` · ${t.start_date}`}
                     {t.end_date && ` – ${t.end_date}`}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    Oppdag:{" "}
+                    {discovery.configured ? (
+                      <span className="text-foreground">
+                        konfigurert ({discovery.providers.join(", ")}, {discovery.radiusM} m)
+                      </span>
+                    ) : (
+                      "ikke konfigurert"
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -149,23 +190,83 @@ export const AdminTrips: React.FC = () => {
   );
 };
 
+/** Sammenlikner det vi sendte med det som faktisk ble persistert. */
+export function verifySavedTrip(
+  row: { start_date?: unknown; end_date?: unknown; destination_config?: unknown } | null,
+  expected: { startDate: string | null; endDate: string | null; discoveryVersion: string | null },
+): string | null {
+  if (!row) return "Fikk ingen bekreftelse fra serveren";
+  const norm = (v: unknown) => (v == null || v === "" ? null : String(v).slice(0, 10));
+  if (norm(row.start_date) !== expected.startDate) return "Startdato ble ikke lagret";
+  if (norm(row.end_date) !== expected.endDate) return "Sluttdato ble ikke lagret";
+  const saved = resolveDiscoveryConfig(row.destination_config as Record<string, unknown>);
+  const savedVersion = saved.configured ? saved.version : null;
+  if (expected.discoveryVersion && savedVersion !== expected.discoveryVersion)
+    return "Oppdag-konfigurasjonen ble ikke lagret";
+  return null;
+}
+
 const TripFormModal: React.FC<{
   trip: Trip | null;
   onClose: () => void;
   onSaved: () => void;
 }> = ({ trip, onClose, onSaved }) => {
+  const queryClient = useQueryClient();
+  const { reloadTrips } = useTrip();
   const [name, setName] = React.useState(trip?.name ?? "");
   const [destination, setDestination] = React.useState(trip?.destination ?? "");
   const [country, setCountry] = React.useState(trip?.country ?? "");
   const [startDate, setStartDate] = React.useState(trip?.start_date ?? "");
   const [endDate, setEndDate] = React.useState(trip?.end_date ?? "");
   const [saving, setSaving] = React.useState(false);
+  const [discovery, setDiscovery] = React.useState<DiscoveryDraft>(() =>
+    discoveryDraftFromConfig(trip?.destination_config),
+  );
+
+  const existingCfg = (trip?.destination_config ?? {}) as Record<string, unknown>;
+  const center = existingCfg.center as { lat?: number; lon?: number } | undefined;
+  const hasCenter = typeof center?.lat === "number" && typeof center?.lon === "number";
+  const preset = React.useMemo(() => valThorensDiscoveryPreset(trip), [trip]);
+
+  const toggleCategory = (c: DiscoverCategory) =>
+    setDiscovery((d) => ({
+      ...d,
+      categories: d.categories.includes(c)
+        ? d.categories.filter((x) => x !== c)
+        : [...d.categories, c],
+    }));
+
+  const toggleProvider = (p: string) =>
+    setDiscovery((d) => ({
+      ...d,
+      providers: d.providers.includes(p) ? d.providers.filter((x) => x !== p) : [...d.providers, p],
+    }));
+
+  const discoveryTouched =
+    discovery.providers.length > 0 || discovery.categories.length > 0;
 
   const save = async () => {
     if (!name || !destination) {
       toast.error("Navn og destinasjon er obligatorisk");
       return;
     }
+    let mergedConfig: Record<string, unknown> = { ...existingCfg };
+    let expectedVersion: string | null = null;
+    if (discoveryTouched) {
+      const invalid = validateDiscoveryDraft(discovery);
+      if (invalid) {
+        toast.error(invalid);
+        return;
+      }
+      if (!hasCenter) {
+        toast.error("Turen mangler verifisert senter (destination_config.center)");
+        return;
+      }
+      mergedConfig = mergeDiscoveryIntoConfig(existingCfg, discovery);
+      const resolved = resolveDiscoveryConfig(mergedConfig);
+      expectedVersion = resolved.configured ? resolved.version : null;
+    }
+
     setSaving(true);
     try {
       const rpc = trip ? "rpc_admin_update_trip" : "rpc_admin_create_trip";
@@ -175,11 +276,33 @@ const TripFormModal: React.FC<{
         p_country: country || null,
         p_start_date: startDate || null,
         p_end_date: endDate || null,
+        p_destination_config: mergedConfig,
       };
       if (trip) params.p_trip_id = trip.id;
-      const { error } = await (supabase as any).rpc(rpc, params);
+      const { data, error } = await (supabase as any).rpc(rpc, params);
       if (error) throw error;
-      toast.success(trip ? "Tur oppdatert" : "Tur opprettet");
+
+      // Verifiser mot returnert rad, med eksplisitt kontroll-lesing som backup.
+      let row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+      const tripId = (row?.id as string | undefined) ?? trip?.id;
+      if ((!row || row.destination_config === undefined) && tripId) {
+        const { data: check } = await (supabase as any)
+          .from("trips")
+          .select("id,start_date,end_date,destination_config")
+          .eq("id", tripId)
+          .maybeSingle();
+        row = check ?? row;
+      }
+      const mismatch = verifySavedTrip(row, {
+        startDate: startDate || null,
+        endDate: endDate || null,
+        discoveryVersion: expectedVersion,
+      });
+      if (mismatch) throw new Error(mismatch);
+
+      await queryClient.invalidateQueries({ queryKey: ["trips", "list"] });
+      await reloadTrips();
+      toast.success(trip ? "Tur oppdatert og verifisert" : "Tur opprettet og verifisert");
       onSaved();
     } catch (e) {
       toast.error((e as Error).message || "Kunne ikke lagre");
@@ -190,7 +313,7 @@ const TripFormModal: React.FC<{
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center">
-      <div className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl p-4 space-y-3">
+      <div className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[90dvh] overflow-y-auto">
         <h3 className="font-semibold text-lg">{trip ? "Rediger tur" : "Ny tur"}</h3>
         <Field label="Navn" value={name} onChange={setName} />
         <Field label="Destinasjon" value={destination} onChange={setDestination} />
@@ -199,6 +322,80 @@ const TripFormModal: React.FC<{
           <Field label="Startdato" value={startDate} onChange={setStartDate} type="date" />
           <Field label="Sluttdato" value={endDate} onChange={setEndDate} type="date" />
         </div>
+
+        <div className="pt-2 border-t border-border space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold">Oppdag</h4>
+            {preset && (
+              <button
+                onClick={() => setDiscovery(preset)}
+                className="inline-flex items-center gap-1 text-xs px-2 py-2 rounded-lg bg-muted min-h-[44px]"
+              >
+                <Wand2 className="h-3.5 w-3.5" /> Fyll trygt forslag
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {hasCenter
+              ? `Søkesenter fra turens verifiserte koordinater (${center!.lat}, ${center!.lon}). Datoer påvirker ikke Oppdag.`
+              : "Turen mangler verifisert senter i destination_config.center. Oppdag kan ikke slås på før det finnes."}
+          </p>
+
+          <div>
+            <span className="text-xs text-muted-foreground">Tilbydere</span>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {SUPPORTED_PROVIDERS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => toggleProvider(p)}
+                  aria-pressed={discovery.providers.includes(p)}
+                  className={`rounded-full border px-3 py-2 text-xs min-h-[44px] ${
+                    discovery.providers.includes(p)
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-xs text-muted-foreground">Kategorier</span>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {DISCOVER_CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => toggleCategory(c)}
+                  aria-pressed={discovery.categories.includes(c)}
+                  className={`rounded-full border px-3 py-2 text-xs min-h-[44px] ${
+                    discovery.categories.includes(c)
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {CATEGORY_LABELS[c]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Field
+              label="Radius (m)"
+              value={String(discovery.radiusM)}
+              onChange={(v) => setDiscovery((d) => ({ ...d, radiusM: Number(v) || 0 }))}
+              type="number"
+            />
+            <Field
+              label="Språk"
+              value={discovery.language}
+              onChange={(v) => setDiscovery((d) => ({ ...d, language: v }))}
+            />
+          </div>
+        </div>
+
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}

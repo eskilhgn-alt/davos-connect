@@ -1,6 +1,11 @@
 -- KODE-ONLY, IKKE KJØRT.
--- Delt server-snapshot for Oppdag (discover-places). Ikke-destruktiv og
--- idempotent: kan kjøres flere ganger uten feil og uten å røre brukerdata.
+-- Delt server-snapshot for Oppdag (discover-places).
+--
+-- Ikke-destruktiv og idempotent:
+--  * Produksjon er verifisert å IKKE ha denne tabellen.
+--  * Migrasjonen inneholder derfor ingen DROP TABLE, DROP COLUMN, DELETE,
+--    TRUNCATE eller annen datafjerning. Kun CREATE ... IF NOT EXISTS,
+--    idempotente GRANT/REVOKE og en trygg trigger-opprettelse via guard.
 --
 -- EØS/vilkår (Google Maps Platform EEA, fra 8. juli 2025):
 --  * Snapshotet lagrer BARE provider-nøytrale referanser: place_id og
@@ -12,6 +17,7 @@
 -- Sikkerhet:
 --  * RLS er PÅ uten klientpolicyer: kun Edge Function via service role
 --    kan lese/skrive. anon/authenticated får ingen GRANT.
+--  * Triggerfunksjonen er også låst: EXECUTE trekkes fra PUBLIC.
 
 CREATE TABLE IF NOT EXISTS public.discover_place_cache (
   cache_key text PRIMARY KEY,
@@ -26,12 +32,6 @@ CREATE TABLE IF NOT EXISTS public.discover_place_cache (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Bakoverkompatibel opprydding: eldre versjon av tabellen kan ha en
--- `payload`-kolonne med normalisert providerinnhold. Den er ikke lenger
--- tillatt å lagre. Kolonnen fjernes kun hvis den finnes (ingen brukerdata).
-ALTER TABLE public.discover_place_cache ADD COLUMN IF NOT EXISTS place_refs jsonb NOT NULL DEFAULT '[]'::jsonb;
-ALTER TABLE public.discover_place_cache DROP COLUMN IF EXISTS payload;
-
 -- Kun service role. Ingen GRANT til anon/authenticated.
 REVOKE ALL ON public.discover_place_cache FROM anon, authenticated;
 GRANT ALL ON public.discover_place_cache TO service_role;
@@ -39,8 +39,6 @@ GRANT ALL ON public.discover_place_cache TO service_role;
 ALTER TABLE public.discover_place_cache ENABLE ROW LEVEL SECURITY;
 -- Bevisst ingen policyer: tabellen er låst for alle klientroller.
 
-CREATE UNIQUE INDEX IF NOT EXISTS discover_place_cache_key_uidx
-  ON public.discover_place_cache (cache_key);
 CREATE INDEX IF NOT EXISTS discover_place_cache_trip_expires_idx
   ON public.discover_place_cache (trip_id, expires_at DESC);
 
@@ -59,8 +57,24 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS discover_place_cache_set_updated_at ON public.discover_place_cache;
-DROP TRIGGER IF EXISTS discover_place_cache_guard_trg ON public.discover_place_cache;
-CREATE TRIGGER discover_place_cache_guard_trg
-  BEFORE INSERT OR UPDATE ON public.discover_place_cache
-  FOR EACH ROW EXECUTE FUNCTION public.discover_place_cache_guard();
+REVOKE ALL ON FUNCTION public.discover_place_cache_guard() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.discover_place_cache_guard() TO service_role;
+
+-- Idempotent trigger-opprettelse uten destruktiv databehandling.
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE t.tgname = 'discover_place_cache_guard_trg'
+      AND c.relname = 'discover_place_cache'
+      AND n.nspname = 'public'
+  ) THEN
+    CREATE TRIGGER discover_place_cache_guard_trg
+      BEFORE INSERT OR UPDATE ON public.discover_place_cache
+      FOR EACH ROW EXECUTE FUNCTION public.discover_place_cache_guard();
+  END IF;
+END
+$do$;

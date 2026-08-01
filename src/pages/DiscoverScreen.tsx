@@ -9,6 +9,8 @@ import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
 import { useTrip } from "@/contexts/TripContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { useLocationSharing } from "@/contexts/LocationSharingContext";
 import { useDiscover } from "@/features/discover/useDiscover";
 import { guttaMatch, matchLabel } from "@/features/discover/guttaMatch";
@@ -107,12 +109,54 @@ const PlaceRow: React.FC<{ place: DiscoverPlace; distance: number | null }> = ({
   );
 };
 
+/**
+ * Ærlige, adskilte tomtilstander. Datoer påvirker aldri configured-status.
+ */
+export const NOT_CONFIGURED_TEXT: Record<string, { admin: string; member: string }> = {
+  destination_not_configured: {
+    admin: "Turen mangler et verifisert destinasjonssenter (destination_config.center). Sett det opp før Oppdag kan hente steder.",
+    member: "Turansvarlig må sette opp destinasjonen før Oppdag kan vise steder.",
+  },
+  discovery_not_configured: {
+    admin: "Oppdag er ikke konfigurert for denne turen ennå. Velg kategorier, radius og språk i Admin > Turer.",
+    member: "Turansvarlig må konfigurere Oppdag for denne turen.",
+  },
+  provider_not_configured: {
+    admin: "Ingen stedstilbyder er valgt for turen. Velg tilbyder i Admin > Turer.",
+    member: "Turansvarlig må velge stedstilbyder før Oppdag kan vise steder.",
+  },
+};
+
+const NotConfiguredState: React.FC<{
+  reason: string | null;
+  isAdmin: boolean;
+  onConfigure: () => void;
+}> = ({ reason, isAdmin, onConfigure }) => {
+  const text = NOT_CONFIGURED_TEXT[reason ?? "discovery_not_configured"] ??
+    NOT_CONFIGURED_TEXT.discovery_not_configured;
+  return (
+    <div className="rounded-2xl border border-border bg-muted/40 p-6 text-center text-xs text-muted-foreground">
+      <p>{isAdmin ? text.admin : text.member}</p>
+      {isAdmin && (
+        <button
+          onClick={onConfigure}
+          className="mt-3 inline-flex min-h-[44px] items-center rounded-full bg-foreground px-4 text-xs font-semibold text-background"
+        >
+          Konfigurer Oppdag
+        </button>
+      )}
+    </div>
+  );
+};
+
 const DiscoverScreen: React.FC = () => {
   const { selectedTrip } = useTrip();
   const [category, setCategory] = React.useState<DiscoverCategory>("spise");
   const [view, setView] = React.useState<"liste" | "kart">("liste");
-  const { places, provider, attribution, loading, error, notConfigured, archived, refetch } =
+  const { places, provider, attribution, loading, error, notConfigured, notConfiguredReason, archived, refetch } =
     useDiscover(category);
+  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   // EØS: providerinnhold kan ikke rendres i den generiske kartadapteren.
   const mapCapability = React.useMemo(() => resolveMapCapability({ provider }), [provider]);
   const { enabled, position, positionUpdatedAt } = useLocationSharing();
@@ -206,17 +250,27 @@ const DiscoverScreen: React.FC = () => {
               </p>
             </div>
           ) : notConfigured ? (
-            <div className="rounded-2xl border border-border bg-muted/40 p-6 text-center text-xs text-muted-foreground">
-              Denne turen mangler et verifisert destinasjonssenter. Admin må sette det opp før
-              Oppdag kan hente steder.
-            </div>
+            <NotConfiguredState
+              reason={notConfiguredReason}
+              isAdmin={isAdmin}
+              onConfigure={() =>
+                navigate(`/admin?tab=trips&trip=${selectedTrip?.id ?? ""}`)
+              }
+            />
           ) : loading ? (
             <div className="flex items-center justify-center py-10 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : error ? (
             <div className="rounded-2xl border border-border bg-muted/40 p-6 text-center text-xs text-muted-foreground">
-              {ERROR_TEXT[error] ?? "Kunne ikke hente steder akkurat nå."}
+              <p>{ERROR_TEXT[error] ?? "Kunne ikke hente steder akkurat nå."}</p>
+              {error === "provider_not_configured" && (
+                <p className="mt-1">
+                  {isAdmin
+                    ? "Stedstjenesten mangler servernøkkel/utrulling. Ingen demoresultater vises."
+                    : "Turansvarlig må fullføre oppsettet før ekte steder vises."}
+                </p>
+              )}
             </div>
           ) : places.length === 0 ? (
             <div className="rounded-2xl border border-border bg-muted/40 p-6 text-center text-xs text-muted-foreground">
