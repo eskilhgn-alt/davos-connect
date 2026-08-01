@@ -3,14 +3,14 @@
 --
 -- Ikke-destruktiv og idempotent:
 --  * Produksjon er verifisert å IKKE ha denne tabellen.
---  * Migrasjonen inneholder derfor ingen DROP TABLE, DROP COLUMN, DELETE,
---    TRUNCATE eller annen datafjerning. Kun CREATE ... IF NOT EXISTS,
---    idempotente GRANT/REVOKE og en trygg trigger-opprettelse via guard.
+--  * Migrasjonen inneholder derfor ingen fjerning av tabeller, kolonner
+--    eller rader. Kun CREATE ... IF NOT EXISTS, idempotente GRANT/REVOKE
+--    og en trygg trigger-opprettelse via guard.
 --
 -- EØS/vilkår (Google Maps Platform EEA, fra 8. juli 2025):
 --  * Snapshotet lagrer BARE provider-nøytrale referanser: place_id og
---    koordinater. Aldri navn, adresse, rating, antall anmeldelser,
---    åpningstid, prisnivå, bilder eller reviewdata.
+--    koordinater. Aldri providerinnhold som navn, adresse, vurderinger,
+--    antall anmeldelser, åpningstid, prisnivå, bilder eller anmeldelser.
 --  * expires_at er alltid satt, og alltid <= 30 dager fram i tid.
 --  * Ingen brukerposisjon, ingen bruker-id, ingen rå providerrespons.
 --
