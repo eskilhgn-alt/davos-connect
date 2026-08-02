@@ -387,6 +387,67 @@ const TripFormModal: React.FC<{
 
         <div className="pt-2 border-t border-border space-y-2">
           <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold">Destinasjon</h4>
+            {destPreset && (
+              <button
+                onClick={() => {
+                  setDest(destPreset);
+                  setApplyVtRuntime(true);
+                  toast.message("Verifisert Val Thorens-oppsett fylt inn – trykk Lagre");
+                }}
+                className="inline-flex items-center gap-1 text-xs px-2 py-2 rounded-lg bg-muted min-h-[44px]"
+              >
+                <Wand2 className="h-3.5 w-3.5" /> Fyll verifisert Val Thorens-oppsett
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field
+              label="Tidssone (IANA)"
+              value={dest.timezone}
+              onChange={(v) => setDest((d) => ({ ...d, timezone: v }))}
+            />
+            <Field
+              label="Valuta (ISO)"
+              value={dest.currency}
+              onChange={(v) => setDest((d) => ({ ...d, currency: v }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field
+              label="Breddegrad"
+              value={dest.lat}
+              onChange={(v) => setDest((d) => ({ ...d, lat: v }))}
+              type="text"
+            />
+            <Field
+              label="Lengdegrad"
+              value={dest.lon}
+              onChange={(v) => setDest((d) => ({ ...d, lon: v }))}
+              type="text"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field
+              label="Høyde (m, valgfri)"
+              value={dest.elevation}
+              onChange={(v) => setDest((d) => ({ ...d, elevation: v }))}
+              type="text"
+            />
+            <Field
+              label="Kartzoom (3–19)"
+              value={dest.zoom}
+              onChange={(v) => setDest((d) => ({ ...d, zoom: v }))}
+              type="text"
+            />
+          </div>
+          {parsedDest.error && (dest.lat || dest.lon || dest.timezone || dest.currency || dest.zoom) && (
+            <p className="text-[11px] text-destructive">{parsedDest.error}</p>
+          )}
+        </div>
+
+        <div className="pt-2 border-t border-border space-y-2">
+          <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold">Oppdag</h4>
             {preset && (
               <button
@@ -400,7 +461,7 @@ const TripFormModal: React.FC<{
           <p className="text-[11px] text-muted-foreground">
             {hasCenter
               ? `Søkesenter fra turens verifiserte koordinater (${center!.lat}, ${center!.lon}). Datoer påvirker ikke Oppdag.`
-              : "Turen mangler verifisert senter i destination_config.center. Oppdag kan ikke slås på før det finnes."}
+              : "Turen mangler verifisert senter. Fyll inn breddegrad og lengdegrad over før Oppdag kan slås på."}
           </p>
 
           <div>
