@@ -253,11 +253,16 @@ const TripFormModal: React.FC<{
   const [discovery, setDiscovery] = React.useState<DiscoveryDraft>(() =>
     discoveryDraftFromConfig(trip?.destination_config),
   );
+  const [dest, setDest] = React.useState<DestinationDraft>(() => destinationDraftFromTrip(trip));
+  /** Preset-runtime (peaks/officialLinks) legges bare på når admin trykker preset-knappen. */
+  const [applyVtRuntime, setApplyVtRuntime] = React.useState(false);
 
   const existingCfg = (trip?.destination_config ?? {}) as Record<string, unknown>;
-  const center = existingCfg.center as { lat?: number; lon?: number } | undefined;
-  const hasCenter = typeof center?.lat === "number" && typeof center?.lon === "number";
+  const parsedDest = React.useMemo(() => parseDestinationDraft(dest), [dest]);
+  const hasCenter = parsedDest.error === null;
+  const center = hasCenter ? parsedDest.value.center : undefined;
   const preset = React.useMemo(() => valThorensDiscoveryPreset(trip), [trip]);
+  const destPreset = React.useMemo(() => valThorensDestinationPreset(trip), [trip]);
 
   const toggleCategory = (c: DiscoverCategory) =>
     setDiscovery((d) => ({
@@ -281,7 +286,25 @@ const TripFormModal: React.FC<{
       toast.error("Navn og destinasjon er obligatorisk");
       return;
     }
+    const destParsed = parseDestinationDraft(dest);
+    const destTouched =
+      dest.timezone.trim() !== "" ||
+      dest.currency.trim() !== "" ||
+      dest.lat.trim() !== "" ||
+      dest.lon.trim() !== "" ||
+      dest.zoom.trim() !== "";
+    if (destTouched && destParsed.error) {
+      toast.error(destParsed.error);
+      return;
+    }
+
     let mergedConfig: Record<string, unknown> = { ...existingCfg };
+    if (destTouched && destParsed.error === null) {
+      mergedConfig = mergeDestinationIntoConfig(mergedConfig, destParsed.value);
+      if (applyVtRuntime) {
+        mergedConfig = valThorensRuntimePatch(trip, mergedConfig) ?? mergedConfig;
+      }
+    }
     let expectedVersion: string | null = null;
     if (discoveryTouched) {
       const invalid = validateDiscoveryDraft(discovery);
@@ -290,10 +313,10 @@ const TripFormModal: React.FC<{
         return;
       }
       if (!hasCenter) {
-        toast.error("Turen mangler verifisert senter (destination_config.center)");
+        toast.error("Turen mangler verifisert senter (breddegrad/lengdegrad)");
         return;
       }
-      mergedConfig = mergeDiscoveryIntoConfig(existingCfg, discovery);
+      mergedConfig = mergeDiscoveryIntoConfig(mergedConfig, discovery);
       const resolved = resolveDiscoveryConfig(mergedConfig);
       expectedVersion = resolved.configured ? resolved.version : null;
     }
@@ -309,6 +332,10 @@ const TripFormModal: React.FC<{
         p_end_date: endDate || null,
         p_destination_config: mergedConfig,
       };
+      if (destTouched && destParsed.error === null) {
+        params.p_timezone = destParsed.value.timezone;
+        params.p_currency = destParsed.value.currency;
+      }
       if (trip) params.p_trip_id = trip.id;
       const { data, error } = await (supabase as any).rpc(rpc, params);
       if (error) throw error;
@@ -319,7 +346,7 @@ const TripFormModal: React.FC<{
       if ((!row || row.destination_config === undefined) && tripId) {
         const { data: check } = await (supabase as any)
           .from("trips")
-          .select("id,start_date,end_date,destination_config")
+          .select("id,start_date,end_date,timezone,currency,destination_config")
           .eq("id", tripId)
           .maybeSingle();
         row = check ?? row;
@@ -328,6 +355,10 @@ const TripFormModal: React.FC<{
         startDate: startDate || null,
         endDate: endDate || null,
         discoveryVersion: expectedVersion,
+        timezone: destTouched && destParsed.error === null ? destParsed.value.timezone : null,
+        currency: destTouched && destParsed.error === null ? destParsed.value.currency : null,
+        center: destTouched && destParsed.error === null ? destParsed.value.center : null,
+        zoom: destTouched && destParsed.error === null ? destParsed.value.zoom : null,
       });
       if (mismatch) throw new Error(mismatch);
 
