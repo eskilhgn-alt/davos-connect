@@ -1,10 +1,10 @@
 /**
  * CurrencyCalculator – popup for konvertering mellom aktiv turs valuta og NOK.
- * Valuta hentes fra ACTIVE_TRIP (Val Thorens = EUR). CHF er fjernet.
+ * Valuta hentes fra VALGT tur i TripContext. Ingen hardkodet destinasjon.
  */
 import * as React from "react";
 import { X, ArrowUpDown } from "lucide-react";
-import { ACTIVE_TRIP } from "@/config/trip";
+import { useTrip } from "@/contexts/TripContext";
 
 interface CurrencyCalculatorProps {
   rate: number;
@@ -21,7 +21,8 @@ export const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
   open,
   onClose,
 }) => {
-  const foreign = ACTIVE_TRIP.currency;
+  const { selectedTrip } = useTrip();
+  const foreign = selectedTrip?.currency ?? "EUR";
   const [amount, setAmount] = React.useState("1");
   const [direction, setDirection] = React.useState<"foreign-to-nok" | "nok-to-foreign">(
     "foreign-to-nok",

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { ACTIVE_TRIP } from "@/config/trip";
+import { VAL_THORENS_2027 as ACTIVE_TRIP } from "@/config/trip";
 
-describe("ACTIVE_TRIP config", () => {
+describe("VAL_THORENS_2027 preset", () => {
   it("er satt til Val Thorens 2027", () => {
     expect(ACTIVE_TRIP.destination).toMatch(/Val Thorens/i);
     expect(ACTIVE_TRIP.country).toBe("Frankrike");

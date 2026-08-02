@@ -1,12 +1,14 @@
 /**
- * EmergencyInfoSheet — Nødinfo, drevet av den aktive reisekonfigurasjonen.
- * Rediger `src/config/trip.ts` for å bytte destinasjon/numre.
+ * EmergencyInfoSheet — Nødinfo for VALGT tur (TripContext), løst via
+ * `resolveDestination`. Ingen global standardtur og ingen hardkodet
+ * destinasjon: mangler config, vises en ærlig tomtilstand.
  */
 import * as React from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
 import { Phone, AlertTriangle } from "lucide-react";
-import { ACTIVE_TRIP } from "@/config/trip";
+import { useTrip } from "@/contexts/TripContext";
+import { resolveDestination } from "@/features/destination/resolveDestination";
 
 interface EmergencyInfoSheetProps {
   open: boolean;
@@ -14,7 +16,8 @@ interface EmergencyInfoSheetProps {
 }
 
 export const EmergencyInfoSheet: React.FC<EmergencyInfoSheetProps> = ({ open, onOpenChange }) => {
-  const trip = ACTIVE_TRIP;
+  const { selectedTrip } = useTrip();
+  const trip = resolveDestination(selectedTrip);
   const primary = trip.emergency.find((g) => g.accent) ?? trip.emergency[0];
   const primaryNumber = primary?.contacts[0]?.value ?? "112";
 
@@ -24,7 +27,8 @@ export const EmergencyInfoSheet: React.FC<EmergencyInfoSheetProps> = ({ open, on
         <SheetHeader>
           <SheetTitle className="font-heading text-base flex items-center gap-2">
             <AlertTriangle size={18} className="text-destructive" />
-            Nødinfo – {trip.destination}, {trip.country}
+            Nødinfo{trip.destination ? ` – ${trip.destination}` : ""}
+            {trip.country ? `, ${trip.country}` : ""}
           </SheetTitle>
         </SheetHeader>
 
@@ -36,10 +40,16 @@ export const EmergencyInfoSheet: React.FC<EmergencyInfoSheetProps> = ({ open, on
                 Ved nødsituasjon – ring {primaryNumber}
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Numrene under gjelder i {trip.country}. Ring 112 fra hvilken som helst mobil i Europa.
+                Numrene under gjelder{trip.country ? ` i ${trip.country}` : ""}. Ring 112 fra hvilken som helst mobil i Europa.
               </p>
             </div>
           </div>
+
+          {trip.emergency.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Nødkontakter er ikke konfigurert for denne turen ennå.
+            </p>
+          )}
 
           {trip.emergency.map((group) => (
             <BrandCard key={group.id}>

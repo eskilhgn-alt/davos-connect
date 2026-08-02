@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tripDaysUntilStart, ACTIVE_TRIP } from "@/config/trip";
+import { tripDaysUntilStart, VAL_THORENS_2027 as ACTIVE_TRIP } from "@/config/trip";
 
 describe("tripDaysUntilStart", () => {
   it("returnerer null når startdato ikke er bekreftet", () => {

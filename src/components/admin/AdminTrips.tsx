@@ -30,6 +30,14 @@ import {
   SUPPORTED_PROVIDERS,
   type DiscoveryDraft,
 } from "@/features/discover/discoveryConfig";
+import {
+  destinationDraftFromTrip,
+  mergeDestinationIntoConfig,
+  parseDestinationDraft,
+  valThorensDestinationPreset,
+  valThorensRuntimePatch,
+  type DestinationDraft,
+} from "@/features/destination/destinationDraft";
 
 export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initialTripId }) => {
   const { trips, activeTripId, isLoading, refetch } = useActiveTrip();
@@ -192,13 +200,36 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
 
 /** Sammenlikner det vi sendte med det som faktisk ble persistert. */
 export function verifySavedTrip(
-  row: { start_date?: unknown; end_date?: unknown; destination_config?: unknown } | null,
-  expected: { startDate: string | null; endDate: string | null; discoveryVersion: string | null },
+  row: {
+    start_date?: unknown;
+    end_date?: unknown;
+    timezone?: unknown;
+    currency?: unknown;
+    destination_config?: unknown;
+  } | null,
+  expected: {
+    startDate: string | null;
+    endDate: string | null;
+    discoveryVersion: string | null;
+    timezone?: string | null;
+    currency?: string | null;
+    center?: { lat: number; lon: number } | null;
+    zoom?: number | null;
+  },
 ): string | null {
   if (!row) return "Fikk ingen bekreftelse fra serveren";
   const norm = (v: unknown) => (v == null || v === "" ? null : String(v).slice(0, 10));
   if (norm(row.start_date) !== expected.startDate) return "Startdato ble ikke lagret";
   if (norm(row.end_date) !== expected.endDate) return "Sluttdato ble ikke lagret";
+  if (expected.timezone && row.timezone !== expected.timezone) return "Tidssone ble ikke lagret";
+  if (expected.currency && row.currency !== expected.currency) return "Valuta ble ikke lagret";
+  const cfg = (row.destination_config ?? {}) as Record<string, unknown>;
+  if (expected.center) {
+    const c = (cfg.center ?? {}) as Record<string, unknown>;
+    if (c.lat !== expected.center.lat || c.lon !== expected.center.lon)
+      return "Senterkoordinatene ble ikke lagret";
+  }
+  if (expected.zoom != null && cfg.zoom !== expected.zoom) return "Kartzoom ble ikke lagret";
   const saved = resolveDiscoveryConfig(row.destination_config as Record<string, unknown>);
   const savedVersion = saved.configured ? saved.version : null;
   if (expected.discoveryVersion && savedVersion !== expected.discoveryVersion)
@@ -222,11 +253,16 @@ const TripFormModal: React.FC<{
   const [discovery, setDiscovery] = React.useState<DiscoveryDraft>(() =>
     discoveryDraftFromConfig(trip?.destination_config),
   );
+  const [dest, setDest] = React.useState<DestinationDraft>(() => destinationDraftFromTrip(trip));
+  /** Preset-runtime (peaks/officialLinks) legges bare på når admin trykker preset-knappen. */
+  const [applyVtRuntime, setApplyVtRuntime] = React.useState(false);
 
   const existingCfg = (trip?.destination_config ?? {}) as Record<string, unknown>;
-  const center = existingCfg.center as { lat?: number; lon?: number } | undefined;
-  const hasCenter = typeof center?.lat === "number" && typeof center?.lon === "number";
+  const parsedDest = React.useMemo(() => parseDestinationDraft(dest), [dest]);
+  const hasCenter = parsedDest.error === null;
+  const center = hasCenter ? parsedDest.value.center : undefined;
   const preset = React.useMemo(() => valThorensDiscoveryPreset(trip), [trip]);
+  const destPreset = React.useMemo(() => valThorensDestinationPreset(trip), [trip]);
 
   const toggleCategory = (c: DiscoverCategory) =>
     setDiscovery((d) => ({
@@ -250,7 +286,25 @@ const TripFormModal: React.FC<{
       toast.error("Navn og destinasjon er obligatorisk");
       return;
     }
+    const destParsed = parseDestinationDraft(dest);
+    const destTouched =
+      dest.timezone.trim() !== "" ||
+      dest.currency.trim() !== "" ||
+      dest.lat.trim() !== "" ||
+      dest.lon.trim() !== "" ||
+      dest.zoom.trim() !== "";
+    if (destTouched && destParsed.error) {
+      toast.error(destParsed.error);
+      return;
+    }
+
     let mergedConfig: Record<string, unknown> = { ...existingCfg };
+    if (destTouched && destParsed.error === null) {
+      mergedConfig = mergeDestinationIntoConfig(mergedConfig, destParsed.value);
+      if (applyVtRuntime) {
+        mergedConfig = valThorensRuntimePatch(trip, mergedConfig) ?? mergedConfig;
+      }
+    }
     let expectedVersion: string | null = null;
     if (discoveryTouched) {
       const invalid = validateDiscoveryDraft(discovery);
@@ -259,10 +313,10 @@ const TripFormModal: React.FC<{
         return;
       }
       if (!hasCenter) {
-        toast.error("Turen mangler verifisert senter (destination_config.center)");
+        toast.error("Turen mangler verifisert senter (breddegrad/lengdegrad)");
         return;
       }
-      mergedConfig = mergeDiscoveryIntoConfig(existingCfg, discovery);
+      mergedConfig = mergeDiscoveryIntoConfig(mergedConfig, discovery);
       const resolved = resolveDiscoveryConfig(mergedConfig);
       expectedVersion = resolved.configured ? resolved.version : null;
     }
@@ -278,6 +332,10 @@ const TripFormModal: React.FC<{
         p_end_date: endDate || null,
         p_destination_config: mergedConfig,
       };
+      if (destTouched && destParsed.error === null) {
+        params.p_timezone = destParsed.value.timezone;
+        params.p_currency = destParsed.value.currency;
+      }
       if (trip) params.p_trip_id = trip.id;
       const { data, error } = await (supabase as any).rpc(rpc, params);
       if (error) throw error;
@@ -288,7 +346,7 @@ const TripFormModal: React.FC<{
       if ((!row || row.destination_config === undefined) && tripId) {
         const { data: check } = await (supabase as any)
           .from("trips")
-          .select("id,start_date,end_date,destination_config")
+          .select("id,start_date,end_date,timezone,currency,destination_config")
           .eq("id", tripId)
           .maybeSingle();
         row = check ?? row;
@@ -297,6 +355,10 @@ const TripFormModal: React.FC<{
         startDate: startDate || null,
         endDate: endDate || null,
         discoveryVersion: expectedVersion,
+        timezone: destTouched && destParsed.error === null ? destParsed.value.timezone : null,
+        currency: destTouched && destParsed.error === null ? destParsed.value.currency : null,
+        center: destTouched && destParsed.error === null ? destParsed.value.center : null,
+        zoom: destTouched && destParsed.error === null ? destParsed.value.zoom : null,
       });
       if (mismatch) throw new Error(mismatch);
 
@@ -325,6 +387,67 @@ const TripFormModal: React.FC<{
 
         <div className="pt-2 border-t border-border space-y-2">
           <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold">Destinasjon</h4>
+            {destPreset && (
+              <button
+                onClick={() => {
+                  setDest(destPreset);
+                  setApplyVtRuntime(true);
+                  toast.message("Verifisert Val Thorens-oppsett fylt inn – trykk Lagre");
+                }}
+                className="inline-flex items-center gap-1 text-xs px-2 py-2 rounded-lg bg-muted min-h-[44px]"
+              >
+                <Wand2 className="h-3.5 w-3.5" /> Fyll verifisert Val Thorens-oppsett
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field
+              label="Tidssone (IANA)"
+              value={dest.timezone}
+              onChange={(v) => setDest((d) => ({ ...d, timezone: v }))}
+            />
+            <Field
+              label="Valuta (ISO)"
+              value={dest.currency}
+              onChange={(v) => setDest((d) => ({ ...d, currency: v }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field
+              label="Breddegrad"
+              value={dest.lat}
+              onChange={(v) => setDest((d) => ({ ...d, lat: v }))}
+              type="text"
+            />
+            <Field
+              label="Lengdegrad"
+              value={dest.lon}
+              onChange={(v) => setDest((d) => ({ ...d, lon: v }))}
+              type="text"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field
+              label="Høyde (m, valgfri)"
+              value={dest.elevation}
+              onChange={(v) => setDest((d) => ({ ...d, elevation: v }))}
+              type="text"
+            />
+            <Field
+              label="Kartzoom (3–19)"
+              value={dest.zoom}
+              onChange={(v) => setDest((d) => ({ ...d, zoom: v }))}
+              type="text"
+            />
+          </div>
+          {parsedDest.error && (dest.lat || dest.lon || dest.timezone || dest.currency || dest.zoom) && (
+            <p className="text-[11px] text-destructive">{parsedDest.error}</p>
+          )}
+        </div>
+
+        <div className="pt-2 border-t border-border space-y-2">
+          <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold">Oppdag</h4>
             {preset && (
               <button
@@ -338,7 +461,7 @@ const TripFormModal: React.FC<{
           <p className="text-[11px] text-muted-foreground">
             {hasCenter
               ? `Søkesenter fra turens verifiserte koordinater (${center!.lat}, ${center!.lon}). Datoer påvirker ikke Oppdag.`
-              : "Turen mangler verifisert senter i destination_config.center. Oppdag kan ikke slås på før det finnes."}
+              : "Turen mangler verifisert senter. Fyll inn breddegrad og lengdegrad over før Oppdag kan slås på."}
           </p>
 
           <div>

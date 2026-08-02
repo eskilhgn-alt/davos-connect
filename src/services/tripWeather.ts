@@ -1,12 +1,11 @@
 /**
- * Val Thorens-flow via Open-Meteo (ingen API-nøkkel kreves).
+ * Værdata via Open-Meteo (ingen API-nøkkel kreves).
  *
- * All operativ værdata i appen skal hentes herfra, basert på
- * `ACTIVE_TRIP.center` og `ACTIVE_TRIP.timezone` – ingen hardkodede
- * koordinater. Offisielt fjellvær og skredvarsel
- * lenkes til Meteo-France (se `ACTIVE_TRIP.officialLinks.weather`).
+ * All operativ værdata i appen hentes herfra, basert på VALGT turs senter og
+ * tidssone (se `useTripWeather`). Ingen hardkodet destinasjon og ingen
+ * standardtur: `fetchWeatherAt` krever et eksplisitt punkt.
  */
-import { ACTIVE_TRIP, type TripConfig } from "@/config/trip";
+
 
 export interface TripCurrentWeather {
   temperatureC: number | null;
@@ -47,15 +46,6 @@ export interface WeatherPoint {
   label: string;
 }
 
-export async function fetchTripWeather(
-  trip: TripConfig = ACTIVE_TRIP,
-  signal?: AbortSignal,
-): Promise<TripWeather> {
-  return fetchWeatherAt(
-    { lat: trip.center.lat, lon: trip.center.lon, timezone: trip.timezone, label: trip.destination },
-    signal,
-  );
-}
 
 /** Henter vær for et eksplisitt punkt (valgt turs senter). */
 export async function fetchWeatherAt(
