@@ -95,25 +95,27 @@ export interface ParsedDestination {
  * Validerer og parser draften. Returnerer enten en feilmelding eller de
  * ferdig parsede verdiene.
  */
-export function parseDestinationDraft(
-  draft: DestinationDraft,
-): { error: string } | { error: null; value: ParsedDestination } {
+export type ParsedDestinationResult =
+  | { error: string; value: null }
+  | { error: null; value: ParsedDestination };
+
+export function parseDestinationDraft(draft: DestinationDraft): ParsedDestinationResult {
   const timezone = draft.timezone.trim();
   const currency = draft.currency.trim().toUpperCase();
-  if (!isValidTimezone(timezone)) return { error: "Ugyldig tidssone (bruk IANA, f.eks. Europe/Paris)" };
-  if (!isValidCurrency(currency)) return { error: "Valuta må være en ISO-kode på tre bokstaver" };
+  if (!isValidTimezone(timezone)) return { value: null, error: "Ugyldig tidssone (bruk IANA, f.eks. Europe/Paris)" };
+  if (!isValidCurrency(currency)) return { value: null, error: "Valuta må være en ISO-kode på tre bokstaver" };
 
   const lat = numOrNull(draft.lat);
   const lon = numOrNull(draft.lon);
-  if (lat == null || lon == null) return { error: "Senter må ha både breddegrad og lengdegrad" };
-  if (lat < -90 || lat > 90) return { error: "Breddegrad må være mellom -90 og 90" };
-  if (lon < -180 || lon > 180) return { error: "Lengdegrad må være mellom -180 og 180" };
+  if (lat == null || lon == null) return { value: null, error: "Senter må ha både breddegrad og lengdegrad" };
+  if (lat < -90 || lat > 90) return { value: null, error: "Breddegrad må være mellom -90 og 90" };
+  if (lon < -180 || lon > 180) return { value: null, error: "Lengdegrad må være mellom -180 og 180" };
 
   const center: ParsedDestination["center"] = { lat, lon };
   if (draft.elevation.trim() !== "") {
     const elevation = numOrNull(draft.elevation);
     if (elevation == null || elevation < -500 || elevation > 9000)
-      return { error: "Høyde må være et tall mellom -500 og 9000 meter" };
+      return { value: null, error: "Høyde må være et tall mellom -500 og 9000 meter" };
     center.elevation = elevation;
   }
 
@@ -121,7 +123,7 @@ export function parseDestinationDraft(
   if (draft.zoom.trim() !== "") {
     const z = numOrNull(draft.zoom);
     if (z == null || z < MIN_ZOOM || z > MAX_ZOOM)
-      return { error: `Zoom må være mellom ${MIN_ZOOM} og ${MAX_ZOOM}` };
+      return { value: null, error: `Zoom må være mellom ${MIN_ZOOM} og ${MAX_ZOOM}` };
     zoom = z;
   }
 
