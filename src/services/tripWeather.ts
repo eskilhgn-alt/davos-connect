@@ -46,15 +46,6 @@ export interface WeatherPoint {
   label: string;
 }
 
-export async function fetchTripWeather(
-  trip: TripConfig = ACTIVE_TRIP,
-  signal?: AbortSignal,
-): Promise<TripWeather> {
-  return fetchWeatherAt(
-    { lat: trip.center.lat, lon: trip.center.lon, timezone: trip.timezone, label: trip.destination },
-    signal,
-  );
-}
 
 /** Henter vær for et eksplisitt punkt (valgt turs senter). */
 export async function fetchWeatherAt(
