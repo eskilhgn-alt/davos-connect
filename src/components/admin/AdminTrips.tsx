@@ -30,6 +30,14 @@ import {
   SUPPORTED_PROVIDERS,
   type DiscoveryDraft,
 } from "@/features/discover/discoveryConfig";
+import {
+  destinationDraftFromTrip,
+  mergeDestinationIntoConfig,
+  parseDestinationDraft,
+  valThorensDestinationPreset,
+  valThorensRuntimePatch,
+  type DestinationDraft,
+} from "@/features/destination/destinationDraft";
 
 export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initialTripId }) => {
   const { trips, activeTripId, isLoading, refetch } = useActiveTrip();
@@ -192,13 +200,36 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
 
 /** Sammenlikner det vi sendte med det som faktisk ble persistert. */
 export function verifySavedTrip(
-  row: { start_date?: unknown; end_date?: unknown; destination_config?: unknown } | null,
-  expected: { startDate: string | null; endDate: string | null; discoveryVersion: string | null },
+  row: {
+    start_date?: unknown;
+    end_date?: unknown;
+    timezone?: unknown;
+    currency?: unknown;
+    destination_config?: unknown;
+  } | null,
+  expected: {
+    startDate: string | null;
+    endDate: string | null;
+    discoveryVersion: string | null;
+    timezone?: string | null;
+    currency?: string | null;
+    center?: { lat: number; lon: number } | null;
+    zoom?: number | null;
+  },
 ): string | null {
   if (!row) return "Fikk ingen bekreftelse fra serveren";
   const norm = (v: unknown) => (v == null || v === "" ? null : String(v).slice(0, 10));
   if (norm(row.start_date) !== expected.startDate) return "Startdato ble ikke lagret";
   if (norm(row.end_date) !== expected.endDate) return "Sluttdato ble ikke lagret";
+  if (expected.timezone && row.timezone !== expected.timezone) return "Tidssone ble ikke lagret";
+  if (expected.currency && row.currency !== expected.currency) return "Valuta ble ikke lagret";
+  const cfg = (row.destination_config ?? {}) as Record<string, unknown>;
+  if (expected.center) {
+    const c = (cfg.center ?? {}) as Record<string, unknown>;
+    if (c.lat !== expected.center.lat || c.lon !== expected.center.lon)
+      return "Senterkoordinatene ble ikke lagret";
+  }
+  if (expected.zoom != null && cfg.zoom !== expected.zoom) return "Kartzoom ble ikke lagret";
   const saved = resolveDiscoveryConfig(row.destination_config as Record<string, unknown>);
   const savedVersion = saved.configured ? saved.version : null;
   if (expected.discoveryVersion && savedVersion !== expected.discoveryVersion)
