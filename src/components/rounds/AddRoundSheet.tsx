@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
 import { reencodeImage } from "@/lib/imageOptimize";
-import { ACTIVE_TRIP } from "@/config/trip";
+import { useTrip } from "@/contexts/TripContext";
 import type { CreateRoundInput, CreateRoundResult } from "@/hooks/useRounds";
 
 interface Profile {
@@ -58,11 +58,14 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
   const clientIdRef = React.useRef(crypto.randomUUID());
   const uploadedReceiptPathRef = React.useRef<string | null>(null);
 
+  const { selectedTrip } = useTrip();
+  const currency = selectedTrip?.currency ?? "EUR";
+
   const formatMoney = React.useCallback((value: number) => new Intl.NumberFormat("nb-NO", {
     style: "currency",
-    currency: ACTIVE_TRIP.currency,
+    currency,
     maximumFractionDigits: 2,
-  }).format(value), []);
+  }).format(value), [currency]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -180,7 +183,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
         drinkQuantities: quantities,
         receiptPath,
         isTreated,
-        currency: ACTIVE_TRIP.currency,
+        currency,
       });
       if (result.error) {
         if (result.canCleanupReceipt) await cleanupUploadedReceipt();
@@ -277,7 +280,7 @@ export const AddRoundSheet: React.FC<Props> = ({ open, onOpenChange, onSubmit })
           {/* Cost */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <BrandInput label={`Totalkostnad (${ACTIVE_TRIP.currency})`} type="number" inputMode="decimal" placeholder="0" value={totalCost} onChange={(e) => setTotalCost(e.target.value)} />
+              <BrandInput label={`Totalkostnad (${currency})`} type="number" inputMode="decimal" placeholder="0" value={totalCost} onChange={(e) => setTotalCost(e.target.value)} />
             </div>
             <div className="flex flex-col justify-end">
               <div className="h-11 px-3 flex items-center rounded-lg bg-muted/50 border border-border">
