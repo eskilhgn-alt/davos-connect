@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Archive, CheckCircle2, Pencil, Wand2 } from "lucide-react";
 import type { Trip } from "@/hooks/useActiveTrip";
 import { useTrip } from "@/contexts/TripContext";
-import { normalizeRpcTripRow } from "@/features/trip/tripSync";
+import { applySavedTripRow, normalizeRpcTripRow } from "@/features/trip/tripSync";
 import { CATEGORY_LABELS, DISCOVER_CATEGORIES, type DiscoverCategory } from "@/features/discover/types";
 import {
   discoveryDraftFromConfig,
@@ -251,7 +251,7 @@ const TripFormModal: React.FC<{
   onSaved: () => Promise<void> | void;
 }> = ({ trip, onClose, onSaved }) => {
   const queryClient = useQueryClient();
-  const { reloadTrips } = useTrip();
+  const { applySavedTrip, reloadTrips } = useTrip();
   const [name, setName] = React.useState(trip?.name ?? "");
   const [destination, setDestination] = React.useState(trip?.destination ?? "");
   const [country, setCountry] = React.useState(trip?.country ?? "");
@@ -351,13 +351,13 @@ const TripFormModal: React.FC<{
       // Verifiser mot returnert rad, med eksplisitt kontroll-lesing som backup.
       let row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
       const tripId = (row?.id as string | undefined) ?? trip?.id;
-      if ((!row || row.destination_config === undefined) && tripId) {
+      if ((!row || row.destination_config === undefined || row.name === undefined) && tripId) {
         const { data: check } = await (supabase as any)
           .from("trips")
-          .select("id,start_date,end_date,timezone,currency,destination_config")
+          .select("*")
           .eq("id", tripId)
           .maybeSingle();
-        row = check ?? row;
+        row = (check as Record<string, unknown> | null) ?? row;
       }
       const mismatch = verifySavedTrip(row, {
         startDate: startDate || null,
@@ -370,10 +370,21 @@ const TripFormModal: React.FC<{
       });
       if (mismatch) throw new Error(mismatch);
 
-      await queryClient.invalidateQueries({ queryKey: ["trips", "list"] });
-      await reloadTrips();
+      // Én eksplisitt save-and-sync-sekvens: den verifiserte raden er
+      // autoritativ og synkes inn i TripContext + ["trips","list"] før vi
+      // viser suksess og lukker dialogen. Ingen ekstra, konkurrerende refetch.
+      const savedRow = normalizeRpcTripRow(row);
+      if (savedRow) {
+        queryClient.setQueryData(["trips", "list"], (prev: Trip[] | undefined) =>
+          prev ? applySavedTripRow(prev, savedRow) : prev,
+        );
+        await applySavedTrip(savedRow);
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ["trips", "list"] });
+        await reloadTrips();
+      }
       toast.success(trip ? "Tur oppdatert og verifisert" : "Tur opprettet og verifisert");
-      onSaved();
+      await onSaved();
     } catch (e) {
       toast.error((e as Error).message || "Kunne ikke lagre");
     } finally {
