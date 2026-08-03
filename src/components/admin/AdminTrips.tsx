@@ -18,8 +18,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Plus, Archive, CheckCircle2, Pencil, Wand2 } from "lucide-react";
-import { useActiveTrip, type Trip } from "@/hooks/useActiveTrip";
+import type { Trip } from "@/hooks/useActiveTrip";
 import { useTrip } from "@/contexts/TripContext";
+import { normalizeRpcTripRow } from "@/features/trip/tripSync";
 import { CATEGORY_LABELS, DISCOVER_CATEGORIES, type DiscoverCategory } from "@/features/discover/types";
 import {
   discoveryDraftFromConfig,
@@ -40,7 +41,8 @@ import {
 } from "@/features/destination/destinationDraft";
 
 export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initialTripId }) => {
-  const { trips, activeTripId, isLoading, refetch } = useActiveTrip();
+  const { trips, activeTrip, isLoading, reloadTrips, applySavedTrip } = useTrip();
+  const activeTripId = activeTrip?.id ?? null;
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<Trip | null>(null);
@@ -55,18 +57,25 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
     }
   }, [initialTripId, trips]);
 
+  /**
+   * Kjører en admin-RPC og synker den returnerte, autoritative raden inn i
+   * den kanoniske turtilstanden (TripContext + ["trips","list"]). Faller
+   * tilbake til en full, race-sikker relesing hvis RPC-en ikke gir rad.
+   */
   const runRpc = React.useCallback(
-    async (label: string, fn: () => Promise<{ error: unknown }>) => {
+    async (label: string, fn: () => Promise<{ data: unknown; error: unknown }>) => {
       try {
-        const { error } = await fn();
+        const { data, error } = await fn();
         if (error) throw error;
-        await refetch();
+        const row = normalizeRpcTripRow(data);
+        if (row) await applySavedTrip(row);
+        else await reloadTrips();
         toast.success(label);
       } catch (e) {
         toast.error((e as Error).message || `Kunne ikke ${label.toLowerCase()}`);
       }
     },
-    [refetch],
+    [applySavedTrip, reloadTrips],
   );
 
   const activate = (id: string) => {
@@ -190,7 +199,6 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
           onSaved={async () => {
             setCreating(false);
             setEditing(null);
-            await refetch();
           }}
         />
       )}
@@ -240,7 +248,7 @@ export function verifySavedTrip(
 const TripFormModal: React.FC<{
   trip: Trip | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: () => Promise<void> | void;
 }> = ({ trip, onClose, onSaved }) => {
   const queryClient = useQueryClient();
   const { reloadTrips } = useTrip();
