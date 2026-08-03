@@ -18,8 +18,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Plus, Archive, CheckCircle2, Pencil, Wand2 } from "lucide-react";
-import { useActiveTrip, type Trip } from "@/hooks/useActiveTrip";
+import type { Trip } from "@/hooks/useActiveTrip";
 import { useTrip } from "@/contexts/TripContext";
+import { applySavedTripRow, normalizeRpcTripRow } from "@/features/trip/tripSync";
 import { CATEGORY_LABELS, DISCOVER_CATEGORIES, type DiscoverCategory } from "@/features/discover/types";
 import {
   discoveryDraftFromConfig,
@@ -40,7 +41,8 @@ import {
 } from "@/features/destination/destinationDraft";
 
 export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initialTripId }) => {
-  const { trips, activeTripId, isLoading, refetch } = useActiveTrip();
+  const { trips, activeTrip, isLoading, reloadTrips, applySavedTrip } = useTrip();
+  const activeTripId = activeTrip?.id ?? null;
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
   const [editing, setEditing] = React.useState<Trip | null>(null);
@@ -55,18 +57,25 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
     }
   }, [initialTripId, trips]);
 
+  /**
+   * Kjører en admin-RPC og synker den returnerte, autoritative raden inn i
+   * den kanoniske turtilstanden (TripContext + ["trips","list"]). Faller
+   * tilbake til en full, race-sikker relesing hvis RPC-en ikke gir rad.
+   */
   const runRpc = React.useCallback(
-    async (label: string, fn: () => Promise<{ error: unknown }>) => {
+    async (label: string, fn: () => Promise<{ data: unknown; error: unknown }>) => {
       try {
-        const { error } = await fn();
+        const { data, error } = await fn();
         if (error) throw error;
-        await refetch();
+        const row = normalizeRpcTripRow(data);
+        if (row) await applySavedTrip(row);
+        else await reloadTrips();
         toast.success(label);
       } catch (e) {
         toast.error((e as Error).message || `Kunne ikke ${label.toLowerCase()}`);
       }
     },
-    [refetch],
+    [applySavedTrip, reloadTrips],
   );
 
   const activate = (id: string) => {
@@ -190,7 +199,6 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
           onSaved={async () => {
             setCreating(false);
             setEditing(null);
-            await refetch();
           }}
         />
       )}
@@ -240,10 +248,10 @@ export function verifySavedTrip(
 const TripFormModal: React.FC<{
   trip: Trip | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: () => Promise<void> | void;
 }> = ({ trip, onClose, onSaved }) => {
   const queryClient = useQueryClient();
-  const { reloadTrips } = useTrip();
+  const { applySavedTrip, reloadTrips } = useTrip();
   const [name, setName] = React.useState(trip?.name ?? "");
   const [destination, setDestination] = React.useState(trip?.destination ?? "");
   const [country, setCountry] = React.useState(trip?.country ?? "");
@@ -281,7 +289,14 @@ const TripFormModal: React.FC<{
   const discoveryTouched =
     discovery.providers.length > 0 || discovery.categories.length > 0;
 
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return; // hindrer dobbel innsending
+    void save();
+  };
+
   const save = async () => {
+    if (saving) return;
     if (!name || !destination) {
       toast.error("Navn og destinasjon er obligatorisk");
       return;
@@ -343,13 +358,13 @@ const TripFormModal: React.FC<{
       // Verifiser mot returnert rad, med eksplisitt kontroll-lesing som backup.
       let row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
       const tripId = (row?.id as string | undefined) ?? trip?.id;
-      if ((!row || row.destination_config === undefined) && tripId) {
+      if ((!row || row.destination_config === undefined || row.name === undefined) && tripId) {
         const { data: check } = await (supabase as any)
           .from("trips")
-          .select("id,start_date,end_date,timezone,currency,destination_config")
+          .select("*")
           .eq("id", tripId)
           .maybeSingle();
-        row = check ?? row;
+        row = (check as Record<string, unknown> | null) ?? row;
       }
       const mismatch = verifySavedTrip(row, {
         startDate: startDate || null,
@@ -362,10 +377,21 @@ const TripFormModal: React.FC<{
       });
       if (mismatch) throw new Error(mismatch);
 
-      await queryClient.invalidateQueries({ queryKey: ["trips", "list"] });
-      await reloadTrips();
+      // Én eksplisitt save-and-sync-sekvens: den verifiserte raden er
+      // autoritativ og synkes inn i TripContext + ["trips","list"] før vi
+      // viser suksess og lukker dialogen. Ingen ekstra, konkurrerende refetch.
+      const savedRow = normalizeRpcTripRow(row);
+      if (savedRow) {
+        queryClient.setQueryData(["trips", "list"], (prev: Trip[] | undefined) =>
+          prev ? applySavedTripRow(prev, savedRow) : prev,
+        );
+        await applySavedTrip(savedRow);
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ["trips", "list"] });
+        await reloadTrips();
+      }
       toast.success(trip ? "Tur oppdatert og verifisert" : "Tur opprettet og verifisert");
-      onSaved();
+      await onSaved();
     } catch (e) {
       toast.error((e as Error).message || "Kunne ikke lagre");
     } finally {
@@ -374,9 +400,26 @@ const TripFormModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center">
-      <div className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[90dvh] overflow-y-auto">
-        <h3 className="font-semibold text-lg">{trip ? "Rediger tur" : "Ny tur"}</h3>
+    // z-[70] ligger entydig over BottomNavigation (z-50), slik at Lagre aldri
+    // males over av appnavigasjonen på mobil.
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={trip ? "Rediger tur" : "Ny tur"}
+      data-testid="trip-form-overlay"
+      className="fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center"
+    >
+      <form
+        onSubmit={onSubmit}
+        className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl max-h-[92dvh] flex flex-col overflow-hidden"
+      >
+        <h3 className="font-semibold text-lg px-4 pt-4 pb-2 shrink-0">
+          {trip ? "Rediger tur" : "Ny tur"}
+        </h3>
+        <div
+          data-testid="trip-form-body"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-4 space-y-3"
+        >
         <Field label="Navn" value={name} onChange={setName} />
         <Field label="Destinasjon" value={destination} onChange={setDestination} />
         <Field label="Land" value={country} onChange={setCountry} />
@@ -390,6 +433,7 @@ const TripFormModal: React.FC<{
             <h4 className="text-sm font-semibold">Destinasjon</h4>
             {destPreset && (
               <button
+                type="button"
                 onClick={() => {
                   setDest(destPreset);
                   setApplyVtRuntime(true);
@@ -451,6 +495,7 @@ const TripFormModal: React.FC<{
             <h4 className="text-sm font-semibold">Oppdag</h4>
             {preset && (
               <button
+                type="button"
                 onClick={() => setDiscovery(preset)}
                 className="inline-flex items-center gap-1 text-xs px-2 py-2 rounded-lg bg-muted min-h-[44px]"
               >
@@ -470,6 +515,7 @@ const TripFormModal: React.FC<{
               {SUPPORTED_PROVIDERS.map((p) => (
                 <button
                   key={p}
+                  type="button"
                   onClick={() => toggleProvider(p)}
                   aria-pressed={discovery.providers.includes(p)}
                   className={`rounded-full border px-3 py-2 text-xs min-h-[44px] ${
@@ -490,6 +536,7 @@ const TripFormModal: React.FC<{
               {DISCOVER_CATEGORIES.map((c) => (
                 <button
                   key={c}
+                  type="button"
                   onClick={() => toggleCategory(c)}
                   aria-pressed={discovery.categories.includes(c)}
                   className={`rounded-full border px-3 py-2 text-xs min-h-[44px] ${
@@ -519,22 +566,30 @@ const TripFormModal: React.FC<{
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
+        </div>
+
+        <div
+          data-testid="trip-form-footer"
+          className="shrink-0 flex justify-end gap-2 border-t border-border bg-card px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]"
+        >
           <button
+            type="button"
             onClick={onClose}
+            disabled={saving}
             className="px-4 py-2 rounded-lg text-sm min-h-[44px]"
           >
             Avbryt
           </button>
           <button
-            onClick={save}
+            type="submit"
             disabled={saving}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm min-h-[44px]"
+            aria-busy={saving}
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm min-h-[44px] disabled:opacity-60"
           >
             {saving ? "Lagrer…" : "Lagre"}
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 };
