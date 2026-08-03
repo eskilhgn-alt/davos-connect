@@ -68,39 +68,64 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
+  /** Monotont generasjonsnummer: eldre lesinger forkastes. */
+  const generation = React.useRef(0);
+
   const loadTripsAndMembership = React.useCallback(async () => {
     if (!user) {
+      generation.current += 1;
       setTrips([]);
       setMemberOf(new Set());
       setSelectedId(null);
       setIsLoading(false);
       return;
     }
+    const gen = ++generation.current;
     setIsLoading(true);
-    const [{ data: tripsData }, { data: memberships }] = await Promise.all([
+    const [tripsRes, memberRes] = await Promise.all([
       supabase.from("trips" as never).select("*"),
       supabase.from("trip_members" as never).select("trip_id").eq("user_id", user.id),
     ]);
-    const list = ((tripsData ?? []) as unknown as Trip[]);
-    const memSet = new Set<string>(
-      ((memberships ?? []) as { trip_id: string }[]).map((r) => r.trip_id),
-    );
-    setTrips(list);
-    setMemberOf(memSet);
+    const stale = gen !== generation.current;
+    const ok = !tripsRes.error && !memberRes.error;
+    if (stale) return;
+    setIsLoading(false);
+    if (!ok) return; // Feilet lesing skal aldri tømme eksisterende turer.
 
-    const active = list.find((t) => t.status === "active") ?? null;
-    let initial: string | null = null;
+    const incoming = (tripsRes.data ?? []) as unknown as Trip[];
+    const memSet = new Set<string>(
+      ((memberRes.data ?? []) as { trip_id: string }[]).map((r) => r.trip_id),
+    );
+    setMemberOf(memSet);
+    setTrips((cur) => mergeReloadedTrips(cur, incoming, { ok, stale: gen !== generation.current }));
+
+    let stored: string | null = null;
     try {
-      const stored = localStorage.getItem(storageKey(user.id));
-      if (stored && memSet.has(stored) && list.some((t) => t.id === stored)) {
-        initial = stored;
-      }
+      const s = localStorage.getItem(storageKey(user.id));
+      if (s && memSet.has(s) && incoming.some((t) => t.id === s)) stored = s;
     } catch {
       /* Safari private mode */
     }
-    setSelectedId(initial ?? active?.id ?? null);
-    setIsLoading(false);
+    setSelectedId((prev) => resolveSelectedTripId(prev ?? stored, incoming));
   }, [user]);
+
+  /** Autoritativ, umiddelbar synk av én verifisert lagret rad. */
+  const applySavedTrip = React.useCallback(
+    async (row: Trip) => {
+      generation.current += 1; // eldre in-flight lesinger kan ikke rulle tilbake
+      setTrips((cur) => {
+        const next = applySavedTripRow(cur, row);
+        queryClient.setQueryData(["trips", "list"], next);
+        return next;
+      });
+      setSelectedId((prev) => prev ?? row.id);
+      await Promise.all(
+        TRIP_SCOPED_QUERY_KEYS.map((k) => queryClient.invalidateQueries({ queryKey: [k] })),
+      );
+    },
+    [queryClient],
+  );
+
 
   React.useEffect(() => {
     void loadTripsAndMembership();
