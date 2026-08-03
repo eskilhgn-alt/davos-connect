@@ -33,6 +33,13 @@ interface TripContextValue {
   refreshTrip: () => Promise<void>;
   /** Tvinger ny lesing av turer/medlemskap fra databasen (etter adminlagring). */
   reloadTrips: () => Promise<void>;
+  /**
+   * Autoritativ synk av én verifisert lagret trips-rad. Oppdaterer både
+   * TripContext og ["trips","list"] umiddelbart, bevarer valgt tur og
+   * hindrer at en eldre lesing overskriver raden.
+   */
+  applySavedTrip: (row: Trip) => Promise<void>;
+
 }
 
 const TripContext = React.createContext<TripContextValue | undefined>(undefined);
