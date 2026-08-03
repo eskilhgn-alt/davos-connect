@@ -289,7 +289,14 @@ const TripFormModal: React.FC<{
   const discoveryTouched =
     discovery.providers.length > 0 || discovery.categories.length > 0;
 
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return; // hindrer dobbel innsending
+    void save();
+  };
+
   const save = async () => {
+    if (saving) return;
     if (!name || !destination) {
       toast.error("Navn og destinasjon er obligatorisk");
       return;
@@ -393,9 +400,26 @@ const TripFormModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center">
-      <div className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[90dvh] overflow-y-auto">
-        <h3 className="font-semibold text-lg">{trip ? "Rediger tur" : "Ny tur"}</h3>
+    // z-[70] ligger entydig over BottomNavigation (z-50), slik at Lagre aldri
+    // males over av appnavigasjonen på mobil.
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={trip ? "Rediger tur" : "Ny tur"}
+      data-testid="trip-form-overlay"
+      className="fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center"
+    >
+      <form
+        onSubmit={onSubmit}
+        className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl max-h-[92dvh] flex flex-col overflow-hidden"
+      >
+        <h3 className="font-semibold text-lg px-4 pt-4 pb-2 shrink-0">
+          {trip ? "Rediger tur" : "Ny tur"}
+        </h3>
+        <div
+          data-testid="trip-form-body"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-4 space-y-3"
+        >
         <Field label="Navn" value={name} onChange={setName} />
         <Field label="Destinasjon" value={destination} onChange={setDestination} />
         <Field label="Land" value={country} onChange={setCountry} />
@@ -409,6 +433,7 @@ const TripFormModal: React.FC<{
             <h4 className="text-sm font-semibold">Destinasjon</h4>
             {destPreset && (
               <button
+                type="button"
                 onClick={() => {
                   setDest(destPreset);
                   setApplyVtRuntime(true);
@@ -470,6 +495,7 @@ const TripFormModal: React.FC<{
             <h4 className="text-sm font-semibold">Oppdag</h4>
             {preset && (
               <button
+                type="button"
                 onClick={() => setDiscovery(preset)}
                 className="inline-flex items-center gap-1 text-xs px-2 py-2 rounded-lg bg-muted min-h-[44px]"
               >
@@ -489,6 +515,7 @@ const TripFormModal: React.FC<{
               {SUPPORTED_PROVIDERS.map((p) => (
                 <button
                   key={p}
+                  type="button"
                   onClick={() => toggleProvider(p)}
                   aria-pressed={discovery.providers.includes(p)}
                   className={`rounded-full border px-3 py-2 text-xs min-h-[44px] ${
@@ -509,6 +536,7 @@ const TripFormModal: React.FC<{
               {DISCOVER_CATEGORIES.map((c) => (
                 <button
                   key={c}
+                  type="button"
                   onClick={() => toggleCategory(c)}
                   aria-pressed={discovery.categories.includes(c)}
                   className={`rounded-full border px-3 py-2 text-xs min-h-[44px] ${
@@ -538,22 +566,30 @@ const TripFormModal: React.FC<{
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
+        </div>
+
+        <div
+          data-testid="trip-form-footer"
+          className="shrink-0 flex justify-end gap-2 border-t border-border bg-card px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]"
+        >
           <button
+            type="button"
             onClick={onClose}
+            disabled={saving}
             className="px-4 py-2 rounded-lg text-sm min-h-[44px]"
           >
             Avbryt
           </button>
           <button
-            onClick={save}
+            type="submit"
             disabled={saving}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm min-h-[44px]"
+            aria-busy={saving}
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm min-h-[44px] disabled:opacity-60"
           >
             {saving ? "Lagrer…" : "Lagre"}
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 };
