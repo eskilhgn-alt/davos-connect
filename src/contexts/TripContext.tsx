@@ -185,6 +185,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     selectTrip,
     refreshTrip,
     reloadTrips: loadTripsAndMembership,
+    applySavedTrip,
+
   };
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>;
