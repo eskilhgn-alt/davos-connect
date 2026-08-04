@@ -3,6 +3,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { BrandSegmented } from "@/components/ui/brand-segmented";
 import { ValThorensStatus } from "@/components/live/ValThorensStatus";
 import { useTrip } from "@/contexts/TripContext";
+import { liveScope } from "@/hooks/useValThorensLive";
 import { resolveDestination } from "@/features/destination/resolveDestination";
 
 type MapTab = "map" | "status";
@@ -17,6 +18,7 @@ export const MapScreen: React.FC = () => {
   const { selectedTrip } = useTrip();
   const dest = React.useMemo(() => resolveDestination(selectedTrip), [selectedTrip]);
   const liveSupported = dest.liveProvider === "lumiplan";
+  const scope = liveScope(selectedTrip?.id ?? null, dest.liveProvider);
 
   const [tab, setTab] = React.useState<MapTab>(() =>
     new URLSearchParams(window.location.search).get("vis") === "status" ? "status" : "map",
@@ -72,7 +74,7 @@ export const MapScreen: React.FC = () => {
             className="absolute inset-0 overflow-y-auto overscroll-contain p-4"
             style={{ WebkitOverflowScrolling: "touch" }}
           >
-            <ValThorensStatus supported={liveSupported} />
+            <ValThorensStatus supported={liveSupported} scope={scope} />
           </div>
         )}
       </div>

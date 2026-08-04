@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { renderHook, waitFor } from "@testing-library/react";
 import { resolveDestination, isValThorensTrip } from "@/features/destination/resolveDestination";
-import { weatherCacheKey } from "@/hooks/useTripWeather";
+import { buildWeatherIdentity } from "@/features/weather/weatherIdentity";
 import type { Trip } from "@/hooks/useActiveTrip";
 
 const base: Trip = {
@@ -126,8 +126,9 @@ describe("useTripWeather", () => {
     expect(fetchWeatherAt.mock.calls[0][0]).toMatchObject({
       lat: 45.2978, lon: 6.5802, timezone: "Europe/Paris",
     });
-    expect(localStorage.getItem(weatherCacheKey("t-vt"))).toBeTruthy();
-    expect(localStorage.getItem(weatherCacheKey("t-hemsedal"))).toBeNull();
+    const vtKey = buildWeatherIdentity("t-vt", resolveDestination(base))!.key;
+    expect(localStorage.getItem(vtKey)).toBeTruthy();
+    expect(buildWeatherIdentity("t-hemsedal", resolveDestination(other))).toBeNull();
   });
 
   it("viser utilgjengelig-tilstand når turen mangler koordinater", async () => {

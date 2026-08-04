@@ -35,12 +35,14 @@ export function applySavedTripRow(trips: Trip[], saved: Trip | null | undefined)
 export function mergeReloadedTrips(
   current: Trip[],
   incoming: Trip[] | null | undefined,
-  opts: { ok?: boolean; stale?: boolean } = {},
+  opts: { ok?: boolean; stale?: boolean; membershipAuthoritative?: boolean } = {},
 ): Trip[] {
-  const { ok = true, stale = false } = opts;
+  const { ok = true, stale = false, membershipAuthoritative = false } = opts;
   if (!ok || stale) return current;
   if (!incoming) return current;
-  if (incoming.length === 0 && current.length > 0) return current;
+  // Når medlemslisten er autoritativ betyr tom liste «ingen tilgang»,
+  // ikke «feilet lesing»: da skal tilgangen faktisk fjernes.
+  if (incoming.length === 0 && current.length > 0 && !membershipAuthoritative) return current;
   return incoming;
 }
 

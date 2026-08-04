@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Archive, CheckCircle2, Pencil, Wand2 } from "lucide-react";
 import type { Trip } from "@/hooks/useActiveTrip";
 import { useTrip } from "@/contexts/TripContext";
-import { applySavedTripRow, normalizeRpcTripRow } from "@/features/trip/tripSync";
+import { normalizeRpcTripRow } from "@/features/trip/tripSync";
 import { CATEGORY_LABELS, DISCOVER_CATEGORIES, type DiscoverCategory } from "@/features/discover/types";
 import {
   discoveryDraftFromConfig,
@@ -382,9 +382,8 @@ const TripFormModal: React.FC<{
       // viser suksess og lukker dialogen. Ingen ekstra, konkurrerende refetch.
       const savedRow = normalizeRpcTripRow(row);
       if (savedRow) {
-        queryClient.setQueryData(["trips", "list"], (prev: Trip[] | undefined) =>
-          prev ? applySavedTripRow(prev, savedRow) : prev,
-        );
+        // Én autoritativ oppdateringssekvens: TripContext eier både
+        // context-state og ["trips","list"]. Ingen dobbel setQueryData her.
         await applySavedTrip(savedRow);
       } else {
         await queryClient.invalidateQueries({ queryKey: ["trips", "list"] });
