@@ -9,7 +9,7 @@ import { useTripWeather } from "@/hooks/useTripWeather";
 import { describeWeatherCode, type TripDailyForecast } from "@/services/tripWeather";
 import { useTrip } from "@/contexts/TripContext";
 import { resolveDestination } from "@/features/destination/resolveDestination";
-import { useValThorensLive } from "@/hooks/useValThorensLive";
+import { useValThorensLive, liveScope } from "@/hooks/useValThorensLive";
 import { Link } from "react-router-dom";
 import {
   RefreshCw,
@@ -101,7 +101,7 @@ export const WeatherScreen: React.FC = () => {
   const trip = React.useMemo(() => resolveDestination(selectedTrip), [selectedTrip]);
   const { weather, loading, error, unavailable, refresh } = useTripWeather();
   const liveSupported = trip.liveProvider === "lumiplan";
-  const { data: liveData, loading: liveLoading, refresh: refreshLive } = useValThorensLive(liveSupported);
+  const { data: liveData, loading: liveLoading, refresh: refreshLive } = useValThorensLive(liveSupported, liveScope(selectedTrip?.id ?? null, trip.liveProvider));
 
   const current = weather?.current;
   const today = weather?.daily?.[0];

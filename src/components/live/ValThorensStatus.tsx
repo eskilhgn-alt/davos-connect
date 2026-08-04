@@ -21,11 +21,12 @@ function statusColor(status: LiftStatus) {
   return "bg-muted-foreground";
 }
 
-export const ValThorensStatus: React.FC<{ compact?: boolean; supported?: boolean }> = ({
+export const ValThorensStatus: React.FC<{ compact?: boolean; supported?: boolean; scope?: string }> = ({
   compact = false,
   supported = true,
+  scope = "",
 }) => {
-  const { data, loading, error, refresh } = useValThorensLive(supported);
+  const { data, loading, error, refresh } = useValThorensLive(supported, scope);
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<Filter>("all");
 
