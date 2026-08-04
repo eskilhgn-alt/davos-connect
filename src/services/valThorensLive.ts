@@ -53,7 +53,13 @@ export interface ValThorensLiveData {
   stale?: boolean;
 }
 
-const CACHE_KEY = "guttahutte:val-thorens-live:v1";
+/**
+ * Cachen er identitetsbundet (tur + provider/config), ikke global. En annen
+ * valgt tur/konfigurasjon leser aldri en annen turs live-data.
+ */
+export function liveCacheKey(scope: string): string {
+  return `guttahutte:live-status:v2:${scope}`;
+}
 const FRESH_MS = 2 * 60 * 1000;
 const MAX_STALE_MS = 12 * 60 * 60 * 1000;
 
@@ -68,9 +74,13 @@ function isLiveData(value: unknown): value is ValThorensLiveData {
   return typeof data.fetchedAt === "string" && Array.isArray(data.groups) && Array.isArray(data.weather);
 }
 
-export function readValThorensLiveCache(maxAgeMs = MAX_STALE_MS): CachedLiveData | null {
+export function readValThorensLiveCache(
+  scope: string,
+  maxAgeMs = MAX_STALE_MS,
+): CachedLiveData | null {
+  if (!scope) return null;
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(liveCacheKey(scope));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CachedLiveData;
     if (!parsed || typeof parsed.savedAt !== "number" || !isLiveData(parsed.data)) return null;
@@ -81,9 +91,9 @@ export function readValThorensLiveCache(maxAgeMs = MAX_STALE_MS): CachedLiveData
   }
 }
 
-function writeCache(data: ValThorensLiveData): void {
+function writeCache(scope: string, data: ValThorensLiveData): void {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data } satisfies CachedLiveData));
+    localStorage.setItem(liveCacheKey(scope), JSON.stringify({ savedAt: Date.now(), data } satisfies CachedLiveData));
   } catch {
     // Storage may be unavailable in private mode. Live data still works.
   }
@@ -93,13 +103,13 @@ export function isValThorensCacheFresh(cache: CachedLiveData | null): boolean {
   return Boolean(cache && Date.now() - cache.savedAt < FRESH_MS);
 }
 
-export async function fetchValThorensLive(): Promise<ValThorensLiveData> {
+export async function fetchValThorensLive(scope: string): Promise<ValThorensLiveData> {
   const { data, error } = await supabase.functions.invoke<ValThorensLiveData>("val-thorens-live", {
     method: "GET",
   });
   if (error) throw new Error(error.message || "Kunne ikke hente live-data");
   if (!isLiveData(data)) throw new Error("Live-kilden svarte med ugyldige data");
-  writeCache(data);
+  writeCache(scope, data);
   return data;
 }
 
