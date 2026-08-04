@@ -65,6 +65,26 @@ export const TRIP_SCOPED_QUERY_KEYS = [
   "badges",
 ] as const;
 
+/**
+ * Fjerner destinasjonsavhengige lokale cacher for én tur. Nøklene er
+ * identitetsbundet (`trip-weather:v2:<tripId>:...`, `guttahutte:live-status:v2:<tripId>:...`),
+ * så en configendring gir uansett ny nøkkel — dette rydder bare bort de
+ * utdaterte identitetene for samme tur.
+ */
+export function dropDestinationCaches(tripId: string): void {
+  try {
+    const prefixes = [`trip-weather:v2:${tripId}:`, `guttahutte:live-status:v2:${tripId}:`];
+    const doomed: string[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && prefixes.some((p) => key.startsWith(p))) doomed.push(key);
+    }
+    doomed.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* Safari private mode */
+  }
+}
+
 export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
