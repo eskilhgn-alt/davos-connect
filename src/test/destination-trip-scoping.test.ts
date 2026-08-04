@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { renderHook, waitFor } from "@testing-library/react";
 import { resolveDestination, isValThorensTrip } from "@/features/destination/resolveDestination";
-import { weatherCacheKey } from "@/hooks/useTripWeather";
+import { buildWeatherIdentity } from "@/features/weather/weatherIdentity";
 import type { Trip } from "@/hooks/useActiveTrip";
 
 const base: Trip = {
