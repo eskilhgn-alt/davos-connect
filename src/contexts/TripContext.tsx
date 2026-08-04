@@ -76,6 +76,11 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /** Monotont generasjonsnummer: eldre lesinger forkastes. */
   const generation = React.useRef(0);
+  /** Speil av trips uten å måtte lese state inne i callbacks. */
+  const tripsRef = React.useRef<Trip[]>([]);
+  React.useEffect(() => {
+    tripsRef.current = trips;
+  }, [trips]);
 
   const loadTripsAndMembership = React.useCallback(async () => {
     if (!user) {
@@ -103,28 +108,48 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ((memberRes.data ?? []) as { trip_id: string }[]).map((r) => r.trip_id),
     );
     setMemberOf(memSet);
-    setTrips((cur) => mergeReloadedTrips(cur, incoming, { ok, stale: gen !== generation.current }));
+    // Medlemslisten er autoritativ: en admin kan lese trips-raden, men skal
+    // ikke beholde valgt tur etter medlemskapsrevokering.
+    const visible = incoming.filter((t) => memSet.has(t.id));
+    const merged = mergeReloadedTrips(tripsRef.current, visible, {
+      ok,
+      stale: gen !== generation.current,
+      membershipAuthoritative: true,
+    });
+    tripsRef.current = merged;
+    setTrips(merged);
 
     let stored: string | null = null;
     try {
       const s = localStorage.getItem(storageKey(user.id));
-      if (s && memSet.has(s) && incoming.some((t) => t.id === s)) stored = s;
+      if (s && memSet.has(s) && visible.some((t) => t.id === s)) stored = s;
     } catch {
       /* Safari private mode */
     }
-    setSelectedId((prev) => resolveSelectedTripId(prev ?? stored, incoming));
+    setSelectedId((prev) => {
+      const validPrev = prev && memSet.has(prev) && visible.some((t) => t.id === prev) ? prev : null;
+      return resolveSelectedTripId(validPrev ?? stored, visible);
+    });
   }, [user]);
 
-  /** Autoritativ, umiddelbar synk av én verifisert lagret rad. */
+  /**
+   * Autoritativ, umiddelbar synk av én verifisert lagret rad.
+   * Nøyaktig ÉN oppdateringssekvens: context-state, ["trips","list"] og
+   * destinasjonsavhengige cacher. Ingen queryClient-sideeffekt inne i en
+   * setState-updater (updaters må være rene og kan kjøres flere ganger).
+   */
   const applySavedTrip = React.useCallback(
     async (row: Trip) => {
       generation.current += 1; // eldre in-flight lesinger kan ikke rulle tilbake
-      setTrips((cur) => {
-        const next = applySavedTripRow(cur, row);
-        queryClient.setQueryData(["trips", "list"], next);
-        return next;
-      });
+      const next = applySavedTripRow(tripsRef.current, row);
+      tripsRef.current = next;
+      setTrips(next);
+      queryClient.setQueryData(["trips", "list"], next);
       setSelectedId((prev) => prev ?? row.id);
+      // Destinasjonsavhengige lokale cacher (vær, live-status) er
+      // identitetsbundet til config: rydd bort utdaterte identiteter for
+      // denne turen slik at ny config aldri viser gammel data.
+      dropDestinationCaches(row.id);
       await Promise.all(
         TRIP_SCOPED_QUERY_KEYS.map((k) => queryClient.invalidateQueries({ queryKey: [k] })),
       );
