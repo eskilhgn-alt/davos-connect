@@ -101,6 +101,12 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   React.useEffect(() => {
     tripsRef.current = trips;
   }, [trips]);
+  /** Speil av medlemskap for race-sikre oppslag i callbacks. */
+  const memberOfRef = React.useRef<Set<string>>(new Set());
+  React.useEffect(() => {
+    memberOfRef.current = memberOf;
+  }, [memberOf]);
+
 
   const loadTripsAndMembership = React.useCallback(async () => {
     if (!user) {
