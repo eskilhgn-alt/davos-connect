@@ -101,6 +101,12 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   React.useEffect(() => {
     tripsRef.current = trips;
   }, [trips]);
+  /** Speil av medlemskap for race-sikre oppslag i callbacks. */
+  const memberOfRef = React.useRef<Set<string>>(new Set());
+  React.useEffect(() => {
+    memberOfRef.current = memberOf;
+  }, [memberOf]);
+
 
   const loadTripsAndMembership = React.useCallback(async () => {
     if (!user) {
@@ -160,22 +166,52 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const applySavedTrip = React.useCallback(
     async (row: Trip) => {
-      generation.current += 1; // eldre in-flight lesinger kan ikke rulle tilbake
+      const gen = ++generation.current; // eldre in-flight lesinger kan ikke rulle tilbake
       const next = applySavedTripRow(tripsRef.current, row);
       tripsRef.current = next;
       setTrips(next);
       queryClient.setQueryData(["trips", "list"], next);
-      setSelectedId((prev) => prev ?? row.id);
       // Destinasjonsavhengige lokale cacher (vær, live-status) er
       // identitetsbundet til config: rydd bort utdaterte identiteter for
       // denne turen slik at ny config aldri viser gammel data.
       dropDestinationCaches(row.id);
+
+      // En admin-lesbar trips-rad gir ALDRI runtime-tilgang alene. Bare et
+      // ferskt, smalt medlemskapsoppslag kan gjøre raden til valgt tur.
+      if (user) {
+        const known = memberOfRef.current.has(row.id);
+        let isMember = known;
+        if (!known) {
+          const { data, error } = await supabase
+            .from("trip_members" as never)
+            .select("trip_id")
+            .eq("user_id", user.id)
+            .eq("trip_id", row.id)
+            .maybeSingle();
+          isMember = !error && !!data;
+        }
+        // Et gammelt medlemskapssvar skal aldri overstyre nyere generasjon/bruker.
+        if (generation.current === gen) {
+          if (isMember) {
+            if (!known) {
+              setMemberOf((prev) => {
+                const s = new Set(prev);
+                s.add(row.id);
+                return s;
+              });
+            }
+            setSelectedId((prev) => prev ?? row.id);
+          }
+        }
+      }
+
       await Promise.all(
         TRIP_SCOPED_QUERY_KEYS.map((k) => queryClient.invalidateQueries({ queryKey: [k] })),
       );
     },
-    [queryClient],
+    [queryClient, user],
   );
+
 
 
   React.useEffect(() => {
