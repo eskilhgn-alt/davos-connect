@@ -20,18 +20,28 @@ export function useValThorensLive(enabled = true, scope = "") {
   const [data, setData] = React.useState<ValThorensLiveData | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const inFlight = React.useRef<Promise<ValThorensLiveData> | null>(null);
+  /** In-flight per scope: scope B skal aldri arve eller blokkeres av scope A. */
+  const inFlight = React.useRef<Map<string, Promise<ValThorensLiveData>>>(new Map());
   const generation = React.useRef(0);
   const currentScope = React.useRef<string>("");
+  const mounted = React.useRef(true);
+  React.useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const refresh = React.useCallback(async (): Promise<ValThorensLiveData | undefined> => {
     if (!active) return undefined;
-    if (inFlight.current) return inFlight.current;
-    const myGen = ++generation.current;
     const myScope = scope;
+    const existing = inFlight.current.get(myScope);
+    if (existing) return existing;
+    const myGen = ++generation.current;
     setLoading(true);
     setError(null);
-    const accept = () => generation.current === myGen && currentScope.current === myScope;
+    const accept = () =>
+      mounted.current && generation.current === myGen && currentScope.current === myScope;
     const request = fetchValThorensLive(myScope)
       .then((next) => {
         if (accept()) setData(next);
@@ -49,12 +59,13 @@ export function useValThorensLive(enabled = true, scope = "") {
         throw reason;
       })
       .finally(() => {
-        inFlight.current = null;
-        if (generation.current === myGen) setLoading(false);
+        if (inFlight.current.get(myScope) === request) inFlight.current.delete(myScope);
+        if (accept()) setLoading(false);
       });
-    inFlight.current = request;
+    inFlight.current.set(myScope, request);
     return request;
   }, [active, scope]);
+
 
   React.useEffect(() => {
     generation.current += 1;
