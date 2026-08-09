@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Plus, Archive, CheckCircle2, Pencil, Wand2 } from "lucide-react";
 import type { Trip } from "@/hooks/useActiveTrip";
+import { validateTripDates } from "@/features/trip/tripDates";
 import { useTrip } from "@/contexts/TripContext";
 import { normalizeRpcTripRow } from "@/features/trip/tripSync";
 import { CATEGORY_LABELS, DISCOVER_CATEGORIES, type DiscoverCategory } from "@/features/discover/types";
