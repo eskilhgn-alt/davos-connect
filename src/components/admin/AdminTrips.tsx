@@ -336,7 +336,13 @@ const TripFormModal: React.FC<{
       expectedVersion = resolved.configured ? resolved.version : null;
     }
 
+    if (!validateTripDates(startDate || null, endDate || null)) {
+      toast.error("Startdato må være før eller lik sluttdato");
+      return;
+    }
+
     setSaving(true);
+
     try {
       const rpc = trip ? "rpc_admin_update_trip" : "rpc_admin_create_trip";
       const params: Record<string, unknown> = {
