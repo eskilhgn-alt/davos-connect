@@ -1,6 +1,4 @@
 import * as React from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   ArrowRightLeft,
   CalendarDays,
@@ -43,7 +41,6 @@ export interface HomeDashboardHandle {
 }
 
 export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
-  const { user } = useAuth();
   const { selectedTrip, selectedTripId } = useTrip();
   // Currency comes from the selected trip (not a hardcoded trip constant), so
   // switching to an archived trip in a different currency displays correctly.
