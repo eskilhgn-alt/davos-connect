@@ -1,9 +1,20 @@
+/**
+ * useAgenda — turbundet Agenda-datalag.
+ *
+ * Kontrakt:
+ *  - Henter HELE turens tidslinje for `selectedTripId` (ingen ukevindu).
+ *  - React Query er eneste kilde, slik at `refreshTrip()`/pull-to-refresh og
+ *    Realtime faktisk oppdaterer visningen (`["agenda", tripId]`).
+ *  - ALLE mutasjoner er scopet på `trip_id`: en hendelse-ID fra tur A kan
+ *    aldri endres eller slettes mens tur B er valgt.
+ *  - Arkivert tur er lesbar, men ikke skrivbar.
+ */
 import * as React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrip } from "@/contexts/TripContext";
-import { startOfWeek, endOfWeek, addWeeks } from "date-fns";
+import { buildTimeline, pickNextEvent, type TimelineDay } from "@/features/agenda/timeline";
 
 export interface AgendaEvent {
   id: string;
@@ -16,48 +27,32 @@ export interface AgendaEvent {
   created_at: string;
 }
 
+export const agendaQueryKey = (tripId: string | null) => ["agenda", tripId] as const;
+
 export function useAgenda() {
   const { user } = useAuth();
-  const { selectedTripId, isArchive } = useTrip();
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [events, setEvents] = useState<AgendaEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { selectedTripId, selectedTrip, isArchive } = useTrip();
+  const queryClient = useQueryClient();
 
-  const weekStart = React.useMemo(
-    () => startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 }),
-    [weekOffset],
-  );
-  const weekEnd = React.useMemo(
-    () => endOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 }),
-    [weekOffset],
-  );
+  const query = useQuery({
+    queryKey: agendaQueryKey(selectedTripId),
+    enabled: !!user && !!selectedTripId,
+    staleTime: 30_000,
+    queryFn: async (): Promise<AgendaEvent[]> => {
+      const { data, error } = await supabase
+        .from("agenda_events")
+        .select("*")
+        .eq("trip_id" as never, selectedTripId as never)
+        .order("start_at", { ascending: true });
+      if (error) throw error;
+      return (data as AgendaEvent[]) ?? [];
+    },
+  });
 
-  const fetchEvents = useCallback(async () => {
-    if (!user || !selectedTripId) return;
-    setLoading(true);
-    const { data, error: fetchError } = await supabase
-      .from("agenda_events")
-      .select("*")
-      .eq("trip_id" as never, selectedTripId as never)
-      .gte("start_at", weekStart.toISOString())
-      .lte("start_at", weekEnd.toISOString())
-      .order("start_at");
-    if (fetchError) {
-      setError("Kunne ikke laste agendaen");
-    } else {
-      setEvents((data as AgendaEvent[]) ?? []);
-      setError(null);
-    }
-    setLoading(false);
-  }, [user, selectedTripId, weekStart, weekEnd]);
+  const events = React.useMemo(() => query.data ?? [], [query.data]);
 
-  useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
-
-  // Realtime — filter på valgt tur.
-  useEffect(() => {
+  // Realtime — strengt filtrert på valgt tur.
+  React.useEffect(() => {
     if (!selectedTripId) return;
     const channel = supabase
       .channel(`agenda_realtime_${selectedTripId}`)
@@ -70,19 +65,36 @@ export function useAgenda() {
           filter: `trip_id=eq.${selectedTripId}`,
         },
         () => {
-          fetchEvents();
+          void queryClient.invalidateQueries({ queryKey: agendaQueryKey(selectedTripId) });
         },
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchEvents, selectedTripId]);
+  }, [selectedTripId, queryClient]);
 
-  const createEvent = async (title: string, description: string, startAt: Date, endAt: Date, color: string) => {
-    if (!user || !selectedTripId) return;
-    if (isArchive) throw new Error("Arkivmodus – kan ikke opprette hendelser");
-    const { error: createError } = await supabase.from("agenda_events").insert({
+  const timeline: TimelineDay[] = React.useMemo(
+    () => buildTimeline(events, selectedTrip),
+    [events, selectedTrip],
+  );
+
+  const nextEvent = React.useMemo(() => pickNextEvent(events), [events]);
+
+  const refetch = React.useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: agendaQueryKey(selectedTripId) });
+  }, [queryClient, selectedTripId]);
+
+  const createEvent = async (
+    title: string,
+    description: string,
+    startAt: Date,
+    endAt: Date,
+    color: string,
+  ) => {
+    if (!user || !selectedTripId) throw new Error("Ingen tur valgt");
+    if (isArchive) throw new Error("Arkivmodus – kan ikke opprette aktiviteter");
+    const { error } = await supabase.from("agenda_events").insert({
       title,
       description: description || null,
       start_at: startAt.toISOString(),
@@ -91,31 +103,47 @@ export function useAgenda() {
       created_by: user.id,
       trip_id: selectedTripId,
     } as never);
-    if (createError) throw createError;
+    if (error) throw error;
+    await refetch();
   };
 
-  const updateEvent = async (id: string, updates: Partial<{ title: string; description: string; start_at: string; end_at: string; color: string }>) => {
-    if (isArchive) throw new Error("Arkivmodus – kan ikke endre hendelser");
-    const { error: updateError } = await supabase.from("agenda_events").update(updates).eq("id", id);
-    if (updateError) throw updateError;
+  const updateEvent = async (
+    id: string,
+    updates: Partial<{ title: string; description: string | null; start_at: string; end_at: string; color: string }>,
+  ) => {
+    if (!selectedTripId) throw new Error("Ingen tur valgt");
+    if (isArchive) throw new Error("Arkivmodus – kan ikke endre aktiviteter");
+    const { error } = await supabase
+      .from("agenda_events")
+      .update(updates)
+      .eq("id", id)
+      .eq("trip_id" as never, selectedTripId as never);
+    if (error) throw error;
+    await refetch();
   };
 
   const deleteEvent = async (id: string) => {
-    if (isArchive) throw new Error("Arkivmodus – kan ikke slette hendelser");
-    const { error: deleteError } = await supabase.from("agenda_events").delete().eq("id", id);
-    if (deleteError) throw deleteError;
+    if (!selectedTripId) throw new Error("Ingen tur valgt");
+    if (isArchive) throw new Error("Arkivmodus – kan ikke slette aktiviteter");
+    const { error } = await supabase
+      .from("agenda_events")
+      .delete()
+      .eq("id", id)
+      .eq("trip_id" as never, selectedTripId as never);
+    if (error) throw error;
+    await refetch();
   };
 
   return {
     events,
-    loading,
-    error,
-    weekStart,
-    weekEnd,
-    weekOffset,
-    setWeekOffset,
+    timeline,
+    nextEvent,
+    loading: query.isLoading,
+    error: query.error ? "Kunne ikke laste agendaen" : null,
+    refetch,
     createEvent,
     updateEvent,
     deleteEvent,
+    isArchive,
   };
 }
