@@ -27,6 +27,11 @@ export interface AgendaEvent {
   created_at: string;
 }
 
+export type AgendaEventLike = Pick<
+  AgendaEvent,
+  "id" | "title" | "description" | "start_at" | "end_at" | "color"
+>;
+
 export const agendaQueryKey = (tripId: string | null) => ["agenda", tripId] as const;
 
 export function useAgenda() {

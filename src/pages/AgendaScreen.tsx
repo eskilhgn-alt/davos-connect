@@ -9,7 +9,7 @@ import * as React from "react";
 import { Plus, CalendarDays, Clock } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { BackButton } from "@/components/layout/BackButton";
-import { useAgenda, type AgendaEvent } from "@/hooks/useAgenda";
+import { useAgenda, type AgendaEventLike } from "@/hooks/useAgenda";
 import { AgendaEventDialog } from "@/components/agenda/AgendaEventDialog";
 import { pickFocusEventId } from "@/features/agenda/timeline";
 import { formatTripDateRange, formatZonedTime } from "@/features/trip/tripDates";
@@ -34,7 +34,7 @@ export const AgendaScreen: React.FC = () => {
   const tz = selectedTrip?.timezone ?? "UTC";
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [editEvent, setEditEvent] = React.useState<AgendaEvent | null>(null);
+  const [editEvent, setEditEvent] = React.useState<AgendaEventLike | null>(null);
 
   const focusId = React.useMemo(() => pickFocusEventId(timeline), [timeline]);
   const focusRef = React.useRef<HTMLDivElement>(null);
@@ -121,7 +121,7 @@ export const AgendaScreen: React.FC = () => {
                         <div ref={isFocus ? focusRef : undefined}>
                           <button
                             onClick={() => {
-                              setEditEvent(ev as AgendaEvent);
+                              setEditEvent(ev);
                               setDialogOpen(true);
                             }}
                             className={cn(
