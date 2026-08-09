@@ -56,11 +56,15 @@ export function useAgenda() {
 
   const events = React.useMemo(() => query.data ?? [], [query.data]);
 
+  // Unik kanal-id per hook-instans: Hjem og Agenda kan være montert samtidig
+  // uten at de kolliderer på samme kanalnavn.
+  const instanceId = React.useRef(Math.random().toString(36).slice(2));
+
   // Realtime — strengt filtrert på valgt tur.
   React.useEffect(() => {
     if (!selectedTripId) return;
     const channel = supabase
-      .channel(`agenda_realtime_${selectedTripId}`)
+      .channel(`agenda_realtime_${selectedTripId}_${instanceId.current}`)
       .on(
         "postgres_changes",
         {
