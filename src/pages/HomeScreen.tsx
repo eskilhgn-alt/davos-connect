@@ -5,8 +5,6 @@
 
 import * as React from "react";
 import { Link } from "react-router-dom";
-import { format } from "date-fns";
-import { nb } from "date-fns/locale";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { HomeDashboard, type HomeDashboardHandle } from "@/components/home/HomeDashboard";
 import { StoryRing } from "@/components/stories/StoryRing";
@@ -18,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAppBadges } from "@/hooks/useAppBadges";
 import { useTrip } from "@/contexts/TripContext";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
+import { formatTripDateRange, daysUntilTripStart, tripPhase } from "@/features/trip/tripDates";
 
 import {
   MessageCircle,
@@ -59,15 +58,10 @@ export const HomeScreen: React.FC = () => {
   // Bruk valgt tur fra TripContext (ingen hardkodet ACTIVE_TRIP).
   const tripName = selectedTrip?.name ?? "Ingen tur valgt";
   const tripDestination = selectedTrip?.destination ?? "";
-  const startDate = selectedTrip?.start_date ?? null;
-  const endDate = selectedTrip?.end_date ?? null;
-  const hasDates = !!startDate && !!endDate;
-  const dateLabel = hasDates
-    ? `${format(new Date(startDate!), "d. MMM", { locale: nb })} – ${format(new Date(endDate!), "d. MMM yyyy", { locale: nb })}`
-    : "Datoer ikke satt";
-  const daysUntil = hasDates
-    ? Math.max(0, Math.ceil((new Date(startDate!).getTime() - Date.now()) / 86_400_000))
-    : null;
+  // Datoer tolkes alltid i turens tidssone (aldri new Date("YYYY-MM-DD")).
+  const dateLabel = formatTripDateRange(selectedTrip);
+  const phase = tripPhase(selectedTrip);
+  const daysUntil = daysUntilTripStart(selectedTrip);
 
   const primaryTiles: TileItem[] = React.useMemo(
     () => [
@@ -136,7 +130,7 @@ export const HomeScreen: React.FC = () => {
               </p>
             </div>
             <div className="shrink-0 text-right">
-              {daysUntil !== null && daysUntil >= 0 ? (
+              {phase === "upcoming" && daysUntil !== null ? (
                 <>
                   <div className="font-heading text-2xl font-bold text-foreground leading-none">
                     {daysUntil}
@@ -145,6 +139,14 @@ export const HomeScreen: React.FC = () => {
                     dager igjen
                   </div>
                 </>
+              ) : phase === "ongoing" ? (
+                <div className="text-[10px] uppercase tracking-wider text-primary max-w-[6rem]">
+                  Turen pågår
+                </div>
+              ) : phase === "ended" ? (
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground max-w-[6rem]">
+                  Turen er ferdig
+                </div>
               ) : (
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground max-w-[6rem]">
                   Nedtelling starter når datoene er satt

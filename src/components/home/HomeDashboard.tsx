@@ -1,8 +1,4 @@
 import * as React from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { format } from "date-fns";
-import { nb } from "date-fns/locale";
 import {
   ArrowRightLeft,
   CalendarDays,
@@ -22,11 +18,8 @@ import { useTripWeather } from "@/hooks/useTripWeather";
 import { describeWeatherCode } from "@/services/tripWeather";
 import { useTrip } from "@/contexts/TripContext";
 import { CurrencyCalculator } from "./CurrencyCalculator";
-
-interface NextEvent {
-  title: string;
-  start_at: string;
-}
+import { useAgenda } from "@/hooks/useAgenda";
+import { formatZonedTime, zonedDateKey } from "@/features/trip/tripDates";
 
 const ICON_MAP = {
   sun: Sun,
@@ -48,7 +41,6 @@ export interface HomeDashboardHandle {
 }
 
 export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
-  const { user } = useAuth();
   const { selectedTrip, selectedTripId } = useTrip();
   // Currency comes from the selected trip (not a hardcoded trip constant), so
   // switching to an archived trip in a different currency displays correctly.
@@ -56,10 +48,13 @@ export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
   const [rate, setRate] = React.useState<{ rate: number | null; loading: boolean }>({ rate: null, loading: true });
   const [rateDate, setRateDate] = React.useState<string | null>(null);
   const [rateFetchedAt, setRateFetchedAt] = React.useState<Date | null>(null);
-  const [nextEvent, setNextEvent] = React.useState<NextEvent | null>(null);
   const [calcOpen, setCalcOpen] = React.useState(false);
 
   const { weather, loading: weatherLoading, refresh: refreshWeather } = useTripWeather();
+  // «Neste» bruker samme turspesifikke agenda-kilde som Agenda-skjermen.
+  // React Query-nøkkelen er trip-scopet, så et svar for tur A kan aldri
+  // vises når tur B er valgt.
+  const { nextEvent, refetch: refetchAgenda } = useAgenda();
 
   const fetchRate = React.useCallback(async () => {
     try {
@@ -72,36 +67,15 @@ export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
     }
   }, [currency]);
 
-  const fetchNextEvent = React.useCallback(async () => {
-    if (!user || !selectedTripId) { setNextEvent(null); return; }
-    // Trip-scoped: never leak an event from another trip. Snapshot tripId at
-    // the start of the async call and discard the result if trip changed.
-    const tripAtStart = selectedTripId;
-    const { data } = await supabase
-      .from("agenda_events")
-      .select("title, start_at")
-      .eq("trip_id", tripAtStart)
-      .gte("start_at", new Date().toISOString())
-      .order("start_at", { ascending: true })
-      .limit(1);
-    if (tripAtStart !== selectedTripId) return;
-    if (data && data.length > 0) setNextEvent(data[0] as NextEvent);
-    else setNextEvent(null);
-  }, [user, selectedTripId]);
-
   React.useEffect(() => {
     void fetchRate();
   }, [fetchRate]);
 
-  React.useEffect(() => {
-    void fetchNextEvent();
-  }, [fetchNextEvent]);
-
   React.useImperativeHandle(ref, () => ({
     refresh: async () => {
-      await Promise.allSettled([fetchRate(), fetchNextEvent(), refreshWeather()]);
+      await Promise.allSettled([fetchRate(), refetchAgenda(), refreshWeather()]);
     },
-  }), [fetchRate, fetchNextEvent, refreshWeather]);
+  }), [fetchRate, refetchAgenda, refreshWeather]);
 
 
   const current = weather?.current;
@@ -143,7 +117,7 @@ export const HomeDashboard = React.forwardRef<HomeDashboardHandle>((_, ref) => {
                 {nextEvent.title}
               </span>
               <span className="text-[9px] text-muted-foreground">
-                {format(new Date(nextEvent.start_at), "EEE dd.MM 'kl' HH:mm", { locale: nb })}
+                {`${zonedDateKey(nextEvent.start_at, selectedTrip?.timezone).slice(5).split("-").reverse().join(".")} kl ${formatZonedTime(nextEvent.start_at, selectedTrip?.timezone)}`}
               </span>
             </>
           ) : (

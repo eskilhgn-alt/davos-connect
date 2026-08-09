@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Plus, Archive, CheckCircle2, Pencil, Wand2 } from "lucide-react";
 import type { Trip } from "@/hooks/useActiveTrip";
+import { validateTripDates } from "@/features/trip/tripDates";
 import { useTrip } from "@/contexts/TripContext";
 import { normalizeRpcTripRow } from "@/features/trip/tripSync";
 import { CATEGORY_LABELS, DISCOVER_CATEGORIES, type DiscoverCategory } from "@/features/discover/types";
@@ -336,7 +337,13 @@ const TripFormModal: React.FC<{
       expectedVersion = resolved.configured ? resolved.version : null;
     }
 
+    if (!validateTripDates(startDate || null, endDate || null)) {
+      toast.error("Startdato må være før eller lik sluttdato");
+      return;
+    }
+
     setSaving(true);
+
     try {
       const rpc = trip ? "rpc_admin_update_trip" : "rpc_admin_create_trip";
       const params: Record<string, unknown> = {

@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AgendaEvent } from "@/hooks/useAgenda";
+import type { AgendaEventLike } from "@/hooks/useAgenda";
 import { errorToast } from "@/utils/errorToast";
 
 const COLORS = [
@@ -36,11 +36,13 @@ interface Props {
   onDelete?: () => Promise<void>;
   initialDate?: Date;
   initialHour?: number;
-  editEvent?: AgendaEvent | null;
+  editEvent?: AgendaEventLike | null;
+  /** Arkivert tur: lesbar, men ikke skrivbar. */
+  readOnly?: boolean;
 }
 
 export const AgendaEventDialog: React.FC<Props> = ({
-  open, onClose, onSave, onDelete, initialDate, initialHour, editEvent,
+  open, onClose, onSave, onDelete, initialDate, initialHour, editEvent, readOnly = false,
 }) => {
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
@@ -79,7 +81,7 @@ export const AgendaEventDialog: React.FC<Props> = ({
   }, [editEvent, initialHour, initialDate, open]);
 
   const handleSave = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || saving || readOnly) return;
     const startHourNumber = Number(startHour);
     const startMinuteNumber = Number(startMin);
     const endHourNumber = Number(endHour);
@@ -115,7 +117,7 @@ export const AgendaEventDialog: React.FC<Props> = ({
   };
 
   const handleDelete = async () => {
-    if (!onDelete || saving) return;
+    if (!onDelete || saving || readOnly) return;
     setSaving(true);
     try {
       await onDelete();
@@ -131,9 +133,9 @@ export const AgendaEventDialog: React.FC<Props> = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm mx-auto">
+      <DialogContent className="max-w-sm mx-auto max-h-[90dvh] overflow-y-auto z-[70]">
         <DialogHeader>
-          <DialogTitle>{editEvent ? "Rediger hendelse" : "Ny hendelse"}</DialogTitle>
+          <DialogTitle>{readOnly ? "Aktivitet" : editEvent ? "Rediger aktivitet" : "Ny aktivitet"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -206,14 +208,17 @@ export const AgendaEventDialog: React.FC<Props> = ({
           </div>
         </div>
 
-        <DialogFooter className="flex-row gap-2">
-          {editEvent && onDelete && (
+        <DialogFooter
+          className="sticky bottom-0 flex-row gap-2 bg-background pt-2"
+          style={{ paddingBottom: "max(env(safe-area-inset-bottom), 8px)" }}
+        >
+          {editEvent && onDelete && !readOnly && (
             <Button variant="ghost" size="sm" className="text-destructive mr-auto" onClick={() => void handleDelete()} disabled={saving}>
               Slett
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={onClose}>Avbryt</Button>
-          <Button size="sm" onClick={handleSave} disabled={saving || !title.trim()}>
+          <Button size="sm" onClick={handleSave} disabled={saving || readOnly || !title.trim()}>
             {saving ? "Lagrer…" : "Lagre"}
           </Button>
         </DialogFooter>

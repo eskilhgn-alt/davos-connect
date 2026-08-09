@@ -218,6 +218,25 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     void loadTripsAndMembership();
   }, [loadTripsAndMembership]);
 
+  /**
+   * Realtime-synk av trips: når en admin lagrer nye datoer/status skal andre
+   * åpne enheter oppdatere uten reload. Vi bruker en guardet reload i stedet
+   * for å skrive payloaden rått inn, slik at medlemskap fortsatt er
+   * autoritativt og en eldre lesing aldri kan rulle tilbake nyere tilstand.
+   */
+  React.useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("trips_sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "trips" }, () => {
+        void loadTripsAndMembership();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, loadTripsAndMembership]);
+
   const selectedTrip = React.useMemo(
     () => trips.find((t) => t.id === selectedId) ?? null,
     [trips, selectedId],
@@ -252,9 +271,14 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [user, memberOf, queryClient],
   );
 
+  /**
+   * Pull-to-refresh / manuell reparasjonsvei: laster turer og medlemskap på
+   * nytt (så nye datoer og status faktisk kommer inn) OG invaliderer alle
+   * turfølsomme queries.
+   */
   const refreshTrip = React.useCallback(async () => {
-    await invalidateTripScoped();
-  }, [invalidateTripScoped]);
+    await Promise.all([loadTripsAndMembership(), invalidateTripScoped()]);
+  }, [loadTripsAndMembership, invalidateTripScoped]);
 
   const value: TripContextValue = {
     trips,
