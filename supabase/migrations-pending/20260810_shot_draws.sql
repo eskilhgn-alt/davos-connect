@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS public.shot_draw_participants (
   CONSTRAINT shot_draw_participants_pos_chk CHECK (position >= 0)
 );
 
-CREATE INDEX IF NOT EXISTS shot_draw_participants_trip_user_idx
+CREATE INDEX IF NOT EXISTS shot_draw_participants_lookup_idx
   ON public.shot_draw_participants (trip_id, user_id);
 
 -- Service-only hemmelighet. Aldri eksponert i Data API.
