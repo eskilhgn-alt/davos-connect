@@ -33,6 +33,7 @@ const FaktasjekkerScreen = React.lazy(() => import("./pages/FaktasjekkerScreen")
 const StoriesScreen = React.lazy(() => import("./pages/StoriesScreen"));
 const PollScreen = React.lazy(() => import("./pages/PollScreen"));
 const RoundsScreen = React.lazy(() => import("./pages/RoundsScreen"));
+const ShotScreen = React.lazy(() => import("./pages/ShotScreen"));
 const SettingsScreen = React.lazy(() => import("./pages/SettingsScreen"));
 const WebcamsScreen = React.lazy(() => import("./pages/WebcamsScreen"));
 const AuthScreen = React.lazy(() => import("./pages/AuthScreen"));
@@ -174,8 +175,9 @@ const AppRoutes = () => (
       <Route path="/historier" element={<StoriesScreen />} />
       <Route path="/poll" element={<PollScreen />} />
       <Route path="/runder" element={<RoundsScreen />} />
+      <Route path="/shot" element={<ShotScreen />} />
       <Route path="/alle" element={<GroupScreen />} />
-      {/* Fjernet permanent: /shot /tokens /casino /skred /forhold /live /webcams-redirect
+      {/* Fjernet permanent: /tokens /casino /skred /forhold /live /webcams-redirect
           /roomies /regler /nodinfo /magnus — se prosjektkontrakt. Ukjente ruter går til NotFound. */}
 
 

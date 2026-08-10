@@ -22,6 +22,7 @@ import {
   Beer,
   Sparkles,
   AlertTriangle,
+  Dices,
   LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,7 @@ const MoreScreen: React.FC = () => {
 
     const funAndGames: Tile[] = [
       { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
+      { to: "/shot", label: "Shot", icon: Dices },
     ];
 
     const settingsTiles: Tile[] = [
