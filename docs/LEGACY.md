@@ -58,3 +58,29 @@ fjernet fra `src/lib/mcp/`. Beholdt: `get_my_profile`,
 ga nye brukere tokens/frikort og kunne tildele admin fra en hardkodet e-post.
 Nyregistrering oppretter nå kun profil og standardrolle. Tilgang godkjennes
 eksplisitt av en eksisterende admin.
+
+## Avlåst legacy vs. ny Shot-trekning (2026-08-10)
+
+Følgende produksjonsobjekter er **avlåst** og skal aldri gjenbrukes, migreres
+eller slettes: `shot_events`, `shot_event_log`, `shot_tokens`, `token_ledger`,
+`points_ledger`, `user_points`, `user_streaks`, `user_frikort`, `ski_*` og alle
+gamle `rpc_*shot/token/points/ski`-funksjoner. De har ingen klientflate og
+ingen Data API-tilgang for `anon`/`authenticated`.
+
+Ny Shot-trekning bruker et helt separat, rent skjema og deler ingenting med
+legacy:
+
+- `supabase/migrations-pending/20260810_shot_draws.sql` (CODE ONLY, ikke kjørt)
+  — `shot_draws`, `shot_draw_participants`, service-only `shot_draw_secrets`,
+  RPC-ene `rpc_shot_start`, `rpc_shot_finalize`, `rpc_shot_get_draw`,
+  `rpc_shot_current`, `rpc_shot_stats`, `rpc_shot_due_draws` og
+  `shot_draw_pick_position`.
+- `supabase/functions/shot-draw/index.ts` (CODE ONLY, ikke deployet) — start,
+  finalisering, reparasjon og OneSignal-push med dedupe-nøklene
+  `shot:<draw_id>:start` og `shot:<draw_id>:result`.
+- Klient: `src/pages/ShotScreen.tsx`, `src/hooks/useShotDraw.ts`,
+  `src/features/shot/*`. Ingen tokens, poeng, premier, rangering eller straff.
+
+Trekningen er commit–reveal-basert: seed genereres server-side med pgcrypto,
+bindes til draw-id og deltaker-hash før nedtelling, og avsløres først ved
+finalisering. Vinner velges med SHA-256 rejection sampling (`sha256-rejection-v1`).
