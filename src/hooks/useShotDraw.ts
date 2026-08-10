@@ -28,9 +28,10 @@ const rpc: Rpc = (name, args) =>
 
 /** Kun idempotensnøkkel – ikke bruk til utfall. Trekningen skjer server-side. */
 function newIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  const c = globalThis.crypto;
+  if (c && "randomUUID" in c) return c.randomUUID();
   const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
+  c.getRandomValues(bytes);
   return `shot-${Date.now()}-${Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("")}`;
