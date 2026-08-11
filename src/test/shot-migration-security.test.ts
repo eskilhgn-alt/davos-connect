@@ -144,7 +144,8 @@ describe("edge function shot-draw", () => {
     expect(edge).not.toMatch(/notification_dispatches"\)\s*\.delete\(/);
     expect(edge).not.toMatch(/\.delete\(\)/);
     expect(edge).toContain("markDispatchFailed");
-    expect(edge).toContain("attempts");
+    expect(edge).toContain('return "retry"');
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS attempts");
   });
 
   it("har bakgrunnsvei (sweep) med service-role og delt hemmelighet", () => {
