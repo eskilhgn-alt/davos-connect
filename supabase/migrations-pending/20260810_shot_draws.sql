@@ -88,15 +88,28 @@ ALTER TABLE public.shot_draws ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shot_draw_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shot_draw_secrets ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "shot_draws_select_members" ON public.shot_draws;
-CREATE POLICY "shot_draws_select_members"
-  ON public.shot_draws FOR SELECT TO authenticated
-  USING (public.is_approved_trip_member(trip_id, auth.uid()));
-
-DROP POLICY IF EXISTS "shot_draw_participants_select_members" ON public.shot_draw_participants;
-CREATE POLICY "shot_draw_participants_select_members"
-  ON public.shot_draw_participants FOR SELECT TO authenticated
-  USING (public.is_approved_trip_member(trip_id, auth.uid()));
+-- Idempotent policy-oppsett uten DROP (historikk og eksisterende policyer bevares).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = 'shot_draws'
+       AND policyname = 'shot_draws_select_members'
+  ) THEN
+    EXECUTE $p$CREATE POLICY "shot_draws_select_members"
+      ON public.shot_draws FOR SELECT TO authenticated
+      USING (public.is_approved_trip_member(trip_id, auth.uid()))$p$;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = 'shot_draw_participants'
+       AND policyname = 'shot_draw_participants_select_members'
+  ) THEN
+    EXECUTE $p$CREATE POLICY "shot_draw_participants_select_members"
+      ON public.shot_draw_participants FOR SELECT TO authenticated
+      USING (public.is_approved_trip_member(trip_id, auth.uid()))$p$;
+  END IF;
+END $$;
 
 -- shot_draw_secrets: RLS på, ingen policy => ingen tilgang utenom service_role.
 
@@ -238,26 +251,21 @@ GRANT EXECUTE ON FUNCTION public.rpc_shot_start(uuid, text) TO authenticated, se
 -- 5. Finalize-RPC — idempotent, serverklokke, kun én gang
 -- ---------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION public.rpc_shot_finalize(p_draw_id uuid)
+-- Intern kjerne: gjør selve finaliseringen. Ingen grants – kun definer-kall.
+CREATE OR REPLACE FUNCTION public.shot_draw_finalize_internal(p_draw_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_uid uuid := auth.uid();
   v_draw public.shot_draws;
   v_seed text;
   v_pick record;
   v_winner uuid;
 BEGIN
-  IF v_uid IS NULL THEN RAISE EXCEPTION 'unauthorized' USING ERRCODE = '42501'; END IF;
-
   SELECT * INTO v_draw FROM public.shot_draws WHERE id = p_draw_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'draw_not_found'; END IF;
-  IF NOT public.is_approved_trip_member(v_draw.trip_id, v_uid) THEN
-    RAISE EXCEPTION 'not_trip_member' USING ERRCODE = '42501';
-  END IF;
 
   IF v_draw.status = 'finalized' THEN
     RETURN public.rpc_shot_get_draw(v_draw.id);
@@ -287,8 +295,59 @@ BEGIN
   RETURN public.rpc_shot_get_draw(v_draw.id);
 END $$;
 
+REVOKE ALL ON FUNCTION public.shot_draw_finalize_internal(uuid) FROM PUBLIC, anon, authenticated;
+
+-- Brukerkall (via Edge med bruker-JWT): medlemskap håndheves.
+CREATE OR REPLACE FUNCTION public.rpc_shot_finalize(p_draw_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_trip uuid;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'unauthorized' USING ERRCODE = '42501'; END IF;
+  SELECT trip_id INTO v_trip FROM public.shot_draws WHERE id = p_draw_id;
+  IF v_trip IS NULL THEN RAISE EXCEPTION 'draw_not_found'; END IF;
+  IF NOT public.is_approved_trip_member(v_trip, v_uid) THEN
+    RAISE EXCEPTION 'not_trip_member' USING ERRCODE = '42501';
+  END IF;
+  RETURN public.shot_draw_finalize_internal(p_draw_id);
+END $$;
+
 REVOKE ALL ON FUNCTION public.rpc_shot_finalize(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_shot_finalize(uuid) TO authenticated, service_role;
+
+-- Bakgrunnsjobb (service_role/cron): ingen innlogget bruker, ingen klientdata.
+CREATE OR REPLACE FUNCTION public.rpc_shot_finalize_service(p_draw_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  RETURN public.shot_draw_finalize_internal(p_draw_id);
+END $$;
+
+REVOKE ALL ON FUNCTION public.rpc_shot_finalize_service(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_shot_finalize_service(uuid) TO service_role;
+
+-- Alle forfalte trekninger på tvers av turer – kun bakgrunnsjobben.
+CREATE OR REPLACE FUNCTION public.rpc_shot_due_draws_all()
+RETURNS SETOF uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT d.id FROM public.shot_draws d
+   WHERE d.status = 'countdown' AND d.draw_at <= now()
+$$;
+
+REVOKE ALL ON FUNCTION public.rpc_shot_due_draws_all() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_shot_due_draws_all() TO service_role;
 
 -- ---------------------------------------------------------------------------
 -- 6. Lese-RPC-er
@@ -443,5 +502,36 @@ BEGIN
      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'shot_draw_participants'
   ) THEN
     EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.shot_draw_participants';
+  END IF;
+END $$;
+
+
+-- ---------------------------------------------------------------------------
+-- 8. Ikke-destruktiv, retrybar dispatch-status (additivt på eksisterende tabell)
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE public.notification_dispatches
+  ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;
+
+CREATE OR REPLACE FUNCTION public.notification_dispatch_bump_attempt()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NEW.sent_at IS NULL AND NEW.claimed_at IS DISTINCT FROM OLD.claimed_at THEN
+    NEW.attempts := coalesce(OLD.attempts, 0) + 1;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'trg_notification_dispatch_attempt'
+  ) THEN
+    EXECUTE 'CREATE TRIGGER trg_notification_dispatch_attempt
+             BEFORE UPDATE ON public.notification_dispatches
+             FOR EACH ROW EXECUTE FUNCTION public.notification_dispatch_bump_attempt()';
   END IF;
 END $$;

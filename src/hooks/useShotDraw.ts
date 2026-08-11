@@ -11,6 +11,7 @@ import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTrip } from "@/contexts/TripContext";
 import { errorToast } from "@/utils/errorToast";
+import { shotApi } from "@/features/shot/api";
 import type { ShotDraw, ShotParticipant, ShotState, ShotStatRow } from "@/features/shot/types";
 import { isDue, remainingMs } from "@/features/shot/types";
 
@@ -25,17 +26,6 @@ type Rpc = (name: string, args: Record<string, unknown>) => Promise<{ data: any;
 
 const rpc: Rpc = (name, args) =>
   (supabase.rpc as unknown as Rpc)(name, args);
-
-/** Kun idempotensnøkkel – ikke bruk til utfall. Trekningen skjer server-side. */
-function newIdempotencyKey(): string {
-  const c = globalThis.crypto;
-  if (c && "randomUUID" in c) return c.randomUUID();
-  const bytes = new Uint8Array(16);
-  c.getRandomValues(bytes);
-  return `shot-${Date.now()}-${Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")}`;
-}
 
 export function useShotDraw() {
   const { selectedTripId, isArchive } = useTrip();
@@ -64,9 +54,18 @@ export function useShotDraw() {
       ]);
       if (gen !== generation.current) return; // tur byttet – forkast svaret
       if (current.error) throw current.error;
-      setSnapshot({ state: current.data as ShotState, receivedAt: Date.now() });
+      const state = current.data as ShotState;
+      setSnapshot({ state, receivedAt: Date.now() });
       setHistory((hist.data ?? []) as unknown as ShotDraw[]);
       setStats((st.data ?? []) as ShotStatRow[]);
+      // Forfalt trekning ved åpning/reconnect: serveren reparerer idempotent
+      // (og sender resultat-push) – klienten avgjør aldri utfallet selv.
+      if (state?.draw?.status === "countdown" && Date.parse(state.draw.draw_at) <= Date.parse(state.server_now)) {
+        const repaired = await shotApi.repair(tripId).catch(() => null);
+        if (repaired && gen === generation.current) {
+          setSnapshot({ state: repaired, receivedAt: Date.now() });
+        }
+      }
     },
     [],
   );
@@ -146,10 +145,9 @@ export function useShotDraw() {
     finalizing.current = draw.id;
     const gen = generation.current;
     try {
-      const { data, error } = await rpc("rpc_shot_finalize", { p_draw_id: draw.id });
-      if (error) throw error;
+      const state = await shotApi.finalize(draw.id);
       if (gen !== generation.current) return;
-      setSnapshot({ state: data as ShotState, receivedAt: Date.now() });
+      setSnapshot({ state, receivedAt: Date.now() });
       if (selectedTripId) await load(selectedTripId, gen);
     } catch (err) {
       console.warn("[shot] finalize failed", err);
@@ -180,17 +178,9 @@ export function useShotDraw() {
     setIsStarting(true);
     const gen = generation.current;
     try {
-      const { data, error } = await rpc("rpc_shot_start", {
-        p_trip_id: selectedTripId,
-        p_idempotency_key: newIdempotencyKey(),
-      });
-      if (error) throw error;
+      const state = await shotApi.start(selectedTripId);
       if (gen !== generation.current) return;
-      setSnapshot({ state: data as ShotState, receivedAt: Date.now() });
-      // Push til alle kvalifiserte skjer server-side.
-      void supabase.functions.invoke("shot-draw", {
-        body: { action: "state", trip_id: selectedTripId },
-      });
+      setSnapshot({ state, receivedAt: Date.now() });
     } catch (err) {
       errorToast(err instanceof Error ? err.message : "Kunne ikke starte trekning");
     } finally {

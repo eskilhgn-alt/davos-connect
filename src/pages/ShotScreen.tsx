@@ -208,21 +208,50 @@ const ShotScreen: React.FC = () => {
               <p className="mb-2 text-[11px] text-muted-foreground">
                 Kun visning. Statistikk påvirker aldri sjansene.
               </p>
-              <ul className="space-y-1">
-                {stats.map((s) => (
-                  <li
-                    key={s.user_id}
-                    className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs"
-                  >
-                    <span className={s.user_id === user?.id ? "font-semibold" : ""}>
-                      {names[s.user_id] ?? "…"}
-                    </span>
-                    <span className="font-mono text-muted-foreground">
-                      {s.times_drawn}/{s.times_in} · forventet{" "}
-                      {Number(s.expected_draws).toFixed(1)}
-                    </span>
-                  </li>
-                ))}
+              <ul className="space-y-2">
+                {stats.map((s) => {
+                  const timesIn = Number(s.times_in) || 0;
+                  const drawn = Number(s.times_drawn) || 0;
+                  const expected = Number(s.expected_draws) || 0;
+                  const actualShare = timesIn > 0 ? (drawn / timesIn) * 100 : 0;
+                  const expectedShare = timesIn > 0 ? (expected / timesIn) * 100 : 0;
+                  return (
+                    <li
+                      key={s.user_id}
+                      className="rounded-xl border border-border px-3 py-2 text-xs space-y-1"
+                    >
+                      <div className={s.user_id === user?.id ? "font-semibold" : ""}>
+                        {names[s.user_id] ?? "…"}
+                      </div>
+                      <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted-foreground">
+                        <div className="flex justify-between">
+                          <dt>Med</dt>
+                          <dd>{timesIn}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt>Trukket</dt>
+                          <dd>{drawn}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt>Faktisk andel</dt>
+                          <dd>{actualShare.toFixed(1)} %</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt>Forventet andel</dt>
+                          <dd>{expectedShare.toFixed(1)} %</dd>
+                        </div>
+                        <div className="col-span-2 flex justify-between">
+                          <dt>Sist trukket</dt>
+                          <dd>
+                            {s.last_drawn_at
+                              ? new Date(s.last_drawn_at).toLocaleDateString("nb-NO")
+                              : "—"}
+                          </dd>
+                        </div>
+                      </dl>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}

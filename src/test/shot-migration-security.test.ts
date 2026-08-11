@@ -14,6 +14,7 @@ const sql = sqlRaw
   .filter((l) => !l.trim().startsWith("--"))
   .join("\n");
 const edge = readFileSync("supabase/functions/shot-draw/index.ts", "utf8");
+const edgeCore = readFileSync("supabase/functions/shot-draw/core.ts", "utf8");
 
 describe("pending migrasjon – sikkerhet", () => {
   it("inneholder ingen DROP/DELETE/TRUNCATE av data", () => {
@@ -21,6 +22,8 @@ describe("pending migrasjon – sikkerhet", () => {
     expect(sql).not.toMatch(/\bDELETE\s+FROM\b/i);
     expect(sql).not.toMatch(/\bDROP\s+TABLE\b/i);
     expect(sql).not.toMatch(/\bDROP\s+FUNCTION\b/i);
+    expect(sql).not.toMatch(/\bDROP\s+POLICY\b/i);
+    expect(sql).not.toMatch(/\bDROP\b/i);
   });
 
   it("gjenbruker ikke legacy gamification-objekter", () => {
@@ -109,6 +112,13 @@ describe("pending migrasjon – sikkerhet", () => {
     expect(sql).toContain("gen_random_bytes(32)");
   });
 
+  it("har service-role bakgrunnsfinalisering uten klientkontekst", () => {
+    expect(sql).toContain("rpc_shot_finalize_service");
+    expect(sql).toContain("rpc_shot_due_draws_all");
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.rpc_shot_finalize_service\(uuid\) TO service_role/);
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.rpc_shot_due_draws_all\(\) FROM PUBLIC, anon, authenticated/);
+  });
+
   it("avslører seed først ved finalisering", () => {
     expect(sql).toMatch(/SET status = 'finalized'[\s\S]*seed_reveal = v_seed/);
   });
@@ -126,8 +136,29 @@ describe("edge function shot-draw", () => {
   });
 
   it("bruker dedupe keys for start og resultat", () => {
-    expect(edge).toContain("shot:${state.draw.id}:start");
-    expect(edge).toContain("shot:${draw.id}:result");
+    expect(edgeCore).toContain("shot:${state.draw.id}:start");
+    expect(edgeCore).toContain("shot:${draw.id}:result");
+  });
+
+  it("sletter aldri dispatch-rader ved feil (ikke-destruktiv retry)", () => {
+    expect(edge).not.toMatch(/notification_dispatches"\)\s*\.delete\(/);
+    expect(edge).not.toMatch(/\.delete\(\)/);
+    expect(edge).toContain("markDispatchFailed");
+    expect(edge).toContain('return "retry"');
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS attempts");
+  });
+
+  it("har bakgrunnsvei (sweep) med service-role og delt hemmelighet", () => {
+    expect(edgeCore).toContain('action === "sweep"');
+    expect(edgeCore).toContain("rpc_shot_due_draws_all");
+    expect(edgeCore).toContain("rpc_shot_finalize_service");
+    expect(edge).toContain("SHOT_SWEEP_SECRET");
+  });
+
+  it("pushmottakere har samme kvalifisering som snapshot (inkl. is_banned)", () => {
+    expect(edge).toContain('"profiles.membership_status", "approved"');
+    expect(edge).toContain('"profiles.is_active", true');
+    expect(edge).toContain('"profiles.is_banned", false');
   });
 
   it("returnerer server_now og utleder mottakere server-side", () => {
