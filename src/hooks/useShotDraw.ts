@@ -54,9 +54,18 @@ export function useShotDraw() {
       ]);
       if (gen !== generation.current) return; // tur byttet – forkast svaret
       if (current.error) throw current.error;
-      setSnapshot({ state: current.data as ShotState, receivedAt: Date.now() });
+      const state = current.data as ShotState;
+      setSnapshot({ state, receivedAt: Date.now() });
       setHistory((hist.data ?? []) as unknown as ShotDraw[]);
       setStats((st.data ?? []) as ShotStatRow[]);
+      // Forfalt trekning ved åpning/reconnect: serveren reparerer idempotent
+      // (og sender resultat-push) – klienten avgjør aldri utfallet selv.
+      if (state?.draw?.status === "countdown" && Date.parse(state.draw.draw_at) <= Date.parse(state.server_now)) {
+        const repaired = await shotApi.repair(tripId).catch(() => null);
+        if (repaired && gen === generation.current) {
+          setSnapshot({ state: repaired, receivedAt: Date.now() });
+        }
+      }
     },
     [],
   );
