@@ -508,30 +508,179 @@ END $$;
 
 -- ---------------------------------------------------------------------------
 -- 8. Ikke-destruktiv, retrybar dispatch-status (additivt på eksisterende tabell)
+-- Utvider eksisterende tabell additivt. Ingen DROP/DELETE/TRUNCATE.
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE public.notification_dispatches
-  ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS recipient_count integer,
+  ADD COLUMN IF NOT EXISTS lease_owner text,
+  ADD COLUMN IF NOT EXISTS lease_token uuid,
+  ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz,
+  ADD COLUMN IF NOT EXISTS provider_idempotency_key uuid NOT NULL DEFAULT gen_random_uuid();
 
-CREATE OR REPLACE FUNCTION public.notification_dispatch_bump_attempt()
-RETURNS trigger
+REVOKE ALL ON public.notification_dispatches FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.notification_dispatches TO service_role;
+
+-- claim: atomisk INSERT ... ON CONFLICT DO UPDATE med compare-and-swap.
+--   claimed      = raden var ny, vi eier leasen
+--   retry        = raden fantes, ingen aktiv lease (eller stale) – vi overtar
+--   busy         = en annen worker har aktiv lease
+--   already_sent = sendt før; ingen ny sending
+-- attempts øker nøyaktig ved vunnet claim.
+CREATE OR REPLACE FUNCTION public.rpc_notification_dispatch_claim(
+  p_dedupe_key text,
+  p_kind text,
+  p_source_id uuid,
+  p_event_type text,
+  p_lease_owner text DEFAULT NULL,
+  p_lease_seconds integer DEFAULT 60
+)
+RETURNS TABLE (
+  status text,
+  lease_token uuid,
+  provider_idempotency_key uuid,
+  attempts integer
+)
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
+DECLARE
+  v_owner text := coalesce(p_lease_owner, gen_random_uuid()::text);
+  v_token uuid := gen_random_uuid();
+  v_row public.notification_dispatches;
 BEGIN
-  IF NEW.sent_at IS NULL AND NEW.claimed_at IS DISTINCT FROM OLD.claimed_at THEN
-    NEW.attempts := coalesce(OLD.attempts, 0) + 1;
+  IF p_dedupe_key IS NULL OR length(btrim(p_dedupe_key)) = 0 THEN
+    RAISE EXCEPTION 'dedupe_key_required';
   END IF;
-  RETURN NEW;
+
+  INSERT INTO public.notification_dispatches AS nd (
+    dedupe_key, kind, source_id, event_type, claimed_at,
+    attempts, lease_owner, lease_token, lease_expires_at
+  ) VALUES (
+    p_dedupe_key, p_kind, p_source_id, p_event_type, now(),
+    1, v_owner, v_token, now() + make_interval(secs => greatest(p_lease_seconds, 5))
+  )
+  ON CONFLICT (dedupe_key) DO UPDATE
+     SET claimed_at       = now(),
+         attempts         = nd.attempts + 1,
+         lease_owner      = v_owner,
+         lease_token      = v_token,
+         lease_expires_at = now() + make_interval(secs => greatest(p_lease_seconds, 5))
+   WHERE nd.sent_at IS NULL
+     AND (nd.lease_expires_at IS NULL OR nd.lease_expires_at <= now())
+  RETURNING nd.* INTO v_row;
+
+  IF FOUND THEN
+    RETURN QUERY SELECT
+      CASE WHEN v_row.attempts <= 1 THEN 'claimed' ELSE 'retry' END,
+      v_row.lease_token, v_row.provider_idempotency_key, v_row.attempts;
+    RETURN;
+  END IF;
+
+  -- CAS tapte: enten allerede sendt, eller aktiv lease hos annen worker.
+  SELECT * INTO v_row FROM public.notification_dispatches WHERE dedupe_key = p_dedupe_key;
+  IF v_row.sent_at IS NOT NULL THEN
+    RETURN QUERY SELECT 'already_sent', NULL::uuid, v_row.provider_idempotency_key, v_row.attempts;
+  ELSE
+    RETURN QUERY SELECT 'busy', NULL::uuid, v_row.provider_idempotency_key, v_row.attempts;
+  END IF;
 END $$;
 
-DO $$
+REVOKE ALL ON FUNCTION public.rpc_notification_dispatch_claim(text, text, uuid, text, text, integer)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_notification_dispatch_claim(text, text, uuid, text, text, integer)
+  TO service_role;
+
+-- mark_sent: kun med gyldig lease-token og kun så lenge sent_at IS NULL.
+CREATE OR REPLACE FUNCTION public.rpc_notification_dispatch_mark_sent(
+  p_dedupe_key text, p_lease_token uuid, p_recipient_count integer DEFAULT NULL
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE v_ok integer;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_trigger WHERE tgname = 'trg_notification_dispatch_attempt'
-  ) THEN
-    EXECUTE 'CREATE TRIGGER trg_notification_dispatch_attempt
-             BEFORE UPDATE ON public.notification_dispatches
-             FOR EACH ROW EXECUTE FUNCTION public.notification_dispatch_bump_attempt()';
-  END IF;
+  UPDATE public.notification_dispatches
+     SET sent_at          = now(),
+         recipient_count  = coalesce(p_recipient_count, recipient_count),
+         last_error       = NULL,
+         lease_token      = NULL,
+         lease_owner      = NULL,
+         lease_expires_at = NULL
+   WHERE dedupe_key = p_dedupe_key
+     AND sent_at IS NULL
+     AND lease_token IS NOT DISTINCT FROM p_lease_token;
+  GET DIAGNOSTICS v_ok = ROW_COUNT;
+  RETURN v_ok = 1;
+END $$;
+
+REVOKE ALL ON FUNCTION public.rpc_notification_dispatch_mark_sent(text, uuid, integer)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_notification_dispatch_mark_sent(text, uuid, integer)
+  TO service_role;
+
+-- mark_failed: lagrer feil, frigir leasen, beholder raden (retrybar). Ingen DELETE.
+CREATE OR REPLACE FUNCTION public.rpc_notification_dispatch_mark_failed(
+  p_dedupe_key text, p_lease_token uuid, p_error text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE v_ok integer;
+BEGIN
+  UPDATE public.notification_dispatches
+     SET last_error       = left(coalesce(p_error, 'unknown'), 500),
+         lease_token      = NULL,
+         lease_owner      = NULL,
+         lease_expires_at = NULL
+   WHERE dedupe_key = p_dedupe_key
+     AND sent_at IS NULL
+     AND lease_token IS NOT DISTINCT FROM p_lease_token;
+  GET DIAGNOSTICS v_ok = ROW_COUNT;
+  RETURN v_ok = 1;
+END $$;
+
+REVOKE ALL ON FUNCTION public.rpc_notification_dispatch_mark_failed(text, uuid, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.rpc_notification_dispatch_mark_failed(text, uuid, text)
+  TO service_role;
+
+
+-- ---------------------------------------------------------------------------
+-- 9. Lås legacy gamification ikke-destruktivt (ingen DROP/DELETE/TRUNCATE).
+--    Historikken bevares uendret; kun Data API-/RPC-tilgang trekkes tilbake.
+-- ---------------------------------------------------------------------------
+
+DO $$
+DECLARE t text; f record;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['shot_events', 'shot_event_log', 'shot_tokens'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = t) THEN
+      EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC, anon, authenticated', t);
+      EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
+    END IF;
+  END LOOP;
+
+  FOR f IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND (p.proname LIKE 'rpc_%shot%' OR p.proname LIKE '%shot_token%'
+            OR p.proname IN ('rpc_start_shot_round', 'rpc_start_shot_simple',
+                             'rpc_confirm_shot', 'rpc_finalize_countdown',
+                             'rpc_checker_verdict', 'rpc_apply_overdue',
+                             'rpc_apply_punishment_ban', 'rpc_use_frikort',
+                             'rpc_check_shot_ban'))
+       AND p.proname NOT LIKE 'rpc_shot\_%'
+       AND p.proname NOT LIKE 'shot_draw%'
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated', f.sig);
+  END LOOP;
 END $$;
