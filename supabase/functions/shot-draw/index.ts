@@ -11,9 +11,12 @@
  *   POST { action: "state",    trip_id }                    (bruker-JWT)
  *   POST { action: "sweep" }   + header x-shot-sweep-secret (bakgrunnsjobb)
  * Svar inkluderer alltid `server_now` for klokkeskew på klienten.
+ *
+ * verify_jwt = false i config fordi sweep autentiseres med konstant-tids
+ * hemmelighetssjekk. Alle andre actions krever gyldig bruker-JWT her i koden.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { handleShot, type ClaimResult, type ShotDeps } from "./core.ts";
+import { handleShot, type ClaimOutcome, type ShotDeps } from "./core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,12 +25,32 @@ const corsHeaders = {
 };
 
 const APP_URL = Deno.env.get("APP_URL") || "https://guttahutte.lovable.app";
+/** Bakgrunnsventing er begrenset, slik at Edge-invokasjonen ikke henger. */
+const MAX_BACKGROUND_WAIT_MS = 120_000;
 
 function respond(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+/** Konstant-tids sammenligning for delt hemmelighet. */
+function safeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const x = enc.encode(a);
+  const y = enc.encode(b);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+function runInBackground(work: () => Promise<void>) {
+  const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } })
+    .EdgeRuntime;
+  const promise = work().catch((err) => console.error("shot-draw background", err));
+  if (runtime?.waitUntil) runtime.waitUntil(promise);
 }
 
 Deno.serve(async (req) => {
@@ -42,10 +65,9 @@ Deno.serve(async (req) => {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
     const sweepSecret = Deno.env.get("SHOT_SWEEP_SECRET");
+    const providedSecret = req.headers.get("x-shot-sweep-secret") ?? "";
     const isService =
-      body.action === "sweep" &&
-      !!sweepSecret &&
-      req.headers.get("x-shot-sweep-secret") === sweepSecret;
+      body.action === "sweep" && !!sweepSecret && safeEqual(providedSecret, sweepSecret);
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const admin = createClient(url, service, {
@@ -54,6 +76,7 @@ Deno.serve(async (req) => {
 
     let caller = admin;
     if (!isService) {
+      if (body.action === "sweep") return respond({ error: "unauthorized" }, 401);
       if (!authHeader.startsWith("Bearer ")) return respond({ error: "unauthorized" }, 401);
       caller = createClient(url, anon, {
         global: { headers: { Authorization: authHeader } },
@@ -61,8 +84,6 @@ Deno.serve(async (req) => {
       });
       const { data: userData, error: userErr } = await caller.auth.getUser();
       if (userErr || !userData.user) return respond({ error: "unauthorized" }, 401);
-    } else if (body.action === "sweep" && !sweepSecret) {
-      return respond({ error: "unauthorized" }, 401);
     }
 
     const deps: ShotDeps = {
@@ -79,23 +100,24 @@ Deno.serve(async (req) => {
         return data;
       },
 
-      /** Nøyaktig samme kvalifiseringsregel som trekningens snapshot. */
-      eligibleRecipients: async (tripId) => {
-        const { data: members } = await admin
-          .from("trip_members")
-          .select("user_id, profiles!inner(id, membership_status, is_active, is_banned)")
-          .eq("trip_id", tripId)
-          .eq("profiles.membership_status", "approved")
-          .eq("profiles.is_active", true)
-          .eq("profiles.is_banned", false);
-        const ids = new Set((members ?? []).map((m: { user_id: string }) => m.user_id));
-        if (ids.size === 0) return [];
+      /**
+       * Mottakere = trekningens frosne snapshot. Medlemsendringer etter start
+       * påvirker aldri settet. Kun leverbare pushaliaser tas med.
+       */
+      snapshotRecipients: async (drawId) => {
+        const { data: snap } = await admin
+          .from("shot_draw_participants")
+          .select("user_id")
+          .eq("draw_id", drawId);
+        const ids = Array.from(new Set((snap ?? []).map((r: { user_id: string }) => r.user_id)));
+        if (ids.length === 0) return [];
         const { data: tokens } = await admin
           .from("push_tokens")
           .select("user_id")
-          .in("user_id", Array.from(ids))
+          .in("user_id", ids)
           .not("player_id", "is", null);
-        return Array.from(new Set((tokens ?? []).map((t: { user_id: string }) => t.user_id)));
+        const deliverable = new Set((tokens ?? []).map((t: { user_id: string }) => t.user_id));
+        return ids.filter((id) => deliverable.has(id));
       },
 
       displayName: async (userId) => {
@@ -107,65 +129,92 @@ Deno.serve(async (req) => {
         return data?.nickname || data?.full_name || "Noen";
       },
 
-      claimDispatch: async (dedupeKey, meta): Promise<ClaimResult> => {
-        const { error } = await admin.from("notification_dispatches").insert({
-          dedupe_key: dedupeKey,
-          kind: meta.kind,
-          source_id: meta.sourceId,
-          event_type: meta.eventType,
+      /** Atomisk CAS + lease i DB. Aldri DELETE. */
+      claimDispatch: async (dedupeKey, meta): Promise<ClaimOutcome> => {
+        const { data, error } = await admin.rpc("rpc_notification_dispatch_claim", {
+          p_dedupe_key: dedupeKey,
+          p_kind: meta.kind,
+          p_source_id: meta.sourceId,
+          p_event_type: meta.eventType,
         });
-        if (!error) return "claimed";
-        if (error.code !== "23505") throw error;
-
-        const { data: existing } = await admin
-          .from("notification_dispatches")
-          .select("sent_at")
-          .eq("dedupe_key", dedupeKey)
-          .maybeSingle();
-        if (existing?.sent_at) return "already_sent";
-        // Ikke-destruktiv retry: behold raden, tell forsøk.
-        await admin
-          .from("notification_dispatches")
-          .update({ claimed_at: new Date().toISOString() })
-          .eq("dedupe_key", dedupeKey)
-          .is("sent_at", null);
-        return "retry";
+        if (error) throw new Error(error.message);
+        const row = data as {
+          status: ClaimOutcome["status"];
+          lease_token: string | null;
+          provider_idempotency_key: string | null;
+          attempts: number | null;
+        };
+        return {
+          status: row.status,
+          leaseToken: row.lease_token,
+          providerIdempotencyKey: row.provider_idempotency_key,
+          attempts: row.attempts ?? 0,
+        };
       },
 
-      markDispatchSent: async (dedupeKey) => {
-        await admin
-          .from("notification_dispatches")
-          .update({ sent_at: new Date().toISOString(), last_error: null })
-          .eq("dedupe_key", dedupeKey);
+      markDispatchSent: async (dedupeKey, leaseToken, recipientCount) => {
+        const { data, error } = await admin.rpc("rpc_notification_dispatch_mark_sent", {
+          p_dedupe_key: dedupeKey,
+          p_lease_token: leaseToken,
+          p_recipient_count: recipientCount,
+        });
+        if (error) throw new Error(error.message);
+        return data === true;
       },
 
-      markDispatchFailed: async (dedupeKey, message) => {
-        await admin
-          .from("notification_dispatches")
-          .update({ last_error: message })
-          .eq("dedupe_key", dedupeKey);
+      markDispatchFailed: async (dedupeKey, leaseToken, message) => {
+        const { error } = await admin.rpc("rpc_notification_dispatch_mark_failed", {
+          p_dedupe_key: dedupeKey,
+          p_lease_token: leaseToken,
+          p_error: message,
+        });
+        if (error) console.error("mark_failed", error.message);
       },
 
-      sendPush: async ({ dedupeKey, tripId, drawId, heading, content, recipients }) => {
+      sendPush: async ({
+        providerIdempotencyKey,
+        tripId,
+        drawId,
+        heading,
+        content,
+        recipients,
+      }) => {
         const appId = Deno.env.get("ONESIGNAL_APP_ID");
         const restKey = Deno.env.get("ONESIGNAL_REST_API_KEY");
         if (!appId || !restKey) return false;
         const res = await fetch("https://api.onesignal.com/notifications", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Key ${restKey}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Key ${restKey}`,
+            // Stabil på tvers av retries: provider dedupliserer selv om
+            // mark_sent feilet etter at pushen ble akseptert.
+            "Idempotency-Key": providerIdempotencyKey,
+          },
           body: JSON.stringify({
             app_id: appId,
+            idempotency_key: providerIdempotencyKey,
+            external_id: providerIdempotencyKey,
             include_aliases: { external_id: recipients },
             target_channel: "push",
             headings: { en: heading },
             contents: { en: content },
             url: `${APP_URL}/shot?draw=${encodeURIComponent(drawId)}`,
             data: { kind: "shot", draw_id: drawId, trip_id: tripId },
-            collapse_id: dedupeKey,
+            collapse_id: providerIdempotencyKey,
           }),
         });
         return res.ok;
       },
+
+      background: runInBackground,
+
+      sleepUntil: async (iso) => {
+        const ms = Math.min(Math.max(Date.parse(iso) - Date.now(), 0), MAX_BACKGROUND_WAIT_MS);
+        if (ms > 0) await new Promise((r) => setTimeout(r, ms));
+      },
+
+      logError: (scope, err) => console.error(`shot-draw ${scope}`, err),
     };
 
     const result = await handleShot(body, deps, { isService });
