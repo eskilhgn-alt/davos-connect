@@ -4,6 +4,13 @@
  * Ingen Deno- eller Supabase-import her, slik at atferden kan testes direkte.
  * All autorisasjon og all trekning skjer server-side i RPC-ene; denne filen
  * orkestrerer kun kallene og den dedupliserte pushen.
+ *
+ * Viktige invarianter:
+ *  - Mottakere hentes ALLTID fra trekningens snapshot (shot_draw_participants),
+ *    aldri fra medlemslisten på sendetidspunktet.
+ *  - Dispatch-claim er atomisk i DB med lease: kun én worker sender.
+ *  - Provider kalles med en stabil provider_idempotency_key, slik at en retry
+ *    etter «provider ok, mark_sent feilet» ikke gir dobbel varsling.
  */
 
 export interface ShotDrawRow {
@@ -23,10 +30,20 @@ export interface ShotStateResponse {
   participants: { user_id: string; position: number }[];
 }
 
-export type ClaimResult = "claimed" | "already_sent" | "retry";
+export type ClaimStatus = "claimed" | "already_sent" | "busy" | "retry";
+
+export interface ClaimOutcome {
+  status: ClaimStatus;
+  /** Lease-token som må presenteres ved mark_sent / mark_failed. */
+  leaseToken?: string | null;
+  /** Stabil nøkkel mot pushprovider – uendret på tvers av retries. */
+  providerIdempotencyKey?: string | null;
+  attempts?: number;
+}
 
 export interface PushRequest {
   dedupeKey: string;
+  providerIdempotencyKey: string;
   tripId: string;
   drawId: string;
   heading: string;
@@ -37,21 +54,31 @@ export interface PushRequest {
 export interface ShotDeps {
   /** RPC med innlogget brukers auth.uid() (RLS/medlemskap håndheves i DB). */
   callerRpc(name: string, args: Record<string, unknown>): Promise<unknown>;
-  /** RPC med service_role – kun for bakgrunnsjobben (sweep). */
+  /** RPC med service_role – kun for bakgrunnsjobben (sweep/waitUntil). */
   serviceRpc(name: string, args: Record<string, unknown>): Promise<unknown>;
-  /** Kvalifiserte mottakere: nøyaktig samme sett som trekningens snapshot. */
-  eligibleRecipients(tripId: string): Promise<string[]>;
+  /** Mottakere = trekningens frosne snapshot, filtrert på leverbare pushaliaser. */
+  snapshotRecipients(drawId: string): Promise<string[]>;
   displayName(userId: string): Promise<string>;
-  /** Atomisk, ikke-destruktiv claim i notification_dispatches. */
+  /** Atomisk claim i DB (CAS + lease). Aldri destruktiv. */
   claimDispatch(
     dedupeKey: string,
     meta: { kind: string; sourceId: string; eventType: string },
-  ): Promise<ClaimResult>;
-  markDispatchSent(dedupeKey: string, recipientCount: number): Promise<void>;
+  ): Promise<ClaimOutcome>;
+  /** Returnerer false hvis leasen er tapt – da skal ingenting markeres sendt. */
+  markDispatchSent(
+    dedupeKey: string,
+    leaseToken: string,
+    recipientCount: number,
+  ): Promise<boolean>;
   /** Registrerer feil uten å slette claim – raden forblir retrybar. */
-  markDispatchFailed(dedupeKey: string, error: string): Promise<void>;
+  markDispatchFailed(dedupeKey: string, leaseToken: string, error: string): Promise<void>;
   sendPush(req: PushRequest): Promise<boolean>;
   now(): string;
+  /** Kjør arbeid etter at svaret er sendt (EdgeRuntime.waitUntil). */
+  background?(work: () => Promise<void>): void;
+  /** Vent til gitt ISO-tidspunkt (serverklokke). */
+  sleepUntil?(iso: string): Promise<void>;
+  logError?(scope: string, err: unknown): void;
 }
 
 export interface ShotResult {
@@ -70,23 +97,37 @@ function json(body: Record<string, unknown>, status = 200): ShotResult {
 
 async function dispatchPush(
   deps: ShotDeps,
-  args: { dedupeKey: string; eventType: "start" | "result"; tripId: string; drawId: string; heading: string; content: string },
+  args: {
+    dedupeKey: string;
+    eventType: "start" | "result";
+    tripId: string;
+    drawId: string;
+    heading: string;
+    content: string;
+  },
 ): Promise<PushOutcome> {
   const claim = await deps.claimDispatch(args.dedupeKey, {
     kind: "shot",
     sourceId: args.drawId,
     eventType: args.eventType,
   });
-  if (claim === "already_sent") return { sent: 0, reason: "already_dispatched" };
+  if (claim.status === "already_sent") return { sent: 0, reason: "already_dispatched" };
+  if (claim.status === "busy") return { sent: 0, reason: "busy" };
 
-  const recipients = await deps.eligibleRecipients(args.tripId);
+  const leaseToken = claim.leaseToken ?? "";
+  const providerKey = claim.providerIdempotencyKey ?? args.dedupeKey;
+  if (!leaseToken) return { sent: 0, reason: "no_lease" };
+
+  // Frosset snapshot: medlemsendringer etter start endrer aldri mottakersettet.
+  const recipients = await deps.snapshotRecipients(args.drawId);
   if (recipients.length === 0) {
-    await deps.markDispatchFailed(args.dedupeKey, "no_recipients");
+    await deps.markDispatchFailed(args.dedupeKey, leaseToken, "no_recipients");
     return { sent: 0, reason: "no_recipients" };
   }
 
   const ok = await deps.sendPush({
     dedupeKey: args.dedupeKey,
+    providerIdempotencyKey: providerKey,
     tripId: args.tripId,
     drawId: args.drawId,
     heading: args.heading,
@@ -94,10 +135,15 @@ async function dispatchPush(
     recipients,
   });
   if (!ok) {
-    await deps.markDispatchFailed(args.dedupeKey, "push_provider_error");
+    await deps.markDispatchFailed(args.dedupeKey, leaseToken, "push_provider_error");
     return { sent: 0, reason: "push_provider_error" };
   }
-  await deps.markDispatchSent(args.dedupeKey, recipients.length);
+
+  const marked = await deps.markDispatchSent(args.dedupeKey, leaseToken, recipients.length);
+  if (!marked) {
+    // Leasen er tapt: en annen worker eier raden. Vi markerer ingenting.
+    return { sent: recipients.length, reason: "lease_lost" };
+  }
   return { sent: recipients.length };
 }
 
@@ -122,6 +168,23 @@ async function finalizeAndAnnounce(
     });
   }
   return state;
+}
+
+/**
+ * Serverbakgrunn: vent til draw_at (serverklokke) og finaliser uten klient.
+ * Feil logges, men skal aldri velte svaret som allerede er sendt.
+ */
+function scheduleServerFinalize(deps: ShotDeps, draw: ShotDrawRow): void {
+  if (!deps.background || !deps.sleepUntil) return;
+  const sleepUntil = deps.sleepUntil.bind(deps);
+  deps.background(async () => {
+    try {
+      await sleepUntil(draw.draw_at);
+      await finalizeAndAnnounce(deps, draw.id, "service");
+    } catch (err) {
+      deps.logError?.("shot_background_finalize", err);
+    }
+  });
 }
 
 /**
@@ -174,6 +237,7 @@ export async function handleShot(
         heading: "Shot-trekning",
         content: "Shot-trekning starter – 10 sekunder",
       });
+      scheduleServerFinalize(deps, state.draw);
     }
     return json(state as unknown as Record<string, unknown>);
   }

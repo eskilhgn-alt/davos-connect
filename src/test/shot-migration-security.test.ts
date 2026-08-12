@@ -26,11 +26,13 @@ describe("pending migrasjon – sikkerhet", () => {
     expect(sql).not.toMatch(/\bDROP\b/i);
   });
 
-  it("gjenbruker ikke legacy gamification-objekter", () => {
+  it("gjenbruker ikke legacy gamification-objekter (kun ikke-destruktiv lås)", () => {
+    // Legacy-navn får kun forekomme i REVOKE/GRANT-låsen, aldri som datakilde.
+    for (const legacy of ["shot_events", "shot_event_log", "shot_tokens"]) {
+      const uses = sql.split("\n").filter((l) => l.includes(legacy));
+      expect(uses.every((l) => /ARRAY\[|REVOKE|GRANT/.test(l))).toBe(true);
+    }
     for (const legacy of [
-      "shot_events",
-      "shot_event_log",
-      "shot_tokens",
       "token_ledger",
       "points_ledger",
       "user_points",
@@ -144,8 +146,34 @@ describe("edge function shot-draw", () => {
     expect(edge).not.toMatch(/notification_dispatches"\)\s*\.delete\(/);
     expect(edge).not.toMatch(/\.delete\(\)/);
     expect(edge).toContain("markDispatchFailed");
-    expect(edge).toContain('return "retry"');
     expect(sql).toContain("ADD COLUMN IF NOT EXISTS attempts");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS lease_token uuid");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS provider_idempotency_key uuid");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS recipient_count integer");
+  });
+
+  it("har atomisk claim/mark_sent/mark_failed som service-only RPC-er", () => {
+    expect(sql).toMatch(/INSERT INTO public\.notification_dispatches[\s\S]*ON CONFLICT \(dedupe_key\) DO UPDATE/);
+    expect(sql).toContain("WHERE nd.sent_at IS NULL");
+    expect(sql).toContain("nd.lease_expires_at <= now()");
+    expect(sql).toContain("'already_sent'");
+    expect(sql).toContain("'busy'");
+    for (const fn of [
+      "rpc_notification_dispatch_claim",
+      "rpc_notification_dispatch_mark_sent",
+      "rpc_notification_dispatch_mark_failed",
+    ]) {
+      expect(sql).toContain(fn);
+      expect(sql).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${fn}\\([^)]*\\)\\s*\\n?\\s*FROM PUBLIC, anon, authenticated`));
+    }
+    expect(sql).toContain("lease_token IS NOT DISTINCT FROM p_lease_token");
+  });
+
+  it("låser legacy shot-flater uten å slette historikk", () => {
+    expect(sql).toContain("REVOKE ALL ON public.%I FROM PUBLIC, anon, authenticated");
+    expect(sql).toMatch(/ARRAY\['shot_events', 'shot_event_log', 'shot_tokens'\]/);
+    expect(sql).toContain("REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated");
   });
 
   it("har bakgrunnsvei (sweep) med service-role og delt hemmelighet", () => {
@@ -155,16 +183,23 @@ describe("edge function shot-draw", () => {
     expect(edge).toContain("SHOT_SWEEP_SECRET");
   });
 
-  it("pushmottakere har samme kvalifisering som snapshot (inkl. is_banned)", () => {
-    expect(edge).toContain('"profiles.membership_status", "approved"');
-    expect(edge).toContain('"profiles.is_active", true');
-    expect(edge).toContain('"profiles.is_banned", false');
+  it("pushmottakere hentes fra trekningens frosne snapshot", () => {
+    expect(edgeCore).toContain("snapshotRecipients(args.drawId)");
+    expect(edge).toContain('.from("shot_draw_participants")');
+    expect(edge).toContain('.eq("draw_id", drawId)');
+    // Ingen medlemsoppslag på sendetidspunktet.
+    expect(edge).not.toContain('.from("trip_members")');
   });
 
-  it("returnerer server_now og utleder mottakere server-side", () => {
-    expect(edge).toContain("server_now");
-    expect(edge).toContain("trip_members");
+  it("utleder leverbare mottakere server-side", () => {
     expect(edge).toContain("push_tokens");
+    expect(edge).toContain("EdgeRuntime");
+  });
+
+  it("bruker stabil provider-idempotency-key mot pushprovider", () => {
+    expect(edge).toContain("Idempotency-Key");
+    expect(edge).toContain("providerIdempotencyKey");
+    expect(edgeCore).toContain("providerIdempotencyKey: providerKey");
   });
 
   it("holder OneSignal-hemmeligheter i Edge-env", () => {
