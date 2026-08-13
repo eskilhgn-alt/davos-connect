@@ -53,9 +53,10 @@ describe("Port 0 — pending migrasjon er additiv og ikke destruktiv", () => {
     expect(port0).not.toMatch(/2027-\d\d-\d\d/);
   });
   it("pinner tom search_path på alle SECURITY DEFINER-funksjoner", () => {
-    const defs = port0.match(/SECURITY DEFINER[\s\S]{0,80}?SET search_path = ''/g) ?? [];
-    const secdef = port0.match(/SECURITY DEFINER/g) ?? [];
-    expect(defs.length).toBe(secdef.length);
+    const secdef = port0.match(/^SECURITY DEFINER$/gm) ?? [];
+    const pinned = port0.match(/^SECURITY DEFINER\nSET search_path = ''$/gm) ?? [];
+    expect(secdef.length).toBeGreaterThan(8);
+    expect(pinned.length).toBe(secdef.length);
   });
   it("fjerner PUBLIC/anon EXECUTE og gir kun eksplisitte grants", () => {
     expect(port0).toMatch(/REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon/);
