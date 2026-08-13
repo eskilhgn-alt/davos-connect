@@ -268,35 +268,35 @@ REVOKE ALL ON FUNCTION public.active_trip_id() FROM PUBLIC, anon;
 -- ---------------------------------------------------------------------------
 
 DO $$
-DECLARE t text;
-DECLARE cmd text;
+DECLARE v_tbl text;
+DECLARE v_cmd text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY[
+  FOREACH v_tbl IN ARRAY ARRAY[
     'agenda_events','messages','gallery_items','gallery_comments',
     'stories','polls','rounds','debt_settlements'
   ] LOOP
-    IF to_regclass('public.' || t) IS NULL THEN CONTINUE; END IF;
+    IF to_regclass('public.' || v_tbl) IS NULL THEN CONTINUE; END IF;
     IF NOT EXISTS (
       SELECT 1 FROM information_schema.columns
-       WHERE table_schema = 'public' AND table_name = t AND column_name = 'trip_id'
+       WHERE table_schema = 'public' AND table_name = v_tbl AND column_name = 'trip_id'
     ) THEN CONTINUE; END IF;
 
-    FOREACH cmd IN ARRAY ARRAY['INSERT','UPDATE','DELETE'] LOOP
+    FOREACH v_cmd IN ARRAY ARRAY['INSERT','UPDATE','DELETE'] LOOP
       IF NOT EXISTS (
         SELECT 1 FROM pg_policies
-         WHERE schemaname = 'public' AND tablename = t
-           AND policyname = format('archive_readonly_%s', lower(cmd))
+         WHERE schemaname = 'public' AND tablename = v_tbl
+           AND policyname = format('archive_readonly_%s', lower(v_cmd))
       ) THEN
-        IF cmd = 'INSERT' THEN
+        IF v_cmd = 'INSERT' THEN
           EXECUTE format(
             'CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR INSERT TO authenticated '
             || 'WITH CHECK (trip_id IS NULL OR public.is_trip_writable(trip_id))',
-            format('archive_readonly_%s', lower(cmd)), t);
+            format('archive_readonly_%s', lower(v_cmd)), v_tbl);
         ELSE
           EXECUTE format(
             'CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR %s TO authenticated '
             || 'USING (trip_id IS NULL OR public.is_trip_writable(trip_id))',
-            format('archive_readonly_%s', lower(cmd)), t, cmd);
+            format('archive_readonly_%s', lower(v_cmd)), v_tbl, v_cmd);
         END IF;
       END IF;
     END LOOP;
@@ -309,23 +309,23 @@ END $$;
 -- ---------------------------------------------------------------------------
 
 DO $$
-DECLARE t text;
+DECLARE v_tbl text;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
     CREATE PUBLICATION supabase_realtime;
   END IF;
 
-  FOREACH t IN ARRAY ARRAY[
+  FOREACH v_tbl IN ARRAY ARRAY[
     'trips','messages','chat_reads','message_reactions','agenda_events',
     'polls','poll_votes','rounds','round_participants','stories','story_views',
     'gallery_items','gallery_likes','gallery_comments','user_locations'
   ] LOOP
-    IF to_regclass('public.' || t) IS NULL THEN CONTINUE; END IF;
+    IF to_regclass('public.' || v_tbl) IS NULL THEN CONTINUE; END IF;
     IF NOT EXISTS (
       SELECT 1 FROM pg_publication_tables
-       WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t
+       WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = v_tbl
     ) THEN
-      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', v_tbl);
     END IF;
   END LOOP;
 END $$;
