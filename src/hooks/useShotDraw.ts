@@ -14,6 +14,7 @@ import { errorToast } from "@/utils/errorToast";
 import { shotApi } from "@/features/shot/api";
 import type { ShotDraw, ShotParticipant, ShotState, ShotStatRow } from "@/features/shot/types";
 import { isDue, remainingMs } from "@/features/shot/types";
+import { isForSelectedTrip } from "@/features/trip/tripSync";
 
 interface Snapshot {
   state: ShotState;
@@ -55,6 +56,8 @@ export function useShotDraw() {
       if (gen !== generation.current) return; // tur byttet – forkast svaret
       if (current.error) throw current.error;
       const state = current.data as ShotState;
+      // Eksplisitt turkontekst: et sent svar for en annen tur forkastes.
+      if (!isForSelectedTrip(tripId, state?.draw?.trip_id ?? null)) return;
       setSnapshot({ state, receivedAt: Date.now() });
       setHistory((hist.data ?? []) as unknown as ShotDraw[]);
       setStats((st.data ?? []) as ShotStatRow[]);
@@ -106,7 +109,9 @@ export function useShotDraw() {
           table: "shot_draws",
           filter: `trip_id=eq.${selectedTripId}`,
         },
-        () => {
+        (payload) => {
+          const row = (payload.new ?? payload.old) as { trip_id?: string } | null;
+          if (!isForSelectedTrip(selectedTripId, row?.trip_id ?? null)) return;
           void refresh();
         },
       )

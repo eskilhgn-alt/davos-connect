@@ -167,7 +167,10 @@ describe("edge function shot-draw", () => {
       expect(sql).toContain(fn);
       expect(sql).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${fn}\\([^)]*\\)\\s*\\n?\\s*FROM PUBLIC, anon, authenticated`));
     }
-    expect(sql).toContain("lease_token IS NOT DISTINCT FROM p_lease_token");
+    // Port 0: lease-token må være eksplisitt ikke-null, ikke bare «ikke ulik».
+    expect(sql).not.toContain("lease_token IS NOT DISTINCT FROM p_lease_token");
+    expect(sql).toContain("AND p_lease_token IS NOT NULL");
+    expect(sql).toContain("AND lease_token = p_lease_token");
   });
 
   it("låser legacy shot-flater uten å slette historikk", () => {

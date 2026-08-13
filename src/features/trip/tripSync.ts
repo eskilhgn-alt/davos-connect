@@ -64,3 +64,20 @@ export function normalizeRpcTripRow(data: unknown): Trip | null {
   const t = row as Partial<Trip>;
   return t.id ? (row as Trip) : null;
 }
+
+/**
+ * Eksplisitt turkontekst-guard for asynkrone svar og realtime-nyttelaster.
+ *
+ * `selectedTripId` er den eneste klientkonteksten. Et svar aksepteres bare når
+ * det gjelder valgt tur; en nyttelast uten trip_id (f.eks. «ingen aktiv
+ * trekning») er nøytral og aksepteres så lenge en tur faktisk er valgt.
+ * Et sent svar for en annen tur skal alltid forkastes.
+ */
+export function isForSelectedTrip(
+  selectedTripId: string | null | undefined,
+  payloadTripId: string | null | undefined,
+): boolean {
+  if (!selectedTripId) return false;
+  if (payloadTripId === null || payloadTripId === undefined) return true;
+  return payloadTripId === selectedTripId;
+}

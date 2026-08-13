@@ -91,6 +91,24 @@ export interface PushOutcome {
   reason?: string;
 }
 
+/**
+ * OneSignal svarer HTTP 200 også når ingen varsel ble opprettet
+ * (typisk `errors: ["All included players are not subscribed"]`).
+ * Aksepter derfor kun 2xx MED en faktisk meldings-ID, slik at en
+ * ikke-levert push aldri markeres som sendt.
+ */
+export function isOneSignalAccepted(status: number, payload: unknown): boolean {
+  if (status < 200 || status >= 300) return false;
+  if (!payload || typeof payload !== "object") return false;
+  const body = payload as { id?: unknown; errors?: unknown };
+  const id = typeof body.id === "string" ? body.id.trim() : "";
+  if (!id) return false;
+  const errors = body.errors;
+  if (Array.isArray(errors) && errors.length > 0) return false;
+  if (errors && typeof errors === "object" && Object.keys(errors).length > 0) return false;
+  return true;
+}
+
 function json(body: Record<string, unknown>, status = 200): ShotResult {
   return { status, body };
 }
@@ -229,15 +247,21 @@ export async function handleShot(
       p_idempotency_key: key,
     })) as ShotStateResponse;
     if (state?.draw && state.draw.status === "countdown") {
-      await dispatchPush(deps, {
-        dedupeKey: `shot:${state.draw.id}:start`,
-        eventType: "start",
-        tripId: state.draw.trip_id,
-        drawId: state.draw.id,
-        heading: "Shot-trekning",
-        content: "Shot-trekning starter – 10 sekunder",
-      });
+      // Bakgrunnsfinalisering planlegges FØR og uavhengig av startpush:
+      // en feilende eller treg push skal aldri hindre at trekningen fullføres.
       scheduleServerFinalize(deps, state.draw);
+      try {
+        await dispatchPush(deps, {
+          dedupeKey: `shot:${state.draw.id}:start`,
+          eventType: "start",
+          tripId: state.draw.trip_id,
+          drawId: state.draw.id,
+          heading: "Shot-trekning",
+          content: "Shot-trekning starter – 10 sekunder",
+        });
+      } catch (err) {
+        deps.logError?.("shot_start_push", err);
+      }
     }
     return json(state as unknown as Record<string, unknown>);
   }
