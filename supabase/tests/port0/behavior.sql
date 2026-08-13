@@ -250,7 +250,10 @@ BEGIN
      AND p.proname IN ('is_trip_member','is_approved_member','is_approved_trip_member',
                        'is_trip_active','is_trip_writable','is_trip_admin','can_write_trip',
                        'can_read_trip','has_role','is_admin','trips_validate')
-     AND NOT ('search_path=' = ANY (coalesce(p.proconfig, ARRAY[]::text[])));
+     AND NOT EXISTS (
+       SELECT 1 FROM unnest(coalesce(p.proconfig, ARRAY[]::text[])) c
+        WHERE c IN ('search_path=', 'search_path=""')
+     );
   PERFORM public._assert(bad IS NULL, coalesce('mangler pinnet tom search_path: '||bad,
     'alle Port-0 SECURITY DEFINER har pinnet tom search_path'));
 END $$;
