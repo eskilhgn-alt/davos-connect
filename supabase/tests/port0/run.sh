@@ -37,7 +37,8 @@ echo "== policyer =="
 $PSQL -q -f "$HERE/policies.sql"
 
 echo "== atferdstester =="
-$PSQL -f "$HERE/behavior.sql" 2>&1 | grep -E "^(NOTICE|ERROR|FAIL)" || true
+$PSQL -q -f "$HERE/behavior.sql" 2>&1 | sed -E 's/^psql:[^ ]+ //' | grep -E "^(NOTICE|ERROR|FAIL)" | sed 's/^NOTICE:  //'
+# ON_ERROR_STOP + pipefail gjør at en feilet assert velter hele kjøringen.
 
 echo "== ingen destruktive setninger i pending Shot/Port0-migrasjoner =="
 ! grep -nEi '^[[:space:]]*(DROP|DELETE[[:space:]]+FROM|TRUNCATE)\b' \
