@@ -613,7 +613,8 @@ BEGIN
          lease_expires_at = NULL
    WHERE dedupe_key = p_dedupe_key
      AND sent_at IS NULL
-     AND lease_token IS NOT DISTINCT FROM p_lease_token;
+     AND p_lease_token IS NOT NULL
+     AND lease_token = p_lease_token;
   GET DIAGNOSTICS v_ok = ROW_COUNT;
   RETURN v_ok = 1;
 END $$;
@@ -641,7 +642,8 @@ BEGIN
          lease_expires_at = NULL
    WHERE dedupe_key = p_dedupe_key
      AND sent_at IS NULL
-     AND lease_token IS NOT DISTINCT FROM p_lease_token;
+     AND p_lease_token IS NOT NULL
+     AND lease_token = p_lease_token;
   GET DIAGNOSTICS v_ok = ROW_COUNT;
   RETURN v_ok = 1;
 END $$;

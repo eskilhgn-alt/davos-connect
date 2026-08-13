@@ -16,7 +16,12 @@
  * hemmelighetssjekk. Alle andre actions krever gyldig bruker-JWT her i koden.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { handleShot, type ClaimOutcome, type ShotDeps } from "./core.ts";
+import {
+  handleShot,
+  isOneSignalAccepted,
+  type ClaimOutcome,
+  type ShotDeps,
+} from "./core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -204,7 +209,11 @@ Deno.serve(async (req) => {
             collapse_id: providerIdempotencyKey,
           }),
         });
-        return res.ok;
+        // HTTP 200 alene er ikke bevis: OneSignal svarer 200 også når
+        // varselet ikke ble opprettet (f.eks. «All included players are
+        // not subscribed»). Krev en faktisk meldings-ID.
+        const payload = await res.json().catch(() => null);
+        return isOneSignalAccepted(res.status, payload);
       },
 
       background: runInBackground,

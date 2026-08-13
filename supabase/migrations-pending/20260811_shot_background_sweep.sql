@@ -23,17 +23,12 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- Idempotent upsert av jobben: samme jobbnavn, uten å slette brukerdata.
 DO $$
-DECLARE v_exists boolean;
+DECLARE
+  v_job_id bigint;
+  v_command text;
+  v_schedule text := '10 seconds';
 BEGIN
-  SELECT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'shot-draw-sweep') INTO v_exists;
-  IF v_exists THEN
-    PERFORM cron.unschedule('shot-draw-sweep');
-  END IF;
-
-  PERFORM cron.schedule(
-    'shot-draw-sweep',
-    '10 seconds',
-    $job$
+  v_command := $job$
     SELECT net.http_post(
       url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url')
              || '/functions/v1/shot-draw',
@@ -45,6 +40,20 @@ BEGIN
       body := '{"action":"sweep"}'::jsonb,
       timeout_milliseconds := 8000
     );
-    $job$
-  );
+    $job$;
+
+  SELECT jobid INTO v_job_id FROM cron.job WHERE jobname = 'shot-draw-sweep';
+
+  IF v_job_id IS NULL THEN
+    PERFORM cron.schedule('shot-draw-sweep', v_schedule, v_command);
+  ELSE
+    -- Idempotent oppdatering på plass: ingen unschedule/recreate, ingen
+    -- vindu der sweepen ikke er planlagt.
+    PERFORM cron.alter_job(
+      job_id   := v_job_id,
+      schedule := v_schedule,
+      command  := v_command,
+      active   := true
+    );
+  END IF;
 END $$;
