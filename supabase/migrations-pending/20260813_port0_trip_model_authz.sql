@@ -244,13 +244,19 @@ BEGIN
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', r.sig);
   END LOOP;
 
-  -- 4b. Privilegerte/admin-RPC-er: aldri PUBLIC/anon. Funksjonene validerer
-  --     fortsatt admin internt; grant er bare første lag.
+  -- 4b. Privilegerte AKTIVE tur-RPC-er. EKSPLISITT ALLOWLIST — aldri
+  --     wildcard på rpc_admin_%: legacy/gamification-RPC-er (tokens, shot,
+  --     ski, poeng) er allerede avlåst og skal FORBLI avlåst.
   FOR r IN
     SELECT p.oid::regprocedure AS sig
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
      WHERE n.nspname = 'public'
-       AND (p.proname LIKE 'rpc_admin_%' OR p.proname = 'active_trip_id')
+       AND p.proname IN (
+         'rpc_admin_create_trip','rpc_admin_update_trip','rpc_admin_set_active_trip',
+         'rpc_admin_activate_trip','rpc_admin_archive_trip',
+         'rpc_admin_add_trip_member','rpc_admin_remove_trip_member',
+         'active_trip_id'
+       )
   LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', r.sig);
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', r.sig);
@@ -259,6 +265,7 @@ END $$;
 
 -- active_trip_id skal ikke være en anonym oppdagelsesvei.
 REVOKE ALL ON FUNCTION public.active_trip_id() FROM PUBLIC, anon;
+
 
 
 -- ---------------------------------------------------------------------------

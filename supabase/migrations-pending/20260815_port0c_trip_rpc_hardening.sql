@@ -1,46 +1,42 @@
 -- ============================================================================
--- PORT 0b — herding av de FAKTISKE privilegerte tur-RPC-ene, arkivgrense for
--- trip_members/user_locations og lovlige statusoverganger.
+-- PORT 0c — herding av de FAKTISKE privilegerte tur-RPC-ene, RPC som eneste
+-- autoritative mutasjonsvei, og ekte fler-tur-modell for user_locations.
 --
 -- CODE ONLY / PENDING: IKKE kjørt mot produksjon.
--- Kjøres ETTER 20260813_port0_trip_model_authz.sql (som definerer hjelperne).
+-- Rekkefølge: 20260813 -> 20260814 (enum) -> DENNE.
 --
 -- Invarianter:
---   * Additiv og idempotent. Ingen DROP TABLE, DELETE eller TRUNCATE.
+--   * Additiv og idempotent: to kjøringer på rad endrer ingen rads status,
+--     skrivbarhet eller data.
+--   * Ingen DROP TABLE, DROP FUNCTION, DELETE eller TRUNCATE. Den ENESTE
+--     strukturelle nedbyggingen er bytte av primærnøkkel på user_locations
+--     (PK(user_id) -> PK(id) + UNIQUE(trip_id,user_id)) — ingen rader røres.
 --   * Ingen oppdiktede turdatoer. start_date/end_date røres ikke.
---   * Alle SECURITY DEFINER som skrives her har SET search_path = '' og
---     fullt kvalifiserte objekter (public./auth./pg_catalog.).
+--   * Alle SECURITY DEFINER her: SET search_path = '' + fullt kvalifiserte navn
+--     + intern autorisasjon (auth.uid, approved, ikke banned, rolle, tur).
 -- ============================================================================
 
 
 -- ---------------------------------------------------------------------------
--- 1. Statusmodell: kun 'active' og 'archived', pluss et eksplisitt skille
---    mellom «utkast» (aldri aktivert) og «arkivert» (har vært aktivert).
---    Uten dette blir en nyopprettet tur et uadministrerbart objekt: den er
---    'archived' fra fødselen og ville vært read-only før den kan bemannes.
+-- 1. Statusmodell: draft (ny, redigerbar) / active (én) / archived (read-only).
+--
+--    Ingen backfill. Eksisterende rader beholder sin status for alltid, og
+--    'draft' oppstår kun via rpc_admin_create_trip. Derfor er filen trygg å
+--    kjøre to ganger: ingen rad kan bytte skrivbarhet ved andre kjøring.
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE public.trips
-  ADD COLUMN IF NOT EXISTS activated_at timestamptz;
-
--- Konservativ, ikke-destruktiv backfill: alt som finnes fra før regnes som
--- allerede aktivert. Aktive turer får now(); tidligere arkiverte får
--- updated_at slik at de forblir read-only. Kjøres kun én gang per rad.
-UPDATE public.trips
-   SET activated_at = CASE WHEN status = 'active' THEN now() ELSE updated_at END
- WHERE activated_at IS NULL;
-
--- Utkast = arkivert og aldri aktivert. Skrivbar tur = aktiv eller utkast.
 CREATE OR REPLACE FUNCTION public.is_trip_draft(_trip_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.trips t
-     WHERE t.id = _trip_id AND t.status = 'archived' AND t.activated_at IS NULL
+     WHERE t.id = _trip_id AND t.status = 'draft'::public.trip_status
   )
 $$;
 
+-- Skrivbar tur = aktiv eller utkast. Arkivert er permanent read-only, med
+-- ÉN eksplisitt unntaksovergang: reaktivering via rpc_admin_set_active_trip.
 CREATE OR REPLACE FUNCTION public.is_trip_writable(_trip_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
@@ -83,13 +79,12 @@ END $$;
 
 
 -- ---------------------------------------------------------------------------
--- 2. De faktiske tur-RPC-ene, skrevet om med pinnet search_path, fullt
---    kvalifiserte navn og turbundet adminvalidering.
+-- 2. De faktiske tur-RPC-ene.
 -- ---------------------------------------------------------------------------
 
--- 2a. Opprett tur: kun godkjent, ikke-banned global admin. Turen fødes som
---     utkast og oppretteren får medlemskap i SAMME transaksjon, slik at den
---     aldri er et uadministrerbart objekt.
+-- 2a. Opprett tur: godkjent, ikke-banned global admin. Turen fødes som UTKAST
+--     og oppretteren blir medlem i SAMME transaksjon — aldri et
+--     uadministrerbart objekt, og aldri en andre aktiv tur.
 CREATE OR REPLACE FUNCTION public.rpc_admin_create_trip(
   p_name text,
   p_destination text,
@@ -114,10 +109,10 @@ BEGIN
 
   INSERT INTO public.trips (name, destination, country, timezone, currency,
                             start_date, end_date, destination_config,
-                            created_by, updated_by, status, activated_at)
+                            created_by, updated_by, status)
   VALUES (p_name, p_destination, p_country, p_timezone, p_currency,
           p_start_date, p_end_date, COALESCE(p_destination_config, '{}'::jsonb),
-          v_uid, v_uid, 'archived', NULL)
+          v_uid, v_uid, 'draft'::public.trip_status)
   RETURNING * INTO v_row;
 
   INSERT INTO public.trip_members (trip_id, user_id, added_by)
@@ -168,10 +163,11 @@ BEGIN
   RETURN v_row;
 END $$;
 
--- 2c. Aktivering er den ENESTE lovlige archived -> active-overgangen, og den
---     arkiverer eksplisitt forrige aktive tur i samme transaksjon.
---     FOR UPDATE-låsen gjør parallell aktivering serialisert; den partielle
---     unike indeksen trips_single_active_idx er siste skanse.
+-- 2c. Aktivering er den ENESTE lovlige overgangen inn til 'active', og den
+--     arkiverer forrige aktive tur i samme transaksjon.
+--     Samtidighet: transaksjonsbundet advisory lock serialiserer to parallelle
+--     aktiveringer; FOR UPDATE og den partielle unike indeksen
+--     trips_single_active_idx er andre og tredje skanse.
 CREATE OR REPLACE FUNCTION public.rpc_admin_set_active_trip(p_trip_id uuid)
 RETURNS public.trips
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
@@ -180,18 +176,20 @@ DECLARE v_uid uuid; v_row public.trips;
 BEGIN
   v_uid := public.assert_trip_admin(p_trip_id);
 
-  -- Lås alle kandidatrader i deterministisk rekkefølge (unngår deadlock).
+  -- Global serialisering av «hvem er aktiv tur»-overgangen.
+  PERFORM pg_catalog.pg_advisory_xact_lock(802613001);
+
   PERFORM 1 FROM public.trips t
-    WHERE t.status = 'active' OR t.id = p_trip_id
+    WHERE t.status = 'active'::public.trip_status OR t.id = p_trip_id
     ORDER BY t.id
     FOR UPDATE;
 
-  UPDATE public.trips SET status = 'archived', updated_by = v_uid, updated_at = now()
-    WHERE status = 'active' AND id <> p_trip_id;
+  UPDATE public.trips
+     SET status = 'archived'::public.trip_status, updated_by = v_uid, updated_at = now()
+   WHERE status = 'active'::public.trip_status AND id <> p_trip_id;
 
   UPDATE public.trips
-     SET status = 'active', activated_at = COALESCE(activated_at, now()),
-         updated_by = v_uid, updated_at = now()
+     SET status = 'active'::public.trip_status, updated_by = v_uid, updated_at = now()
    WHERE id = p_trip_id
   RETURNING * INTO v_row;
 
@@ -231,8 +229,7 @@ BEGIN
   END IF;
 
   UPDATE public.trips
-     SET status = 'archived', activated_at = COALESCE(activated_at, now()),
-         updated_by = v_uid, updated_at = now()
+     SET status = 'archived'::public.trip_status, updated_by = v_uid, updated_at = now()
    WHERE id = p_trip_id
   RETURNING * INTO v_row;
 
@@ -262,22 +259,26 @@ BEGIN
   RETURN true;
 END $$;
 
+-- Fjerning kan ALDRI etterlate turen uten kvalifisert turadmin (godkjent,
+-- ikke banned, admin-rolle, medlem av turen). Gjelder også self-remove.
 CREATE OR REPLACE FUNCTION public.rpc_admin_remove_trip_member(p_trip_id uuid, p_user_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
-DECLARE v_uid uuid; v_remaining int; v_is_active boolean;
+DECLARE v_uid uuid; v_admins_left int;
 BEGIN
   v_uid := public.assert_trip_admin(p_trip_id);
   PERFORM public.assert_trip_writable(p_trip_id);
 
-  SELECT (t.status = 'active') INTO v_is_active FROM public.trips t WHERE t.id = p_trip_id;
-  IF v_is_active THEN
-    SELECT count(*) INTO v_remaining FROM public.trip_members m
-     WHERE m.trip_id = p_trip_id AND m.user_id <> p_user_id;
-    IF v_remaining = 0 THEN
-      RAISE EXCEPTION 'cannot_remove_last_member_of_active_trip';
-    END IF;
+  SELECT count(*) INTO v_admins_left
+    FROM public.trip_members m
+   WHERE m.trip_id = p_trip_id
+     AND m.user_id <> p_user_id
+     AND public.is_trip_admin(p_trip_id, m.user_id);
+
+  IF v_admins_left = 0 THEN
+    RAISE EXCEPTION 'cannot_remove_last_trip_admin'
+      USING ERRCODE = 'insufficient_privilege';
   END IF;
 
   DELETE FROM public.trip_members m
@@ -287,7 +288,9 @@ END $$;
 
 
 -- ---------------------------------------------------------------------------
--- 3. Grants: ingen PUBLIC/anon på privilegerte funksjoner.
+-- 3. Grants: EKSPLISITT allowlist. Ingen wildcard på rpc_admin_%.
+--    Legacy/gamification-RPC-er (tokens, shot, ski, poeng) røres ikke og
+--    forblir avlåst.
 -- ---------------------------------------------------------------------------
 
 DO $$
@@ -297,9 +300,13 @@ BEGIN
     SELECT p.oid::regprocedure AS sig
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
      WHERE n.nspname = 'public'
-       AND (p.proname LIKE 'rpc_admin_%'
-            OR p.proname IN ('active_trip_id','assert_trip_admin','assert_trip_writable',
-                             'is_trip_draft','is_trip_writable'))
+       AND p.proname IN (
+         'rpc_admin_create_trip','rpc_admin_update_trip','rpc_admin_set_active_trip',
+         'rpc_admin_activate_trip','rpc_admin_archive_trip',
+         'rpc_admin_add_trip_member','rpc_admin_remove_trip_member',
+         'active_trip_id','assert_trip_admin','assert_trip_writable',
+         'is_trip_draft','is_trip_writable'
+       )
   LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', r.sig);
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', r.sig);
@@ -308,8 +315,41 @@ END $$;
 
 
 -- ---------------------------------------------------------------------------
--- 4. Arkivgrense for trip_members (RESTRICTIVE backstop over eksisterende
---    permissive adminpolicyer — ingen DROP av historikk).
+-- 4. RPC som ENESTE autoritative mutasjonsvei mot trips.
+--    Den eksisterende permissive «Admins manage trips»-policyen kan ikke
+--    lenger brukes til å omgå statusmodellen: en konvergent RESTRICTIVE deny
+--    stenger direkte INSERT/UPDATE/DELETE for authenticated. SECURITY
+--    DEFINER-RPC-ene eier tabellen og validerer selv, så de går klar.
+--    SELECT er urørt (medlemslesing beholdes).
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE public.trips ENABLE ROW LEVEL SECURITY;
+
+DO $$
+DECLARE v_cmd text;
+BEGIN
+  FOREACH v_cmd IN ARRAY ARRAY['INSERT','UPDATE','DELETE'] LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+       WHERE schemaname='public' AND tablename='trips'
+         AND policyname = format('trips_rpc_only_%s', lower(v_cmd))
+    ) THEN
+      IF v_cmd = 'INSERT' THEN
+        EXECUTE format(
+          'CREATE POLICY %I ON public.trips AS RESTRICTIVE FOR INSERT TO authenticated '
+          || 'WITH CHECK (false)', format('trips_rpc_only_%s', lower(v_cmd)));
+      ELSE
+        EXECUTE format(
+          'CREATE POLICY %I ON public.trips AS RESTRICTIVE FOR %s TO authenticated '
+          || 'USING (false)', format('trips_rpc_only_%s', lower(v_cmd)), v_cmd);
+      END IF;
+    END IF;
+  END LOOP;
+END $$;
+
+
+-- ---------------------------------------------------------------------------
+-- 5. trip_members: direkte skriving krever turadmin OG skrivbar tur.
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE public.trip_members ENABLE ROW LEVEL SECURITY;
@@ -340,25 +380,94 @@ END $$;
 
 
 -- ---------------------------------------------------------------------------
--- 5. user_locations: turbundet, eier-skriv, admin-i-samme-tur-lesing.
+-- 6. user_locations: ekte fler-tur-modell UTEN datatap.
 --
---    KJENT BEGRENSNING (dokumentert, ikke skjult): primærnøkkelen er user_id
---    alene, så én bruker kan bare ha ÉN posisjonsrad totalt — ikke én per tur.
---    Overgangen til (user_id, trip_id) krever backfill av de eksisterende
---    NULL-radene og gjøres IKKE her. Se docs/PORT0_RUNBOOK.md.
---    Eksisterende NULL-rader beholdes urørt og kan fortsatt leses av eier.
+--    Preflight (bekreftet mot produksjon): tabellen har kun PRIMARY KEY
+--    (user_id) og INGEN innkommende fremmednøkler. Overgangen til surrogat-PK
+--    er derfor trygg og rører ingen rader. De 8 legacy-radene med
+--    trip_id IS NULL beholdes urørt: eier kan lese dem, men de kan aldri
+--    skrives eller brukes som cross-trip-bypass.
 -- ---------------------------------------------------------------------------
+
+ALTER TABLE public.user_locations
+  ADD COLUMN IF NOT EXISTS id uuid NOT NULL DEFAULT gen_random_uuid();
+
+DO $$
+DECLARE v_pk text;
+BEGIN
+  SELECT c.conname INTO v_pk
+    FROM pg_constraint c
+   WHERE c.conrelid = 'public.user_locations'::regclass AND c.contype = 'p';
+
+  -- Bytt kun hvis PK fortsatt er den gamle (user_id).
+  IF v_pk IS NOT NULL AND EXISTS (
+    SELECT 1 FROM pg_constraint c
+     WHERE c.conname = v_pk AND c.conrelid = 'public.user_locations'::regclass
+       AND (SELECT array_agg(a.attname ORDER BY a.attname)
+              FROM unnest(c.conkey) k JOIN pg_attribute a
+                ON a.attrelid = c.conrelid AND a.attnum = k) = ARRAY['user_id']
+  ) THEN
+    EXECUTE format('ALTER TABLE public.user_locations DROP CONSTRAINT %I', v_pk);
+    v_pk := NULL;
+  END IF;
+
+  IF v_pk IS NULL THEN
+    ALTER TABLE public.user_locations
+      ADD CONSTRAINT user_locations_pkey PRIMARY KEY (id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'user_locations_trip_user_key'
+       AND conrelid = 'public.user_locations'::regclass
+  ) THEN
+    ALTER TABLE public.user_locations
+      ADD CONSTRAINT user_locations_trip_user_key UNIQUE (trip_id, user_id);
+  END IF;
+END $$;
 
 ALTER TABLE public.user_locations ENABLE ROW LEVEL SECURITY;
 
 DO $$
-DECLARE v_cmd text;
 BEGIN
-  -- Skriv: eksplisitt ikke-null trip_id, egen rad, skrivbar tur, godkjent
-  -- medlemskap i nøyaktig den turen. `trip_id IS NULL` er ALDRI en bypass.
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='user_locations'
-      AND policyname='user_locations_write_scoped_insert') THEN
+  -- 6a. PERMISSIVE: vanlige medlemmer får faktisk adgang til egen rad.
+  --     (RESTRICTIVE alene gir aldri adgang.)
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename='user_locations' AND policyname='user_locations_own_select') THEN
+    CREATE POLICY user_locations_own_select ON public.user_locations
+      FOR SELECT TO authenticated USING (user_id = auth.uid());
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename='user_locations' AND policyname='user_locations_trip_admin_select') THEN
+    CREATE POLICY user_locations_trip_admin_select ON public.user_locations
+      FOR SELECT TO authenticated
+      USING (trip_id IS NOT NULL AND public.is_trip_admin(trip_id, auth.uid()));
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename='user_locations' AND policyname='user_locations_own_insert') THEN
+    CREATE POLICY user_locations_own_insert ON public.user_locations
+      FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename='user_locations' AND policyname='user_locations_own_update') THEN
+    CREATE POLICY user_locations_own_update ON public.user_locations
+      FOR UPDATE TO authenticated
+      USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename='user_locations' AND policyname='user_locations_own_delete') THEN
+    CREATE POLICY user_locations_own_delete ON public.user_locations
+      FOR DELETE TO authenticated USING (user_id = auth.uid());
+  END IF;
+
+  -- 6b. RESTRICTIVE guards: eier, ikke-null trip_id, skrivbar tur, godkjent
+  --     medlemskap i NØYAKTIG den turen. Global admin gir ingen bypass.
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename='user_locations' AND policyname='user_locations_write_scoped_insert') THEN
     CREATE POLICY user_locations_write_scoped_insert ON public.user_locations
       AS RESTRICTIVE FOR INSERT TO authenticated
       WITH CHECK (user_id = auth.uid()
@@ -366,9 +475,8 @@ BEGIN
                   AND public.can_write_trip(trip_id, auth.uid()));
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='user_locations'
-      AND policyname='user_locations_write_scoped_update') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename='user_locations' AND policyname='user_locations_write_scoped_update') THEN
     CREATE POLICY user_locations_write_scoped_update ON public.user_locations
       AS RESTRICTIVE FOR UPDATE TO authenticated
       USING (user_id = auth.uid())
@@ -377,19 +485,17 @@ BEGIN
                   AND public.can_write_trip(trip_id, auth.uid()));
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='user_locations'
-      AND policyname='user_locations_delete_own') THEN
-    CREATE POLICY user_locations_delete_own ON public.user_locations
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename='user_locations' AND policyname='user_locations_delete_scoped') THEN
+    CREATE POLICY user_locations_delete_scoped ON public.user_locations
       AS RESTRICTIVE FOR DELETE TO authenticated
-      USING (user_id = auth.uid());
+      USING (user_id = auth.uid()
+             AND trip_id IS NOT NULL
+             AND public.can_write_trip(trip_id, auth.uid()));
   END IF;
 
-  -- Lesing: egen rad, ellers turadmin i NØYAKTIG samme tur. Global admin
-  -- alene gir ikke lenger innsyn i andres posisjon.
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='user_locations'
-      AND policyname='user_locations_read_scoped') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename='user_locations' AND policyname='user_locations_read_scoped') THEN
     CREATE POLICY user_locations_read_scoped ON public.user_locations
       AS RESTRICTIVE FOR SELECT TO authenticated
       USING (user_id = auth.uid()

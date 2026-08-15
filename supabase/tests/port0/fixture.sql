@@ -125,28 +125,53 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 ALTER TABLE public.agenda_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trip_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_locations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.trips ENABLE ROW LEVEL SECURITY;
 
--- Produksjonsformede (brede) permissive policyer — nøyaktig den flaten som
--- finnes i produksjon i dag. Port 0b skal konvergere dette med RESTRICTIVE
--- backstops uten å slette historikk.
+-- Produksjonsformede (brede) permissive policyer — NØYAKTIG de navnene og
+-- uttrykkene som finnes i produksjon i dag (verifisert via pg_policies).
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='trip_members' AND policyname='trip_members_admin_all') THEN
-    CREATE POLICY trip_members_admin_all ON public.trip_members FOR ALL TO authenticated
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='trip_members' AND policyname='Admins manage trip_members') THEN
+    CREATE POLICY "Admins manage trip_members" ON public.trip_members FOR ALL TO authenticated
       USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='trip_members' AND policyname='trip_members_self_read') THEN
-    CREATE POLICY trip_members_self_read ON public.trip_members FOR SELECT TO authenticated
-      USING (user_id = auth.uid());
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='trip_members' AND policyname='Members read own memberships') THEN
+    CREATE POLICY "Members read own memberships" ON public.trip_members FOR SELECT TO authenticated
+      USING (public.is_admin(auth.uid()) OR user_id = auth.uid());
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='user_locations' AND policyname='user_locations_admin_all') THEN
-    CREATE POLICY user_locations_admin_all ON public.user_locations FOR ALL TO authenticated
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='trips' AND policyname='Admins manage trips') THEN
+    CREATE POLICY "Admins manage trips" ON public.trips FOR ALL TO authenticated
       USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='user_locations' AND policyname='user_locations_self_all') THEN
-    CREATE POLICY user_locations_self_all ON public.user_locations FOR ALL TO authenticated
-      USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='trips' AND policyname='Members can read own trips') THEN
+    CREATE POLICY "Members can read own trips" ON public.trips FOR SELECT TO authenticated
+      USING (public.is_admin(auth.uid()) OR public.is_trip_member(id, auth.uid()));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='user_locations' AND policyname='Admin-only user_locations') THEN
+    CREATE POLICY "Admin-only user_locations" ON public.user_locations FOR ALL TO authenticated
+      USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
   END IF;
 END $$;
+
+-- Produksjonsform: is_trip_member finnes allerede (bred, search_path=public).
+CREATE OR REPLACE FUNCTION public.is_trip_member(_trip_id uuid, _user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = 'public'
+AS $fn$ SELECT EXISTS (SELECT 1 FROM public.trip_members m
+   WHERE m.trip_id=_trip_id AND m.user_id=_user_id) $fn$;
+
+-- Legacy-posisjonsrader uten trip_id (produksjon har 8). Skal overleve
+-- migrasjonen uten datatap og aldri bli skrivbare igjen.
+INSERT INTO public.user_locations (user_id, lat, lon)
+SELECT ('b0000000-0000-0000-0000-00000000000' || g)::uuid, 60.0 + g, 10.0 + g
+  FROM generate_series(1,8) g
+ON CONFLICT DO NOTHING;
+
+-- Produksjonsform: legacy gamification-RPC som allerede ER avlåst for
+-- authenticated. Pending migrasjoner skal ikke gi den tilgang tilbake.
+CREATE OR REPLACE FUNCTION public.rpc_admin_adjust_tokens(p_user_id uuid, p_delta int, p_reason text)
+RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = 'public'
+AS $fn$ SELECT '{}'::jsonb $fn$;
+REVOKE ALL ON FUNCTION public.rpc_admin_adjust_tokens(uuid,int,text) FROM PUBLIC, anon, authenticated;
+
 
 -- ---------------------------------------------------------------------------
 -- Produksjonsformede tur-RPC-er: global is_admin, search_path = public, ingen
