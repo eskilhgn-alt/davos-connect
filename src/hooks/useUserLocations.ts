@@ -104,13 +104,14 @@ export function useUserLocations(tripId: string | null) {
     };
 
     const fetchAll = async () => {
-      const { data } = await supabase
-        .from("user_locations")
+      const { data } = await pendingFrom("user_locations")
         .select("user_id, trip_id, lat, lon, updated_at")
-        .eq("trip_id", myTrip);
+        .eq("trip_id", myTrip)
+        .then((r) => r);
       // Forkast svar som kom etter unmount eller turbytte.
       if (cancelled) return;
       const raw = ((data as RawLocation[] | null) ?? []).filter((d) => belongsToTrip(d, myTrip));
+
       rawRef.current = raw;
 
       if (raw.length > 0) {
