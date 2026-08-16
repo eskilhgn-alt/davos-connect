@@ -54,6 +54,8 @@ interface LocationSharingContextValue {
   positionUpdatedAt: number | null;
   loading: boolean;
   error: string | null;
+  /** Turen delingen er bundet til, eller `null` når ingen tur er valgt. */
+  tripId: string | null;
   /** Returnerer `true` når deling faktisk ble aktivert. */
   startSharing: () => Promise<boolean>;
   stopSharing: () => Promise<void>;
@@ -292,6 +294,32 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
     }
   }, [enabled, position, upsert]);
 
+  // Turbytte: deling er turbundet. Stopp forrige turs deling, rydd raden der
+  // og forkast in-flight arbeid. Brukeren må starte eksplisitt i ny tur.
+  const prevTripRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const prev = prevTripRef.current;
+    prevTripRef.current = selectedTripId;
+    if (prev === null || prev === selectedTripId) return;
+    generation.current += 1;
+    if (enabledRef.current) {
+      stopTimers();
+      setEnabled(false);
+      setPosition(null);
+      lastSentRef.current = null;
+      const uid = userIdRef.current;
+      if (uid) {
+        void pendingFrom("user_locations")
+          .delete()
+          .eq("trip_id", prev)
+          .eq("user_id", uid)
+          .then(({ error: delErr }) => {
+            if (delErr) console.warn("trip switch cleanup failed:", delErr.message);
+          });
+      }
+    }
+  }, [selectedTripId, stopTimers]);
+
   // Ved logout: stopp deling og rydd rad.
   const prevUserRef = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -327,8 +355,9 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
       error,
       startSharing,
       stopSharing,
+      tripId: selectedTripId,
     }),
-    [enabled, position, loading, error, startSharing, stopSharing]
+    [enabled, position, loading, error, startSharing, stopSharing, selectedTripId]
   );
 
   return <LocationSharingContext.Provider value={value}>{children}</LocationSharingContext.Provider>;
