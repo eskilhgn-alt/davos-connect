@@ -3,6 +3,8 @@
  * denne filen eksporterer bare typen, slik at ingen parallell store kan
  * oppstå. (Tidligere `useActiveTrip()`-hook er pensjonert.)
  */
+import type { TripStatus } from "@/features/trip/tripStatus";
+
 export interface Trip {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ export interface Trip {
   currency: string;
   start_date: string | null;
   end_date: string | null;
-  status: "active" | "archived";
+  /** draft | active | archived — se `@/features/trip/tripStatus`. */
+  status: TripStatus;
   destination_config: Record<string, unknown>;
 }
