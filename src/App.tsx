@@ -12,6 +12,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { AppBadgesProvider } from "@/hooks/useAppBadges";
 import { TripProvider } from "@/contexts/TripContext";
+import { LocationSharingProvider } from "@/contexts/LocationSharingContext";
 
 
 import { errorToast } from "@/utils/errorToast";
@@ -214,9 +215,13 @@ const AppShell = () => {
       <BrowserRouter>
         <AuthProvider>
           <TripProvider>
-            <AppBadgesProvider>
-              <AppRoutes />
-            </AppBadgesProvider>
+            {/* Posisjonsdeling lever over ruteren: Chat har eget layout, og
+                navigasjon dit skal aldri stoppe en aktiv deling i det stille. */}
+            <LocationSharingProvider>
+              <AppBadgesProvider>
+                <AppRoutes />
+              </AppBadgesProvider>
+            </LocationSharingProvider>
           </TripProvider>
         </AuthProvider>
       </BrowserRouter>

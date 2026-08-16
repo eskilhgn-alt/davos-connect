@@ -95,7 +95,10 @@ export const CrewMapScreen: React.FC = () => {
   const leafletMap = React.useRef<L.Map | null>(null);
   const markersRef = React.useRef<L.Marker[]>([]);
   const searchMarkerRef = React.useRef<L.Marker | null>(null);
-  const { locations, loading } = useUserLocations();
+  // Kartsenter og posisjoner følger VALGT tur (TripContext).
+  const { selectedTrip, selectedTripId } = useTrip();
+  const { locations, loading } = useUserLocations(selectedTripId);
+
   const { user } = useAuth();
   const {
     enabled: sharingEnabled,
@@ -106,8 +109,8 @@ export const CrewMapScreen: React.FC = () => {
   } = useLocationTracker();
   const [stopping, setStopping] = React.useState(false);
 
-  // Kartsenter følger VALGT tur (TripContext) – ingen hardkodet destinasjon.
-  const { selectedTrip } = useTrip();
+  // Destinasjonen utledes av samme valgte tur som posisjonene over.
+
   const dest = React.useMemo(() => resolveDestination(selectedTrip), [selectedTrip]);
   const tripCenterRef = React.useRef<[number, number] | null>(null);
   tripCenterRef.current = dest.center ? [dest.center.lat, dest.center.lon] : null;

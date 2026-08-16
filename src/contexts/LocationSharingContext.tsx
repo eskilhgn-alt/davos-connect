@@ -13,10 +13,19 @@
  *  - `stopSharing()` stopper pollere, tømmer cache og sletter egen
  *    `user_locations`-rad. Feil rapporteres via `error`.
  *  - Ved logout stoppes deling og radder ryddes så langt det er mulig.
+ *  - Posisjon er TURBUNDET (Port 0c). All skriving skjer på den sammensatte
+ *    identiteten `(trip_id, user_id)`. Uten valgt tur skrives ingenting.
+ *  - Ved turbytte forkastes alle in-flight svar (generasjonsteller), delingen
+ *    stoppes for forrige tur og raden der ryddes. Brukeren må starte deling
+ *    eksplisitt igjen i den nye turen.
+ *  - Provideren er montert på app-rot, IKKE i AppLayout: navigasjon til Chat
+ *    (som har eget layout) skal aldri stoppe deling i det stille.
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTrip } from "@/contexts/TripContext";
+import { pendingFrom } from "@/integrations/supabase/pendingSchema";
 
 const CACHE_KEY = "geo-position";
 const GEO_POLL_MS = 30_000;
@@ -45,6 +54,8 @@ interface LocationSharingContextValue {
   positionUpdatedAt: number | null;
   loading: boolean;
   error: string | null;
+  /** Turen delingen er bundet til, eller `null` når ingen tur er valgt. */
+  tripId: string | null;
   /** Returnerer `true` når deling faktisk ble aktivert. */
   startSharing: () => Promise<boolean>;
   stopSharing: () => Promise<void>;
@@ -79,6 +90,7 @@ export function geoErrorMessage(code: number): string {
 
 export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { selectedTripId } = useTrip();
   const [enabled, setEnabled] = React.useState(false);
   const [position, setPosition] = React.useState<GeoPosition | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -90,6 +102,9 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
   const posRef = React.useRef<GeoPosition | null>(null);
   const userIdRef = React.useRef<string | null>(null);
   const enabledRef = React.useRef(false);
+  const tripIdRef = React.useRef<string | null>(null);
+  /** Monoton generasjon: hvert tur-/brukerbytte ugyldiggjør in-flight arbeid. */
+  const generation = React.useRef(0);
 
   React.useEffect(() => {
     posRef.current = position;
@@ -100,6 +115,9 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
   React.useEffect(() => {
     enabledRef.current = enabled;
   }, [enabled]);
+  React.useEffect(() => {
+    tripIdRef.current = selectedTripId;
+  }, [selectedTripId]);
 
   const stopTimers = React.useCallback(() => {
     if (geoTimerRef.current) { clearInterval(geoTimerRef.current); geoTimerRef.current = null; }
@@ -160,7 +178,9 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
   const upsert = React.useCallback(async (force: boolean) => {
     const pos = posRef.current;
     const uid = userIdRef.current;
-    if (!pos || !uid) return;
+    const tripId = tripIdRef.current;
+    // Ingen tur = ingen skriving. Turbundet identitet er ikke valgfri.
+    if (!pos || !uid || !tripId) return;
 
     const now = Date.now();
     if (!force && lastSentRef.current) {
@@ -169,15 +189,21 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
       if (dist < MIN_DISTANCE_M && age < UPSERT_HEARTBEAT_MS) return;
     }
 
-    const { error: upsertErr } = await supabase.from("user_locations").upsert(
+    const gen = generation.current;
+    const { error: upsertErr } = await pendingFrom("user_locations").upsert(
       {
+        trip_id: tripId,
         user_id: uid,
         lat: pos.lat,
         lon: pos.lon,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "user_id" }
+      // Sammensatt identitet — én rad per (tur, bruker). Samme bruker kan ha
+      // rader i flere turer samtidig uten å overskrive hverandre.
+      { onConflict: "trip_id,user_id" }
     );
+    // Et sent svar etter turbytte skal verken sette state eller «lastSent».
+    if (gen !== generation.current || tripIdRef.current !== tripId) return;
     if (upsertErr) {
       console.warn("user_locations upsert error:", upsertErr.message);
       setError("Kunne ikke oppdatere posisjon i skyen");
@@ -186,10 +212,15 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
     lastSentRef.current = { lat: pos.lat, lon: pos.lon, ts: now };
   }, []);
 
-  const clearRow = React.useCallback(async () => {
+  const clearRow = React.useCallback(async (tripId: string | null) => {
     const uid = userIdRef.current;
-    if (!uid) return;
-    const { error: delErr } = await supabase.from("user_locations").delete().eq("user_id", uid);
+    if (!uid || !tripId) return;
+    // Sletting er alltid smal: nøyaktig (trip_id, user_id).
+    const { error: delErr } = await pendingFrom("user_locations")
+      .delete()
+      .eq("trip_id", tripId)
+      .eq("user_id", uid)
+      .then((r) => r);
     if (delErr) {
       console.warn("user_locations delete error:", delErr.message);
       setError("Kunne ikke slette posisjon");
@@ -198,6 +229,10 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
 
   const startSharing = React.useCallback(async (): Promise<boolean> => {
     if (enabledRef.current) return true;
+    if (!tripIdRef.current) {
+      setError("Velg en tur før du deler posisjon.");
+      return false;
+    }
     setError(null);
     setLoading(true);
     try {
@@ -225,6 +260,8 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
   }, [getPositionOnce, stopTimers]);
 
   const stopSharing = React.useCallback(async () => {
+    const tripId = tripIdRef.current;
+    generation.current += 1;
     stopTimers();
     setEnabled(false);
     setLoading(false);
@@ -233,7 +270,7 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
     try {
       sessionStorage.removeItem(CACHE_KEY);
     } catch { /* */ }
-    await clearRow();
+    await clearRow(tripId);
   }, [clearRow, stopTimers]);
 
   // Kjør geolocation-poller og upsert-heartbeat mens `enabled` er true.
@@ -257,6 +294,32 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
     }
   }, [enabled, position, upsert]);
 
+  // Turbytte: deling er turbundet. Stopp forrige turs deling, rydd raden der
+  // og forkast in-flight arbeid. Brukeren må starte eksplisitt i ny tur.
+  const prevTripRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const prev = prevTripRef.current;
+    prevTripRef.current = selectedTripId;
+    if (prev === null || prev === selectedTripId) return;
+    generation.current += 1;
+    if (enabledRef.current) {
+      stopTimers();
+      setEnabled(false);
+      setPosition(null);
+      lastSentRef.current = null;
+      const uid = userIdRef.current;
+      if (uid) {
+        void pendingFrom("user_locations")
+          .delete()
+          .eq("trip_id", prev)
+          .eq("user_id", uid)
+          .then(({ error: delErr }) => {
+            if (delErr) console.warn("trip switch cleanup failed:", delErr.message);
+          });
+      }
+    }
+  }, [selectedTripId, stopTimers]);
+
   // Ved logout: stopp deling og rydd rad.
   const prevUserRef = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -267,9 +330,16 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
       setEnabled(false);
       setPosition(null);
       lastSentRef.current = null;
-      supabase.from("user_locations").delete().eq("user_id", prev).then(({ error: delErr }) => {
-        if (delErr) console.warn("logout cleanup failed:", delErr.message);
-      });
+      const tripAtLogout = tripIdRef.current;
+      if (tripAtLogout) {
+        void pendingFrom("user_locations")
+          .delete()
+          .eq("trip_id", tripAtLogout)
+          .eq("user_id", prev)
+          .then(({ error: delErr }) => {
+            if (delErr) console.warn("logout cleanup failed:", delErr.message);
+          });
+      }
     }
     prevUserRef.current = curr;
   }, [user?.id, enabled, stopTimers]);
@@ -285,8 +355,9 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
       error,
       startSharing,
       stopSharing,
+      tripId: selectedTripId,
     }),
-    [enabled, position, loading, error, startSharing, stopSharing]
+    [enabled, position, loading, error, startSharing, stopSharing, selectedTripId]
   );
 
   return <LocationSharingContext.Provider value={value}>{children}</LocationSharingContext.Provider>;
