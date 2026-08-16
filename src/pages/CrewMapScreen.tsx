@@ -95,7 +95,10 @@ export const CrewMapScreen: React.FC = () => {
   const leafletMap = React.useRef<L.Map | null>(null);
   const markersRef = React.useRef<L.Marker[]>([]);
   const searchMarkerRef = React.useRef<L.Marker | null>(null);
-  const { locations, loading } = useUserLocations();
+  // Kartsenter og posisjoner følger VALGT tur (TripContext).
+  const { selectedTrip, selectedTripId } = useTrip();
+  const { locations, loading } = useUserLocations(selectedTripId);
+
   const { user } = useAuth();
   const {
     enabled: sharingEnabled,
