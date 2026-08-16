@@ -109,8 +109,8 @@ export const CrewMapScreen: React.FC = () => {
   } = useLocationTracker();
   const [stopping, setStopping] = React.useState(false);
 
-  // Kartsenter følger VALGT tur (TripContext) – ingen hardkodet destinasjon.
-  const { selectedTrip } = useTrip();
+  // Destinasjonen utledes av samme valgte tur som posisjonene over.
+
   const dest = React.useMemo(() => resolveDestination(selectedTrip), [selectedTrip]);
   const tripCenterRef = React.useRef<[number, number] | null>(null);
   tripCenterRef.current = dest.center ? [dest.center.lat, dest.center.lon] : null;
