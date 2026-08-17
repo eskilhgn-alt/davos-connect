@@ -118,6 +118,7 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
       <ul className="space-y-2">
         {trips.map((t) => {
           const isActive = t.id === activeTripId;
+          const actions = tripAdminActions(t.status, isActive);
           const discovery = resolveDiscoveryConfig(t.destination_config);
           return (
             <li
@@ -128,16 +129,18 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
                 <div>
                   <div className="font-medium text-foreground flex items-center gap-2">
                     {t.name}
-                    {isActive && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                        Aktiv
-                      </span>
-                    )}
-                    {t.status === "archived" && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        Arkivert
-                      </span>
-                    )}
+                    <span
+                      className={
+                        "text-xs px-2 py-0.5 rounded-full " +
+                        (isActive
+                          ? "bg-primary/10 text-primary"
+                          : isDraftStatus(t.status)
+                            ? "bg-accent/20 text-foreground"
+                            : "bg-muted text-muted-foreground")
+                      }
+                    >
+                      {isActive ? "Aktiv" : tripStatusLabel(t.status)}
+                    </span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {t.destination}
@@ -156,14 +159,16 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <button
-                    onClick={() => setEditing(t)}
-                    className="p-2 rounded-lg hover:bg-muted min-h-[44px] min-w-[44px]"
-                    aria-label="Rediger tur"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  {!isActive && (
+                  {actions.canEdit && (
+                    <button
+                      onClick={() => setEditing(t)}
+                      className="p-2 rounded-lg hover:bg-muted min-h-[44px] min-w-[44px]"
+                      aria-label="Rediger tur"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  )}
+                  {actions.canActivate && (
                     <button
                       onClick={() => activate(t.id)}
                       disabled={busyId === t.id}
@@ -173,7 +178,7 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
                       <CheckCircle2 className="h-4 w-4 text-primary" />
                     </button>
                   )}
-                  {isActive && (
+                  {actions.canArchive && (
                     <button
                       onClick={() => archive(t.id)}
                       disabled={busyId === t.id}
