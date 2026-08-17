@@ -17,6 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Trip } from "@/hooks/useActiveTrip";
+import { isArchivedStatus } from "@/features/trip/tripStatus";
 import {
   applySavedTripRow,
   mergeReloadedTrips,
@@ -285,7 +286,9 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     activeTrip,
     selectedTrip,
     selectedTripId: selectedId,
-    isArchive: !!selectedTrip && selectedTrip.status !== "active",
+    // Kun `archived` er read-only. Et `draft` er redigerbart (Port 0b/0c) og
+    // skal aldri presenteres som arkiv. Én sentral regel — tripStatus.
+    isArchive: !!selectedTrip && isArchivedStatus(selectedTrip.status),
     isLoading,
     selectTrip,
     refreshTrip,

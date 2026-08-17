@@ -25,7 +25,7 @@ import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrip } from "@/contexts/TripContext";
-import { pendingFrom } from "@/integrations/supabase/pendingSchema";
+import { targetDb } from "@/integrations/supabase/targetSchema";
 
 const CACHE_KEY = "geo-position";
 const GEO_POLL_MS = 30_000;
@@ -190,7 +190,7 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
     }
 
     const gen = generation.current;
-    const { error: upsertErr } = await pendingFrom("user_locations").upsert(
+    const { error: upsertErr } = await targetDb.from("user_locations").upsert(
       {
         trip_id: tripId,
         user_id: uid,
@@ -216,11 +216,10 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
     const uid = userIdRef.current;
     if (!uid || !tripId) return;
     // Sletting er alltid smal: nøyaktig (trip_id, user_id).
-    const { error: delErr } = await pendingFrom("user_locations")
+    const { error: delErr } = await targetDb.from("user_locations")
       .delete()
       .eq("trip_id", tripId)
-      .eq("user_id", uid)
-      .then((r) => r);
+      .eq("user_id", uid);
     if (delErr) {
       console.warn("user_locations delete error:", delErr.message);
       setError("Kunne ikke slette posisjon");
@@ -309,7 +308,7 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
       lastSentRef.current = null;
       const uid = userIdRef.current;
       if (uid) {
-        void pendingFrom("user_locations")
+        void targetDb.from("user_locations")
           .delete()
           .eq("trip_id", prev)
           .eq("user_id", uid)
@@ -332,7 +331,7 @@ export const LocationSharingProvider: React.FC<{ children: React.ReactNode }> = 
       lastSentRef.current = null;
       const tripAtLogout = tripIdRef.current;
       if (tripAtLogout) {
-        void pendingFrom("user_locations")
+        void targetDb.from("user_locations")
           .delete()
           .eq("trip_id", tripAtLogout)
           .eq("user_id", prev)
