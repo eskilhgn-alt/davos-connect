@@ -285,7 +285,9 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     activeTrip,
     selectedTrip,
     selectedTripId: selectedId,
-    isArchive: !!selectedTrip && selectedTrip.status !== "active",
+    // Kun `archived` er read-only. Et `draft` er redigerbart (Port 0b/0c) og
+    // skal aldri presenteres som arkiv. Én sentral regel — tripStatus.
+    isArchive: !!selectedTrip && isArchivedStatus(selectedTrip.status),
     isLoading,
     selectTrip,
     refreshTrip,
