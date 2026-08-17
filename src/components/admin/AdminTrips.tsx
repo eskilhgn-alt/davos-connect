@@ -22,6 +22,8 @@ import type { Trip } from "@/hooks/useActiveTrip";
 import { validateTripDates } from "@/features/trip/tripDates";
 import { useTrip } from "@/contexts/TripContext";
 import { normalizeRpcTripRow } from "@/features/trip/tripSync";
+import { isDraftStatus, tripStatusLabel } from "@/features/trip/tripStatus";
+import { tripAdminActions } from "@/features/trip/tripAdminActions";
 import { CATEGORY_LABELS, DISCOVER_CATEGORIES, type DiscoverCategory } from "@/features/discover/types";
 import {
   discoveryDraftFromConfig,
