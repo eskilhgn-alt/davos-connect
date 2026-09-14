@@ -74,11 +74,21 @@ psql_run -q -f "$HERE/behavior.sql" 2>&1 \
   | sed 's/^NOTICE:  //'
 # ON_ERROR_STOP + pipefail gjør at en feilet assert velter hele kjøringen.
 
-echo "== parallell aktivering: nøyaktig én aktiv tur =="
-psql_run -q -f "$HERE/concurrency.sql"
+echo "== parallell aktivering: to ekte psql-sesjoner, nøyaktig én aktiv tur =="
+psql_run -q -f "$HERE/concurrency_setup.sql"
+ACT="a0000000-0000-0000-0000-000000000002"
+for t in "44444444-4444-4444-4444-444444444444" "55555555-5555-5555-5555-555555555555"; do
+  psql_run -q -c "SELECT set_config('request.jwt.claim.sub','$ACT',false);
+                  SELECT pg_sleep(0.2);
+                  SELECT public.rpc_admin_set_active_trip('$t');" &
+done
+wait
+psql_run -q -f "$HERE/concurrency_assert.sql" 2>&1 \
+  | sed -E 's/^psql:[^ ]+ //' | grep -E "^(NOTICE|ERROR|FAIL)" | sed 's/^NOTICE:  //'
 
-echo "== ingen destruktive setninger i pending Shot/Port0-migrasjoner =="
-! grep -nEi '^[[:space:]]*(DROP|DELETE[[:space:]]+FROM|TRUNCATE)\b' \
+echo "== ingen destruktive setninger på toppnivå i pending-migrasjoner =="
+# Kun toppnivå (kolonne 0). DELETE inne i en funksjonskropp er applikasjonslogikk.
+! grep -nEi '^(DROP|DELETE[[:space:]]+FROM|TRUNCATE)\b' \
   "$ROOT"/supabase/migrations-pending/*.sql
 
 echo "PORT0 OK"
