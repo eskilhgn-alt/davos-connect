@@ -10,7 +10,10 @@
 --     skrivbarhet eller data.
 --   * Ingen DROP TABLE, DROP FUNCTION, DELETE eller TRUNCATE. Den ENESTE
 --     strukturelle nedbyggingen er bytte av primærnøkkel på user_locations
---     (PK(user_id) -> PK(id) + UNIQUE(trip_id,user_id)) — ingen rader røres.
+--     (PK(user_id) -> PK(id) + UNIQUE(trip_id,user_id)). Presist: ingen rad
+--     SLETTES eller endrer lat/lon/user_id/trip_id, men ADD COLUMN id gir
+--     hver eksisterende rad en ny, permanent UUID (tabellen skrives om én
+--     gang). UUID-ene er deretter stabile ved gjentatte kjøringer.
 --   * Ingen oppdiktede turdatoer. start_date/end_date røres ikke.
 --   * Alle SECURITY DEFINER her: SET search_path = '' + fullt kvalifiserte navn
 --     + intern autorisasjon (auth.uid, approved, ikke banned, rolle, tur).
