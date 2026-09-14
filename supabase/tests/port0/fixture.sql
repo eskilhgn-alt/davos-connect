@@ -127,6 +127,12 @@ ALTER TABLE public.trip_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trips ENABLE ROW LEVEL SECURITY;
 
+-- Produksjonsform: is_trip_member finnes allerede (bred, search_path=public).
+CREATE OR REPLACE FUNCTION public.is_trip_member(_trip_id uuid, _user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = 'public'
+AS $fn$ SELECT EXISTS (SELECT 1 FROM public.trip_members m
+   WHERE m.trip_id=_trip_id AND m.user_id=_user_id) $fn$;
+
 -- Produksjonsformede (brede) permissive policyer — NØYAKTIG de navnene og
 -- uttrykkene som finnes i produksjon i dag (verifisert via pg_policies).
 DO $$ BEGIN
@@ -151,12 +157,6 @@ DO $$ BEGIN
       USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
   END IF;
 END $$;
-
--- Produksjonsform: is_trip_member finnes allerede (bred, search_path=public).
-CREATE OR REPLACE FUNCTION public.is_trip_member(_trip_id uuid, _user_id uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = 'public'
-AS $fn$ SELECT EXISTS (SELECT 1 FROM public.trip_members m
-   WHERE m.trip_id=_trip_id AND m.user_id=_user_id) $fn$;
 
 -- Legacy-posisjonsrader uten trip_id (produksjon har 8). Skal overleve
 -- migrasjonen uten datatap og aldri bli skrivbare igjen.
