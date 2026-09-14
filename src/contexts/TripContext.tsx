@@ -119,21 +119,25 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     const gen = ++generation.current;
-    setIsLoading(true);
-    const [tripsRes, memberRes] = await Promise.all([
+    // En bakgrunnslesing må ikke avmontere adminskjemaet og miste utkastet.
+    if (tripsRef.current.length === 0) setIsLoading(true);
+    const result = await Promise.all([
       supabase.from("trips" as never).select("*"),
       supabase.from("trip_members" as never).select("trip_id").eq("user_id", user.id),
-    ]);
+    ]).catch(() => null);
     const stale = gen !== generation.current;
-    const ok = !tripsRes.error && !memberRes.error;
     if (stale) return;
     setIsLoading(false);
+    if (!result) return;
+    const [tripsRes, memberRes] = result;
+    const ok = !tripsRes.error && !memberRes.error;
     if (!ok) return; // Feilet lesing skal aldri tømme eksisterende turer.
 
     const incoming = (tripsRes.data ?? []) as unknown as Trip[];
     const memSet = new Set<string>(
       ((memberRes.data ?? []) as { trip_id: string }[]).map((r) => r.trip_id),
     );
+    memberOfRef.current = memSet;
     setMemberOf(memSet);
     // Medlemslisten er autoritativ: en admin kan lese trips-raden, men skal
     // ikke beholde valgt tur etter medlemskapsrevokering.
@@ -171,6 +175,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const next = applySavedTripRow(tripsRef.current, row);
       tripsRef.current = next;
       setTrips(next);
+      setIsLoading(false);
       queryClient.setQueryData(["trips", "list"], next);
       // Destinasjonsavhengige lokale cacher (vær, live-status) er
       // identitetsbundet til config: rydd bort utdaterte identiteter for
@@ -206,9 +211,11 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      await Promise.all(
+      // Den lagrede raden er allerede synket. Andre nettverkskall må ikke
+      // holde «Lagrer…» åpen eller få en vellykket lagring til å se mislykket ut.
+      void Promise.all(
         TRIP_SCOPED_QUERY_KEYS.map((k) => queryClient.invalidateQueries({ queryKey: [k] })),
-      );
+      ).catch((error) => console.warn("Kunne ikke oppdatere turinnhold etter lagring", error));
     },
     [queryClient, user],
   );
@@ -232,8 +239,19 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .on("postgres_changes", { event: "*", schema: "public", table: "trips" }, () => {
         void loadTripsAndMembership();
       })
-      .subscribe();
+      .subscribe((status) => {
+        // Realtime spiller ikke av hendelser som gikk tapt uten forbindelse.
+        if (status === "SUBSCRIBED") void loadTripsAndMembership();
+      });
+    const resume = () => { void loadTripsAndMembership(); };
+    const visible = () => { if (document.visibilityState === "visible") resume(); };
+    window.addEventListener("focus", resume);
+    window.addEventListener("online", resume);
+    document.addEventListener("visibilitychange", visible);
     return () => {
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("online", resume);
+      document.removeEventListener("visibilitychange", visible);
       supabase.removeChannel(channel);
     };
   }, [user, loadTripsAndMembership]);
