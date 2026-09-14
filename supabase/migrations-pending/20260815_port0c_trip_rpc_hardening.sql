@@ -10,7 +10,10 @@
 --     skrivbarhet eller data.
 --   * Ingen DROP TABLE, DROP FUNCTION, DELETE eller TRUNCATE. Den ENESTE
 --     strukturelle nedbyggingen er bytte av primærnøkkel på user_locations
---     (PK(user_id) -> PK(id) + UNIQUE(trip_id,user_id)) — ingen rader røres.
+--     (PK(user_id) -> PK(id) + UNIQUE(trip_id,user_id)). Presist: ingen rad
+--     SLETTES eller endrer lat/lon/user_id/trip_id, men ADD COLUMN id gir
+--     hver eksisterende rad en ny, permanent UUID (tabellen skrives om én
+--     gang). UUID-ene er deretter stabile ved gjentatte kjøringer.
 --   * Ingen oppdiktede turdatoer. start_date/end_date røres ikke.
 --   * Alle SECURITY DEFINER her: SET search_path = '' + fullt kvalifiserte navn
 --     + intern autorisasjon (auth.uid, approved, ikke banned, rolle, tur).
@@ -214,18 +217,37 @@ END $$;
 
 -- 2d. Arkivering: aktiv tur kan ikke arkiveres direkte (da ville appen stå
 --     uten aktiv tur). Utkast kan arkiveres eksplisitt.
+--
+--     STRENGT IDEMPOTENT: en allerede arkivert tur returneres HELT uendret —
+--     ingen UPDATE, ingen ny updated_at/updated_by og ingen ny auditrad.
+--     Samtidighet: samme advisory lock som aktivering (802613001) tas FØR
+--     radlåsen, slik at statuskontroll og endring er atomisk mot en parallell
+--     rpc_admin_set_active_trip. Uten den kunne turen bli aktivert mellom
+--     lesningen og UPDATE-en, og vi ville arkivert den aktive turen.
 CREATE OR REPLACE FUNCTION public.rpc_admin_archive_trip(p_trip_id uuid)
 RETURNS public.trips
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
-DECLARE v_uid uuid; v_row public.trips; v_status text;
+DECLARE v_uid uuid; v_row public.trips;
 BEGIN
   v_uid := public.assert_trip_admin(p_trip_id);
 
-  SELECT t.status::text INTO v_status FROM public.trips t WHERE t.id = p_trip_id;
-  IF v_status = 'active' THEN
+  PERFORM pg_catalog.pg_advisory_xact_lock(802613001);
+
+  SELECT * INTO v_row FROM public.trips t WHERE t.id = p_trip_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'trip_not_found' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  IF v_row.status = 'active'::public.trip_status THEN
     RAISE EXCEPTION 'cannot_archive_active_trip'
-      USING HINT = 'Aktiver en annen tur i stedet — det arkiverer denne automatisk.';
+      USING ERRCODE = 'insufficient_privilege',
+            HINT = 'Aktiver en annen tur i stedet — det arkiverer denne automatisk.';
+  END IF;
+
+  -- Allerede arkivert: no-op. Raden returneres byte-identisk.
+  IF v_row.status = 'archived'::public.trip_status THEN
+    RETURN v_row;
   END IF;
 
   UPDATE public.trips
@@ -384,9 +406,10 @@ END $$;
 --
 --    Preflight (bekreftet mot produksjon): tabellen har kun PRIMARY KEY
 --    (user_id) og INGEN innkommende fremmednøkler. Overgangen til surrogat-PK
---    er derfor trygg og rører ingen rader. De 8 legacy-radene med
---    trip_id IS NULL beholdes urørt: eier kan lese dem, men de kan aldri
---    skrives eller brukes som cross-trip-bypass.
+--    er derfor trygg: ingen rad slettes og ingen posisjonsdata endres. De 8
+--    legacy-radene med trip_id IS NULL får en generert UUID i `id` (stabil
+--    ved senere kjøringer), men beholdes ellers urørt: eier kan lese dem, men
+--    de kan aldri skrives eller brukes som cross-trip-bypass.
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE public.user_locations

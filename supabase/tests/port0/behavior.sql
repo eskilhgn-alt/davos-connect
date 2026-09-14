@@ -51,6 +51,7 @@ BEGIN
     (t_active,'a0000000-0000-0000-0000-000000000003'),
     (t_active,'a0000000-0000-0000-0000-000000000004'),
     (t_arch  ,'a0000000-0000-0000-0000-000000000001'),
+    (t_arch  ,'a0000000-0000-0000-0000-000000000002'),
     (t_other ,'a0000000-0000-0000-0000-000000000005')
   ON CONFLICT DO NOTHING;
 END $$;
@@ -275,3 +276,124 @@ SELECT public._assert(
   (SELECT count(*) FROM pg_publication_tables
     WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='trips') = 1,
   'realtime-publication inneholder trips nøyaktig én gang');
+
+
+-- --------------------------------------------------------------------------
+-- 6. Arkivering: streng idempotens, active-avvisning, draft-livssyklus
+-- --------------------------------------------------------------------------
+DO $$
+DECLARE ok boolean := false;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000002', true);
+  BEGIN
+    PERFORM public.rpc_admin_archive_trip('11111111-1111-1111-1111-111111111111');
+  EXCEPTION WHEN insufficient_privilege THEN ok := true;
+  END;
+  PERFORM public._assert(ok,'arkivering av AKTIV tur avvises');
+END $$;
+
+DO $$
+DECLARE v_id uuid; r1 public.trips; r2 public.trips; n_audit int; n_audit2 int;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000002', true);
+  -- create: turen fødes som draft, oppretteren blir turadmin i samme transaksjon
+  SELECT * INTO r1 FROM public.rpc_admin_create_trip('Utkast','Val Thorens');
+  v_id := r1.id;
+  PERFORM public._assert(r1.status = 'draft'::public.trip_status,
+    'rpc_admin_create_trip lager UTKAST');
+  PERFORM public._assert(public.is_trip_admin(v_id,'a0000000-0000-0000-0000-000000000002'),
+    'oppretteren er turadmin i samme transaksjon');
+  PERFORM public._assert(r1.start_date IS NULL AND r1.end_date IS NULL,
+    'create dikter ikke opp turdatoer');
+
+  -- update: draft er skrivbar
+  SELECT * INTO r2 FROM public.rpc_admin_update_trip(v_id, p_name => 'Utkast v2');
+  PERFORM public._assert(r2.name = 'Utkast v2' AND r2.status = 'draft'::public.trip_status,
+    'draft kan oppdateres og forblir draft');
+
+  -- arkivering av draft: én gang
+  SELECT * INTO r1 FROM public.rpc_admin_archive_trip(v_id);
+  PERFORM public._assert(r1.status = 'archived'::public.trip_status,
+    'draft kan arkiveres');
+  SELECT count(*) INTO n_audit FROM public.admin_audit_log
+   WHERE action='trip_archived' AND details->>'trip_id' = v_id::text;
+  PERFORM public._assert(n_audit = 1,'arkivering auditeres nøyaktig én gang');
+
+  -- gjentatt arkivering: identisk rad, ingen ny timestamp, ingen ny audit
+  PERFORM pg_sleep(0.01);
+  SELECT * INTO r2 FROM public.rpc_admin_archive_trip(v_id);
+  PERFORM public._assert(r2.updated_at = r1.updated_at AND r2.updated_by = r1.updated_by
+                         AND r2.status = r1.status,
+    'gjentatt arkivering returnerer raden HELT uendret');
+  SELECT count(*) INTO n_audit2 FROM public.admin_audit_log
+   WHERE action='trip_archived' AND details->>'trip_id' = v_id::text;
+  PERFORM public._assert(n_audit2 = 1,'gjentatt arkivering lager ingen ny auditrad');
+
+  -- arkivert tur er ikke lenger skrivbar via RPC
+  DECLARE ok boolean := false;
+  BEGIN
+    BEGIN
+      PERFORM public.rpc_admin_update_trip(v_id, p_name => 'Ulovlig');
+    EXCEPTION WHEN insufficient_privilege THEN ok := true;
+    END;
+    PERFORM public._assert(ok,'arkivert tur kan ikke oppdateres via RPC');
+  END;
+END $$;
+
+-- Global admin UTEN turmedlemskap skal avvises av selve RPC-en.
+DO $$
+DECLARE ok boolean := false;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000002', true);
+  BEGIN
+    PERFORM public.rpc_admin_archive_trip('33333333-3333-3333-3333-333333333333');
+  EXCEPTION WHEN insufficient_privilege THEN ok := true;
+  END;
+  PERFORM public._assert(ok,'global admin uten turmedlemskap avvises i arkiv-RPC');
+END $$;
+
+DO $$
+DECLARE ok boolean := false;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000002', true);
+  BEGIN
+    PERFORM public.rpc_admin_add_trip_member('33333333-3333-3333-3333-333333333333',
+                                             'a0000000-0000-0000-0000-000000000001');
+  EXCEPTION WHEN insufficient_privilege THEN ok := true;
+  END;
+  PERFORM public._assert(ok,'global admin uten turmedlemskap kan ikke legge til medlem');
+END $$;
+
+-- Siste turadmin kan ikke fjernes.
+DO $$
+DECLARE ok boolean := false;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000002', true);
+  BEGIN
+    PERFORM public.rpc_admin_remove_trip_member('11111111-1111-1111-1111-111111111111',
+                                                'a0000000-0000-0000-0000-000000000002');
+  EXCEPTION WHEN insufficient_privilege THEN ok := true;
+  END;
+  PERFORM public._assert(ok,'siste turadmin kan ikke fjernes');
+END $$;
+
+-- --------------------------------------------------------------------------
+-- 7. Legacy-posisjoner overlever begge migrasjonsrunder uendret
+-- --------------------------------------------------------------------------
+SELECT public._assert(
+  (SELECT count(*) FROM public.user_locations WHERE trip_id IS NULL) = 8,
+  'alle 8 legacy-posisjonsrader er bevart');
+
+SELECT public._assert(
+  NOT EXISTS (
+    SELECT 1 FROM public._loc_snapshot s
+      FULL JOIN public.user_locations u
+        ON u.id = s.id
+     WHERE s.id IS NULL OR u.id IS NULL
+        OR u.user_id IS DISTINCT FROM s.user_id
+        OR u.trip_id IS DISTINCT FROM s.trip_id
+        OR u.lat IS DISTINCT FROM s.lat
+        OR u.lon IS DISTINCT FROM s.lon
+        OR u.updated_at IS DISTINCT FROM s.updated_at
+  ),
+  'andre migrasjonsrunde endrer ingen posisjonsrad (stabile surrogat-UUID-er)');
