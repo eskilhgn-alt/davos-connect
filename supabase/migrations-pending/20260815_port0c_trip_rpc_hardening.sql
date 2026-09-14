@@ -214,18 +214,37 @@ END $$;
 
 -- 2d. Arkivering: aktiv tur kan ikke arkiveres direkte (da ville appen stå
 --     uten aktiv tur). Utkast kan arkiveres eksplisitt.
+--
+--     STRENGT IDEMPOTENT: en allerede arkivert tur returneres HELT uendret —
+--     ingen UPDATE, ingen ny updated_at/updated_by og ingen ny auditrad.
+--     Samtidighet: samme advisory lock som aktivering (802613001) tas FØR
+--     radlåsen, slik at statuskontroll og endring er atomisk mot en parallell
+--     rpc_admin_set_active_trip. Uten den kunne turen bli aktivert mellom
+--     lesningen og UPDATE-en, og vi ville arkivert den aktive turen.
 CREATE OR REPLACE FUNCTION public.rpc_admin_archive_trip(p_trip_id uuid)
 RETURNS public.trips
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
-DECLARE v_uid uuid; v_row public.trips; v_status text;
+DECLARE v_uid uuid; v_row public.trips;
 BEGIN
   v_uid := public.assert_trip_admin(p_trip_id);
 
-  SELECT t.status::text INTO v_status FROM public.trips t WHERE t.id = p_trip_id;
-  IF v_status = 'active' THEN
+  PERFORM pg_catalog.pg_advisory_xact_lock(802613001);
+
+  SELECT * INTO v_row FROM public.trips t WHERE t.id = p_trip_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'trip_not_found' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  IF v_row.status = 'active'::public.trip_status THEN
     RAISE EXCEPTION 'cannot_archive_active_trip'
-      USING HINT = 'Aktiver en annen tur i stedet — det arkiverer denne automatisk.';
+      USING ERRCODE = 'insufficient_privilege',
+            HINT = 'Aktiver en annen tur i stedet — det arkiverer denne automatisk.';
+  END IF;
+
+  -- Allerede arkivert: no-op. Raden returneres byte-identisk.
+  IF v_row.status = 'archived'::public.trip_status THEN
+    RETURN v_row;
   END IF;
 
   UPDATE public.trips
