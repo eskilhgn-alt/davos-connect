@@ -54,11 +54,11 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
   React.useEffect(() => {
     if (openedDeepLink.current || !initialTripId || trips.length === 0) return;
     const t = trips.find((x) => x.id === initialTripId);
-    if (t) {
+    if (t && tripAdminActions(t.status, t.id === activeTripId).canEdit) {
       openedDeepLink.current = true;
       setEditing(t);
     }
-  }, [initialTripId, trips]);
+  }, [initialTripId, trips, activeTripId]);
 
   /**
    * Kjører en admin-RPC og synker den returnerte, autoritative raden inn i

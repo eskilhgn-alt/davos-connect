@@ -123,12 +123,15 @@ export function useUserLocations(tripId: string | null) {
     let queued = false;
 
     const doFetch = async () => {
-      const { data } = await targetDb
+      const { data, error } = await targetDb
         .from("user_locations")
         .select("user_id, trip_id, lat, lon, updated_at")
         .eq("trip_id", myTrip);
       // Forkast svar som kom etter unmount eller turbytte.
       if (cancelled) return;
+      // En nettverksfeil er ikke et autoritativt tomt resultat. Behold siste
+      // kjente posisjoner (stale-filteret gjelder fortsatt) frem til ny henting.
+      if (error) throw error;
       const raw = ((data as RawLocation[] | null) ?? []).filter((d) => belongsToTrip(d, myTrip));
 
       // Autoritativt: rader som forsvant (DELETE vi aldri fikk event for)
@@ -162,6 +165,7 @@ export function useUserLocations(tripId: string | null) {
         .catch(() => undefined)
         .finally(() => {
           inFlight = null;
+          if (!cancelled) setLoading(false);
           if (queued && !cancelled) {
             queued = false;
             void refetch();

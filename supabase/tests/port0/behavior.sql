@@ -322,8 +322,7 @@ BEGIN
   -- gjentatt arkivering: identisk rad, ingen ny timestamp, ingen ny audit
   PERFORM pg_sleep(0.01);
   SELECT * INTO r2 FROM public.rpc_admin_archive_trip(v_id);
-  PERFORM public._assert(r2.updated_at = r1.updated_at AND r2.updated_by = r1.updated_by
-                         AND r2.status = r1.status,
+  PERFORM public._assert(r2 IS NOT DISTINCT FROM r1,
     'gjentatt arkivering returnerer raden HELT uendret');
   SELECT count(*) INTO n_audit2 FROM public.admin_audit_log
    WHERE action='trip_archived' AND details->>'trip_id' = v_id::text;
