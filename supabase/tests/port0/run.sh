@@ -1,44 +1,81 @@
 #!/usr/bin/env bash
 # ============================================================================
 # Port 0 — kjør atferdstestene mot en ISOLERT, midlertidig Postgres.
-# Rører aldri produksjon: egen datakatalog, unix-socket, ingen nettverk.
+# Rører aldri produksjon: eget mktemp-område, egen unix-socket, INGEN TCP,
+# og alle PG*-miljøvariabler nullstilles så en tilkoblet prosjektdatabase
+# aldri kan bli truffet ved uhell.
 #
 #   bash supabase/tests/port0/run.sh
 #
-# Migrasjonen kjøres TO ganger for å bevise idempotens/reproduserbarhet.
+# Hele migrasjonssekvensen 20260813 -> 20260814 -> 20260815 kjøres TO ganger
+# for å bevise idempotens/reproduserbarhet.
+#
+# Postgres nekter å kjøre som root. Kjøres skriptet som root, slippes
+# privilegier til uid/gid 1000 (lovable) med setpriv for initdb/pg_ctl/psql.
 # ============================================================================
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"
-MIG="$ROOT/supabase/migrations-pending/20260813_port0_trip_model_authz.sql"
+PENDING="$ROOT/supabase/migrations-pending"
+MIGS=(
+  "$PENDING/20260813_port0_trip_model_authz.sql"
+  "$PENDING/20260814_port0b_trip_status_draft.sql"
+  "$PENDING/20260815_port0c_trip_rpc_hardening.sql"
+)
 
-PGDATA="${PGDATA:-/tmp/port0-pgdata}"
-SOCK="${SOCK:-/tmp/port0-sock}"
-PSQL="psql -v ON_ERROR_STOP=1 -h $SOCK -U postgres -d postgres"
+# Ingen arvede tilkoblingsparametre.
+unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSERVICE PGSSLMODE PGDATA || true
 
-cleanup() { pg_ctl -D "$PGDATA" stop -m immediate >/dev/null 2>&1 || true; }
+WORK="$(mktemp -d /tmp/port0-XXXXXXXX)"
+PGDATA="$WORK/pgdata"
+SOCK="$WORK/sock"
+LOG="$WORK/pg.log"
+mkdir -p "$PGDATA" "$SOCK"
+
+AS=()
+if [ "$(id -u)" = "0" ]; then
+  AS=(setpriv --reuid=1000 --regid=1000 --clear-groups)
+  chown -R 1000:1000 "$WORK"
+fi
+
+cleanup() {
+  "${AS[@]}" pg_ctl -D "$PGDATA" stop -m immediate >/dev/null 2>&1 || true
+  rm -rf "$WORK"
+}
 trap cleanup EXIT
 
-rm -rf "$PGDATA" "$SOCK"; mkdir -p "$PGDATA" "$SOCK"
-initdb -U postgres -A trust "$PGDATA" >/tmp/port0-initdb.log 2>&1
-pg_ctl -D "$PGDATA" -o "-k $SOCK -c listen_addresses=" -l /tmp/port0-pg.log start >/dev/null
-sleep 1
+"${AS[@]}" initdb -U postgres -A trust -D "$PGDATA" >"$WORK/initdb.log" 2>&1
+"${AS[@]}" pg_ctl -D "$PGDATA" -o "-k $SOCK -c listen_addresses=''" -l "$LOG" -w start >/dev/null
+
+psql_run() {
+  "${AS[@]}" psql -v ON_ERROR_STOP=1 -h "$SOCK" -U postgres -d postgres "$@"
+}
 
 echo "== fikstur =="
-$PSQL -q -f "$HERE/fixture.sql"
+psql_run -q -f "$HERE/fixture.sql"
 
-echo "== migrasjon (1. kjøring) =="
-$PSQL -q -f "$MIG"
-echo "== migrasjon (2. kjøring — idempotens) =="
-$PSQL -q -f "$MIG"
+for pass in 1 2; do
+  for m in "${MIGS[@]}"; do
+    echo "== migrasjon (kjøring $pass): $(basename "$m") =="
+    # Egen psql-prosess per fil => egen transaksjonskontekst. Nødvendig fordi
+    # ALTER TYPE ... ADD VALUE (20260814) ikke kan BRUKES i samme transaksjon.
+    psql_run -q -f "$m"
+  done
+done
 
 echo "== policyer =="
-$PSQL -q -f "$HERE/policies.sql"
+psql_run -q -f "$HERE/policies.sql"
 
 echo "== atferdstester =="
-$PSQL -q -f "$HERE/behavior.sql" 2>&1 | sed -E 's/^psql:[^ ]+ //' | grep -E "^(NOTICE|ERROR|FAIL)" | sed 's/^NOTICE:  //'
+psql_run -q -f "$HERE/behavior.sql" 2>&1 \
+  | sed -E 's/^psql:[^ ]+ //' \
+  | grep -E "^(NOTICE|ERROR|FAIL)" \
+  | sed 's/^NOTICE:  //'
 # ON_ERROR_STOP + pipefail gjør at en feilet assert velter hele kjøringen.
+
+echo "== parallell aktivering: nøyaktig én aktiv tur =="
+psql_run -q -f "$HERE/concurrency.sql"
 
 echo "== ingen destruktive setninger i pending Shot/Port0-migrasjoner =="
 ! grep -nEi '^[[:space:]]*(DROP|DELETE[[:space:]]+FROM|TRUNCATE)\b' \
