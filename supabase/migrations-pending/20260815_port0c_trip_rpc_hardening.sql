@@ -406,9 +406,10 @@ END $$;
 --
 --    Preflight (bekreftet mot produksjon): tabellen har kun PRIMARY KEY
 --    (user_id) og INGEN innkommende fremmednøkler. Overgangen til surrogat-PK
---    er derfor trygg og rører ingen rader. De 8 legacy-radene med
---    trip_id IS NULL beholdes urørt: eier kan lese dem, men de kan aldri
---    skrives eller brukes som cross-trip-bypass.
+--    er derfor trygg: ingen rad slettes og ingen posisjonsdata endres. De 8
+--    legacy-radene med trip_id IS NULL får en generert UUID i `id` (stabil
+--    ved senere kjøringer), men beholdes ellers urørt: eier kan lese dem, men
+--    de kan aldri skrives eller brukes som cross-trip-bypass.
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE public.user_locations
