@@ -62,6 +62,10 @@ for pass in 1 2; do
     # ALTER TYPE ... ADD VALUE (20260814) ikke kan BRUKES i samme transaksjon.
     psql_run -q -f "$m"
   done
+  if [ "$pass" = "1" ]; then
+    # Snapshot av posisjonsradene mellom rundene: runde 2 skal ikke endre dem.
+    psql_run -q -f "$HERE/locations_snapshot.sql"
+  fi
 done
 
 echo "== policyer =="
