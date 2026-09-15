@@ -62,9 +62,15 @@ function TripView({ label }: { label: string }) {
   return <output aria-label={label}>{JSON.stringify(selectedTrip)}</output>;
 }
 function mount(editor = true, client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
-  return render(<QueryClientProvider client={client}>
-    <TripProvider>{editor && <AdminTrips />}<TripView label={editor ? "Hjem" : "Annen enhet" />}{editor && <TripView label="Plan" />}</TripProvider>
-  </QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <TripProvider>
+        {editor && <AdminTrips />}
+        <TripView label={editor ? "Hjem" : "Annen enhet"} />
+        {editor && <TripView label="Plan" />}
+      </TripProvider>
+    </QueryClientProvider>,
+  );
 }
 async function edit() {
   fireEvent.click(await screen.findByRole("button", { name: "Rediger tur" }));
