@@ -63,7 +63,7 @@ function TripView({ label }: { label: string }) {
 }
 function mount(editor = true, client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return render(<QueryClientProvider client={client}>
-    <TripProvider>{editor && <AdminTrips />}<TripView label={editor ? "Hjem" : "Annen enhet"} />{editor && <TripView label="Plan" />}</TripProvider>
+    <TripProvider>{editor && <AdminTrips />}<TripView label={editor ? "Hjem" : "Annen enhet" />}{editor && <TripView label="Plan" />}</TripProvider>
   </QueryClientProvider>);
 }
 async function edit() {
@@ -91,7 +91,7 @@ describe("faktisk turlagring gjennom AdminTrips og TripProvider", () => {
   it("lagrer dato og info, oppdaterer begge appflater og leser verdiene etter ny åpning", async () => {
     const app = mount(); const form = await edit(); dates(form);
     fireEvent.change(form.getByLabelText("Navn"), { target: { value: "Vinterturen" } });
-    fireEvent.click(form.getByRole("button", { name: "Lagre" }));
+    fireEvent.click(form.getByRole("button", { name: "Lagre tur" }));
     await waitFor(() => expect(backend.success).toHaveBeenCalled());
     for (const label of ["Hjem", "Plan"]) {
       expect(screen.getByLabelText(label)).toHaveTextContent("Vinterturen");
@@ -106,7 +106,7 @@ describe("faktisk turlagring gjennom AdminTrips og TripProvider", () => {
   it("lar datoer lagres selv om urørt kart/Oppdag-oppsett er ufullstendig", async () => {
     backend.trips[0].destination_config = { discovery: { providers: ["google-places"], categories: [] }, custom: "behold" };
     mount(); const form = await edit(); dates(form);
-    fireEvent.click(form.getByRole("button", { name: "Lagre" }));
+    fireEvent.click(form.getByRole("button", { name: "Lagre tur" }));
     await waitFor(() => expect(backend.success).toHaveBeenCalled());
     expect(backend.trips[0].start_date).toBe("2027-02-10");
     expect(backend.trips[0].destination_config.custom).toBe("behold");
@@ -120,14 +120,14 @@ describe("faktisk turlagring gjennom AdminTrips og TripProvider", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     await act(async () => { finish({ data: structuredClone(backend.trips), error: null }); });
     expect(screen.getByLabelText("Startdato")).toHaveValue("2027-02-10");
-    fireEvent.click(screen.getByRole("button", { name: "Lagre" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lagre tur" }));
     await waitFor(() => expect(backend.success).toHaveBeenCalled());
   });
 
   it("viser serverfeil i skjemaet og beholder datoene uten å vise falsk suksess", async () => {
     backend.rpc.mockResolvedValue({ data: null, error: { message: "Serveren er utilgjengelig" } });
     mount(); const form = await edit(); dates(form);
-    fireEvent.click(form.getByRole("button", { name: "Lagre" }));
+    fireEvent.click(form.getByRole("button", { name: "Lagre tur" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Serveren er utilgjengelig");
     expect(screen.getByLabelText("Startdato")).toHaveValue("2027-02-10");
     expect(backend.success).not.toHaveBeenCalled();
@@ -137,7 +137,7 @@ describe("faktisk turlagring gjennom AdminTrips og TripProvider", () => {
     backend.rpc.mockResolvedValue({ data: { ...initial, id: "other-trip", start_date: "2027-02-10", end_date: "2027-02-17" }, error: null });
     mount(); const form = await edit(); dates(form);
     fireEvent.change(form.getByLabelText("Navn"), { target: { value: "Nytt navn" } });
-    fireEvent.click(form.getByRole("button", { name: "Lagre" }));
+    fireEvent.click(form.getByRole("button", { name: "Lagre tur" }));
     await waitFor(() => expect(backend.error).toHaveBeenCalled());
     expect(backend.success).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -153,7 +153,7 @@ describe("faktisk turlagring gjennom AdminTrips og TripProvider", () => {
 
   it("oppdaterer en annen åpen app når turhendelsen mottas", async () => {
     mount(); mount(false); const form = await edit(); dates(form);
-    fireEvent.click(form.getByRole("button", { name: "Lagre" }));
+    fireEvent.click(form.getByRole("button", { name: "Lagre tur" }));
     await waitFor(() => expect(backend.success).toHaveBeenCalled());
     await act(async () => { backend.events.forEach(fn => fn()); });
     await waitFor(() => expect(screen.getByLabelText("Annen enhet")).toHaveTextContent("2027-02-17"));
@@ -164,7 +164,7 @@ describe("faktisk turlagring gjennom AdminTrips og TripProvider", () => {
     mount(); const form = await edit(); dates(form);
     fireEvent.change(form.getByLabelText("Tidssone (IANA)"), { target: { value: "Europe/Oslo" } });
     fireEvent.change(form.getByLabelText("Valuta (ISO)"), { target: { value: "nok" } });
-    fireEvent.click(form.getByRole("button", { name: "Lagre" }));
+    fireEvent.click(form.getByRole("button", { name: "Lagre tur" }));
     await waitFor(() => expect(backend.success).toHaveBeenCalled());
     expect(backend.trips[0]).toMatchObject({ timezone: "Europe/Oslo", currency: "NOK", destination_config: {} });
   });
@@ -172,7 +172,7 @@ describe("faktisk turlagring gjennom AdminTrips og TripProvider", () => {
   it("avviser nye ugyldige kartverdier før noe skrives til serveren", async () => {
     mount(); const form = await edit(); dates(form);
     fireEvent.change(form.getByLabelText("Breddegrad"), { target: { value: "100" } });
-    fireEvent.click(form.getByRole("button", { name: "Lagre" }));
+    fireEvent.click(form.getByRole("button", { name: "Lagre tur" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Breddegrad må være mellom -90 og 90");
     expect(backend.rpc).not.toHaveBeenCalled();
   });
@@ -181,7 +181,7 @@ describe("faktisk turlagring gjennom AdminTrips og TripProvider", () => {
     const client = new QueryClient();
     vi.spyOn(client, "invalidateQueries").mockImplementation(() => new Promise(() => {}));
     mount(true, client); const form = await edit(); dates(form);
-    fireEvent.click(form.getByRole("button", { name: "Lagre" }));
+    fireEvent.click(form.getByRole("button", { name: "Lagre tur" }));
     await waitFor(() => expect(backend.success).toHaveBeenCalled());
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByLabelText("Hjem")).toHaveTextContent("2027-02-10");

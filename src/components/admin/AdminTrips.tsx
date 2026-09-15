@@ -441,7 +441,7 @@ const TripFormModal: React.FC<{
   };
 
   return createPortal(
-    // z-[70] ligger entydig over BottomNavigation (z-50), slik at Lagre aldri
+    // z-[70] ligger entydig over BottomNavigation (z-50), slik at Lagre-tur-knappen aldri
     // males over av appnavigasjonen på mobil.
     <div
       role="dialog"
@@ -478,7 +478,7 @@ const TripFormModal: React.FC<{
                 onClick={() => {
                   setDest(destPreset);
                   setApplyVtRuntime(true);
-                  toast.message("Verifisert Val Thorens-oppsett fylt inn – trykk Lagre");
+                  toast.message("Verifisert Val Thorens-oppsett fylt inn – trykk Lagre tur");
                 }}
                 className="inline-flex items-center gap-1 text-xs px-2 py-2 rounded-lg bg-muted min-h-[44px]"
               >
@@ -628,7 +628,7 @@ const TripFormModal: React.FC<{
             aria-busy={saving}
             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm min-h-[44px] disabled:opacity-60"
           >
-            {saving ? "Lagrer…" : "Lagre"}
+            {saving ? "Lagrer…" : "Lagre tur"}
           </button>
         </div>
       </form>
