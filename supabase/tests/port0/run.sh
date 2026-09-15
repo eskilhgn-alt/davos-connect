@@ -25,7 +25,7 @@ MIGS=(
 )
 
 # Ingen arvede tilkoblingsparametre.
-unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE PGSERVICE PGSSLMODE PGDATA || true
+for pg_var in ${!PG@}; do unset "$pg_var"; done
 
 WORK="$(mktemp -d /tmp/port0-XXXXXXXX)"
 PGDATA="$WORK/pgdata"
@@ -34,16 +34,18 @@ LOG="$WORK/pg.log"
 mkdir -p "$PGDATA" "$SOCK"
 
 AS=()
-if [ "$(id -u)" = "0" ]; then
-  AS=(setpriv --reuid=1000 --regid=1000 --clear-groups)
-  chown -R 1000:1000 "$WORK"
-fi
+
 
 cleanup() {
   "${AS[@]}" pg_ctl -D "$PGDATA" stop -m immediate >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT
+
+if [ "$(id -u)" = "0" ]; then
+  AS=(setpriv --reuid=1000 --regid=1000 --clear-groups)
+  chown -R 1000:1000 "$WORK"
+fi
 
 "${AS[@]}" initdb -U postgres -A trust -D "$PGDATA" >"$WORK/initdb.log" 2>&1
 "${AS[@]}" pg_ctl -D "$PGDATA" -o "-k $SOCK -c listen_addresses=''" -l "$LOG" -w start >/dev/null
@@ -78,15 +80,30 @@ psql_run -q -f "$HERE/behavior.sql" 2>&1 \
   | sed 's/^NOTICE:  //'
 # ON_ERROR_STOP + pipefail gjør at en feilet assert velter hele kjøringen.
 
+echo "== direkte RPC/RLS-omgåelser og posisjonstilgang =="
+psql_run -q -f "$HERE/security.sql"
+
 echo "== parallell aktivering: to ekte psql-sesjoner, nøyaktig én aktiv tur =="
 psql_run -q -f "$HERE/concurrency_setup.sql"
 ACT="a0000000-0000-0000-0000-000000000002"
+activation_pids=()
 for t in "44444444-4444-4444-4444-444444444444" "55555555-5555-5555-5555-555555555555"; do
-  psql_run -q -c "SELECT set_config('request.jwt.claim.sub','$ACT',false);
-                  SELECT pg_sleep(0.2);
-                  SELECT public.rpc_admin_set_active_trip('$t');" &
+  psql_run -q -c "BEGIN;
+                  SET LOCAL ROLE authenticated;
+                  SELECT set_config('request.jwt.claim.sub','$ACT',true);
+                  SELECT public.rpc_admin_set_active_trip('$t');
+                  SELECT pg_sleep(0.3);
+                  COMMIT;" &
+  activation_pids+=("$!")
 done
-wait
+activation_failed=0
+for activation_pid in "${activation_pids[@]}"; do
+  wait "$activation_pid" || activation_failed=1
+done
+if [ "$activation_failed" -ne 0 ]; then
+  echo "FAIL: minst én parallell aktivering feilet" >&2
+  exit 1
+fi
 psql_run -q -f "$HERE/concurrency_assert.sql" 2>&1 \
   | sed -E 's/^psql:[^ ]+ //' | grep -E "^(NOTICE|ERROR|FAIL)" | sed 's/^NOTICE:  //'
 

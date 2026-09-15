@@ -22,7 +22,7 @@ export function tripAdminActions(
 ): TripAdminActions {
   return {
     canEdit: isWritableStatus(status),
-    canActivate: !isActive,
-    canArchive: !isActive && !isArchivedStatus(status) && isWritableStatus(status),
+    canActivate: !isActive && (status === "draft" || isArchivedStatus(status)),
+    canArchive: !isActive && status === "draft",
   };
 }
