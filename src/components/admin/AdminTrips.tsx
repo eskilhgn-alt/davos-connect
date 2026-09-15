@@ -14,6 +14,7 @@
  *    slik at UI aldri viser en gammel rad i opptil 60 sekunder.
  */
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -38,6 +39,8 @@ import {
   destinationDraftFromTrip,
   mergeDestinationIntoConfig,
   parseDestinationDraft,
+  isValidTimezone,
+  isValidCurrency,
   valThorensDestinationPreset,
   valThorensRuntimePatch,
   type DestinationDraft,
@@ -54,11 +57,11 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
   React.useEffect(() => {
     if (openedDeepLink.current || !initialTripId || trips.length === 0) return;
     const t = trips.find((x) => x.id === initialTripId);
-    if (t) {
+    if (t && tripAdminActions(t.status, t.id === activeTripId).canEdit) {
       openedDeepLink.current = true;
       setEditing(t);
     }
-  }, [initialTripId, trips]);
+  }, [initialTripId, trips, activeTripId]);
 
   /**
    * Kjører en admin-RPC og synker den returnerte, autoritative raden inn i
@@ -217,6 +220,10 @@ export const AdminTrips: React.FC<{ initialTripId?: string | null }> = ({ initia
 /** Sammenlikner det vi sendte med det som faktisk ble persistert. */
 export function verifySavedTrip(
   row: {
+    id?: unknown;
+    name?: unknown;
+    destination?: unknown;
+    country?: unknown;
     start_date?: unknown;
     end_date?: unknown;
     timezone?: unknown;
@@ -224,6 +231,10 @@ export function verifySavedTrip(
     destination_config?: unknown;
   } | null,
   expected: {
+    id?: string;
+    name?: string;
+    destination?: string;
+    country?: string | null;
     startDate: string | null;
     endDate: string | null;
     discoveryVersion: string | null;
@@ -234,6 +245,10 @@ export function verifySavedTrip(
   },
 ): string | null {
   if (!row) return "Fikk ingen bekreftelse fra serveren";
+  if (expected.id && row.id !== expected.id) return "Serveren bekreftet en annen tur";
+  if (expected.name !== undefined && row.name !== expected.name) return "Navnet ble ikke lagret";
+  if (expected.destination !== undefined && row.destination !== expected.destination) return "Destinasjonen ble ikke lagret";
+  if (expected.country !== undefined && row.country !== expected.country) return "Land ble ikke lagret";
   const norm = (v: unknown) => (v == null || v === "" ? null : String(v).slice(0, 10));
   if (norm(row.start_date) !== expected.startDate) return "Startdato ble ikke lagret";
   if (norm(row.end_date) !== expected.endDate) return "Sluttdato ble ikke lagret";
@@ -266,6 +281,8 @@ const TripFormModal: React.FC<{
   const [startDate, setStartDate] = React.useState(trip?.start_date ?? "");
   const [endDate, setEndDate] = React.useState(trip?.end_date ?? "");
   const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+  const fail = (message: string) => { setSaveError(message); toast.error(message); };
   const [discovery, setDiscovery] = React.useState<DiscoveryDraft>(() =>
     discoveryDraftFromConfig(trip?.destination_config),
   );
@@ -294,8 +311,13 @@ const TripFormModal: React.FC<{
       providers: d.providers.includes(p) ? d.providers.filter((x) => x !== p) : [...d.providers, p],
     }));
 
-  const discoveryTouched =
-    discovery.providers.length > 0 || discovery.categories.length > 0;
+  // Urørt, ufullstendig kart/Oppdag-oppsett må ikke blokkere dato og navn.
+  const initialDest = React.useMemo(() => destinationDraftFromTrip(trip), [trip]);
+  const mapTouched = (["lat", "lon", "elevation", "zoom"] as const)
+    .some((key) => dest[key] !== initialDest[key]);
+  const timezoneTouched = dest.timezone !== initialDest.timezone;
+  const currencyTouched = dest.currency !== initialDest.currency;
+  const discoveryTouched = JSON.stringify(discovery) !== JSON.stringify(discoveryDraftFromConfig(trip?.destination_config));
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -305,24 +327,27 @@ const TripFormModal: React.FC<{
 
   const save = async () => {
     if (saving) return;
-    if (!name || !destination) {
-      toast.error("Navn og destinasjon er obligatorisk");
+    setSaveError(null);
+    if (!name.trim() || !destination.trim()) {
+      fail("Navn og destinasjon er obligatorisk");
       return;
     }
     const destParsed = parseDestinationDraft(dest);
-    const destTouched =
-      dest.timezone.trim() !== "" ||
-      dest.currency.trim() !== "" ||
-      dest.lat.trim() !== "" ||
-      dest.lon.trim() !== "" ||
-      dest.zoom.trim() !== "";
-    if (destTouched && destParsed.error) {
-      toast.error(destParsed.error);
+    if (timezoneTouched && !isValidTimezone(dest.timezone.trim())) {
+      fail("Ugyldig tidssone (bruk IANA, f.eks. Europe/Paris)");
+      return;
+    }
+    if (currencyTouched && !isValidCurrency(dest.currency.trim())) {
+      fail("Valuta må være en ISO-kode på tre bokstaver");
+      return;
+    }
+    if (mapTouched && destParsed.error) {
+      fail(destParsed.error);
       return;
     }
 
     let mergedConfig: Record<string, unknown> = { ...existingCfg };
-    if (destTouched && destParsed.error === null) {
+    if ((mapTouched || applyVtRuntime) && destParsed.error === null) {
       mergedConfig = mergeDestinationIntoConfig(mergedConfig, destParsed.value);
       if (applyVtRuntime) {
         mergedConfig = valThorensRuntimePatch(trip, mergedConfig) ?? mergedConfig;
@@ -332,11 +357,11 @@ const TripFormModal: React.FC<{
     if (discoveryTouched) {
       const invalid = validateDiscoveryDraft(discovery);
       if (invalid) {
-        toast.error(invalid);
+        fail(invalid);
         return;
       }
       if (!hasCenter) {
-        toast.error("Turen mangler verifisert senter (breddegrad/lengdegrad)");
+        fail("Turen mangler verifisert senter (breddegrad/lengdegrad)");
         return;
       }
       mergedConfig = mergeDiscoveryIntoConfig(mergedConfig, discovery);
@@ -345,7 +370,7 @@ const TripFormModal: React.FC<{
     }
 
     if (!validateTripDates(startDate || null, endDate || null)) {
-      toast.error("Startdato må være før eller lik sluttdato");
+      fail("Startdato må være før eller lik sluttdato");
       return;
     }
 
@@ -354,17 +379,15 @@ const TripFormModal: React.FC<{
     try {
       const rpc = trip ? "rpc_admin_update_trip" : "rpc_admin_create_trip";
       const params: Record<string, unknown> = {
-        p_name: name,
-        p_destination: destination,
-        p_country: country || null,
+        p_name: name.trim(),
+        p_destination: destination.trim(),
+        p_country: country.trim() || null,
         p_start_date: startDate || null,
         p_end_date: endDate || null,
         p_destination_config: mergedConfig,
       };
-      if (destTouched && destParsed.error === null) {
-        params.p_timezone = destParsed.value.timezone;
-        params.p_currency = destParsed.value.currency;
-      }
+      if (timezoneTouched) params.p_timezone = dest.timezone.trim();
+      if (currencyTouched) params.p_currency = dest.currency.trim().toUpperCase();
       if (trip) params.p_trip_id = trip.id;
       const { data, error } = await (supabase as any).rpc(rpc, params);
       if (error) throw error;
@@ -373,21 +396,26 @@ const TripFormModal: React.FC<{
       let row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
       const tripId = (row?.id as string | undefined) ?? trip?.id;
       if ((!row || row.destination_config === undefined || row.name === undefined) && tripId) {
-        const { data: check } = await (supabase as any)
+        const { data: check, error: checkError } = await (supabase as any)
           .from("trips")
           .select("*")
           .eq("id", tripId)
           .maybeSingle();
+        if (checkError) throw checkError;
         row = (check as Record<string, unknown> | null) ?? row;
       }
       const mismatch = verifySavedTrip(row, {
+        id: trip?.id,
+        name: name.trim(),
+        destination: destination.trim(),
+        country: country.trim() || null,
         startDate: startDate || null,
         endDate: endDate || null,
         discoveryVersion: expectedVersion,
-        timezone: destTouched && destParsed.error === null ? destParsed.value.timezone : null,
-        currency: destTouched && destParsed.error === null ? destParsed.value.currency : null,
-        center: destTouched && destParsed.error === null ? destParsed.value.center : null,
-        zoom: destTouched && destParsed.error === null ? destParsed.value.zoom : null,
+        timezone: timezoneTouched ? dest.timezone.trim() : null,
+        currency: currencyTouched ? dest.currency.trim().toUpperCase() : null,
+        center: mapTouched && destParsed.error === null ? destParsed.value.center : null,
+        zoom: mapTouched && destParsed.error === null ? destParsed.value.zoom : null,
       });
       if (mismatch) throw new Error(mismatch);
 
@@ -406,13 +434,13 @@ const TripFormModal: React.FC<{
       toast.success(trip ? "Tur oppdatert og verifisert" : "Tur opprettet og verifisert");
       await onSaved();
     } catch (e) {
-      toast.error((e as Error).message || "Kunne ikke lagre");
+      fail((e as Error).message || "Kunne ikke lagre");
     } finally {
       setSaving(false);
     }
   };
 
-  return (
+  return createPortal(
     // z-[70] ligger entydig over BottomNavigation (z-50), slik at Lagre aldri
     // males over av appnavigasjonen på mobil.
     <div
@@ -498,7 +526,7 @@ const TripFormModal: React.FC<{
               type="text"
             />
           </div>
-          {parsedDest.error && (dest.lat || dest.lon || dest.timezone || dest.currency || dest.zoom) && (
+          {parsedDest.error && mapTouched && (
             <p className="text-[11px] text-destructive">{parsedDest.error}</p>
           )}
         </div>
@@ -581,6 +609,7 @@ const TripFormModal: React.FC<{
 
         </div>
 
+        {saveError && <p role="alert" className="shrink-0 px-4 py-2 text-sm text-destructive">{saveError}</p>}
         <div
           data-testid="trip-form-footer"
           className="shrink-0 flex justify-end gap-2 border-t border-border bg-card px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]"
@@ -603,7 +632,8 @@ const TripFormModal: React.FC<{
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

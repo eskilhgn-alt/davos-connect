@@ -145,6 +145,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 DECLARE v_uid uuid; v_row public.trips;
 BEGIN
+  PERFORM pg_catalog.pg_advisory_xact_lock(802613001);
   v_uid := public.assert_trip_admin(p_trip_id);
   PERFORM public.assert_trip_writable(p_trip_id);
 
@@ -177,10 +178,9 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 DECLARE v_uid uuid; v_row public.trips;
 BEGIN
-  v_uid := public.assert_trip_admin(p_trip_id);
-
   -- Global serialisering av «hvem er aktiv tur»-overgangen.
   PERFORM pg_catalog.pg_advisory_xact_lock(802613001);
+  v_uid := public.assert_trip_admin(p_trip_id);
 
   PERFORM 1 FROM public.trips t
     WHERE t.status = 'active'::public.trip_status OR t.id = p_trip_id
@@ -230,9 +230,8 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 DECLARE v_uid uuid; v_row public.trips;
 BEGIN
-  v_uid := public.assert_trip_admin(p_trip_id);
-
   PERFORM pg_catalog.pg_advisory_xact_lock(802613001);
+  v_uid := public.assert_trip_admin(p_trip_id);
 
   SELECT * INTO v_row FROM public.trips t WHERE t.id = p_trip_id FOR UPDATE;
   IF NOT FOUND THEN
@@ -267,6 +266,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 DECLARE v_uid uuid;
 BEGIN
+  PERFORM pg_catalog.pg_advisory_xact_lock(802613001);
   v_uid := public.assert_trip_admin(p_trip_id);
   PERFORM public.assert_trip_writable(p_trip_id);
 
@@ -289,6 +289,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 DECLARE v_uid uuid; v_admins_left int;
 BEGIN
+  PERFORM pg_catalog.pg_advisory_xact_lock(802613001);
   v_uid := public.assert_trip_admin(p_trip_id);
   PERFORM public.assert_trip_writable(p_trip_id);
 
@@ -401,6 +402,26 @@ BEGIN
 END $$;
 
 
+-- Medlemskap muteres bare via RPC, slik at direkte tabellskriving ikke kan
+-- omgå siste-admin-kontrollen. RPC-ene bruker samme lås som aktivering/arkiv.
+DO $$
+DECLARE v_cmd text;
+BEGIN
+  FOREACH v_cmd IN ARRAY ARRAY['INSERT','UPDATE','DELETE'] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_policies
+      WHERE schemaname='public' AND tablename='trip_members'
+        AND policyname=format('trip_members_rpc_only_%s', lower(v_cmd))) THEN
+      IF v_cmd='INSERT' THEN
+        EXECUTE format('CREATE POLICY %I ON public.trip_members AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (false)',
+          format('trip_members_rpc_only_%s', lower(v_cmd)));
+      ELSE
+        EXECUTE format('CREATE POLICY %I ON public.trip_members AS RESTRICTIVE FOR %s TO authenticated USING (false)',
+          format('trip_members_rpc_only_%s', lower(v_cmd)), v_cmd);
+      END IF;
+    END IF;
+  END LOOP;
+END $$;
+
 -- ---------------------------------------------------------------------------
 -- 6. user_locations: ekte fler-tur-modell UTEN datatap.
 --
@@ -426,7 +447,7 @@ BEGIN
   IF v_pk IS NOT NULL AND EXISTS (
     SELECT 1 FROM pg_constraint c
      WHERE c.conname = v_pk AND c.conrelid = 'public.user_locations'::regclass
-       AND (SELECT array_agg(a.attname ORDER BY a.attname)
+       AND (SELECT array_agg(a.attname::text ORDER BY a.attname)
               FROM unnest(c.conkey) k JOIN pg_attribute a
                 ON a.attrelid = c.conrelid AND a.attnum = k) = ARRAY['user_id']
   ) THEN
@@ -528,3 +549,21 @@ END $$;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_locations TO authenticated;
 GRANT ALL ON public.user_locations TO service_role;
+
+-- Konverger også policyer opprettet av en tidligere pending-versjon.
+-- UPDATE må godkjenne både gammel og ny rad; arkiv/legacy kan ikke flyttes
+-- til en skrivbar tur for å omgå skrivebeskyttelsen.
+ALTER POLICY user_locations_write_scoped_update ON public.user_locations
+  USING (user_id = auth.uid() AND trip_id IS NOT NULL
+         AND public.can_write_trip(trip_id, auth.uid()))
+  WITH CHECK (user_id = auth.uid() AND trip_id IS NOT NULL
+              AND public.can_write_trip(trip_id, auth.uid()));
+
+-- Godkjenning og turmedlemskap kreves også for lesing av egne posisjoner.
+-- En legacy-rad uten tur kan fortsatt leses av sin godkjente eier.
+ALTER POLICY user_locations_read_scoped ON public.user_locations
+  USING (public.is_approved_member(auth.uid()) AND (
+    (trip_id IS NULL AND user_id = auth.uid()) OR
+    (trip_id IS NOT NULL AND public.can_read_trip(trip_id, auth.uid())
+      AND (user_id = auth.uid() OR public.is_trip_admin(trip_id, auth.uid())))
+  ));
