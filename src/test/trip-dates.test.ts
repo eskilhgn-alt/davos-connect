@@ -11,6 +11,7 @@ describe("tripDaysUntilStart", () => {
     const trip = { ...ACTIVE_TRIP, startDate: "2027-02-10" };
     const now = new Date("2027-02-01T00:00:00Z");
     expect(tripDaysUntilStart(trip, now)).toBe(9);
+    expect(tripDaysUntilStart(trip, new Date("2027-02-01T23:30:00Z"))).toBe(8);
   });
 
   it("returnerer 0 eller negativt tall når datoen er passert", () => {

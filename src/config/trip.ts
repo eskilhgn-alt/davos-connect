@@ -11,6 +11,8 @@
  * later. All UI that uses dates must handle `null` gracefully.
  */
 
+import { daysUntilTripStart } from "@/features/trip/tripDates";
+
 export interface TripCoordinate {
   lat: number;
   lon: number;
@@ -309,9 +311,5 @@ export function tripHasConfirmedDates(trip: TripConfig): boolean {
 
 /** Days until start. Returns `null` when the start date is not confirmed. */
 export function tripDaysUntilStart(trip: TripConfig, now: Date = new Date()): number | null {
-  if (!trip.startDate) return null;
-  const start = new Date(trip.startDate + "T00:00:00");
-  const ms = start.getTime() - now.getTime();
-  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+  return daysUntilTripStart({ start_date: trip.startDate, timezone: trip.timezone }, now);
 }
-

@@ -3,7 +3,9 @@
 Én fast liste. Status er sannferdig: alt som ikke er bevist i faktisk kjøring
 står som **Åpen** eller **Delvis**. Grønne enhetstester er ikke produksjonsbevis.
 
-Sist oppdatert: 15. september 2026 (runde SYNC-01).
+Sist oppdatert: 16. september 2026. Se `TRIP_SAVE_20260916.md` for den nyere, kontrollerte leveransen. Klientkode under import er ikke aktiv preview.
+
+Realtime er aktivert for trips/trip_members med uendrede datarader. 470/470 klienttester og SQL-atferdstester består. Kompletterende DB-aktivering fikk 499; etterkontroll fikk 504, så enum-status er uavklart. Full SAVE-01 og native samtidighet/to-enhetstest er fortsatt åpne.
 
 | ID | Oppgave | Status | Bevis / gjenstår |
 | --- | --- | --- | --- |
@@ -25,3 +27,8 @@ Sist oppdatert: 15. september 2026 (runde SYNC-01).
 
 Ingen publisering av frontend, ingen produksjonsmigrasjoner, ingen Edge-deploy,
 ingen endring av produksjonsdata eller historikk uten eksplisitt godkjenning.
+
+Avgrenset godkjenning 16. september: Eskil bestilte uttrykkelig retting av
+databasefeilen og aktivering av Realtime for turlagring/turmodell/tilgang.
+Nødvendige testede endringer for dette er autorisert; frontendpublisering,
+andre migrasjoner og sletting er fortsatt utenfor bestillingen.
