@@ -137,7 +137,7 @@ const NotConfiguredState: React.FC<{
 const DiscoverScreen: React.FC = () => {
   const { selectedTrip } = useTrip();
   const [category, setCategory] = React.useState<DiscoverCategory>("spise");
-  const { places, provider, attribution, loading, error, notConfigured, notConfiguredReason, archived, refetch } =
+  const { places, attribution, loading, error, notConfigured, notConfiguredReason, archived, refetch } =
     useDiscover(category);
   const { isAdmin } = useAuth();
   const navigate = useNavigate();

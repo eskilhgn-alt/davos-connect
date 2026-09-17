@@ -46,3 +46,11 @@ andre migrasjoner og sletting er fortsatt utenfor bestillingen.
 - SAVE-01 fortsatt Åpen. PORT0-04 har nå isolert native samtidighetsbevis for trip-save-pakken; eldre Port 0-harness og produksjonsbevis er ikke etablert av denne kjøringen. Øvrige åpne porter over er uendret.
 - Kredittoppslag etter tester: dagens bokførte build_time-forbruk 1,50; 3,50 av 5 daglige kreditter gjensto. Endelig kostnad for pågående svar er ikke tilgjengelig før avslutning.
 - Ingen produksjonsmigrasjon, data-/Realtime-endring, publisering eller Edge-deploy. Arbeidet stopper etter denne avgrensede leveransen; ekstern automasjonsstatus er ikke endret eller verifisert.
+
+## Avgrenset UI-opprydding 17. september 2026 (kveld)
+
+- Omfang: kun Mer-skjermen og Oppdag-skjermen. Ingen backend-, tjeneste- eller dataendringer.
+- Mer: seksjonen «Fest og spill» heter nå «Verktøy» (intern variabel `tools`). Alle fliser, adminbegrensning og navigasjon er uendret.
+- Oppdag: ren listevisning — Liste/Kart-veksler og kart-placeholder fjernet. Gütta-match-badge og forklaringen om delt match er fjernet fra skjermen (modulen `guttaMatch.ts` og EØS-testene er urørt). Kategori-/stedsvisning, feil/tom/lasting, arkivgrense, oppdatering, Google-attribution, eksterne Maps-lenker og admin-konfigurasjonsinngang er beholdt. Kategoriknapper har nå minst 44 px trykkflate.
+- Kode/preview: ferdig og verifisert med eksisterende Vitest-sett og automatisk preview-bygg. Produksjon: **ikke** publisert — den publiserte appen viser fortsatt den gamle skjermen.
+- Fortsatt åpent: SAVE-01, Shot/backend, reell integrasjon/to enheter/fysisk PWA, og øvrige åpne porter i tabellen over. Ingen historiske bevis er endret.
