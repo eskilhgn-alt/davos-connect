@@ -2294,6 +2294,8 @@ export type Database = {
     }
     Functions: {
       active_trip_id: { Args: never; Returns: string }
+      assert_trip_admin: { Args: { _trip_id: string }; Returns: string }
+      assert_trip_writable: { Args: { _trip_id: string }; Returns: undefined }
       consume_email_verification_token: {
         Args: { p_token_hash: string }
         Returns: {
@@ -2370,10 +2372,15 @@ export type Database = {
         Returns: boolean
       }
       is_trip_active: { Args: { _trip_id: string }; Returns: boolean }
+      is_trip_admin: {
+        Args: { _trip_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_trip_member: {
         Args: { _trip_id: string; _user_id: string }
         Returns: boolean
       }
+      is_trip_writable: { Args: { _trip_id: string }; Returns: boolean }
       rpc_admin_activate_trip: {
         Args: { p_trip_id: string }
         Returns: {
@@ -2444,6 +2451,31 @@ export type Database = {
           p_start_date?: string
           p_timezone?: string
         }
+        Returns: {
+          country: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          destination: string
+          destination_config: Json
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["trip_status"]
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "trips"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rpc_admin_patch_trip: {
+        Args: { p_patch: Json; p_trip_id: string }
         Returns: {
           country: string | null
           created_at: string
@@ -2643,7 +2675,7 @@ export type Database = {
     Enums: {
       app_role: "user" | "admin"
       membership_status_type: "pending" | "approved" | "banned"
-      trip_status: "active" | "archived"
+      trip_status: "active" | "archived" | "draft"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2773,7 +2805,7 @@ export const Constants = {
     Enums: {
       app_role: ["user", "admin"],
       membership_status_type: ["pending", "approved", "banned"],
-      trip_status: ["active", "archived"],
+      trip_status: ["active", "archived", "draft"],
     },
   },
 } as const
