@@ -239,6 +239,11 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .on("postgres_changes", { event: "*", schema: "public", table: "trips" }, () => {
         void loadTripsAndMembership();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "trip_members" }, () => {
+        // Ufiltrert DELETE: Realtime kan bare sende primærnøkkelen ved RLS.
+        // Les alltid autoritativt; en payload gir aldri tilgang i seg selv.
+        void loadTripsAndMembership();
+      })
       .subscribe((status) => {
         // Realtime spiller ikke av hendelser som gikk tapt uten forbindelse.
         if (status === "SUBSCRIBED") void loadTripsAndMembership();

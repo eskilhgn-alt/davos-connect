@@ -9,6 +9,8 @@ const backend = vi.hoisted(() => ({
   trips: [] as Trip[],
   rpc: vi.fn(),
   events: [] as Array<() => void>,
+  membershipEvents: [] as Array<() => void>,
+  memberships: null as string[] | null,
   subscriptions: [] as Array<(status: string) => void>,
   pendingRead: null as Promise<{ data: Trip[]; error: null }> | null,
   success: vi.fn(), error: vi.fn(),
@@ -28,7 +30,8 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
           const pending = backend.pendingRead; backend.pendingRead = null;
           return pending.then(resolve, reject);
         }
-        const data = table === "trips" ? structuredClone(backend.trips) : backend.trips.map(t => ({ trip_id: t.id }));
+        const data = table === "trips" ? structuredClone(backend.trips)
+          : (backend.memberships ?? backend.trips.map(t => t.id)).map(trip_id => ({ trip_id }));
         return Promise.resolve({ data, error: null }).then(resolve, reject);
       },
     };
@@ -39,10 +42,14 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
     const channel = {
       on: (_event: string, filter: { table: string }, fn: () => void) => {
         if (filter.table === "trips") { backend.events.push(fn); listeners.push(fn); }
+        if (filter.table === "trip_members") { backend.membershipEvents.push(fn); listeners.push(fn); }
         return channel;
       },
       subscribe: (fn?: (status: string) => void) => { if (fn) backend.subscriptions.push(fn); return channel; },
-      dispose: () => { backend.events = backend.events.filter(fn => !listeners.includes(fn)); },
+      dispose: () => {
+        backend.events = backend.events.filter(fn => !listeners.includes(fn));
+        backend.membershipEvents = backend.membershipEvents.filter(fn => !listeners.includes(fn));
+      },
     };
     return channel;
   },
@@ -82,11 +89,18 @@ function dates(form: ReturnType<typeof within>) {
 }
 beforeEach(() => {
   localStorage.clear(); backend.trips = [structuredClone(initial)]; backend.events = []; backend.subscriptions = [];
+  backend.membershipEvents = []; backend.memberships = null;
   backend.pendingRead = null; backend.success.mockReset(); backend.error.mockReset();
-  backend.rpc.mockReset().mockImplementation(async (_rpc, params) => {
+  backend.rpc.mockReset().mockImplementation(async (rpc, params) => {
     const row = { ...backend.trips[0] } as Trip;
-    for (const key of ["name", "destination", "country", "timezone", "currency", "start_date", "end_date", "destination_config"] as const) {
-      if (`p_${key}` in params) Object.assign(row, { [key]: params[`p_${key}`] });
+    if (rpc === "rpc_admin_patch_trip") {
+      Object.assign(row, params.p_patch);
+    } else {
+      // Reproduser legacy-SQL: NULL betyr behold, ikke tøm. Dermed fanger
+      // clearing-testen opp om skjemaet kobles til gammel RPC igjen.
+      for (const key of ["name", "destination", "country", "timezone", "currency", "start_date", "end_date", "destination_config"] as const) {
+        if (params[`p_${key}`] != null) Object.assign(row, { [key]: params[`p_${key}`] });
+      }
     }
     backend.trips = [row]; return { data: row, error: null };
   });
@@ -94,6 +108,32 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("faktisk turlagring gjennom AdminTrips og TripProvider", () => {
+  it("tømmer eksisterende datoer og land og beholder urørt tidssone og kart", async () => {
+    backend.trips[0] = { ...backend.trips[0], start_date: "2027-02-10", end_date: "2027-02-17" };
+    const app = mount(); const form = await edit();
+    for (const label of ["Startdato", "Sluttdato", "Land"]) {
+      fireEvent.change(form.getByLabelText(label), { target: { value: "" } });
+    }
+    fireEvent.click(form.getByRole("button", { name: "Lagre tur" }));
+    await waitFor(() => expect(backend.success).toHaveBeenCalled());
+    expect(backend.trips[0]).toMatchObject({ start_date: null, end_date: null, country: null,
+      timezone: initial.timezone, currency: initial.currency, destination_config: initial.destination_config });
+    expect(backend.rpc).toHaveBeenCalledWith("rpc_admin_patch_trip", expect.objectContaining({
+      p_trip_id: initial.id, p_patch: expect.objectContaining({ start_date: null, end_date: null, country: null }),
+    }));
+    expect(backend.rpc.mock.calls[0][1].p_patch).not.toHaveProperty("timezone");
+    app.unmount(); mount(false);
+    await waitFor(() => expect(screen.getByLabelText("Annen enhet")).toHaveTextContent('"start_date":null'));
+  });
+
+  it("fjerner valgt tur straks medlemskapet trekkes tilbake, uten ny turhendelse", async () => {
+    mount(false);
+    await waitFor(() => expect(screen.getByLabelText("Annen enhet")).toHaveTextContent("Val Thorens"));
+    backend.memberships = [];
+    await act(async () => { backend.membershipEvents.forEach(fn => fn()); });
+    await waitFor(() => expect(screen.getByLabelText("Annen enhet")).toHaveTextContent("null"));
+  });
+
   it("lagrer dato og info, oppdaterer begge appflater og leser verdiene etter ny åpning", async () => {
     const app = mount(); const form = await edit(); dates(form);
     fireEvent.change(form.getByLabelText("Navn"), { target: { value: "Vinterturen" } });

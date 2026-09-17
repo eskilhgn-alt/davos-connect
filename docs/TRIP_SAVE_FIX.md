@@ -1,3 +1,7 @@
+> Nyere kontroll 16. september: se [TRIP_SAVE_20260916.md](TRIP_SAVE_20260916.md).
+> Realtime er aktivert. Ny klientkobling er ferdig i kildeleveransen, men må importeres til Lovable.
+> Beskrivelsen nedenfor er historikk fra 14. september, ikke dagens status.
+
 # Turlagring og global oppdatering — 14. september 2026
 
 Eskil melder at dato og informasjon kan fylles ut, men ikke lagres slik at hele appen oppdateres. Dette er første prioritet i avslutningsarbeidet. Utgangspunkt: verifisert GitHub-commit `3a5f3d9f9ef518ae5f0f53006f9ab8c014a859fa`.
