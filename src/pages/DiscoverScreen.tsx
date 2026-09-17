@@ -1,9 +1,8 @@
 /**
  * DiscoverScreen — «Oppdag» for valgt tur.
  *
- * Liste-først. Delte steder + delt Gütta-match for alle med samme tur.
+ * Ren listevisning. Delte steder for alle med samme tur.
  * Avstand er personlig og beregnes lokalt fra egen ferske posisjon.
- * Kartvisning kommer som neste steg (veksleren viser ærlig status).
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -13,8 +12,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useLocationSharing } from "@/contexts/LocationSharingContext";
 import { useDiscover } from "@/features/discover/useDiscover";
-import { guttaMatch, matchLabel } from "@/features/discover/guttaMatch";
-import { MAP_BLOCKED_TEXT, resolveMapCapability } from "@/features/discover/mapCapability";
 import {
   DISTANCE_UNAVAILABLE_TEXT,
   formatDistance,
@@ -27,7 +24,7 @@ import {
   type DiscoverPlace,
 } from "@/features/discover/types";
 import { cn } from "@/lib/utils";
-import { Compass, ExternalLink, Loader2, MapPin, RefreshCw, Star } from "lucide-react";
+import { ExternalLink, Loader2, MapPin, RefreshCw, Star } from "lucide-react";
 
 const ERROR_TEXT: Record<string, string> = {
   provider_not_configured: "Stedsdata er ikke satt opp for denne turen ennå.",
@@ -45,9 +42,6 @@ const PlaceRow: React.FC<{ place: DiscoverPlace; distance: number | null }> = ({
   place,
   distance,
 }) => {
-  // Gütta-match kommer kun fra førsteparts gruppesignaler. Uten slike signaler
-  // vises en ærlig «Ikke nok gruppedata» — aldri en score fra Google-innhold.
-  const match = guttaMatch(place, null);
   return (
     <li className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
@@ -69,16 +63,7 @@ const PlaceRow: React.FC<{ place: DiscoverPlace; distance: number | null }> = ({
             )}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-foreground">
-          {matchLabel(match)}
-        </span>
       </div>
-
-      <p className="mt-2 text-xs text-muted-foreground">
-        {match.available
-          ? match.reasons.join(" · ")
-          : "Gütta-match krever gruppedata (lagret, stemt eller besøkt) fra turen."}
-      </p>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         {place.rating != null && (
@@ -152,13 +137,10 @@ const NotConfiguredState: React.FC<{
 const DiscoverScreen: React.FC = () => {
   const { selectedTrip } = useTrip();
   const [category, setCategory] = React.useState<DiscoverCategory>("spise");
-  const [view, setView] = React.useState<"liste" | "kart">("liste");
   const { places, provider, attribution, loading, error, notConfigured, notConfiguredReason, archived, refetch } =
     useDiscover(category);
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  // EØS: providerinnhold kan ikke rendres i den generiske kartadapteren.
-  const mapCapability = React.useMemo(() => resolveMapCapability({ provider }), [provider]);
   const { enabled, position, positionUpdatedAt } = useLocationSharing();
 
   // Personlig avstand: kun egen posisjon, aldri andre brukere.
@@ -191,26 +173,9 @@ const DiscoverScreen: React.FC = () => {
       <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
         <div className="px-4 pt-4 space-y-4" style={{ paddingBottom: "calc(var(--bottom-nav-h-effective) + 32px)" }}>
           <p className="text-xs text-muted-foreground">
-            Anbefalinger rundt {selectedTrip?.destination || "turen"}. Alle i turen ser de samme
-            stedene og samme Gütta-match.
+            Steder i kategorien rundt {selectedTrip?.destination || "turen"}. Alle i turen ser de
+            samme stedene.
           </p>
-
-          <div className="flex gap-2" role="tablist" aria-label="Visning">
-            {(["liste", "kart"] as const).map((v) => (
-              <button
-                key={v}
-                role="tab"
-                aria-selected={view === v}
-                onClick={() => setView(v)}
-                className={cn(
-                  "rounded-full border px-3 py-1.5 text-xs font-semibold",
-                  view === v ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground",
-                )}
-              >
-                {v === "liste" ? "Liste" : "Kart"}
-              </button>
-            ))}
-          </div>
 
           <div className="flex flex-wrap gap-2">
             {DISCOVER_CATEGORIES.map((c) => (
@@ -219,7 +184,7 @@ const DiscoverScreen: React.FC = () => {
                 onClick={() => setCategory(c)}
                 aria-pressed={category === c}
                 className={cn(
-                  "rounded-full border px-3 py-1.5 text-xs font-semibold",
+                  "min-h-[44px] rounded-full border px-3 py-1.5 text-xs font-semibold",
                   category === c ? "bg-muted border-foreground text-foreground" : "border-border text-muted-foreground",
                 )}
               >
@@ -238,15 +203,6 @@ const DiscoverScreen: React.FC = () => {
               <p className="mt-1">
                 Oppdag er skrivebeskyttet her og henter ingen nye anbefalinger. Dette er ikke
                 lagrede steder fra turen — bare live-anbefalinger som er slått av for arkiv.
-              </p>
-            </div>
-          ) : view === "kart" ? (
-            <div className="rounded-2xl border border-border bg-muted/40 p-6 text-center">
-              <Compass size={20} strokeWidth={1.6} className="mx-auto text-muted-foreground" />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {mapCapability.allowed === true
-                  ? "Kartvisning via Places UI Kit kommer her."
-                  : MAP_BLOCKED_TEXT[mapCapability.reason]}
               </p>
             </div>
           ) : notConfigured ? (
