@@ -1,3 +1,7 @@
+## Oppdatert kjørepunkt 16. september 2026
+
+Dagens 5 kreditter er brukt av jobb `umsg_01m2ma0z8rebcby0aqk6j3w3vv` / `main`, ferdig i Lovable `e043ab58a43c1d2819448b621fd35cfe8bc819c4`. Ingen flere Build i dag. Neste kjøring 17. september skal importere og kontrollere denne ferdige kildeleveransen først. Les `TRIP_SAVE_20260916.md`: 470 tester, SQL-bevis, aktiv Realtime og uavklart enum-kall (499/504). Ikke bruk kreditter på å implementere patchkoblingen igjen. Native `supabase/tests/trip-save/run.sh` er klart for egnet miljø, ikke bestått ennå. Bevar tidligere sluttdato 17. september og kanalkontrakt; ikke forleng.
+
 # Avslutningsoppdrag — frosset automasjonskontrakt
 
 Automasjon: `6a670cc678b48191bc7868930c30c0c4` — «Ferdigstill GüttaHütte».

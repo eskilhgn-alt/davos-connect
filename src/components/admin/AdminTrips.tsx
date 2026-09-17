@@ -377,7 +377,7 @@ const TripFormModal: React.FC<{
     setSaving(true);
 
     try {
-      const rpc = trip ? "rpc_admin_update_trip" : "rpc_admin_create_trip";
+      const rpc = trip ? "rpc_admin_patch_trip" : "rpc_admin_create_trip";
       const params: Record<string, unknown> = {
         p_name: name.trim(),
         p_destination: destination.trim(),
@@ -388,8 +388,14 @@ const TripFormModal: React.FC<{
       };
       if (timezoneTouched) params.p_timezone = dest.timezone.trim();
       if (currencyTouched) params.p_currency = dest.currency.trim().toUpperCase();
-      if (trip) params.p_trip_id = trip.id;
-      const { data, error } = await (supabase as any).rpc(rpc, params);
+      // JSON-patch skiller eksplisitt tømming (null) fra urørte felter
+      // (utelatt). Legacy-RPC-ens COALESCE kan ikke uttrykke denne forskjellen.
+      const rpcParams = trip
+        ? { p_trip_id: trip.id, p_patch: Object.fromEntries(
+            Object.entries(params).map(([key, value]) => [key.slice(2), value]),
+          ) }
+        : params;
+      const { data, error } = await (supabase as any).rpc(rpc, rpcParams);
       if (error) throw error;
 
       // Verifiser mot returnert rad, med eksplisitt kontroll-lesing som backup.
