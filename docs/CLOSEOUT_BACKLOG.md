@@ -32,3 +32,17 @@ Avgrenset godkjenning 16. september: Eskil bestilte uttrykkelig retting av
 databasefeilen og aktivering av Realtime for turlagring/turmodell/tilgang.
 Nødvendige testede endringer for dette er autorisert; frontendpublisering,
 andre migrasjoner og sletting er fortsatt utenfor bestillingen.
+
+## Verifisert kjøring 17. september 2026
+
+- Start-HEAD: `e043ab58a43c1d2819448b621fd35cfe8bc819c4`.
+- Alle 13 bestilte filer hentet direkte fra GitHub-commit `40aee5119aa58118c8877c2e875b12fbc26d0824` og bytekontrollert etter import. Importcommit: `e614d3da609c2ec6bef640020124f214723af1f2`. Bare denne bevisoppføringen avviker deretter fra kildefilene.
+- `bash supabase/tests/trip-save/run.sh`: BESTÅTT på native PostgreSQL 17.9, uid/gid 1000 via setpriv. Midlertidig lokal database med Unix-socket og ingen TCP-lytting; ingen tilkobling til appdatabasen.
+- Rekkefølge i importert harness: 20260816a → 20260816b → compatibility guards, to runder. Filene kjøres separat, ikke b+guards i én samlet transaksjon. To parallelle aktiveringer committet; nøyaktig én aktiv tur, den andre mål-turen arkivert. Sluttsignal: TRIP SAVE NATIVE SQL AND CONCURRENCY PASSED.
+- Målrettet Vitest: trip-save-runtime, trip-date-sync, trip-dates, trip-dates-zoned: 32/32 tester i 4 filer bestått.
+- Hele Vitest: 470/470 tester i 42 filer bestått.
+- Automatisk preview-bygg: build OK, logg 2026-09-17T02:07:52Z. Manuell tsc og npm build ble ikke kjørt: miljøets instruksjoner forbyr manuelle bygg/typechecks. Separat tsc-resultat er derfor ikke bekreftet.
+- Playwright: preview åpner /auth, innloggingsskjermen vises, ingen pageerror. Ingen innlogget lagring eller fysisk PWA-/to-enhetstest utført.
+- SAVE-01 fortsatt Åpen. PORT0-04 har nå isolert native samtidighetsbevis for trip-save-pakken; eldre Port 0-harness og produksjonsbevis er ikke etablert av denne kjøringen. Øvrige åpne porter over er uendret.
+- Kredittoppslag etter tester: dagens bokførte build_time-forbruk 1,50; 3,50 av 5 daglige kreditter gjensto. Endelig kostnad for pågående svar er ikke tilgjengelig før avslutning.
+- Ingen produksjonsmigrasjon, data-/Realtime-endring, publisering eller Edge-deploy. Arbeidet stopper etter denne avgrensede leveransen; ekstern automasjonsstatus er ikke endret eller verifisert.
