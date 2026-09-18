@@ -1,6 +1,6 @@
 /**
  * HomeScreen — aktiv tur, nedtelling, neste aktivitet og kompakte innganger.
- * Detaljerte snarveier (agenda, avstemninger, admin, spill osv.) ligger i «Mer».
+ * Alle snarveier samles på samme scrollflate uten fast bunnmeny.
  */
 
 import * as React from "react";
@@ -16,6 +16,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAppBadges } from "@/hooks/useAppBadges";
 import { useTrip } from "@/contexts/TripContext";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
+import { MoreTiles } from "@/pages/MoreScreen";
+import { TripSwitcher } from "@/components/trip/TripSwitcher";
 import { formatTripDateRange, daysUntilTripStart, tripPhase } from "@/features/trip/tripDates";
 
 import {
@@ -24,7 +26,7 @@ import {
   Camera,
   Map as MapIcon,
   CalendarDays,
-  MoreHorizontal,
+  Compass,
   LogOut,
   AlertTriangle,
   MapPin,
@@ -70,7 +72,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/vaer", label: "Vær", icon: CloudSun },
       { to: "/webcams", label: "Webkamera", icon: Camera },
       { to: "/agenda", label: "Agenda", icon: CalendarDays, badge: badges.agenda },
-      { to: "/mer", label: "Mer", icon: MoreHorizontal },
+      { to: "/oppdag", label: "Oppdag", icon: Compass },
     ],
     [badges],
   );
@@ -104,12 +106,12 @@ export const HomeScreen: React.FC = () => {
         }}
 
 
-        className="flex-1 overflow-y-auto overscroll-contain"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div
           className="px-4 pt-4 space-y-5"
-          style={{ paddingBottom: "calc(var(--bottom-nav-h-effective) + 24px)" }}
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }}
         >
           {/* Active trip card */}
           <section
@@ -167,7 +169,7 @@ export const HomeScreen: React.FC = () => {
           <HomeDashboard ref={dashboardRef} />
 
           {/* Kompakte innganger */}
-          <nav className="grid grid-cols-3 gap-2.5">
+          <nav aria-label="Snarveier" className="grid grid-cols-3 gap-2.5">
             {primaryTiles.map((tile) => (
               <Link
                 key={tile.to}
@@ -175,11 +177,11 @@ export const HomeScreen: React.FC = () => {
                 className={cn(
                   "relative flex flex-col items-center justify-center gap-2",
                   "aspect-square rounded-2xl bg-muted/50 border border-border",
-                  "active:scale-[0.97] transition-all duration-150 hover:bg-muted",
+                  "active:scale-[0.97] transition-all duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 )}
               >
                 <tile.icon size={24} strokeWidth={1.6} className="text-foreground" />
-                <span className="font-heading text-[11px] font-semibold text-foreground text-center leading-tight px-1">
+                <span className="font-heading text-xs font-semibold text-foreground text-center leading-tight px-1 break-words max-w-full">
                   {tile.label}
                 </span>
                 {tile.badge && tile.badge > 0 ? (
@@ -191,9 +193,14 @@ export const HomeScreen: React.FC = () => {
             ))}
           </nav>
 
+          <div className="border-t border-border pt-5 space-y-5">
+            <MoreTiles excludePaths={["/agenda", "/oppdag"]} />
+            <TripSwitcher />
+          </div>
+
           <button
             onClick={() => setEmergencyOpen(true)}
-            className="w-full flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+            className="w-full min-h-11 flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <AlertTriangle size={13} />
             <span>Nødinfo & viktige numre</span>
