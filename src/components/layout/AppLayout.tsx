@@ -6,8 +6,8 @@ import { PopupAnnouncementOverlay } from "./PopupAnnouncement";
 import { PermissionPrompt } from "@/components/onboarding/PermissionPrompt";
 
 /**
- * AppLayout: App shell med 4-fane nav (Hjem / Chat / Kart / Mer).
- * Chat har eget layout — nav skjules der.
+ * Hjem samler flisene i én scrollflate uten bunnmeny.
+ * Undersidene beholder hovedmenyen; Chat har eget layout.
  *
  * MERK (step 3+QA): Layoutet starter ikke lenger location-tracker eller
  * automatiske pushjobber. Posisjonsdeling er strengt opt-in og styres av
@@ -17,7 +17,7 @@ import { PermissionPrompt } from "@/components/onboarding/PermissionPrompt";
  */
 export const AppLayout: React.FC = () => {
   const location = useLocation();
-  const hideNav = location.pathname.startsWith("/chat");
+  const hideNav = location.pathname === "/hjem" || location.pathname === "/hjem/" || location.pathname.startsWith("/chat");
 
   return (
     <div className="h-full overflow-hidden bg-background flex flex-col">

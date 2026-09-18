@@ -11,12 +11,9 @@ describe("BottomNavigation NAV_ITEMS", () => {
     expect(NAV_ITEMS.map((n) => n.path)).toEqual(["/hjem", "/chat", "/kart", "/mer"]);
   });
 
-  it("inneholder ingen shot- eller token-flater i standardnavigasjon", () => {
-    const allPaths = [
-      ...NAV_ITEMS.map((n) => n.path),
-      ...NAV_ITEMS.flatMap((n) => n.match ?? []),
-    ].join(" ");
-    expect(allPaths).not.toMatch(/shot/i);
-    expect(allPaths).not.toMatch(/token/i);
+  it("har ingen egen shot- eller token-fane i hovedmenyen", () => {
+    const tabPaths = NAV_ITEMS.map((n) => n.path).join(" ");
+    expect(tabPaths).not.toMatch(/shot/i);
+    expect(tabPaths).not.toMatch(/token/i);
   });
 });

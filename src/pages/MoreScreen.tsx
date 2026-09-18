@@ -44,10 +44,9 @@ interface Section {
   quiet?: boolean;
 }
 
-const MoreScreen: React.FC = () => {
-  const { isAdmin, signOut } = useAuth();
+export const MoreTiles: React.FC<{ excludePaths?: readonly string[] }> = ({ excludePaths = [] }) => {
+  const { isAdmin } = useAuth();
   const badges = useAppBadges();
-  const [emergencyOpen, setEmergencyOpen] = React.useState(false);
 
   const sections: Section[] = React.useMemo(() => {
     const planning: Tile[] = [
@@ -83,6 +82,58 @@ const MoreScreen: React.FC = () => {
     ];
   }, [badges, isAdmin]);
 
+  const visibleSections = sections
+    .map((section) => ({ ...section, tiles: section.tiles.filter((tile) => !excludePaths.includes(tile.to)) }))
+    .filter((section) => section.tiles.length > 0);
+
+  return (
+    <div className="space-y-5">
+      {visibleSections.map((section) => (
+        <section key={section.title} className={cn(section.quiet && "opacity-95")}>
+          <div className="mb-2">
+            <h2 className="font-heading text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {section.title}
+            </h2>
+            {section.subtitle && (
+              <p className="text-xs text-muted-foreground mt-0.5">{section.subtitle}</p>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-2.5">
+            {section.tiles.map((tile) => (
+              <Link
+                key={tile.to}
+                to={tile.to}
+                className={cn(
+                  "relative flex flex-col items-center justify-center gap-2",
+                  "aspect-square rounded-2xl border",
+                  section.quiet
+                    ? "bg-muted/30 border-border/70"
+                    : "bg-muted/50 border-border",
+                  "active:scale-[0.97] transition-all duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                )}
+              >
+                <tile.icon size={22} strokeWidth={1.6} className="text-foreground" />
+                <span className="font-heading text-xs font-semibold text-foreground text-center leading-tight px-1 break-words max-w-full">
+                  {tile.label}
+                </span>
+                {tile.badge && tile.badge > 0 ? (
+                  <span className="absolute top-2 right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-foreground text-background text-[9px] font-bold px-1 leading-none">
+                    {tile.badge > 99 ? "99+" : tile.badge}
+                  </span>
+                ) : null}
+              </Link>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+};
+
+const MoreScreen: React.FC = () => {
+  const { signOut } = useAuth();
+  const [emergencyOpen, setEmergencyOpen] = React.useState(false);
+
   return (
     <div
       className="flex flex-col overflow-hidden bg-background"
@@ -112,48 +163,11 @@ const MoreScreen: React.FC = () => {
         >
           <TripSwitcher />
 
-          {sections.map((section) => (
-            <section key={section.title} className={cn(section.quiet && "opacity-95")}>
-              <div className="mb-2">
-                <h2 className="font-heading text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {section.title}
-                </h2>
-                {section.subtitle && (
-                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">{section.subtitle}</p>
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-2.5">
-                {section.tiles.map((tile) => (
-                  <Link
-                    key={tile.to}
-                    to={tile.to}
-                    className={cn(
-                      "relative flex flex-col items-center justify-center gap-2",
-                      "aspect-square rounded-2xl border",
-                      section.quiet
-                        ? "bg-muted/30 border-border/70"
-                        : "bg-muted/50 border-border",
-                      "active:scale-[0.97] transition-all duration-150 hover:bg-muted",
-                    )}
-                  >
-                    <tile.icon size={22} strokeWidth={1.6} className="text-foreground" />
-                    <span className="font-heading text-[11px] font-semibold text-foreground text-center leading-tight px-1">
-                      {tile.label}
-                    </span>
-                    {tile.badge && tile.badge > 0 ? (
-                      <span className="absolute top-2 right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-foreground text-background text-[9px] font-bold px-1 leading-none">
-                        {tile.badge > 99 ? "99+" : tile.badge}
-                      </span>
-                    ) : null}
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ))}
+          <MoreTiles />
 
           <button
             onClick={() => setEmergencyOpen(true)}
-            className="w-full flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+            className="w-full min-h-11 flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <AlertTriangle size={13} />
             <span>Nødinfo & viktige numre</span>
