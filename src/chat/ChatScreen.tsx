@@ -4,8 +4,9 @@
  */
 
 import * as React from 'react';
-import { ArrowLeft, Home, Lock } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Lock } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { BackButton } from '@/components/layout/BackButton';
 import { cn } from '@/lib/utils';
 import { useVisualViewport } from './useVisualViewport';
 import { chatStore } from './store';
@@ -17,7 +18,6 @@ import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 
 export const ChatScreen: React.FC = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const deepLinkMessageId = searchParams.get('message');
   const { vvh, kb } = useVisualViewport();
@@ -87,13 +87,7 @@ export const ChatScreen: React.FC = () => {
         )}
         style={{ minHeight: '56px' }}
       >
-        <button
-          type="button"
-          onClick={() => navigate('/hjem')}
-          className="tap-target flex items-center justify-center -ml-2 text-foreground"
-        >
-          <ArrowLeft size={22} strokeWidth={1.8} />
-        </button>
+        <BackButton />
         <div className="flex-1 min-w-0">
           <h1 className="font-heading text-base font-semibold text-foreground tracking-tight leading-tight truncate">
             Chat{selectedTrip ? ` · ${selectedTrip.name}` : ''}
@@ -104,18 +98,11 @@ export const ChatScreen: React.FC = () => {
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => navigate('/hjem')}
-          className="tap-target flex items-center justify-center -mr-2 w-9 h-9 rounded-full bg-[#103A5D] border border-[#F4CD3C]/40"
-        >
-          <Home size={16} strokeWidth={2} className="text-[#F4CD3C]" />
-        </button>
       </header>
 
       {!selectedTripId ? (
         <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground px-6 text-center">
-          Ingen tur er valgt. Velg en tur i «Mer» for å se chatten.
+          Ingen tur er valgt. Velg en tur på hjemsiden for å se chatten.
         </div>
       ) : (
         <MessageList

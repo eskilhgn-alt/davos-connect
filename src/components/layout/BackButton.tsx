@@ -29,20 +29,22 @@ export const BackButton: React.FC<BackButtonProps> = ({
   };
 
   // Don't show on home route only
-  if (location.pathname === "/" || location.pathname === "/hjem") {
+  if (location.pathname === "/" || location.pathname === "/hjem" || location.pathname === "/hjem/") {
     return null;
   }
 
   return (
     <button
+      type="button"
       onClick={handleBack}
       className={cn(
-        "flex items-center gap-1 text-foreground/70 hover:text-foreground tap-target transition-colors",
+        "inline-flex h-12 min-w-12 shrink-0 items-center justify-center gap-1 rounded-xl border border-border bg-muted/50 px-2 text-foreground hover:bg-muted active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors",
         className
       )}
-      aria-label="Tilbake"
+      aria-label="Tilbake til hjem"
+      title="Tilbake til hjem"
     >
-      <ChevronLeft size={24} />
+      <ChevronLeft size={28} strokeWidth={2.5} aria-hidden="true" />
       {label && <span className="text-sm font-medium">{label}</span>}
     </button>
   );

@@ -1,5 +1,5 @@
 /**
- * Tester for admin-lagring: mobilark over bottom-nav + én verifisert,
+ * Tester for admin-lagring: mobilark over toppfeltet + én verifisert,
  * sammenhengende turoppdatering.
  */
 import { describe, it, expect } from "vitest";
@@ -40,14 +40,14 @@ const adminSrc = fs.readFileSync(
   path.resolve(__dirname, "../components/admin/AdminTrips.tsx"),
   "utf8",
 );
-const navSrc = fs.readFileSync(
-  path.resolve(__dirname, "../components/layout/BottomNavigation.tsx"),
+const headerSrc = fs.readFileSync(
+  path.resolve(__dirname, "../components/layout/AppHeader.tsx"),
   "utf8",
 );
 
 describe("1) mobilarket kan alltid lagres", () => {
-  it("overlayet ligger over bottom-nav", () => {
-    expect(navSrc).toContain("z-50");
+  it("overlayet ligger over toppfeltet", () => {
+    expect(headerSrc).toContain("z-40");
     expect(adminSrc).toContain("z-[70]");
     expect(adminSrc).not.toContain('className="fixed inset-0 z-50 bg-black/40');
   });

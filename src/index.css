@@ -22,7 +22,8 @@
     --app-height: 100dvh;
     --keyboard-inset: 0px;
     --keyboard-open: 0;
-    --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom));
+    /* Existing page padding aliases now reserve only the iPhone safe area. */
+    --bottom-nav-h: env(safe-area-inset-bottom, 0px);
     --bottom-nav-h-effective: var(--bottom-nav-h);
     --composer-h: 56px;
 

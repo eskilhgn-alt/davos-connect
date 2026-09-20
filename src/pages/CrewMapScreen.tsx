@@ -258,7 +258,7 @@ export const CrewMapScreen: React.FC = () => {
 
   return (
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
-      <AppHeader title="Crew" subtitle="Frivillig sanntidsposisjon" leftAction={<BackButton fallbackPath="/kart" />} />
+      <AppHeader title="Crew" subtitle="Frivillig sanntidsposisjon" leftAction={<BackButton />} />
 
       <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
         {/* Map */}
