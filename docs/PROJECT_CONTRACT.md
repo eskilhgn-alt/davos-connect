@@ -27,7 +27,8 @@ statusrapport. Status hører hjemme i `docs/CLOSEOUT_BACKLOG.md`.
 
 ## Informasjonsarkitektur
 
-- Maks fire hovedfaner: **Hjem**, **Chat**, **Kart**, **Mer**.
+- Ingen bunnmeny. Hjem samler flisene; alle app-undersider bruker samme
+  tydelige pil direkte til Hjem i AppHeader (brukervalg 20. september).
 - Hjem laster kritisk innhold først (tur/dato, vær/skred, neste plan, chatstatus);
   resten progressivt.
 - Kart samler løypekart, live status og turdata.
@@ -51,6 +52,10 @@ statusrapport. Status hører hjemme i `docs/CLOSEOUT_BACKLOG.md`.
 Chat, Minner/galleri, Stories (24t, eksplisitt «Lagre i Minner»), Plan/agenda,
 Avstemninger, Utlegg/runder, Vær inkl. skred, Kart/live status, Webkameraer,
 Deltakere, Innstillinger, Admin og Shot v2.
+
+Ny bestilling 20. september utvider med God stemning og Shot your shot med
+Headshot. Se `SOCIAL_FEATURES_20260920.md` for full flyt, rettferdighet,
+varslinger, dagsgrenser og verifikasjon. Legacy Shot/tokens gjenåpnes ikke.
 
 ## Produksjonsgrenser
 

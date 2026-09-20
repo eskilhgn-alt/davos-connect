@@ -31,7 +31,8 @@ describe("resolveWebcams", () => {
 
   it("faller tilbake til Val Thorens-konfig kun for Val Thorens", () => {
     const t: Trip = { ...baseTrip, destination_config: {} };
-    expect(resolveWebcams(t)).toEqual(VAL_THORENS_2027.webcams);
+    expect(resolveWebcams(t)).toEqual(expect.arrayContaining(VAL_THORENS_2027.webcams));
+    expect(resolveWebcams(t)).toHaveLength(VAL_THORENS_2027.webcams.length);
   });
 
   it("returnerer aldri Val Thorens-fallback for annen destinasjon", () => {

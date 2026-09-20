@@ -46,10 +46,12 @@ export interface TripWebcamRef {
   /** Direct embeddable player URL (Skaping / vendor). When set the UI renders
    *  it as a live iframe instead of a still snapshot. */
   playerUrl?: string;
+  /** Verified direct video source, never an HTML player page. */
+  streamUrl?: string;
   /** Provider label shown to users (e.g. "Skaping", "Trinum"). */
   provider?: string;
   /** How this camera is presented. "interactive" implies a live vendor player. */
-  mode?: "interactive" | "snapshot";
+  mode?: "interactive" | "snapshot" | "video";
 }
 
 
@@ -178,6 +180,7 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Val Thorens sentrum",
       externalUrl: "https://www.skaping.com/valthorens/lamaison",
       playerUrl: "https://www.skaping.com/valthorens/lamaison",
+      snapshotUrl: "https://api.skaping.com/0qmB-W208-FhUp-eDJW-695z/media/latest/mini.jpg",
       provider: "Skaping",
       mode: "interactive",
     },
@@ -187,6 +190,7 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Val Thorens",
       externalUrl: "https://www.skaping.com/val-thorens/tyrolienne-la-bee",
       playerUrl: "https://www.skaping.com/val-thorens/tyrolienne-la-bee",
+      snapshotUrl: "https://api.skaping.com/3hF6T-pqbOx-AFvLe-dpMgD/media/latest/mini.jpg",
       provider: "Skaping",
       mode: "interactive",
     },
@@ -196,6 +200,7 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "3 200 moh.",
       externalUrl: "https://www.skaping.com/val-thorens/cime-caron",
       playerUrl: "https://www.skaping.com/val-thorens/cime-caron",
+      snapshotUrl: "https://api.skaping.com/QzlPb-9TgDQ-UcTxH-xv8KW/media/latest/large.jpg",
       provider: "Skaping",
       mode: "interactive",
     },
@@ -205,6 +210,7 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Panorama",
       externalUrl: "https://www.skaping.com/valthorens/station",
       playerUrl: "https://www.skaping.com/valthorens/station",
+      snapshotUrl: "https://api.skaping.com/tHCTk-f4ZXm-e4NYt-ZfRkr/media/latest/mini.jpg",
       provider: "Skaping",
       mode: "interactive",
     },
