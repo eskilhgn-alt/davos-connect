@@ -4,7 +4,6 @@
 
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { usePolls } from "@/hooks/usePolls";
 import { useAuth } from "@/contexts/AuthContext";
 import { PollCard } from "@/components/poll/PollCard";
@@ -65,7 +64,6 @@ export const PollScreen: React.FC = () => {
       <AppHeader
         title="Avstemminger"
         subtitle="Demokrati i aksjon"
-        leftAction={<BackButton fallbackPath="/hjem" />}
         rightAction={isArchive ? undefined : (
           <button
             onClick={() => setCreateOpen(true)}

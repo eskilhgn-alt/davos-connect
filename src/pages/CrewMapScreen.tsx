@@ -4,7 +4,6 @@
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { useUserLocations, UserLocation } from "@/hooks/useUserLocations";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocationTracker } from "@/hooks/useLocationTracker";
@@ -258,7 +257,7 @@ export const CrewMapScreen: React.FC = () => {
 
   return (
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
-      <AppHeader title="Crew" subtitle="Frivillig sanntidsposisjon" leftAction={<BackButton />} />
+      <AppHeader title="Crew" subtitle="Frivillig sanntidsposisjon" />
 
       <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
         {/* Map */}

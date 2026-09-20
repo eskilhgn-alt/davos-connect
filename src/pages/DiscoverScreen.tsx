@@ -6,7 +6,6 @@
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { useTrip } from "@/contexts/TripContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -158,7 +157,6 @@ const DiscoverScreen: React.FC = () => {
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
       <AppHeader
         title="Oppdag"
-        leftAction={<BackButton />}
         rightAction={
           <button
             onClick={() => void refetch()}

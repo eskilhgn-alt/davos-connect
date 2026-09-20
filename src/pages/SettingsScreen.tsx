@@ -5,7 +5,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { PushNotificationToggle } from "@/components/settings/PushNotificationToggle";
 import { GeolocationToggle } from "@/components/settings/GeolocationToggle";
 import { supabase } from "@/integrations/supabase/client";
@@ -186,7 +185,6 @@ export const SettingsScreen: React.FC = () => {
       <AppHeader
         title="Innstillinger"
         subtitle="Profil, varsler & info"
-        leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
       <div

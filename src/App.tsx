@@ -154,7 +154,7 @@ const AppRoutes = () => (
       <Route path="/chat" element={<ChatScreen />} />
     </Route>
     
-    {/* Protected routes - App layout with bottom nav */}
+    {/* Protected routes - shared header, no bottom navigation */}
     <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
       <Route path="/" element={<Navigate to="/hjem" replace />} />
       <Route path="/hjem" element={<HomeScreen />} />

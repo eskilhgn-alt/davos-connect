@@ -2,7 +2,7 @@
 
 ## 1) ÉN scroll-container per skjerm
 
-- Skjermen består av: (1) sticky header, (2) content som scroller, (3) fixed bottom nav (global)
+- Skjermen består av: (1) felles sticky AppHeader, (2) content som scroller. Ingen bunnmeny eller ekstra hjemknapper
 - Ingen "dobbel scroll" (ikke ScrollArea inni ScrollArea)
 - Body skal ikke scrolle (app-shell styrer scroll)
 - Bruk `overflow-hidden` på screen container, `overflow-y-auto overscroll-contain` på content
@@ -11,13 +11,13 @@
 
 - Bruk `env(safe-area-inset-*)` konsekvent
 - Header må ha `safe-area-top`, bunnen må ha `safe-area-bottom`
-- CSS tokens: `--bottom-nav-h: calc(4rem + env(safe-area-inset-bottom))`
+- Kompatibilitetstokenet `--bottom-nav-h` reserverer bare `env(safe-area-inset-bottom, 0px)`, ingen menyhøyde
 
 ## 3) iOS-tastatur må aldri ødelegge layout
 
 - Bruk VisualViewport og CSS-variabler for app-height + keyboard inset
 - Hook: `useVisualViewportVars.ts` setter `--app-height`, `--keyboard-inset`, `--keyboard-open`
-- Når keyboard åpner: bottom nav skjules via `--bottom-nav-h-effective`
+- Når keyboard åpner: `--bottom-nav-h-effective` blir 0; chat beholder sin VisualViewport-styrte composer
 
 ## 4) Stabil "app height"
 
@@ -29,6 +29,15 @@
 - Min 44pt tappbare flater (`h-11`/`h-12` eller `.tap-target`)
 - Ingen små ikoner uten padding
 - Tydelig "primary action" og maks 1-2 hovedvalg per view
+
+## Felles sidenavigasjon
+
+- Alle app-undersider bruker `AppHeader`, også Chat og feilsiden. Ingen lokale varianter av tilbakeknappen.
+- Én venstrepil øverst til venstre, direkte til `/hjem`; Hjem har ingen pil til seg selv.
+- `HomeArrowButton` har 48 × 48 px trykkflate og 28 px ArrowLeft, med `bg-primary text-primary-foreground`: profilblå/hvit i lyst tema, profilgul/svart i mørkt.
+- Toppraden er 56 px høy, med 16 px sidemarg og safe-area over raden.
+- Dialogers Lukk/X og innholdsvelgere beholdes; de er ikke alternativ sidenavigasjon.
+- Auth/OAuth er separate innloggingsflyter.
 
 ## 6) Minimal tekst, tydelig hierarki
 
@@ -86,6 +95,6 @@
 - `--app-height`: Full viewport height (pixel-exact from VisualViewport)
 - `--keyboard-inset`: Height of keyboard when open (0 when closed)
 - `--keyboard-open`: Binary 0 or 1
-- `--bottom-nav-h`: Full bottom nav height including safe area
+- `--bottom-nav-h`: Legacy name; bottom safe-area inset only, no navigation bar
 - `--bottom-nav-h-effective`: Same as above, but 0 when keyboard is open
 - `data-keyboard`: "open" or "closed" attribute on `<html>`

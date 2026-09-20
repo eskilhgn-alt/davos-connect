@@ -4,7 +4,6 @@
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
 import { useShotDraw } from "@/hooks/useShotDraw";
 import { useAuth } from "@/contexts/AuthContext";
@@ -79,7 +78,7 @@ const ShotScreen: React.FC = () => {
 
   return (
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
-      <AppHeader title="Shot" leftAction={<BackButton />} />
+      <AppHeader title="Shot" />
 
       <PullToRefreshWrapper
         onRefresh={refresh}

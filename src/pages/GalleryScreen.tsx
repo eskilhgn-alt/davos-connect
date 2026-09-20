@@ -10,7 +10,6 @@
 
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { PullToRefreshWrapper } from "@/components/PullToRefreshWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -748,7 +747,6 @@ export const GalleryScreen: React.FC = () => {
       <AppHeader
         title="Galleri"
         subtitle="Bilder, videoer og stories"
-        leftAction={<BackButton fallbackPath="/hjem" />}
         rightAction={isArchive ? undefined : (
           <button type="button" onClick={() => setUploadOpen(true)}
                   className="min-h-11 min-w-11 rounded-full flex items-center justify-center bg-primary text-primary-foreground"

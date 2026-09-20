@@ -20,7 +20,6 @@ import {
   User,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import {
   type FaktaMessage,
   type FaktaStage,
@@ -293,7 +292,6 @@ export const FaktasjekkerScreen: React.FC = () => {
         <AppHeader
           title="Faktasjekk"
           subtitle="GPT-5.6 Sol · nettsøk"
-          leftAction={<BackButton />}
           rightAction={
             threads.length ? (
               <button
@@ -402,7 +400,6 @@ export const FaktasjekkerScreen: React.FC = () => {
         <AppHeader
           title="Faktasjekker"
           subtitle="Dine og ferdige delte resultater"
-          leftAction={<BackButton />}
           rightAction={
             <button type="button" onClick={newCheck} className="tap-target -mr-2 flex items-center justify-center" aria-label="Ny faktasjekk">
               <Plus size={20} />
@@ -444,7 +441,6 @@ export const FaktasjekkerScreen: React.FC = () => {
       <AppHeader
         title="Faktasjekk"
         subtitle={activeThread ? `${activeThread.userName} · ${activeThread.model ?? "GPT-5.6 Sol"}` : "GPT-5.6 Sol"}
-        leftAction={<BackButton />}
         rightAction={
           <button type="button" onClick={newCheck} className="tap-target -mr-2 flex items-center justify-center" aria-label="Ny faktasjekk">
             <Plus size={20} />

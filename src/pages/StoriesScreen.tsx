@@ -4,7 +4,6 @@
 
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { BrandEmptyState } from "@/components/ui/brand-empty-state";
 import { StoryViewer } from "@/components/stories/StoryViewer";
 import { StoryCapture } from "@/components/stories/StoryCapture";
@@ -81,7 +80,6 @@ export const StoriesScreen: React.FC = () => {
     >
       <AppHeader
         title="Historier"
-        leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
       <div

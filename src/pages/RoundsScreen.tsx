@@ -3,7 +3,6 @@
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { useRounds } from "@/hooks/useRounds";
 import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { BrandEmptyState } from "@/components/ui/brand-empty-state";
@@ -85,7 +84,7 @@ export const RoundsScreen: React.FC = () => {
 
   return (
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
-      <AppHeader title="Runder" leftAction={<BackButton />} rightAction={
+      <AppHeader title="Runder" rightAction={
         <div className="flex items-center gap-1">
           <button onClick={() => setDebtOpen(true)} className="tap-target flex items-center justify-center text-primary" aria-label="Gjeld">
             <Wallet size={20} strokeWidth={2} />
