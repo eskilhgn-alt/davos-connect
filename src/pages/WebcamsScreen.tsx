@@ -1,7 +1,6 @@
 import * as React from "react";
 import { Camera, Expand, ExternalLink, RefreshCw, WifiOff, X } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { useTrip } from "@/contexts/TripContext";
 import { resolveWebcams } from "@/features/webcams/resolveWebcams";
 import type { TripWebcamRef } from "@/config/trip";
@@ -127,7 +126,6 @@ const ExpandedCamera: React.FC<ExpandedProps> = ({ camera, refreshKey, onClose }
       <AppHeader
         title={camera.name}
         subtitle={camera.area ?? camera.provider}
-        leftAction={<BackButton />}
         rightAction={
           <>
             <button type="button" onClick={onClose} className="tap-target flex items-center justify-center" aria-label="Lukk">
@@ -213,7 +211,6 @@ export const WebcamsScreen: React.FC = () => {
       <AppHeader
         title="Webkameraer"
         subtitle={selectedTrip?.destination ?? "Ingen tur valgt"}
-        leftAction={<BackButton fallbackPath="/hjem" />}
         rightAction={
           hasSnapshotOnly ? (
             <button

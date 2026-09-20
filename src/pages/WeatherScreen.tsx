@@ -4,7 +4,6 @@
  */
 import * as React from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { useTripWeather } from "@/hooks/useTripWeather";
 import { describeWeatherCode, type TripDailyForecast } from "@/services/tripWeather";
 import { useTrip } from "@/contexts/TripContext";
@@ -117,7 +116,6 @@ export const WeatherScreen: React.FC = () => {
       <AppHeader
         title="Vær"
         subtitle={trip.destination ? `${trip.destination}${trip.country ? `, ${trip.country}` : ""}` : "Ingen tur valgt"}
-        leftAction={<BackButton fallbackPath="/hjem" />}
         rightAction={
           <button
             onClick={() => {

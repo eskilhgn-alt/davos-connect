@@ -6,7 +6,6 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
 import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import { BrandEmptyState } from "@/components/ui/brand-empty-state";
@@ -57,7 +56,6 @@ export const GroupScreen: React.FC = () => {
       <AppHeader
         title="Gütta"
         subtitle={`${profiles?.length ?? "…"} medlemmer`}
-        leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
       <div

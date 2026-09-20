@@ -7,7 +7,6 @@ import * as React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { BrandSegmented, type SegmentOption } from "@/components/ui/brand-segmented";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -76,7 +75,6 @@ export const AdminScreen: React.FC = () => {
       <AppHeader
         title="Admin"
         subtitle={`${users.length} brukere`}
-        leftAction={<BackButton fallbackPath="/hjem" />}
       />
 
       <div className="flex-1 overflow-y-auto overscroll-contain" style={{ paddingBottom: "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}>

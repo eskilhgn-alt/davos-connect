@@ -1,31 +1,29 @@
 /**
- * BackButton - Universal back navigation component
- * Always navigates to fallbackPath (default /hjem) with replace:true
- * to avoid nested history stacks inside the PWA shell.
+ * One home arrow for every app page, including recovery outside the router.
  */
 
 import * as React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowLeft } from "lucide-react";
 
-interface BackButtonProps {
-  fallbackPath?: string;
-  className?: string;
-  label?: string;
-}
+export const HomeArrowButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors"
+    aria-label="Tilbake til hjem"
+    title="Tilbake til hjem"
+  >
+    <ArrowLeft size={28} strokeWidth={2.5} aria-hidden="true" />
+  </button>
+);
 
-export const BackButton: React.FC<BackButtonProps> = ({
-  fallbackPath = "/hjem",
-  className,
-  label,
-}) => {
+export const BackButton: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleBack = () => {
-    // Always navigate to home/fallback, not browser back
-    navigate(fallbackPath, { replace: true });
+    navigate("/hjem", { replace: true });
   };
 
   // Don't show on home route only
@@ -33,21 +31,7 @@ export const BackButton: React.FC<BackButtonProps> = ({
     return null;
   }
 
-  return (
-    <button
-      type="button"
-      onClick={handleBack}
-      className={cn(
-        "inline-flex h-12 min-w-12 shrink-0 items-center justify-center gap-1 rounded-xl border border-border bg-muted/50 px-2 text-foreground hover:bg-muted active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors",
-        className
-      )}
-      aria-label="Tilbake til hjem"
-      title="Tilbake til hjem"
-    >
-      <ChevronLeft size={28} strokeWidth={2.5} aria-hidden="true" />
-      {label && <span className="text-sm font-medium">{label}</span>}
-    </button>
-  );
+  return <HomeArrowButton onClick={handleBack} />;
 };
 
 export default BackButton;

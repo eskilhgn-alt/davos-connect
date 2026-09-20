@@ -6,8 +6,7 @@
 import * as React from 'react';
 import { Lock } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { BackButton } from '@/components/layout/BackButton';
-import { cn } from '@/lib/utils';
+import { AppHeader } from '@/components/layout/AppHeader';
 import { useVisualViewport } from './useVisualViewport';
 import { chatStore } from './store';
 import { oneSignalService } from '@/services/onesignal';
@@ -79,26 +78,10 @@ export const ChatScreen: React.FC = () => {
         top: 'var(--vvo, 0px)',
       }}
     >
-      {/* Minimal header */}
-      <header
-        className={cn(
-          'flex-none flex items-center gap-3 px-4 bg-background border-b border-border',
-          'safe-area-top'
-        )}
-        style={{ minHeight: '56px' }}
-      >
-        <BackButton />
-        <div className="flex-1 min-w-0">
-          <h1 className="font-heading text-base font-semibold text-foreground tracking-tight leading-tight truncate">
-            Chat{selectedTrip ? ` · ${selectedTrip.name}` : ''}
-          </h1>
-          {isArchive && (
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1 mt-0.5">
-              <Lock size={10} /> Arkiv – skrivebeskyttet
-            </p>
-          )}
-        </div>
-      </header>
+      <AppHeader
+        title={selectedTrip ? `Chat · ${selectedTrip.name}` : 'Chat'}
+        subtitle={isArchive ? 'Arkiv – skrivebeskyttet' : undefined}
+      />
 
       {!selectedTripId ? (
         <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground px-6 text-center">

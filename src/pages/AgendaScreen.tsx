@@ -8,7 +8,6 @@
 import * as React from "react";
 import { Plus, CalendarDays, Clock } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { BackButton } from "@/components/layout/BackButton";
 import { useAgenda, type AgendaEventLike } from "@/hooks/useAgenda";
 import { AgendaEventDialog } from "@/components/agenda/AgendaEventDialog";
 import { pickFocusEventId } from "@/features/agenda/timeline";
@@ -54,7 +53,7 @@ export const AgendaScreen: React.FC = () => {
 
   return (
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
-      <AppHeader title="Agenda" leftAction={<BackButton fallbackPath="/hjem" />} />
+      <AppHeader title="Agenda" />
 
       <div className="border-b border-border px-4 py-2">
         <p className="text-[11px] text-muted-foreground">
