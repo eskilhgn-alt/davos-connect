@@ -1,5 +1,28 @@
 # Avslutningsliste — GüttaHütte
 
+## Gjeldende arbeidskø — 20. september 2026
+
+Denne køen overstyrer eldre behold-/stoppbeskjeder og historiske tabellstatuser nedenfor.
+Les `CLEANUP_20260920.md` og `SOCIAL_FEATURES_20260920.md` før arbeid.
+
+| ID | Faktisk status / neste handling |
+| --- | --- |
+| CLEAN-01A | Testet kodepakke fra aktiv base 28284b4, 481 tester + tsc/build. 18 kilde-/testfiler fjernet og felles koblinger ryddet. **Ikke importert i Lovable ennå.** Importer forberedt oppfølger fra codex/cleanup-20260920 og kontroller aktive filer. |
+| CLEAN-01B | **Åpen:** avvikle faktisk deployede Edge/RPC/grants/jobber for Runder, Faktasjekk og Avstemninger; bevar historiske data. |
+| CHAT-MEDIA-01 | **Åpen:** flytt galleri/historier/story-linjer og all tilhørende funksjon inn i Chat, fjern egne fliser/sider etterpå. |
+| CAM-01 | **Verifisert i aktiv Lovable 28284b4:** én spiller, snapshots, stabil utvidelse/retry. |
+| CAM-02 | **Åpen:** ekte videokilde og fysisk oppstarts-/PWA-test; Skaping er ImageMedia. |
+| VIBE-01 / SHOT-02 / SHOT-03 | **Spesifisert, ikke aktivert:** God stemning → Shot your shot → daglige Headshot. |
+| SAVE-01 / MOB-01 | DB-/Realtime-retting levert 17.09; faktisk innlogget to-enhetstest/fysisk PWA gjenstår. Ikke gjenta DB-leveransen uten konkret ny feil. |
+| STOP-01 | Daglig oppgave reaktivert fra 21.09; selvstopp først når hele avtalt liste er bevist lukket, eller pause ved bare manuelle porter. |
+
+Forbruk 20.09: tre fullførte jobber rapportert 1,3 + 1,6 + 1,3 = 4,2.
+Ingen ny byggejobb startet for denne pakken; eksakt saldo ukjent.
+Kodepakken og denne teksten er forberedt for neste nyttige import; kunnskap og
+oppgave er allerede oppdatert. Skill forberedelse fra aktiv preview.
+
+## Historiske bevis og tidligere kjøringer
+
 Én fast liste. Status er sannferdig: alt som ikke er bevist i faktisk kjøring
 står som **Åpen** eller **Delvis**. Grønne enhetstester er ikke produksjonsbevis.
 
@@ -15,9 +38,9 @@ Realtime er aktivert for trips/trip_members med uendrede datarader. 470/470 klie
 | PORT0-02 | RPC-herding: `rpc_admin_archive_trip` idempotent med advisory lock før radlås, ingen UPDATE/audit på allerede arkivert tur | **Delvis** | `20260815_port0c_trip_rpc_hardening.sql` importert. Pending |
 | PORT0-03 | Isolert SQL-harness kjørbar for hele Port 0 (0813 → 0814 → 0815, to runder) | **Åpen** | `run.sh`, `behavior.sql`, `security.sql`, `check-sql.mjs` importert. Harness er **ikke** kjørt i denne runden |
 | PORT0-04 | Reell samtidighetstest: to parallelle aktiveringer ender med nøyaktig én aktiv tur | **Åpen** | `concurrency_setup.sql` / `concurrency_assert.sql` finnes, ikke kjørt |
-| DATA-01 | Turbundet dataintegritet: `trip_id` på chat, stories, galleri, agenda, polls, runder, Shot, posisjoner | **Delvis** | Klientscoping på plass; RLS-bevis mangler |
+| DATA-01 | Turbundet dataintegritet: `trip_id` på chat, stories, medier, agenda, Shot, posisjoner | **Delvis** | Klientscoping på plass; RLS-bevis mangler |
 | DATA-02 | Posisjoner: fler-tur `user_locations`, turfiltrert realtime, reparasjons-refetch fjerner slettede rader | **Delvis** | `useUserLocations.ts` + `user-locations-runtime.test.tsx` importert og grønne. RLS-/DB-bevis mangler |
-| FLOW-01 | Beholdte basisflyter testet: Chat, Minner, Stories, Plan, Avstemninger, Utlegg, Vær/skred, Kart, Webkameraer, Deltakere, Innstillinger, Admin | **Åpen** | Kun delvis enhetstestdekning |
+| FLOW-01 | Beholdte basisflyter testet: Chat med Minner/Stories, Plan, Vær/skred, Kart, Webkameraer, Deltakere, Innstillinger, Admin | **Åpen** | Kun delvis enhetstestdekning |
 | SHOT-01 | Shot v2 ferdigstilt og adskilt fra legacy | **Åpen** | Kode/pending. Krever manuell deploy, integrasjonstest og eksplisitt godkjenning |
 | LEG-01 | Legacy-opprydding: Roomies, Casino, legacy Shot/tokens/poeng/straff, Davos-spesifikk logikk | **Delvis** | Fjernet fra UI/ruter. Data API-/RPC-rettigheter og dokumentasjon må verifiseres |
 | MOB-01 | Mobil-/sluttkontroll: iPhone PWA fra hjemmeskjerm, safe-area, 44 px, pull-to-refresh, push | **Åpen** | Krever fysisk enhet |

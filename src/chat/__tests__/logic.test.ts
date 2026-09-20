@@ -377,15 +377,6 @@ describe('chat/logic — serializeAttachmentForPersist (stable-only for NEW stor
     expect(out.objectUrl).toBeUndefined();
   });
 
-  it('poll cards still serialize their poll_* metadata', () => {
-    const a = {
-      id: 'p1', kind: 'poll' as unknown as 'image',
-      objectUrl: '', poll_id: 'poll-123', poll_event: 'created',
-    };
-    const out = serializeAttachmentForPersist(a);
-    expect(out.poll_id).toBe('poll-123');
-    expect(out.poll_event).toBe('created');
-  });
 });
 
 describe('chat/logic — needing/alreadyUploaded with stable paths', () => {

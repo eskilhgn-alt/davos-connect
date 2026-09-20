@@ -58,8 +58,6 @@ export const TRIP_SCOPED_QUERY_KEYS = [
   "agenda",
   "stories",
   "gallery",
-  "polls",
-  "rounds",
   "chat",
   "messages",
   "unread",

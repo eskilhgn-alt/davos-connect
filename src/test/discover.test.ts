@@ -46,14 +46,14 @@ describe("Gütta-match", () => {
 
   it("scorer kun på førsteparts gruppesignaler", () => {
     const p = place({});
-    const m = guttaMatch(p, { saved: 3, voted: 2, visited: 1 });
+    const m = guttaMatch(p, { saved: 3, visited: 1 });
     expect(m.available).toBe(true);
     if (!m.available) return;
-    expect(m.score).toBe(46);
+    expect(m.score).toBe(34);
     expect(m.reasons.join(" ")).toContain("lagret av 3");
     const ordered = orderPlaces(
       [place({ id: "google:a" }), place({ id: "google:b" })],
-      { "google:b": { saved: 2, voted: 0, visited: 0 } },
+      { "google:b": { saved: 2, visited: 0 } },
     );
     expect(ordered.map((x) => x.id)).toEqual(["google:b", "google:a"]);
   });

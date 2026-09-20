@@ -1,0 +1,205 @@
+{
+  "base_commit": "28284b4ff78ecc78bcb94c0235652bc091960012",
+  "files": [
+    {
+      "path": "docs/CLEANUP_20260920.md",
+      "before_sha256": null,
+      "after_sha256": "ccd19ff5d33fc24a9858d2dd0867b5bb83227d165a27bce73d52bc025755cc9a"
+    },
+    {
+      "path": "docs/CLOSEOUT_AUTOMATION.md",
+      "before_sha256": "4203e8ca5851d42beae47852ca1728132ea7a35b34f8b3dbcd3004417e486fed",
+      "after_sha256": "0f021217f136025da6b1d37041f696be41073eecb091420ede4435960bdcc447"
+    },
+    {
+      "path": "docs/CLOSEOUT_BACKLOG.md",
+      "before_sha256": "faa0d0e5575a5ed21205e2b990f13c23c38305504ba31fec3c7deb4758855bdd",
+      "after_sha256": "c871827e01ebcda9e0533712ccfe1225b28e46e288f77597e8a7c898b5026cf4"
+    },
+    {
+      "path": "docs/PROJECT_CONTRACT.md",
+      "before_sha256": "44e7642f3536d45ae98d0674e3832b9650b512afa4a308f96d8c22294843d147",
+      "after_sha256": "69bfa379bf0c3baab0f61b2242602fc27849d8ce307824478319f7acc8e1d0a1"
+    },
+    {
+      "path": "scripts/apply_prepared_cleanup.py",
+      "before_sha256": null,
+      "after_sha256": "1e6c49f4d65ccfba0f57b1be23009a643683ee925190945a0a3f254e87690ec1"
+    },
+    {
+      "path": "src/App.tsx",
+      "before_sha256": "e2c5df901b7310c781e45f13c3c5c7883e6614f1c70a817ac131c6ce3c660bc9",
+      "after_sha256": "3d43cb8b46c454e45b4db291bd62ac13bd5520b8e79da84ac4a6b80d3d5732cb"
+    },
+    {
+      "path": "src/chat/MessageItem.tsx",
+      "before_sha256": "fa701b4cd0a7011bda621e4e14995445c724c49e974e8d3f91920b83ffc330c8",
+      "after_sha256": "41250d9b00bd77ad7731dd1f8d59ff146f2f3e49ed53cc03cf02468176a37f63"
+    },
+    {
+      "path": "src/chat/__tests__/logic.test.ts",
+      "before_sha256": "39ae12289232913c3f0c177f2c204744dadbaf32d7d2900ef08a3f66e40605a6",
+      "after_sha256": "81a4137d865b6c82f57a7866206fff75f243f0fc45f11a135693f7e10fdce0f4"
+    },
+    {
+      "path": "src/chat/logic.ts",
+      "before_sha256": "52a0ba1f2afdcc9efbe68257bcd73bd5884e94f003e41fb402abf47692896a40",
+      "after_sha256": "a7f63b3b8726cfce0bf353be4cb65cb831ac11c9f9d9414eb132f220de3831bc"
+    },
+    {
+      "path": "src/chat/types.ts",
+      "before_sha256": "22e492f956a606c81928575ab5acdb5b6c5f9ef5ffa30cec8e1bb772a38f9e15",
+      "after_sha256": "17cc17dbdc3d94293ddcb7477993c5f4504d430701562792fe55731752d872a4"
+    },
+    {
+      "path": "src/components/admin/AdminModeration.tsx",
+      "before_sha256": "9d9720f032eb86bf2c821418e5c60ef7fe7bd48940ff19d4727b89dfb76abdee",
+      "after_sha256": "0b7d85fb8b5bfb0727549adab87431aa49022f659335cedf9ff37ea3de9facd8"
+    },
+    {
+      "path": "src/components/admin/AdminOverview.tsx",
+      "before_sha256": "08ae0c72f25260db891effc6f3d87da65ffca4a07a32a48b66fd15a3dfebb551",
+      "after_sha256": "224f77d519354988a60547643c5270b02ece1cd0d263b39497033019a4f5fe48"
+    },
+    {
+      "path": "src/components/onboarding/PermissionPrompt.tsx",
+      "before_sha256": "fa489528721af7ec3b6f114b93e205c79d144eab6373cab7e4127ef8daba85fa",
+      "after_sha256": "6b13800d89f1ae73797621586210d8d7d12339321d62107e4b78bcb40b237c82"
+    },
+    {
+      "path": "src/components/poll/ChatPollCard.tsx",
+      "before_sha256": "f0314334be8195964f41549487ab1336cd4efa4e55f6ab5b471a71de9babdebe",
+      "after_sha256": null
+    },
+    {
+      "path": "src/components/poll/CreatePollSheet.tsx",
+      "before_sha256": "a28a4da968a365aa6e505e3976c3c147db1af4b5d6a93ec704af944a4d1c3af4",
+      "after_sha256": null
+    },
+    {
+      "path": "src/components/poll/PollCard.tsx",
+      "before_sha256": "7559d88c181102445ff71a95ce282b5bfb8e0ef9744bd7a992a081f645f734c9",
+      "after_sha256": null
+    },
+    {
+      "path": "src/components/rounds/AddRoundSheet.tsx",
+      "before_sha256": "330b870463fea3d6bb4a8ee4cc734a4ceff5def09cdd55cc91efff93b6ad6fca",
+      "after_sha256": null
+    },
+    {
+      "path": "src/components/rounds/DebtCalculator.tsx",
+      "before_sha256": "902a6daa5ea2ce481c043867b0705ffb5a668d6eb38621079de9f64ba0c0db45",
+      "after_sha256": null
+    },
+    {
+      "path": "src/components/settings/PushNotificationToggle.tsx",
+      "before_sha256": "99960adeb924f8abccd64edf18579ef1f8ec1ce6a7d8f75b5236312f34287365",
+      "after_sha256": "ac75f3bd1b86ee74be4538786cc4a6c149e42e63735f0278a556ac7980f7deb5"
+    },
+    {
+      "path": "src/contexts/TripContext.tsx",
+      "before_sha256": "8e5934e64e0a5128f5c67be7d07f7ede4fcfd3a7f0f9fda2aab838bbf07b7286",
+      "after_sha256": "f33eab26453079375eb227e80da9f14bc0f8c37c5d7e8d0902a4000e412426b7"
+    },
+    {
+      "path": "src/features/discover/guttaMatch.ts",
+      "before_sha256": "588f3515fceb199b636ea300e84d1cdafde7dd61693fc777c484b3d493110dc4",
+      "after_sha256": "79b956c75dcab569715c551fb6029b89e4321505ab6c666d859c06d621b92446"
+    },
+    {
+      "path": "src/features/fact-checker/__tests__/sse.test.ts",
+      "before_sha256": "9597b2aa0e3232429df9c37edc311ab072575f07d34e8b3fc67c21a00df87cb2",
+      "after_sha256": null
+    },
+    {
+      "path": "src/features/fact-checker/sse.ts",
+      "before_sha256": "36553b8875f7ef2f4f77fec0a57f8f9ed9730f3135f24534a9f41ad96a3442b3",
+      "after_sha256": null
+    },
+    {
+      "path": "src/features/rounds/__tests__/logic.test.ts",
+      "before_sha256": "bb3cbbfa2a7d6c998f0e9dca6942b21f797403c6296f5b8db99d8487ef4c5f81",
+      "after_sha256": null
+    },
+    {
+      "path": "src/features/rounds/logic.ts",
+      "before_sha256": "8916f182a5a743a0568de0a0115bece001e6cb2d6a9eb4726866d6eea12d26a2",
+      "after_sha256": null
+    },
+    {
+      "path": "src/hooks/useAppBadges.ts",
+      "before_sha256": "b76efb3784f9785ca735b415cc79b74ad620636a1fb8601bec6279e4d50b9209",
+      "after_sha256": "e2e00d50e24feea489c104f586cc4c90f1382e7dee2228d6c7edf71de5240811"
+    },
+    {
+      "path": "src/hooks/useFaktasjekker.ts",
+      "before_sha256": "41761d7e21aedecddbb992917cda6ee7962951fee5aa4b9e101c01914f78864b",
+      "after_sha256": null
+    },
+    {
+      "path": "src/hooks/usePolls.ts",
+      "before_sha256": "3334a0e6e800cb1ef783dfd713a9d0127020d8cb8203d1de2a2779270e98a3f3",
+      "after_sha256": null
+    },
+    {
+      "path": "src/hooks/useRounds.ts",
+      "before_sha256": "2a38ea1417788ba94cfefedb6f642c3f7cc9f803f5984abcc0d3edb678b38e18",
+      "after_sha256": null
+    },
+    {
+      "path": "src/pages/FaktasjekkerScreen.tsx",
+      "before_sha256": "8b6445344cbc828323ee47f23016d8f57b1b650b0a30fe97a2fd484dda0798dd",
+      "after_sha256": null
+    },
+    {
+      "path": "src/pages/MoreScreen.tsx",
+      "before_sha256": "4beef587b4b1456285a13a83c202db288c0c22a0b70d8f80d610eed29430842d",
+      "after_sha256": "697b1148ba74ce9330b351aaf2e58bcc348c6628e7ce18d0ac1e36945850595e"
+    },
+    {
+      "path": "src/pages/PollScreen.tsx",
+      "before_sha256": "d1b7d69508faca451f39e29cfa90f784e16cdb144a2f53b510627dcbc370001a",
+      "after_sha256": null
+    },
+    {
+      "path": "src/pages/RoundsScreen.tsx",
+      "before_sha256": "c510a142475d0ebe51f13db7025bf624036e6b14cb9454bc6d9c6d23e07cacfd",
+      "after_sha256": null
+    },
+    {
+      "path": "src/test/discover.test.ts",
+      "before_sha256": "7dbe6f54bce64b4135f3319fbfd499cf190feddd95fbd0eeecc418bdd99f5f71",
+      "after_sha256": "601419d9ecd94aca19bfc64a225898bd57378dd99d9730f864473a9bf0e111d4"
+    },
+    {
+      "path": "src/test/retired-features.test.tsx",
+      "before_sha256": null,
+      "after_sha256": "dede7f632d97a22608bc4985c3c21568cb859d29702608824eb546fa61c21d43"
+    },
+    {
+      "path": "src/test/trip-race-guards.test.ts",
+      "before_sha256": "e4309a77d76acdddef23154fbb47b6e9d203dd6779d032683fb92b98b2bf2539",
+      "after_sha256": "6f2cceb2231f707daddff80f596e5d14c85c4177496ff0c6fb4e787550baa762"
+    },
+    {
+      "path": "supabase/config.toml",
+      "before_sha256": "563a32e2ae37e208189368a669d6de117a862ff99751d0347c7e4ef0db48b529",
+      "after_sha256": "d8ae7acc6426afb12a16e89e40145933f43f6869473286d7c23828df3295fd38"
+    },
+    {
+      "path": "supabase/functions/faktasjekker/index.ts",
+      "before_sha256": "b361eb72f4180715b4ede2707719230ac32a9d3215946557606413713bb3dc8d",
+      "after_sha256": null
+    },
+    {
+      "path": "supabase/functions/poll-push/index.ts",
+      "before_sha256": "fbfe18d31efda78245901140e7b938d8da961f2f88f82b5d83121ab7a7cbe1c7",
+      "after_sha256": null
+    },
+    {
+      "path": "supabase/functions/round-push/index.ts",
+      "before_sha256": "2b8a06ddb1c9a5ab192131cec29d01066dcb7b26594a6e4553147d935e9e701c",
+      "after_sha256": null
+    }
+  ]
+}

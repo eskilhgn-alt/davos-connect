@@ -103,7 +103,7 @@ export const PermissionPrompt: React.FC = () => {
                 <Bell className="h-6 w-6 text-primary" />
               </div>
               <p className="text-sm text-muted-foreground flex-1">
-                Få beskjed om nye meldinger, stories, avstemninger og viktige hendelser i gruppen.
+                Få beskjed om nye meldinger, stories og viktige hendelser i gruppen.
               </p>
             </div>
             <div className="flex gap-3">

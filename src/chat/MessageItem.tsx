@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import type { Message, Attachment } from './types';
 import { ReactionsRow } from './ReactionsRow';
 import { chatStore } from './store';
-import { ChatPollCard } from '@/components/poll/ChatPollCard';
 import { useSignedMedia } from '@/components/ui/SignedMedia';
 import { errorToast } from '@/utils/errorToast';
 
@@ -519,20 +518,6 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
 
       {/* Text bubble or edit mode */}
       {message.text && (() => {
-        // Check if this is a poll system message
-        const pollAtt = message.attachments?.find((a: { kind: string }) => a.kind === 'poll');
-        if (pollAtt) {
-          return (
-            <div className={cn('px-1', isOwn ? 'flex justify-end' : '')}>
-              <ChatPollCard
-                pollId={(pollAtt as { poll_id?: string }).poll_id}
-                pollEvent={(pollAtt as { poll_event?: 'created' | 'cancelled' | 'ended' | 'reminder' }).poll_event}
-                messageText={message.text}
-              />
-            </div>
-          );
-        }
-
         return isEditing ? (
           <div className="max-w-[85%] flex flex-col gap-2">
             <textarea

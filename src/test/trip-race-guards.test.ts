@@ -16,15 +16,15 @@ describe("markPageSeen trip-scoping", () => {
   });
 
   it("does nothing when tripId is missing (no cross-trip leak)", () => {
-    markPageSeen("polls", null);
-    markPageSeen("polls", undefined);
+    markPageSeen("agenda", null);
+    markPageSeen("agenda", undefined);
     // No key should be written.
     expect(Object.keys(localStorage).length).toBe(0);
   });
 
   it("namespaces the seen key per trip", () => {
-    markPageSeen("polls", "trip-A");
-    markPageSeen("polls", "trip-B");
+    markPageSeen("agenda", "trip-A");
+    markPageSeen("agenda", "trip-B");
     const keys = Object.keys(localStorage);
     // Two independent keys — reading A must not silence B.
     expect(keys.some((k) => k.endsWith(":trip-A"))).toBe(true);

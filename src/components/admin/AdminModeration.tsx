@@ -1,15 +1,13 @@
 /**
- * AdminModeration – Content moderation: polls, stories, gallery, agenda
+ * AdminModeration – Content moderation: stories, gallery, agenda
  */
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BrandCard, BrandCardContent } from "@/components/ui/brand-card";
 import { BrandButton } from "@/components/ui/brand-button";
-import { BrandBadge } from "@/components/ui/brand-badge";
 import { BrandSkeleton } from "@/components/ui/brand-skeleton";
 import {
-  BarChart3, Image, Film, Calendar, Trash2, Loader2, RefreshCw,
-  Lock, Pin, PinOff, CheckCircle,
+  Image, Film, Calendar, Trash2, Loader2, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { errorToast } from "@/utils/errorToast";
@@ -19,16 +17,6 @@ interface Props {
   users: AdminUser[];
   currentUserId: string;
   onLogAction: (adminId: string, action: string, targetUserId?: string, details?: Record<string, any>) => void;
-}
-
-interface PollItem {
-  id: string;
-  question: string;
-  status: string;
-  created_by: string;
-  created_at: string;
-  is_pinned: boolean;
-  _voteCount?: number;
 }
 
 interface StoryItem {
@@ -57,7 +45,6 @@ interface AgendaItem {
 }
 
 export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users, currentUserId, onLogAction }, ref) => {
-  const [polls, setPolls] = React.useState<PollItem[]>([]);
   const [stories, setStories] = React.useState<StoryItem[]>([]);
   const [gallery, setGallery] = React.useState<GalleryItem[]>([]);
   const [agenda, setAgenda] = React.useState<AgendaItem[]>([]);
@@ -71,21 +58,12 @@ export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users,
 
   const loadAll = React.useCallback(async () => {
     setLoading(true);
-    const [pollsRes, storiesRes, galleryRes, agendaRes, votesRes] = await Promise.all([
-      supabase.from("polls").select("id, question, status, created_by, created_at, is_pinned").order("created_at", { ascending: false }).limit(30),
+    const [storiesRes, galleryRes, agendaRes] = await Promise.all([
       supabase.from("stories").select("id, user_id, type, created_at, expires_at, storage_path").order("created_at", { ascending: false }).limit(30),
       supabase.from("gallery_items").select("id, uploaded_by, type, created_at, storage_path").order("created_at", { ascending: false }).limit(50),
       supabase.from("agenda_events").select("id, title, start_at, end_at, created_by").order("start_at", { ascending: false }).limit(20),
-      supabase.from("poll_votes").select("poll_id"),
     ]);
 
-    // Count votes per poll
-    const voteMap = new Map<string, number>();
-    (votesRes.data || []).forEach((v: any) => {
-      voteMap.set(v.poll_id, (voteMap.get(v.poll_id) || 0) + 1);
-    });
-
-    setPolls((pollsRes.data || []).map(p => ({ ...p, _voteCount: voteMap.get(p.id) || 0 })));
     setStories(storiesRes.data || []);
     setGallery(galleryRes.data || []);
     setAgenda(agendaRes.data || []);
@@ -93,48 +71,6 @@ export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users,
   }, []);
 
   React.useEffect(() => { loadAll(); }, [loadAll]);
-
-  const closePoll = async (id: string) => {
-    setActionLoading(`poll-close-${id}`);
-    try {
-      const { error } = await supabase.from("polls").update({ status: "resolved", resolved_at: new Date().toISOString() }).eq("id", id);
-      if (error) throw error;
-      toast.success("Poll lukket");
-      onLogAction(currentUserId, "poll_closed", undefined, { poll_id: id });
-      loadAll();
-    } catch (e: any) {
-      errorToast("Feil", { description: e.message });
-    } finally { setActionLoading(null); }
-  };
-
-  const togglePinPoll = async (id: string, pinned: boolean) => {
-    setActionLoading(`poll-pin-${id}`);
-    try {
-      const { error } = await supabase.from("polls").update({ is_pinned: !pinned }).eq("id", id);
-      if (error) throw error;
-      toast.success(pinned ? "Poll frigjort" : "Poll festet");
-      loadAll();
-    } catch (e: any) {
-      errorToast("Feil", { description: e.message });
-    } finally { setActionLoading(null); }
-  };
-
-  const deletePoll = async (id: string) => {
-    if (!confirm("Slett denne pollen permanent?")) return;
-    setActionLoading(`poll-del-${id}`);
-    try {
-      // Delete votes and options first
-      await supabase.from("poll_votes").delete().eq("poll_id", id);
-      await supabase.from("poll_options").delete().eq("poll_id", id);
-      const { error } = await supabase.from("polls").delete().eq("id", id);
-      if (error) throw error;
-      toast.success("Poll slettet");
-      onLogAction(currentUserId, "poll_deleted", undefined, { poll_id: id });
-      loadAll();
-    } catch (e: any) {
-      errorToast("Feil", { description: e.message });
-    } finally { setActionLoading(null); }
-  };
 
   const deleteStory = async (id: string) => {
     setActionLoading(`story-${id}`);
@@ -188,7 +124,6 @@ export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users,
     );
   }
 
-  const activePolls = polls.filter(p => p.status === "active");
   const activeStories = stories.filter(s => new Date(s.expires_at) > new Date());
 
   return (
@@ -198,45 +133,6 @@ export const AdminModeration = React.forwardRef<HTMLDivElement, Props>(({ users,
         <h3 className="font-heading font-semibold text-foreground text-sm">Innholdsmoderering</h3>
         <BrandButton variant="ghost" size="sm" onClick={loadAll}><RefreshCw size={14} /></BrandButton>
       </div>
-
-      {/* Polls */}
-      <BrandCard>
-        <BrandCardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <BarChart3 size={16} className="text-primary" />
-            <h4 className="font-heading font-semibold text-sm text-foreground">Polls ({activePolls.length} aktive)</h4>
-          </div>
-          {activePolls.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-2">Ingen aktive polls</p>
-          ) : (
-            activePolls.map(p => (
-              <div key={p.id} className="flex items-start justify-between gap-2 border-b border-border pb-2 last:border-0 last:pb-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-foreground">{p.question}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {getName(p.created_by)} · {p._voteCount} stemmer · {fmtDate(p.created_at)}
-                  </p>
-                  {p.is_pinned && <BrandBadge variant="accent" className="text-[9px] mt-0.5">📌 Festet</BrandBadge>}
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <BrandButton variant="ghost" size="sm" onClick={() => togglePinPoll(p.id, p.is_pinned)}
-                    disabled={actionLoading === `poll-pin-${p.id}`}>
-                    {p.is_pinned ? <PinOff size={12} /> : <Pin size={12} />}
-                  </BrandButton>
-                  <BrandButton variant="ghost" size="sm" onClick={() => closePoll(p.id)}
-                    disabled={actionLoading === `poll-close-${p.id}`}>
-                    {actionLoading === `poll-close-${p.id}` ? <Loader2 size={12} className="animate-spin" /> : <Lock size={12} />}
-                  </BrandButton>
-                  <BrandButton variant="ghost" size="sm" onClick={() => deletePoll(p.id)}
-                    disabled={actionLoading === `poll-del-${p.id}`} className="text-destructive">
-                    {actionLoading === `poll-del-${p.id}` ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                  </BrandButton>
-                </div>
-              </div>
-            ))
-          )}
-        </BrandCardContent>
-      </BrandCard>
 
       {/* Stories */}
       <BrandCard>

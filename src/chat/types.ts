@@ -52,9 +52,6 @@ export interface Attachment {
   storageBucket?: 'chat-media' | 'stories' | 'avatars' | 'round-receipts';
   storagePath?: string;
   thumbnailPath?: string;
-  // For poll cards (existing behavior)
-  poll_id?: string;
-  poll_event?: string;
 }
 
 export interface User {
