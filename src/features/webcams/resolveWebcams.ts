@@ -27,6 +27,11 @@ export function resolveWebcams(trip: Pick<Trip, "id" | "destination" | "destinat
   const raw = cfg && Array.isArray(cfg.webcams) ? (cfg.webcams as unknown[]) : [];
   const cams = raw.filter(isTripWebcam);
   if (cams.length > 0) return cams;
-  if (isValThorens(trip)) return VAL_THORENS_2027.webcams;
+  if (isValThorens(trip)) {
+    // Start with the online station camera, not seasonally closed Prosneige.
+    // An explicit trip configuration above retains its own ordering.
+    return [...VAL_THORENS_2027.webcams].sort((a, b) =>
+      Number(b.id === "station") - Number(a.id === "station"));
+  }
   return [];
 }

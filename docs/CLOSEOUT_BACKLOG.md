@@ -54,3 +54,12 @@ andre migrasjoner og sletting er fortsatt utenfor bestillingen.
 - Oppdag: ren listevisning — Liste/Kart-veksler og kart-placeholder fjernet. Gütta-match-badge og forklaringen om delt match er fjernet fra skjermen (modulen `guttaMatch.ts` og EØS-testene er urørt). Kategori-/stedsvisning, feil/tom/lasting, arkivgrense, oppdatering, Google-attribution, eksterne Maps-lenker og admin-konfigurasjonsinngang er beholdt. Kategoriknapper har nå minst 44 px trykkflate.
 - Kode/preview: ferdig og verifisert med eksisterende Vitest-sett og automatisk preview-bygg. Produksjon: **ikke** publisert — den publiserte appen viser fortsatt den gamle skjermen.
 - Fortsatt åpent: SAVE-01, Shot/backend, reell integrasjon/to enheter/fysisk PWA, og øvrige åpne porter i tabellen over. Ingen historiske bevis er endret.
+
+## Ny bestilling 20. september: kameraer og sosiale fliser
+
+Eskil har uttrykkelig utvidet omfanget med God stemning og Shot your shot,
+inkludert nye Headshot-rettigheter. Full bestilling, prioritering og testporter
+ligger i `SOCIAL_FEATURES_20260920.md`. Ingen av de nye sosiale funksjonene er
+ferdig eller aktivert bare fordi spesifikasjonen er lagret. Kameraenes kode-
+retting skal importeres/verifiseres i preview; ekte video krever videokilder.
+Eksisterende automasjon skal ikke reaktiveres. Bevar SAVE-01 som åpen.
