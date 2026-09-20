@@ -20,7 +20,7 @@ export const PullToRefreshWrapper: React.FC<PullToRefreshWrapperProps> = ({
   className,
   style,
 }) => {
-  const { containerRef, pullDistance, isRefreshing, isPulling } = usePullToRefresh({
+  const { containerRef, pullDistance, isRefreshing, isPulling, refreshError } = usePullToRefresh({
     onRefresh,
   });
 
@@ -30,13 +30,15 @@ export const PullToRefreshWrapper: React.FC<PullToRefreshWrapperProps> = ({
   return (
     <div
       ref={containerRef as React.RefObject<HTMLDivElement>}
-      className={cn("relative", className)}
+      className={cn("relative min-h-0", className)}
+      aria-busy={isRefreshing}
       style={style}
     >
       {/* Pull indicator */}
       {(isPulling || isRefreshing) && (
         <div
-          className="absolute left-0 right-0 flex items-center justify-center z-10 pointer-events-none"
+          role="status"
+          className="absolute left-0 right-0 flex items-center justify-center gap-2 z-10 pointer-events-none"
           style={{ top: 0, height: Math.max(pullDistance, 0) }}
         >
           <div className={cn(
@@ -55,7 +57,13 @@ export const PullToRefreshWrapper: React.FC<PullToRefreshWrapperProps> = ({
               />
             )}
           </div>
+          <span className="text-xs font-medium text-foreground">
+            {isRefreshing ? "Oppdaterer …" : ready ? "Slipp for å oppdatere" : "Dra ned for å oppdatere"}
+          </span>
         </div>
+      )}
+      {refreshError && (
+        <p role="alert" className="p-3 text-center text-sm text-destructive">Kunne ikke oppdatere. Dra ned for å prøve igjen.</p>
       )}
 
       {/* Content with pull offset */}

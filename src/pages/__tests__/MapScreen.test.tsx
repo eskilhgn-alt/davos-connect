@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MapScreen, OFFICIAL_PISTE_MAP_URL } from "@/pages/MapScreen";
@@ -34,7 +35,7 @@ vi.mock("@/contexts/TripContext", () => ({
 describe("MapScreen", () => {
   it("embeds the official interactive piste map for Val Thorens", () => {
     selected = vt;
-    render(<MapScreen />);
+    render(<MemoryRouter initialEntries={["/kart"]}><MapScreen /></MemoryRouter>);
 
     const map = screen.getByTitle(
       "Offisielt interaktivt løypekart for Val Thorens og Les 3 Vallées",
@@ -48,7 +49,7 @@ describe("MapScreen", () => {
 
   it("gir aldri Val Thorens-kart eller live status til en annen destinasjon", () => {
     selected = { ...vt, id: "t-hemsedal", destination: "Hemsedal", destination_config: {} };
-    const { container } = render(<MapScreen />);
+    const { container } = render(<MemoryRouter initialEntries={["/kart"]}><MapScreen /></MemoryRouter>);
 
     expect(container.querySelector("iframe")).toBeNull();
     expect(screen.getByText("Løypekart er ikke konfigurert")).toBeTruthy();
@@ -62,7 +63,7 @@ describe("MapScreen", () => {
       destination: "Hemsedal",
       destination_config: { pisteMap: { url: "https://example.com/kart", title: "Hemsedal kart" } },
     };
-    render(<MapScreen />);
+    render(<MemoryRouter initialEntries={["/kart"]}><MapScreen /></MemoryRouter>);
     expect(screen.getByTitle("Hemsedal kart")).toHaveAttribute("src", "https://example.com/kart");
   });
 });

@@ -447,8 +447,7 @@ const TripFormModal: React.FC<{
   };
 
   return createPortal(
-    // z-[70] ligger entydig over BottomNavigation (z-50), slik at Lagre-tur-knappen aldri
-    // males over av appnavigasjonen på mobil.
+    // z-[70] holder redigeringsarket over toppfeltet på mobil.
     <div
       role="dialog"
       aria-modal="true"

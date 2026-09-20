@@ -1,7 +1,6 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import {
-  ArrowLeft,
   Check,
   ChevronRight,
   Clock,
@@ -294,7 +293,7 @@ export const FaktasjekkerScreen: React.FC = () => {
         <AppHeader
           title="Faktasjekk"
           subtitle="GPT-5.6 Sol · nettsøk"
-          leftAction={<BackButton fallbackPath="/mer" />}
+          leftAction={<BackButton />}
           rightAction={
             threads.length ? (
               <button
@@ -403,11 +402,7 @@ export const FaktasjekkerScreen: React.FC = () => {
         <AppHeader
           title="Faktasjekker"
           subtitle="Dine og ferdige delte resultater"
-          leftAction={
-            <button type="button" onClick={() => setView("search")} className="tap-target -ml-2 flex items-center justify-center">
-              <ArrowLeft size={20} />
-            </button>
-          }
+          leftAction={<BackButton />}
           rightAction={
             <button type="button" onClick={newCheck} className="tap-target -mr-2 flex items-center justify-center" aria-label="Ny faktasjekk">
               <Plus size={20} />
@@ -449,11 +444,7 @@ export const FaktasjekkerScreen: React.FC = () => {
       <AppHeader
         title="Faktasjekk"
         subtitle={activeThread ? `${activeThread.userName} · ${activeThread.model ?? "GPT-5.6 Sol"}` : "GPT-5.6 Sol"}
-        leftAction={
-          <button type="button" onClick={newCheck} className="tap-target -ml-2 flex items-center justify-center">
-            <ArrowLeft size={20} />
-          </button>
-        }
+        leftAction={<BackButton />}
         rightAction={
           <button type="button" onClick={newCheck} className="tap-target -mr-2 flex items-center justify-center" aria-label="Ny faktasjekk">
             <Plus size={20} />

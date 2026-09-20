@@ -7,120 +7,126 @@ interface UsePullToRefreshOptions {
   maxPull?: number;
 }
 
-interface UsePullToRefreshReturn {
-  containerRef: React.RefObject<HTMLDivElement>;
-  pullDistance: number;
-  isRefreshing: boolean;
-  isPulling: boolean;
-}
-
-export function usePullToRefresh({
-  onRefresh,
-  threshold = 80,
-  maxPull = 120
-}: UsePullToRefreshOptions): UsePullToRefreshReturn {
+export function usePullToRefresh({ onRefresh, threshold = 80, maxPull = 120 }: UsePullToRefreshOptions) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [pullDistance, setPullDistance] = React.useState(0);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isPulling, setIsPulling] = React.useState(false);
-  
-  const startY = React.useRef(0);
-  const pullRef = React.useRef(0);
-  const touchingRef = React.useRef(false);
-  const rafRef = React.useRef<number>(0);
-  const thresholdCrossedRef = React.useRef(false);
-
+  const [refreshError, setRefreshError] = React.useState(false);
+  const refreshingRef = React.useRef(false);
   const onRefreshRef = React.useRef(onRefresh);
   onRefreshRef.current = onRefresh;
 
   React.useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    let startX = 0;
+    let startY = 0;
+    let pull = 0;
+    let tracking = false;
+    let dragging = false;
+    let crossedThreshold = false;
+    let frame = 0;
+    let disposed = false;
 
-    const handleTouchStart = (e: TouchEvent) => {
-      if (container.scrollTop > 0 || isRefreshing) return;
-      startY.current = e.touches[0].clientY;
-      touchingRef.current = true;
-      thresholdCrossedRef.current = false;
+    const cancelFrame = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
     };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!touchingRef.current || isRefreshing) return;
-      
-      const diff = e.touches[0].clientY - startY.current;
-      
-      if (diff > 0 && container.scrollTop === 0) {
-        // Rubber-band resistance curve for natural feel
-        const resistance = Math.max(0.2, 0.6 - (diff / 800));
-        const pull = Math.min(diff * resistance, maxPull);
-        pullRef.current = pull;
-        
-        // Use rAF for smooth 60fps updates
-        if (!rafRef.current) {
-          rafRef.current = requestAnimationFrame(() => {
-            setPullDistance(pullRef.current);
-            setIsPulling(true);
-            rafRef.current = 0;
-          });
+    const resetGesture = () => {
+      tracking = false;
+      dragging = false;
+      pull = 0;
+      cancelFrame();
+      setPullDistance(0);
+      setIsPulling(false);
+    };
+    const handleTouchStart = (event: TouchEvent) => {
+      if (refreshingRef.current) return;
+      resetGesture();
+      // Safari may report a slightly negative scrollTop during rubber-banding.
+      if (event.touches.length !== 1 || container.scrollTop > 1) return;
+      if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+      tracking = true;
+      crossedThreshold = false;
+      setRefreshError(false);
+    };
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!tracking || refreshingRef.current) return;
+      if (event.touches.length !== 1 || container.scrollTop > 1) {
+        resetGesture();
+        return;
+      }
+      const dx = event.touches[0].clientX - startX;
+      const dy = event.touches[0].clientY - startY;
+      if (!dragging) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 6) return;
+        if (dy <= 0 || Math.abs(dx) >= dy) {
+          resetGesture();
+          return;
         }
-        
-        // Haptic when crossing threshold (once per gesture)
-        if (!thresholdCrossedRef.current && pull >= threshold) {
-          thresholdCrossedRef.current = true;
-          hapticMedium();
-        }
-        
-        if (pull > 10) {
-          e.preventDefault();
-        }
+        dragging = true;
+      }
+      // Claim downward motion early, before Safari starts native overscroll.
+      if (event.cancelable) event.preventDefault();
+      // Monotonic resistance: 160px finger movement reaches the 80px threshold.
+      pull = Math.min(Math.max(0, dy) * 0.5, maxPull);
+      if (!frame) {
+        frame = requestAnimationFrame(() => {
+          setPullDistance(pull);
+          setIsPulling(pull > 0);
+          frame = 0;
+        });
+      }
+      if (!crossedThreshold && pull >= threshold) {
+        crossedThreshold = true;
+        hapticMedium();
       }
     };
-
     const handleTouchEnd = async () => {
-      if (!touchingRef.current) return;
-      touchingRef.current = false;
-      
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = 0;
+      if (!tracking) return;
+      tracking = false;
+      cancelFrame();
+      if (pull < threshold || refreshingRef.current) {
+        resetGesture();
+        return;
       }
-      
-      if (pullRef.current >= threshold && !isRefreshing) {
-        setIsRefreshing(true);
-        setPullDistance(threshold * 0.5);
-        
-        try {
-          await onRefreshRef.current();
-          hapticSuccess();
-        } finally {
+      refreshingRef.current = true;
+      setIsRefreshing(true);
+      setIsPulling(false);
+      setPullDistance(threshold * 0.5);
+      try {
+        await onRefreshRef.current();
+        if (!disposed) hapticSuccess();
+      } catch {
+        if (!disposed) setRefreshError(true);
+      } finally {
+        refreshingRef.current = false;
+        if (!disposed) {
           setIsRefreshing(false);
-          setPullDistance(0);
-          setIsPulling(false);
-          pullRef.current = 0;
+          resetGesture();
         }
-      } else {
-        setPullDistance(0);
-        setIsPulling(false);
-        pullRef.current = 0;
       }
+    };
+    const handleTouchCancel = () => {
+      if (!refreshingRef.current) resetGesture();
     };
 
     container.addEventListener("touchstart", handleTouchStart, { passive: true });
     container.addEventListener("touchmove", handleTouchMove, { passive: false });
     container.addEventListener("touchend", handleTouchEnd);
-
+    container.addEventListener("touchcancel", handleTouchCancel);
     return () => {
+      disposed = true;
+      cancelFrame();
       container.removeEventListener("touchstart", handleTouchStart);
       container.removeEventListener("touchmove", handleTouchMove);
       container.removeEventListener("touchend", handleTouchEnd);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      container.removeEventListener("touchcancel", handleTouchCancel);
     };
-  }, [threshold, maxPull, isRefreshing]);
+  }, [threshold, maxPull]);
 
-  return {
-    containerRef,
-    pullDistance,
-    isRefreshing,
-    isPulling
-  };
+  return { containerRef, pullDistance, isRefreshing, isPulling, refreshError };
 }

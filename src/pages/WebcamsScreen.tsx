@@ -127,23 +127,24 @@ const ExpandedCamera: React.FC<ExpandedProps> = ({ camera, refreshKey, onClose }
       <AppHeader
         title={camera.name}
         subtitle={camera.area ?? camera.provider}
-        leftAction={
-          <button type="button" onClick={onClose} className="tap-target flex items-center justify-center" aria-label="Lukk">
-            <X size={20} />
-          </button>
-        }
+        leftAction={<BackButton />}
         rightAction={
-          camera.externalUrl ? (
-            <a
-              href={camera.externalUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="tap-target flex items-center justify-center text-muted-foreground"
-              aria-label="Åpne hos leverandør"
-            >
-              <ExternalLink size={18} />
-            </a>
-          ) : null
+          <>
+            <button type="button" onClick={onClose} className="tap-target flex items-center justify-center" aria-label="Lukk">
+              <X size={20} />
+            </button>
+            {camera.externalUrl ? (
+              <a
+                href={camera.externalUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="tap-target flex items-center justify-center text-muted-foreground"
+                aria-label="Åpne hos leverandør"
+              >
+                <ExternalLink size={18} />
+              </a>
+            ) : null}
+          </>
         }
       />
       <div className="flex-1 min-h-0 bg-black">
