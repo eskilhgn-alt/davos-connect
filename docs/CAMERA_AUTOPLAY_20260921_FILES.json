@@ -34,7 +34,7 @@
     {
       "path": "src/pages/__tests__/WebcamsScreen.test.tsx",
       "before": "e87ea3bfb30162e116926b30c0c50ca96f702732685bb515004bad49cc6854b1",
-      "after": "6fd4db9ebc402c2cc3c3d54a106a3e7c064b705fd4c50928f3b9063c7a5047aa"
+      "after": "2dd2dde57513a1220b06b7cbc32c4348dfab5d2f0231168ace491e4ee7810a4a"
     },
     {
       "path": "docs/CAMERA_AUTOPLAY_20260921.md",
