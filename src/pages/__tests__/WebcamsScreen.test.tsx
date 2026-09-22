@@ -170,7 +170,7 @@ describe("WebcamsScreen", () => {
       { id: "new", name: "New", externalUrl: "https://example.com", streamUrl: "https://example.com/new.mp4", mode: "video" },
     ] } };
     const { container } = render(<WebcamsScreen />);
-    fireEvent.click(screen.getByRole("button", { name: "New", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
     await act(async () => { resolveOld({ ok: true, json: async () => providerResponse }); });
     expect(container.querySelector("video")?.src).toBe("https://example.com/new.mp4");
     expect(container.querySelectorAll("video")).toHaveLength(1);
