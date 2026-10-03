@@ -52,3 +52,6 @@ Deaktiver samme oppgave når HELE avtalte listen er bevist ferdig/fjernet.
 Hvis bare tilgang, ekte videokilde, fysisk test eller nødvendig manuell handling
 gjenstår etter selvstendig arbeid, pause med konkret restliste; kall det ikke ferdig.
 Tom dagskvote betyr fortsett neste planlagte dag, ikke en ny oppgave.
+
+## Status 3. oktober 2026
+Forberedt leveranse 4c442819 er importert i aktiv Lovable (492/492, typecheck, PWA-build). Neste i rekkefølgen: CLEAN-01B → CHAT-MEDIA-01 → kamera fysisk bevis → VIBE → Shot → Headshot → sluttkontroll.

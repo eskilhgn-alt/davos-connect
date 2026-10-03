@@ -86,3 +86,10 @@ ligger i `SOCIAL_FEATURES_20260920.md`. Ingen av de nye sosiale funksjonene er
 ferdig eller aktivert bare fordi spesifikasjonen er lagret. Kameraenes kode-
 retting skal importeres/verifiseres i preview; ekte video krever videokilder.
 Eksisterende automasjon skal ikke reaktiveres. Bevar SAVE-01 som åpen.
+
+## Import 3. oktober 2026 — CLEAN-01A + CAM-02 aktiv kode
+- Start-HEAD `7b0ff928` (= `28284b4` + Lovable-generert previewAuthStorage.ts, uendret). Kilde: GitHub `4c4428199cfa17145a9a4e49fcf20c2e47706f72`, hentet som skrivebeskyttet tarball.
+- apply_prepared_cleanup.py: 40 filer verifisert/40 endringer; andre kjøring 0 endringer. apply_prepared_autoplay.py: 8 filer SHA-256-verifisert begge kjøringer. 18 slettinger bekreftet mot start-HEAD.
+- Vitest 492/492 i 43 filer, `tsgo --noEmit -p tsconfig.app.json` rent, Vite/PWA-build OK (sw.js), preview build OK.
+- CLEAN-01A (klient: Runder/Utlegg, Faktasjekk, Avstemninger fjernet) og CAM-02 (native muted/inline/loop-autoplay av datert Skaping-timelapse) er **aktiv kode/preview**, ikke publisert. Fysisk iPhone-autoplay ikke bevist.
+- Åpne: CLEAN-01B (backendavvikling), CHAT-MEDIA-01, SAVE-01 fysisk/to-enhetskontroll. Ingen DB-, Edge-, push- eller publiseringsendring.

@@ -79,3 +79,6 @@ varslinger, dagsgrenser og verifikasjon. Legacy Shot/tokens gjenåpnes ikke.
 
 Norsk, kort og vennlig. Minimum 44 px trykkflater, zoom aldri deaktivert, og
 tydelige loading-/error-/empty-/stale-states. Mobil/PWA på iPhone er primærflaten.
+
+## Oppdatering 3. oktober 2026
+Runder/Utlegg, Faktasjekk og Avstemninger er fjernet fra aktiv klient (CLEAN-01A) og er ikke lenger beholdte basisflyter. Historiske data bevares; backendavvikling (CLEAN-01B) krever egen testet leveranse.
