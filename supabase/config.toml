@@ -6,12 +6,6 @@ verify_jwt = false
 [functions.giphy-proxy]
 verify_jwt = false
 
-[functions.faktasjekker]
-verify_jwt = false
-
-[functions.poll-push]
-verify_jwt = false
-
 [functions.send-verification-email]
 verify_jwt = false
 

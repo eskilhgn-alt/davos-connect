@@ -1,61 +1,57 @@
-## Oppdatert kjørepunkt 16. september 2026
+# Daglig ferdigstilling — oppdatert 20. september 2026
 
-Dagens 5 kreditter er brukt av jobb `umsg_01m2ma0z8rebcby0aqk6j3w3vv` / `main`, ferdig i Lovable `e043ab58a43c1d2819448b621fd35cfe8bc819c4`. Ingen flere Build i dag. Neste kjøring 17. september skal importere og kontrollere denne ferdige kildeleveransen først. Les `TRIP_SAVE_20260916.md`: 470 tester, SQL-bevis, aktiv Realtime og uavklart enum-kall (499/504). Ikke bruk kreditter på å implementere patchkoblingen igjen. Native `supabase/tests/trip-save/run.sh` er klart for egnet miljø, ikke bestått ennå. Bevar tidligere sluttdato 17. september og kanalkontrakt; ikke forleng.
+Bruk eksisterende automasjon `6a670cc678b48191bc7868930c30c0c4`,
+«Ferdigstill GüttaHütte». Reaktivert fra 21.09, daglig rundt kl. 08 Europe/Oslo.
+Samme kanoniske samtale og ingen dupliserte oppgaver. Den gamle stoppdatoen
+17.09 er erstattet av ny uttrykkelig brukerbestilling.
 
-# Avslutningsoppdrag — frosset automasjonskontrakt
+## Før hver kjøring
 
-Automasjon: `6a670cc678b48191bc7868930c30c0c4` — «Ferdigstill GüttaHütte».
+Les fersk Lovable HEAD/kode, prosjektkunnskap, siste jobbstatus/kostnader,
+CLOSEOUT_BACKLOG.md, PROJECT_CONTRACT.md, CLEANUP_20260920.md og
+SOCIAL_FEATURES_20260920.md. Hent relevant tidligere chatkontekst og nye
+brukerbeskjeder. Siste beskjed har forrang; ikke stol på scratch eller gammel main.
 
-## Oppdraget
+## Utfør det avtalte
 
-Dette er en **ferdigstillelse**, ikke løpende nyutvikling. Ingen nye funksjoner,
-ingen redesign, ingen gjenopplivet legacy. Nye ønsker venter på nytt oppdrag.
+1. Importer allerede forberedt CLEAN-01A etter hash-/konfliktkontroll; ikke betal
+   for å skrive samme opprydding igjen. Verifiser aktiv Lovable-kode og preview.
+2. Avslutt CLEAN-01B: reell backendavvikling av Runder/Utlegg, Faktasjekk og
+   Avstemninger. Bevar historiske data og konto-/mediekompatibilitet.
+3. Samle alle stories, galleri, historier og tilhørende funksjoner i Chat.
+4. Fullfør oppnåelig kameraretting og dokumenter eventuell ekstern videokildeport.
+5. Bygg God stemning/felles varsling, Shot your shot og daglige Headshot iht.
+   full spesifikasjon. Bevar 1/N, serveratomisitet, bakgrunn, RLS, daggrenser og logg.
+6. Avslutt gjenværende kritiske basisflyter og samlet mobil-/tilgangskontroll.
 
-Tillatt arbeid:
-1. Fullføre det som faktisk er påbegynt.
-2. Fjerne bekreftet ubrukt funksjonalitet og kode.
-3. Rydde og teste de beholdte hovedflytene.
+En manuell port hindrer ikke uavhengig autorisert arbeid. Ingen valgfrie nye
+funksjoner eller ombygging av noe som allerede er verifisert ferdig.
 
-Shot v2 beholdes og holdes strengt adskilt fra legacy. Historiske brukerdata
-bevares alltid.
+## Budsjett og levering
 
-## Rekkefølge
+Maks fem faktisk tilgjengelige gratis Lovable-kreditter per kredittdøgn,
+inkludert andre jobber. Respektér månedstak; ingen kjøp/top-up/oppgradering,
+Plan, Max eller /goal. Metadata og lokalt forarbeid først. Gi avgrenset nyttig
+Build-oppdrag med margin til lagring/kontroll; tekstbudsjett er ikke en hard cap.
+Følg message_id/thread_id til nested response.status er ferdig; aldri dobbeltjobb.
 
-1. **SYNC-01** — importer og verifiser siste kode fra GitHub før noe annet.
-2. **SAVE-01** — «Lagre tur» i turinnstillingene verifisert i faktisk app.
-3. **Port 0** — turmodell, authz, isolert SQL-harness.
-4. Turbundet dataintegritet.
-5. Beholdte basisflyter.
-6. Shot v2 (pending).
-7. Legacy-opprydding.
-8. Mobil-/sluttkontroll.
-9. **STOP-01** — selvstopp.
+Kjør relevante atferdstester, typecheck/build og samlet test ved reell risiko.
+Ingen påstander om fysisk enhet, live backend eller to innloggede økter uten
+faktisk bevis. Bruk isolerte tester/fakes; ingen testpush til gjengen uten avtale.
 
-## Budsjett
+Alt nytt arbeid skal inn i aktiv Lovable og kontrolleres med read_file/HEAD/diff.
+GitHub/vedlegg/kunnskap alene er ikke kodesynk. Oppdater varig arbeidsliste i
+samme nyttige import. Ikke publiser frontend automatisk, slett historiske data
+eller gjør kjøp. Nødvendige testede bestilte rettinger er autorisert.
 
-- Maks **fem** gratis daglige byggekreditter per runde. Respekter månedstaket.
-- Ingen kjøp, oppgradering eller auto-top-up. Ikke Plan, Max eller /goal.
-- Ingen dobbeltjobber.
-- Reserver alltid nok kreditt til commit og verifisering før runden er tom.
+## Rapport og slutt
 
-## Verifisering per runde
+Kort norsk status i samme samtale: start/sluttcommit, konkret levert, aktivt
+versus pending, tester, faktiske kreditter eller ukjent, rest og neste handling.
+Deaktiver samme oppgave når HELE avtalte listen er bevist ferdig/fjernet.
+Hvis bare tilgang, ekte videokilde, fysisk test eller nødvendig manuell handling
+gjenstår etter selvstendig arbeid, pause med konkret restliste; kall det ikke ferdig.
+Tom dagskvote betyr fortsett neste planlagte dag, ikke en ny oppgave.
 
-- `bunx vitest run` (hele settet)
-- `npx tsc --noEmit -p tsconfig.app.json`
-- `npm run build`
-- `bash supabase/tests/port0/run.sh` når SQL er berørt
-- Preview-kontroll av flyten som ble endret
-
-Ingen påstand om beståtte tester som ikke faktisk er kjørt i samme runde.
-
-## Rapportering
-
-Hver runde avsluttes med: eksakt commit, hvilke kontroller som ble kjørt og
-resultatet av dem, presise åpne punkter, og faktisk `cost_credits`.
-
-## Selvstopp
-
-Automasjonen deaktiverer seg selv når `docs/CLOSEOUT_BACKLOG.md` er verifisert
-lukket. Når bare manuell godkjenning, fysisk enhetstest eller tilgang gjenstår
-etter alt selvstendig arbeid: **pause med konkret restliste**. Det kalles ikke
-ferdig.
+## Status 3. oktober 2026
+Forberedt leveranse 4c442819 er importert i aktiv Lovable (492/492, typecheck, PWA-build). Neste i rekkefølgen: CLEAN-01B → CHAT-MEDIA-01 → kamera fysisk bevis → VIBE → Shot → Headshot → sluttkontroll.

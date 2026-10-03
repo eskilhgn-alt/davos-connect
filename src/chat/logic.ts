@@ -39,8 +39,6 @@ export function normalizeAttachment(a: Record<string, unknown>): Attachment {
     storageBucket,
     storagePath,
     thumbnailPath,
-    poll_id: a.poll_id as string | undefined,
-    poll_event: a.poll_event as string | undefined,
   };
 }
 
@@ -211,8 +209,6 @@ export function serializeAttachmentForPersist(a: Attachment): Record<string, unk
   if (a.filename !== undefined) base.filename = a.filename;
   if (a.mime !== undefined) base.mime = a.mime;
   if (a.size !== undefined) base.size = a.size;
-  if (a.poll_id !== undefined) base.poll_id = a.poll_id;
-  if (a.poll_event !== undefined) base.poll_event = a.poll_event;
 
   // Stable Supabase-storage attachment — persist ONLY the stable coordinates.
   if (a.storageBucket && a.storagePath) {

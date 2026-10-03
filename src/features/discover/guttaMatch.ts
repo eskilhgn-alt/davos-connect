@@ -5,7 +5,7 @@
  *  - Google Places-innhold (rating, antall anmeldelser, åpent nå, prisnivå)
  *    skal ALDRI brukes til å beregne eller omrangere en egen score.
  *  - Gütta-match kan bare komme fra FØRSTEPARTS gruppesignaler på turnivå:
- *    lagret, stemt og besøkt av turmedlemmer.
+ *    lagret og besøkt av turmedlemmer.
  *  - Uten slike signaler: ærlig «Ikke nok gruppedata». Ingen oppdiktet score,
  *    og providerens egen rekkefølge beholdes uendret.
  */
@@ -15,8 +15,6 @@ import type { DiscoverPlace } from "./types";
 export interface GroupSignals {
   /** Antall turmedlemmer som har lagret stedet. */
   saved: number;
-  /** Antall stemmer i turens avstemninger. */
-  voted: number;
   /** Antall registrerte besøk. */
   visited: number;
 }
@@ -30,12 +28,11 @@ export type GuttaMatch =
 export const MATCH_UNAVAILABLE_TEXT = "Ikke nok gruppedata";
 
 const SAVED_POINTS = 8;
-const VOTED_POINTS = 6;
 const VISITED_POINTS = 10;
 
 function hasSignals(s: GroupSignals | undefined | null): s is GroupSignals {
   if (!s) return false;
-  return (s.saved ?? 0) > 0 || (s.voted ?? 0) > 0 || (s.visited ?? 0) > 0;
+  return (s.saved ?? 0) > 0 || (s.visited ?? 0) > 0;
 }
 
 /**
@@ -51,11 +48,10 @@ export function guttaMatch(
 
   const reasons: string[] = [];
   if (signals.saved > 0) reasons.push(`lagret av ${signals.saved}`);
-  if (signals.voted > 0) reasons.push(`${signals.voted} stemmer`);
   if (signals.visited > 0) reasons.push(`besøkt ${signals.visited} ganger`);
 
   const raw =
-    signals.saved * SAVED_POINTS + signals.voted * VOTED_POINTS + signals.visited * VISITED_POINTS;
+    signals.saved * SAVED_POINTS + signals.visited * VISITED_POINTS;
   return { available: true, score: Math.max(0, Math.min(100, Math.round(raw))), reasons };
 }
 

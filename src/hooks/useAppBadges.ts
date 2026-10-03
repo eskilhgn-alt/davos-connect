@@ -1,8 +1,8 @@
 /**
- * useAppBadges – Unified badge counts for chat, stories, polls, agenda and rounds.
+ * useAppBadges – Unified badge counts for chat, stories and agenda.
  *
  * Philosophy: A badge clears when the user has SEEN the content (visited the page).
- * Deep interaction (voting, replying) is NOT required to clear a badge.
+ * Deep interaction (replying) is NOT required to clear a badge.
  *
  * Trip-scoping: all counts and "last seen" localStorage keys are namespaced per
  * selected trip. Concurrent refreshes for different trips are generation-guarded
@@ -18,8 +18,6 @@ const DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 
 // LocalStorage key bases (per-trip suffix appended at runtime).
 const LS_BASES = {
-  polls: "badge_last_seen_polls",
-  runder: "badge_last_seen_runder",
   agenda: "badge_last_seen_agenda",
 } as const;
 
@@ -30,13 +28,11 @@ function lsKey(page: keyof typeof LS_BASES, tripId: string): string {
 export interface AppBadges {
   chat: number;
   stories: number;
-  polls: number;
   agenda: number;
-  runder: number;
   total: number;
 }
 
-const EMPTY_BADGES: AppBadges = { chat: 0, stories: 0, polls: 0, agenda: 0, runder: 0, total: 0 };
+const EMPTY_BADGES: AppBadges = { chat: 0, stories: 0, agenda: 0, total: 0 };
 const AppBadgesContext = React.createContext<AppBadges>(EMPTY_BADGES);
 
 export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -57,17 +53,15 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     const gen = ++generation.current;
     const trip = selectedTripId;
-    const [chatCount, storiesCount, pollsCount, agendaCount, runderCount] = await Promise.all([
+    const [chatCount, storiesCount, agendaCount] = await Promise.all([
       getUnreadChat(userId, trip),
       getUnseenStories(userId, trip),
-      getNewPollsSinceLastSeen(trip),
       getNewAgendaSinceLastSeen(trip),
-      getNewRoundsSinceLastSeen(trip),
     ]);
     // Discard results if trip changed or another refresh started.
     if (gen !== generation.current || trip !== selectedTripId) return;
-    const total = chatCount + storiesCount + pollsCount + agendaCount + runderCount;
-    setBadges({ chat: chatCount, stories: storiesCount, polls: pollsCount, agenda: agendaCount, runder: runderCount, total });
+    const total = chatCount + storiesCount + agendaCount;
+    setBadges({ chat: chatCount, stories: storiesCount, agenda: agendaCount, total });
     updatePwaBadge(total);
   }, [userId, selectedTripId]);
 
@@ -89,10 +83,7 @@ export const AppBadgesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .on("postgres_changes", { event: "*", schema: "public", table: "chat_reads" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "story_views" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "polls" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "poll_votes" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "agenda_events" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "rounds" }, scheduleRefresh)
       .subscribe();
 
     const handleBadgeClear = () => scheduleRefresh();
@@ -176,21 +167,6 @@ async function getUnseenStories(userId: string, tripId: string): Promise<number>
   return stories.filter((s) => !viewedIds.has(s.id)).length;
 }
 
-// ============ Polls: new polls since last visit to polls page ============
-
-async function getNewPollsSinceLastSeen(tripId: string): Promise<number> {
-  const lastSeen = localStorage.getItem(lsKey("polls", tripId)) || "1970-01-01T00:00:00Z";
-
-  const { count } = await supabase
-    .from("polls")
-    .select("id", { count: "exact", head: true })
-    .eq("trip_id", tripId)
-    .eq("status", "active")
-    .gt("created_at", lastSeen);
-
-  return count ?? 0;
-}
-
 // ============ Agenda: new events since last visit ============
 
 async function getNewAgendaSinceLastSeen(tripId: string): Promise<number> {
@@ -198,20 +174,6 @@ async function getNewAgendaSinceLastSeen(tripId: string): Promise<number> {
 
   const { count } = await supabase
     .from("agenda_events")
-    .select("id", { count: "exact", head: true })
-    .eq("trip_id", tripId)
-    .gt("created_at", lastSeen);
-
-  return count ?? 0;
-}
-
-// ============ Runder: new rounds since last visit ============
-
-async function getNewRoundsSinceLastSeen(tripId: string): Promise<number> {
-  const lastSeen = localStorage.getItem(lsKey("runder", tripId)) || "1970-01-01T00:00:00Z";
-
-  const { count } = await supabase
-    .from("rounds")
     .select("id", { count: "exact", head: true })
     .eq("trip_id", tripId)
     .gt("created_at", lastSeen);

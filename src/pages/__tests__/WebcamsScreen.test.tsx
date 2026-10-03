@@ -27,8 +27,18 @@ const vtTrip: Trip = {
   destination_config: {},
 };
 
-beforeEach(() => cleanup());
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
+const panoramaTrip: Trip = { ...vtTrip, destination_config: { webcams: [
+  { id: "station", name: "Station", mode: "interactive", playerUrl: "https://example.com/valthorens/station", externalUrl: "https://example.com" },
+  { id: "caron", name: "Cime Caron", mode: "interactive", playerUrl: "https://example.com/cime-caron", externalUrl: "https://example.com" },
+] } };
+const providerResponse = { medias: [{ src: "http://data.skaping.com/station/timelapses/current.mp4", date: "2026-09-21 00:00:00", meta: { timelapse: { timelapse: { name: "daily" } } } }] };
+beforeEach(() => {
+  cleanup();
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => providerResponse }));
+});
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("WebcamsScreen", () => {
   it("bruker aldri ACTIVE_TRIP direkte", () => {
@@ -36,18 +46,22 @@ describe("WebcamsScreen", () => {
     expect(src).not.toMatch(/ACTIVE_TRIP/);
   });
 
-  it("starter bare valgt panorama og beholder andre kameraer som lette valg", () => {
+  it("starter Station som ekte timelapse uten klikk og laster bare valgt video", async () => {
     currentTrip = vtTrip;
     const { container } = render(<WebcamsScreen />);
-    const iframes = container.querySelectorAll("iframe");
-    expect(iframes.length).toBe(1);
-    expect(iframes[0].src).toContain("/valthorens/station");
-    expect(screen.getAllByRole("button", { pressed: false }).length).toBe(VAL_THORENS_2027.webcams.length - 1);
-    iframes.forEach((f) => {
-      expect(f.getAttribute("loading")).toBe("eager");
-      expect(f.getAttribute("allow") ?? "").toMatch(/fullscreen/);
-      expect(f.hasAttribute("allowfullscreen")).toBe(true);
-    });
+    const video = container.querySelector("video")!;
+    await waitFor(() => expect(video.src).toBe("https://data.skaping.com/station/timelapses/current.mp4"));
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+    expect(container.querySelectorAll("video")).toHaveLength(1);
+    expect(container.querySelectorAll("iframe")).toHaveLength(0);
+    expect(video.autoplay && video.muted && video.playsInline && video.loop).toBe(true);
+    expect(video.controls).toBe(false);
+    expect(screen.queryByRole("button", { name: /Start avspilling/i })).toBeNull();
+    expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(VAL_THORENS_2027.webcams.length - 1);
+    fireEvent.playing(video);
+    fireEvent.click(screen.getByRole("button", { name: /Utvid/ }));
+    expect(container.querySelector("video")).toBe(video);
+    expect(screen.getAllByText(/Timelapse · 21.09.2026/).length).toBeGreaterThan(0);
   });
 
   it("faller ikke tilbake til Val Thorens for annen destinasjon", () => {
@@ -58,7 +72,7 @@ describe("WebcamsScreen", () => {
   });
 
   it("åpner og lukker storvisning i appen", () => {
-    currentTrip = vtTrip;
+    currentTrip = panoramaTrip;
     const { container } = render(<WebcamsScreen />);
     const originalPlayer = container.querySelector("iframe");
     const expandButtons = screen.getAllByRole("button", { name: /Utvid/i });
@@ -87,7 +101,7 @@ describe("WebcamsScreen", () => {
 
   it("lar brukeren prøve igjen etter timeout og bytter faktisk spilleren", () => {
     vi.useFakeTimers();
-    currentTrip = vtTrip;
+    currentTrip = panoramaTrip;
     const { container } = render(<WebcamsScreen />);
     const original = container.querySelector("iframe");
     act(() => vi.advanceTimersByTime(20_000));
@@ -97,7 +111,7 @@ describe("WebcamsScreen", () => {
   });
 
   it("velger nytt kamera og nullstiller feil fra forrige kamera", () => {
-    currentTrip = vtTrip;
+    currentTrip = panoramaTrip;
     const { container } = render(<WebcamsScreen />);
     fireEvent.error(container.querySelector("iframe")!);
     fireEvent.click(screen.getByRole("button", { name: /^Cime Caron$/ }));
@@ -121,15 +135,45 @@ describe("WebcamsScreen", () => {
     expect(screen.queryByText("Åpner kamera…")).toBeNull();
   });
 
-  it("viser et fungerende startvalg hvis nettleseren nekter autoplay", async () => {
-    const play = vi.spyOn(HTMLMediaElement.prototype, "play")
+  it("melder browserblokkering ærlig uten startknapp og prøver ved canplay igjen", async () => {
+    const play = vi.mocked(HTMLMediaElement.prototype.play)
       .mockRejectedValueOnce(new DOMException("blocked", "NotAllowedError")).mockResolvedValue();
     currentTrip = { ...vtTrip, destination_config: { webcams: [
       { id: "video", name: "Videokamera", externalUrl: "https://example.com", streamUrl: "https://example.com/live.mp4", mode: "video" },
     ] } };
-    render(<WebcamsScreen />);
-    fireEvent.click(await screen.findByRole("button", { name: "Start avspilling" }));
+    const { container } = render(<WebcamsScreen />);
+    expect(await screen.findByText(/Nettleseren blokkerer/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start avspilling" })).toBeNull();
+    fireEvent.canPlay(container.querySelector("video")!);
     await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+  });
+
+  it("respekterer brukerens pause når siden blir synlig igjen", async () => {
+    currentTrip = { ...vtTrip, destination_config: { webcams: [
+      { id: "video", name: "Video", externalUrl: "https://example.com", streamUrl: "https://example.com/live.mp4", mode: "video" },
+    ] } };
+    const { container } = render(<WebcamsScreen />);
+    fireEvent.playing(container.querySelector("video")!);
+    fireEvent.click(screen.getByRole("button", { name: "Pause video" }));
+    const calls = vi.mocked(HTMLMediaElement.prototype.play).mock.calls.length;
+    fireEvent(document, new Event("visibilitychange"));
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(calls);
+    fireEvent.click(screen.getByRole("button", { name: "Fortsett video" }));
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(calls + 1);
+  });
+
+  it("ignorerer svar fra forrige kamera etter bytte", async () => {
+    let resolveOld!: (value: unknown) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }));
+    currentTrip = { ...vtTrip, destination_config: { webcams: [
+      { id: "old", name: "Old", externalUrl: "https://www.skaping.com", skapingCameraKey: "test-old", mode: "timelapse" },
+      { id: "new", name: "New", externalUrl: "https://example.com", streamUrl: "https://example.com/new.mp4", mode: "video" },
+    ] } };
+    const { container } = render(<WebcamsScreen />);
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
+    await act(async () => { resolveOld({ ok: true, json: async () => providerResponse }); });
+    expect(container.querySelector("video")?.src).toBe("https://example.com/new.mp4");
+    expect(container.querySelectorAll("video")).toHaveLength(1);
   });
 
   it("oppdaterer stillbilder periodisk uten å bytte mediaelement", () => {

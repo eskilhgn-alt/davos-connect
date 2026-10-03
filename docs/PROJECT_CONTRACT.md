@@ -13,7 +13,7 @@ statusrapport. Status hører hjemme i `docs/CLOSEOUT_BACKLOG.md`.
 ## Turmodell
 
 - Ekte flerturarkitektur: `trips`, `trip_members` og `trip_id` på chat, stories,
-  galleri, plan/agenda, avstemninger, Shot og utlegg.
+  medier i Chat, plan/agenda og sosiale hendelser/Shot.
 - Statusmodell: `draft` | `active` | `archived`.
   - Høyst én `active` tur (partial unique index), og aktiveringsflyten må bevare
     at det finnes nøyaktig én.
@@ -32,7 +32,8 @@ statusrapport. Status hører hjemme i `docs/CLOSEOUT_BACKLOG.md`.
 - Hjem laster kritisk innhold først (tur/dato, vær/skred, neste plan, chatstatus);
   resten progressivt.
 - Kart samler løypekart, live status og turdata.
-- Mer samler Plan, Minner, Utlegg, Shot, deltakere, innstillinger og Admin.
+- Mer samler beholdte funksjoner. Galleri, Stories/story-linjer og Minner skal
+  samles inne i Chat. Separate mediefliser/-sider fjernes etter verifisert flytting.
 - Crew/posisjonskart er **kun for admin**. Vanlige brukere ser ingen Crew-rute og
   får ingen posisjonssporing startet.
 
@@ -49,19 +50,26 @@ statusrapport. Status hører hjemme i `docs/CLOSEOUT_BACKLOG.md`.
 
 ## Beholdte basisflyter
 
-Chat, Minner/galleri, Stories (24t, eksplisitt «Lagre i Minner»), Plan/agenda,
-Avstemninger, Utlegg/runder, Vær inkl. skred, Kart/live status, Webkameraer,
-Deltakere, Innstillinger, Admin og Shot v2.
+Chat med Minner/galleri og Stories (24t, eksplisitt «Lagre i Minner»),
+Plan/agenda, Vær inkl. skred, Kart/live status, Webkameraer, Deltakere,
+Innstillinger, Admin og Shot v2. Runder/Utlegg, Faktasjekk og Avstemninger
+skal fjernes helt fra aktiv kode/backend, ikke bare fra navigasjonen.
+Historisk brukerinnhold bevares. Se `CLEANUP_20260920.md`.
 
-Ny bestilling 20. september utvider med God stemning og Shot your shot med
+Ny bestilling 20. september autoriserer daglig videreføring av den avgrensede
+listen til den er verifisert ferdig, med selvstopp og maks fem gratis kreditter
+per kredittdøgn. Les fersk kode, kunnskap og relevant tidligere chatkontekst
+før hver runde. Bestillingen utvider med God stemning og Shot your shot med
 Headshot. Se `SOCIAL_FEATURES_20260920.md` for full flyt, rettferdighet,
 varslinger, dagsgrenser og verifikasjon. Legacy Shot/tokens gjenåpnes ikke.
 
 ## Produksjonsgrenser
 
 - Ingen automatisk publisering av frontend.
-- Ingen produksjonsmigrasjoner, Edge-deploy eller endring av produksjonsdata,
-  historikk, secrets eller innstillinger uten eksplisitt godkjenning.
+- Nødvendige testede rettinger/avvikling for bestilte funksjoner utføres innen
+  brukerens autorisasjon. Ingen destruktiv sletting av historikk eller
+  produksjonsendringer utenfor oppdraget. Fullfør reversibelt forarbeid før
+  eventuell konkret sluttgodkjenning.
 - Nye migrasjoner er additive, idempotente og bakoverkompatible; de backfiller
   eksisterende data og sletter aldri brukerinnhold automatisk.
 - Skill alltid mellom produksjon, publisert frontend, siste kode/preview og
@@ -71,3 +79,6 @@ varslinger, dagsgrenser og verifikasjon. Legacy Shot/tokens gjenåpnes ikke.
 
 Norsk, kort og vennlig. Minimum 44 px trykkflater, zoom aldri deaktivert, og
 tydelige loading-/error-/empty-/stale-states. Mobil/PWA på iPhone er primærflaten.
+
+## Oppdatering 3. oktober 2026
+Runder/Utlegg, Faktasjekk og Avstemninger er fjernet fra aktiv klient (CLEAN-01A) og er ikke lenger beholdte basisflyter. Historiske data bevares; backendavvikling (CLEAN-01B) krever egen testet leveranse.
