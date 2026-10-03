@@ -44,14 +44,16 @@ export interface TripWebcamRef {
   /** Direct snapshot image URL, when we have one that we control. Optional. */
   snapshotUrl?: string;
   /** Direct embeddable player URL (Skaping / vendor). When set the UI renders
-   *  it as a live iframe instead of a still snapshot. */
+   *  it as a vendor iframe instead of a still snapshot. */
   playerUrl?: string;
   /** Verified direct video source, never an HTML player page. */
   streamUrl?: string;
+  /** Public Skaping camera identifier used for its latest timelapse; not a secret. */
+  skapingCameraKey?: string;
   /** Provider label shown to users (e.g. "Skaping", "Trinum"). */
   provider?: string;
-  /** How this camera is presented. "interactive" implies a live vendor player. */
-  mode?: "interactive" | "snapshot" | "video";
+  /** How this camera is presented. "timelapse" plays real recorded video, not a live stream. */
+  mode?: "interactive" | "snapshot" | "video" | "timelapse";
 }
 
 
@@ -171,8 +173,10 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Val Thorens sentrum",
       externalUrl: "https://www.skaping.com/valthorens/prosneige",
       playerUrl: "https://www.skaping.com/valthorens/prosneige",
+      snapshotUrl: "https://api.skaping.com/EdhD-J696-lZPd-i0xE-CqXk/media/latest/mini.jpg",
+      skapingCameraKey: "EdhD-J696-lZPd-i0xE-CqXk",
       provider: "Skaping",
-      mode: "interactive",
+      mode: "timelapse",
     },
     {
       id: "la-maison",
@@ -180,9 +184,10 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Val Thorens sentrum",
       externalUrl: "https://www.skaping.com/valthorens/lamaison",
       playerUrl: "https://www.skaping.com/valthorens/lamaison",
+      skapingCameraKey: "0qmB-W208-FhUp-eDJW-695z",
       snapshotUrl: "https://api.skaping.com/0qmB-W208-FhUp-eDJW-695z/media/latest/mini.jpg",
       provider: "Skaping",
-      mode: "interactive",
+      mode: "timelapse",
     },
     {
       id: "la-bee",
@@ -190,9 +195,10 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Val Thorens",
       externalUrl: "https://www.skaping.com/val-thorens/tyrolienne-la-bee",
       playerUrl: "https://www.skaping.com/val-thorens/tyrolienne-la-bee",
+      skapingCameraKey: "3hF6T-pqbOx-AFvLe-dpMgD",
       snapshotUrl: "https://api.skaping.com/3hF6T-pqbOx-AFvLe-dpMgD/media/latest/mini.jpg",
       provider: "Skaping",
-      mode: "interactive",
+      mode: "timelapse",
     },
     {
       id: "cime-caron",
@@ -200,9 +206,10 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "3 200 moh.",
       externalUrl: "https://www.skaping.com/val-thorens/cime-caron",
       playerUrl: "https://www.skaping.com/val-thorens/cime-caron",
+      skapingCameraKey: "QzlPb-9TgDQ-UcTxH-xv8KW",
       snapshotUrl: "https://api.skaping.com/QzlPb-9TgDQ-UcTxH-xv8KW/media/latest/large.jpg",
       provider: "Skaping",
-      mode: "interactive",
+      mode: "timelapse",
     },
     {
       id: "station",
@@ -210,9 +217,10 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Panorama",
       externalUrl: "https://www.skaping.com/valthorens/station",
       playerUrl: "https://www.skaping.com/valthorens/station",
+      skapingCameraKey: "tHCTk-f4ZXm-e4NYt-ZfRkr",
       snapshotUrl: "https://api.skaping.com/tHCTk-f4ZXm-e4NYt-ZfRkr/media/latest/mini.jpg",
       provider: "Skaping",
-      mode: "interactive",
+      mode: "timelapse",
     },
     {
       id: "3vallees",
@@ -220,8 +228,10 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Områdeoversikt",
       externalUrl: "https://www.skaping.com/valthorens/3vallees",
       playerUrl: "https://www.skaping.com/valthorens/3vallees",
+      snapshotUrl: "https://api.skaping.com/4sJn-4879-A5wg-RWfm-8RKG/media/latest/mini.jpg",
+      skapingCameraKey: "4sJn-4879-A5wg-RWfm-8RKG",
       provider: "Skaping",
-      mode: "interactive",
+      mode: "timelapse",
     },
     {
       id: "funitel-thorens",
@@ -229,8 +239,10 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Heis",
       externalUrl: "https://www.skaping.com/valthorens/funitelthorens",
       playerUrl: "https://www.skaping.com/valthorens/funitelthorens",
+      snapshotUrl: "https://api.skaping.com/Iz0R-K010-VJyC-XPp2-5OrM/media/latest/mini.jpg",
+      skapingCameraKey: "Iz0R-K010-VJyC-XPp2-5OrM",
       provider: "Skaping",
-      mode: "interactive",
+      mode: "timelapse",
     },
     {
       id: "boismint",
@@ -238,8 +250,10 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Val Thorens",
       externalUrl: "https://www.skaping.com/valthorens/boismint",
       playerUrl: "https://www.skaping.com/valthorens/boismint",
+      snapshotUrl: "https://api.skaping.com/I1rwn-sAA3s-Qcsnp-IwOmx/media/latest/mini.jpg",
+      skapingCameraKey: "I1rwn-sAA3s-Qcsnp-IwOmx",
       provider: "Skaping",
-      mode: "interactive",
+      mode: "timelapse",
     },
     {
       id: "lac-blanc",
@@ -247,8 +261,10 @@ export const VAL_THORENS_2027: TripConfig = {
       area: "Val Thorens",
       externalUrl: "https://www.skaping.com/valthorens/stade",
       playerUrl: "https://www.skaping.com/valthorens/stade",
+      snapshotUrl: "https://api.skaping.com/hHWSy-HBjoG-tdsPH-6rEFl/media/latest/mini.jpg",
+      skapingCameraKey: "hHWSy-HBjoG-tdsPH-6rEFl",
       provider: "Skaping",
-      mode: "interactive",
+      mode: "timelapse",
     },
     {
       id: "plan-bouchet",

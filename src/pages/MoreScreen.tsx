@@ -1,6 +1,6 @@
 /**
  * MoreScreen — "Mer"-fane. Samler alt som ikke er Hjem, Chat eller Kart:
- * agenda, avstemninger, galleri/stories, innstillinger, admin,
+ * agenda, galleri/stories, innstillinger, admin,
  * og en lavt prioritert seksjon for valgfrie verktøy.
  */
 
@@ -13,13 +13,11 @@ import { useAppBadges } from "@/hooks/useAppBadges";
 import {
   CalendarDays,
   Compass,
-  Vote,
   Film,
   Users,
   Settings,
   ShieldCheck,
   LogOut,
-  Beer,
   Sparkles,
   AlertTriangle,
   Dices,
@@ -52,8 +50,6 @@ export const MoreTiles: React.FC<{ excludePaths?: readonly string[] }> = ({ excl
     const planning: Tile[] = [
       { to: "/agenda", label: "Agenda", icon: CalendarDays, badge: badges.agenda },
       { to: "/oppdag", label: "Oppdag", icon: Compass },
-      { to: "/poll", label: "Avstemninger", icon: Vote, badge: badges.polls },
-      { to: "/runder", label: "Runder", icon: Beer, badge: badges.runder },
     ];
 
     const community: Tile[] = [
@@ -63,7 +59,6 @@ export const MoreTiles: React.FC<{ excludePaths?: readonly string[] }> = ({ excl
     ];
 
     const tools: Tile[] = [
-      { to: "/faktasjekker", label: "Faktasjekk", icon: Sparkles },
       { to: "/shot", label: "Shot", icon: Dices },
     ];
 

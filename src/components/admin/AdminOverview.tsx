@@ -33,21 +33,18 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, onNavigate }) => 
   const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
   const [extendedStats, setExtendedStats] = React.useState<{
     totalMessages: number;
-    activePolls: number;
     galleryItems: number;
   } | null>(null);
 
   React.useEffect(() => {
     const load = async () => {
-      const [msgRes, pollsRes, galleryRes] = await Promise.all([
+      const [msgRes, galleryRes] = await Promise.all([
         supabase.from("messages").select("id", { count: "exact", head: true }),
-        supabase.from("polls").select("id", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("gallery_items").select("id", { count: "exact", head: true }),
       ]);
 
       setExtendedStats({
         totalMessages: msgRes.count ?? 0,
-        activePolls: pollsRes.count ?? 0,
         galleryItems: galleryRes.count ?? 0,
       });
     };
@@ -99,7 +96,6 @@ export const AdminOverview: React.FC<Props> = ({ stats, users, onNavigate }) => 
           {extendedStats && (
             <>
               <StatCard icon={MessageCircle} value={extendedStats.totalMessages} label="Meldinger" />
-              <StatCard icon={BarChart3} value={extendedStats.activePolls} label="Polls aktive" />
               <StatCard icon={Image} value={extendedStats.galleryItems} label="Galleri" />
             </>
           )}

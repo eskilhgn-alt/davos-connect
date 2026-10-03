@@ -186,7 +186,7 @@ export const PushNotificationToggle: React.FC = () => {
 
       {initState === 'ready' && !isEnabled && !errorMsg && (
         <p className="text-xs text-muted-foreground px-4">
-          Når aktivert mottar du varsler om chat, stories, avstemninger og andre viktige gruppehendelser – også når appen er lukket.
+          Når aktivert mottar du varsler om chat, stories og andre viktige gruppehendelser – også når appen er lukket.
         </p>
       )}
     </div>

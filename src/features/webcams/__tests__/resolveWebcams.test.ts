@@ -55,9 +55,16 @@ describe("resolveWebcams", () => {
     expect(resolveWebcams(t)).toHaveLength(1);
   });
 
-  it("alle interaktive Val Thorens-kameraer har playerUrl", () => {
-    const interactive = VAL_THORENS_2027.webcams.filter((c) => c.mode === "interactive");
+  it("alle Skaping-kameraer bruker timelapse med eksplisitt offentlig kamera-ID", () => {
+    const interactive = VAL_THORENS_2027.webcams.filter((c) => c.mode === "timelapse");
     expect(interactive.length).toBeGreaterThan(0);
-    for (const c of interactive) expect(c.playerUrl).toMatch(/^https:\/\/www\.skaping\.com\//);
+    for (const c of interactive) { expect(c.playerUrl).toMatch(/^https:\/\/www\.skaping\.com\//); expect(c.skapingCameraKey).toBeTruthy(); }
+  });
+  it("oppgraderer lagret Skaping-konfig uten å endre navn eller rekkefølge", () => {
+    const station = VAL_THORENS_2027.webcams.find(c => c.id === "station")!;
+    const old = { id: "custom", name: "Mitt kamera", externalUrl: station.externalUrl, playerUrl: station.playerUrl, mode: "interactive" };
+    const result = resolveWebcams({ ...baseTrip, destination_config: { webcams: [old] } });
+    expect(result[0]).toMatchObject({ id: "custom", name: "Mitt kamera", mode: "timelapse", skapingCameraKey: station.skapingCameraKey });
+    expect(old.mode).toBe("interactive");
   });
 });

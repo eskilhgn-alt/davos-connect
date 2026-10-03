@@ -1,0 +1,45 @@
+{
+  "base_commit": "28284b4ff78ecc78bcb94c0235652bc091960012",
+  "files": [
+    {
+      "path": "src/config/trip.ts",
+      "before": "80075a01a87628bf5324ef41073a39871f140c7e0ff1b6d12734a21ccd73098b",
+      "after": "1feee5ad99885a49ecdec01c2ea1d1d34b72abb910d9c95bdb3df44fd56c3b41"
+    },
+    {
+      "path": "src/features/webcams/resolveWebcams.ts",
+      "before": "6d1f481b7c09caa0e3607dd34d276c39cf50622950ce9b31a139eb8a33e46362",
+      "after": "c589f65473d1590d28e24a6cf5a11ddd25ec6361ad945ed149c464137bdab41a"
+    },
+    {
+      "path": "src/features/webcams/skapingTimelapse.ts",
+      "before": null,
+      "after": "92ba0c269b3005f9d7bb1d4e480a0e99320dede135543927521dc9078704f7e5"
+    },
+    {
+      "path": "src/features/webcams/__tests__/resolveWebcams.test.ts",
+      "before": "8237780e028b5e7a3aeb01bab3a73ba93fc5641fc125818fcef26573e87ee9f1",
+      "after": "07ce2c4430aa3229904759965892fefd10c95dfca223a89f5176c4476a0931f4"
+    },
+    {
+      "path": "src/features/webcams/__tests__/skapingTimelapse.test.ts",
+      "before": null,
+      "after": "baa3eabfc6c4b1db88f7ec36af07d5d10ef25bd2e7fcd362c58a2ddf46fb2441"
+    },
+    {
+      "path": "src/pages/WebcamsScreen.tsx",
+      "before": "a1be279ae2e078e3bc95ac2a6fc5dfc3cb5956bbbb4f45624239716324c95ed6",
+      "after": "9a5d93d38e29495e30e0dff9f85fb63874f4de9e48355b4175cf677ff410688e"
+    },
+    {
+      "path": "src/pages/__tests__/WebcamsScreen.test.tsx",
+      "before": "e87ea3bfb30162e116926b30c0c50ca96f702732685bb515004bad49cc6854b1",
+      "after": "2dd2dde57513a1220b06b7cbc32c4348dfab5d2f0231168ace491e4ee7810a4a"
+    },
+    {
+      "path": "docs/CAMERA_AUTOPLAY_20260921.md",
+      "before": null,
+      "after": "831e7da00833ef147dc1ed8e700dcf550845d82cf6c0266d4f1a4d32a76a300d"
+    }
+  ]
+}
