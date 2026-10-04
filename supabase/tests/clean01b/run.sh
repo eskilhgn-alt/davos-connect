@@ -3,7 +3,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"
-MIG="$ROOT/supabase/migrations/20261004063021_clean01b_retire_rounds_polls_faktasjekk.sql"
+MIG="$HERE/migration.sql"
 for pg_var in ${!PG@}; do unset "$pg_var"; done
 WORK="$(mktemp -d /tmp/clean01b-XXXXXXXX)"
 PGDATA="$WORK/data"; SOCK="$WORK/socket"; mkdir -p "$PGDATA" "$SOCK"
