@@ -46,7 +46,7 @@ DO $$ DECLARE t text; BEGIN
     EXECUTE format('CREATE POLICY "auth_%s" ON public.%I FOR SELECT TO authenticated USING (true)', t, t);
   END LOOP; END $$;
 INSERT INTO public.rounds(id,buyer_id,total_cost) SELECT gen_random_uuid(), 'u'||g, g FROM generate_series(1,11) g;
-INSERT INTO public.round_participants(round_id,user_id) SELECT r.id, 'p'||g FROM public.rounds r, generate_series(1,7) g LIMIT 79;
+INSERT INTO public.round_participants(round_id,user_id) SELECT r.id, 'p'||g FROM public.rounds r, generate_series(1,8) g LIMIT 79;
 INSERT INTO public.polls(question) VALUES ('Hvor?');
 INSERT INTO public.poll_options(poll_id,label) SELECT id, l FROM public.polls, unnest(ARRAY['A','B']) l;
 INSERT INTO public.faktasjekker_threads(user_id,title) SELECT gen_random_uuid(),'t'||g FROM generate_series(1,4) g;
