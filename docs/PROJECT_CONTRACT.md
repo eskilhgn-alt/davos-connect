@@ -82,3 +82,6 @@ tydelige loading-/error-/empty-/stale-states. Mobil/PWA på iPhone er primærfla
 
 ## Oppdatering 3. oktober 2026
 Runder/Utlegg, Faktasjekk og Avstemninger er fjernet fra aktiv klient (CLEAN-01A) og er ikke lenger beholdte basisflyter. Historiske data bevares; backendavvikling (CLEAN-01B) krever egen testet leveranse.
+
+## CLEAN-01 status 06.10.2026
+CLEAN-01A (klient) og CLEAN-01B (database + Edge) er ferdige. Utgåtte tabeller beholder all historikk, kun lesbar for service_role/postgres. round-receipts-bucket og objekt er bevart, men låst.

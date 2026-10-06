@@ -55,3 +55,6 @@ Tom dagskvote betyr fortsett neste planlagte dag, ikke en ny oppgave.
 
 ## Status 3. oktober 2026
 Forberedt leveranse 4c442819 er importert i aktiv Lovable (492/492, typecheck, PWA-build). Neste i rekkefølgen: CLEAN-01B → CHAT-MEDIA-01 → kamera fysisk bevis → VIBE → Shot → Headshot → sluttkontroll.
+
+## Status 06.10.2026
+CLEAN-01B ferdig og verifisert (DB-migrasjon 20261006062802 + tre Edge-funksjoner fjernet). Neste i køen: CHAT-MEDIA-01.

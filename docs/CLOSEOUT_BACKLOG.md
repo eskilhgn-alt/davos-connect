@@ -93,3 +93,11 @@ Eksisterende automasjon skal ikke reaktiveres. Bevar SAVE-01 som åpen.
 - Vitest 492/492 i 43 filer, `tsgo --noEmit -p tsconfig.app.json` rent, Vite/PWA-build OK (sw.js), preview build OK.
 - CLEAN-01A (klient: Runder/Utlegg, Faktasjekk, Avstemninger fjernet) og CAM-02 (native muted/inline/loop-autoplay av datert Skaping-timelapse) er **aktiv kode/preview**, ikke publisert. Fysisk iPhone-autoplay ikke bevist.
 - Åpne: CLEAN-01B (backendavvikling), CHAT-MEDIA-01, SAVE-01 fysisk/to-enhetskontroll. Ingen DB-, Edge-, push- eller publiseringsendring.
+
+## CLEAN-01B — FERDIG 06.10.2026 (erstatter eldre «åpen/testutkast»-status)
+- Harness `supabase/tests/clean01b/run.sh`: migrasjon 2×, 23/23 grønne (16/16 klientangrep avvist, uendrede hasher).
+- Produksjonsform kontrollert før aktivering; migrasjon aktivert via Lovable-migreringsflyt, historikkversjon 20261006062802.
+- Readback etter: radantall 11/79/0/1/2/0/4/26/0 og samlet innholdshash 890f24b0… identisk før/etter; storage chat-media 16, stories 21, round-receipts 1 (uendret). 0 policyer, 0 anon/authenticated/PUBLIC-tilganger, RLS på; polls/poll_votes/rounds ute av Realtime; trigger borte; fire RPC-er 0 klient-EXECUTE, service_role beholdt; storage-policyer kun chat-media/stories; 0 relatert cron.
+- Edge: faktasjekker, poll-push, round-push slettet (verktøy bekreftet); shot-draw urørt.
+- Linter-INFO «RLS uten policy» på de låste tabellene er tilsiktet.
+- Neste: CHAT-MEDIA-01. Åpent: SAVE-01 fysisk/to enheter, fysisk iPhone-autoplay, VIBE, Shot, Headshot, sluttkontroll.
