@@ -28,10 +28,10 @@ INSERT INTO attachments (id,message_id,type,storage_path,width) VALUES
 INSERT INTO results SELECT 'no automatic copy on new content', count(*) = 2 FROM gallery_items;
 
 \set S2 '''10000000-0000-0000-0000-000000000002'''
-SELECT pg_temp.expect_fail('anon cannot execute', 'anon', NULL, 'SELECT rpc_save_story_to_minner('||:S2||')', 'permission denied');
-SELECT pg_temp.expect_fail('authenticated w/o uid', 'authenticated', NULL, 'SELECT rpc_save_story_to_minner('||:S2||')', 'unauthorized');
-SELECT pg_temp.expect_fail('non-owner member story', 'authenticated', '00000000-0000-0000-0000-00000000000b', 'SELECT rpc_save_story_to_minner('||:S2||')', 'not_owner');
-SELECT pg_temp.expect_fail('banned member', 'authenticated', '00000000-0000-0000-0000-00000000000d', 'SELECT rpc_save_story_to_minner('||:S2||')', 'not_approved');
+SELECT pg_temp.expect_fail('anon cannot execute', 'anon', NULL, 'SELECT rpc_save_story_to_minner(''10000000-0000-0000-0000-000000000002'')', 'permission denied');
+SELECT pg_temp.expect_fail('authenticated w/o uid', 'authenticated', NULL, 'SELECT rpc_save_story_to_minner(''10000000-0000-0000-0000-000000000002'')', 'unauthorized');
+SELECT pg_temp.expect_fail('non-owner member story', 'authenticated', '00000000-0000-0000-0000-00000000000b', 'SELECT rpc_save_story_to_minner(''10000000-0000-0000-0000-000000000002'')', 'not_owner');
+SELECT pg_temp.expect_fail('banned member', 'authenticated', '00000000-0000-0000-0000-00000000000d', 'SELECT rpc_save_story_to_minner(''10000000-0000-0000-0000-000000000002'')', 'not_approved');
 SELECT pg_temp.expect_fail('archived trip story', 'authenticated', '00000000-0000-0000-0000-00000000000a', 'SELECT rpc_save_story_to_minner(''10000000-0000-0000-0000-000000000003'')', 'trip_not_active');
 SELECT pg_temp.expect_fail('unknown story id', 'authenticated', '00000000-0000-0000-0000-00000000000a', 'SELECT rpc_save_story_to_minner(gen_random_uuid())', 'not_found');
 SELECT pg_temp.expect_fail('non-owner attachment', 'authenticated', '00000000-0000-0000-0000-00000000000b', 'SELECT rpc_save_attachment_to_minner(''30000000-0000-0000-0000-000000000002'')', 'not_owner');
