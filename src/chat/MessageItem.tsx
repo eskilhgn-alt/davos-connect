@@ -11,8 +11,8 @@ import { chatStore } from './store';
 import { useSignedMedia } from '@/components/ui/SignedMedia';
 import { errorToast } from '@/utils/errorToast';
 import { SaveToMinnerButton } from '@/features/minner/SaveToMinnerButton';
-import { useAuth } from '@/contexts/AuthContext';
-import { useTrip } from '@/contexts/TripContext';
+import AuthContext from '@/contexts/AuthContext';
+import { useOptionalTrip } from '@/contexts/TripContext';
 
 /**
  * Media attachment renderer with private-URL resolution and robust video fallback.
@@ -297,10 +297,10 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
   seenCount = 0,
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
-  const { isAdmin } = useAuth();
-  const { isArchive } = useTrip();
+  const isAdmin = React.useContext(AuthContext)?.isAdmin ?? false;
+  const trip = useOptionalTrip();
   const canSaveMedia =
-    !isArchive && (isOwn || isAdmin) && !message.deletedAt &&
+    !!trip && !trip.isArchive && (isOwn || isAdmin) && !message.deletedAt &&
     message.deliveryState !== 'sending' && message.deliveryState !== 'failed';
   const [editText, setEditText] = React.useState(message.text);
   const [savingEdit, setSavingEdit] = React.useState(false);

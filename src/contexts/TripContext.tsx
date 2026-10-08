@@ -336,3 +336,8 @@ export function useTripId(): string | null {
 export function useIsArchive(): boolean {
   return useTrip().isArchive;
 }
+
+/** Like useTrip but returns null outside a TripProvider (for optional UI). */
+export function useOptionalTrip(): TripContextValue | null {
+  return React.useContext(TripContext) ?? null;
+}
