@@ -20,6 +20,7 @@ CREATE POLICY chat_media_direct_insert_guard ON public.gallery_items
     source_story_id IS NULL
     AND source_message_id IS NULL
     AND uploaded_by = auth.uid()
+    AND public.is_trip_active(trip_id)
     AND (public.is_admin(auth.uid()) OR public.is_approved_trip_member(trip_id, auth.uid()))
   );
 
@@ -52,6 +53,11 @@ BEGIN
 
   SELECT * INTO v_row FROM public.gallery_items
    WHERE storage_bucket = 'stories' AND storage_path = v_story.storage_path;
+  IF v_row.source_story_id IS DISTINCT FROM v_story.id
+     OR v_row.trip_id IS DISTINCT FROM v_story.trip_id
+     OR v_row.uploaded_by IS DISTINCT FROM v_story.user_id THEN
+    RAISE EXCEPTION 'provenance_conflict' USING ERRCODE = '23505';
+  END IF;
   RETURN v_row;
 END;
 $$;
@@ -91,6 +97,11 @@ BEGIN
 
   SELECT * INTO v_row FROM public.gallery_items
    WHERE storage_bucket = v_att.storage_bucket AND storage_path = v_att.storage_path;
+  IF v_row.source_message_id IS DISTINCT FROM v_msg.id
+     OR v_row.trip_id IS DISTINCT FROM v_msg.trip_id
+     OR v_row.uploaded_by IS DISTINCT FROM v_msg.sender_id::uuid THEN
+    RAISE EXCEPTION 'provenance_conflict' USING ERRCODE = '23505';
+  END IF;
   RETURN v_row;
 END;
 $$;

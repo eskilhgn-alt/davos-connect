@@ -41,6 +41,13 @@ SELECT pg_temp.expect_fail('manipulated direct insert w/ story provenance', 'aut
   'INSERT INTO gallery_items (uploaded_by,storage_path,type,storage_bucket,source_story_id,trip_id) VALUES (''00000000-0000-0000-0000-00000000000b'',''a/new.jpg'',''image'',''stories'',''10000000-0000-0000-0000-000000000002'',''00000000-0000-0000-0000-0000000000a1'')', 'row-level security');
 SELECT pg_temp.expect_fail('direct insert into foreign trip', 'authenticated', '00000000-0000-0000-0000-00000000000c',
   'INSERT INTO gallery_items (uploaded_by,storage_path,type,trip_id) VALUES (''00000000-0000-0000-0000-00000000000c'',''c/x.jpg'',''image'',''00000000-0000-0000-0000-0000000000a1'')', 'row-level security');
+SELECT pg_temp.expect_fail('approved member direct upload to archived trip', 'authenticated', '00000000-0000-0000-0000-00000000000a',
+  'INSERT INTO gallery_items (uploaded_by,storage_path,type,trip_id) VALUES (''00000000-0000-0000-0000-00000000000a'',''a/arch-direct.jpg'',''image'',''00000000-0000-0000-0000-0000000000a2'')', 'row-level security');
+-- Provenance conflict: a foreign row already occupies the story path.
+INSERT INTO stories VALUES ('10000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-00000000000a','a/squat.jpg','image','00000000-0000-0000-0000-0000000000a1');
+INSERT INTO gallery_items (uploaded_by,storage_path,type,storage_bucket,trip_id) VALUES ('00000000-0000-0000-0000-00000000000b','a/squat.jpg','image','stories','00000000-0000-0000-0000-0000000000a1');
+SELECT pg_temp.expect_fail('story save provenance_conflict', 'authenticated', '00000000-0000-0000-0000-00000000000a', 'SELECT rpc_save_story_to_minner(''10000000-0000-0000-0000-000000000004'')', 'provenance_conflict');
+DELETE FROM gallery_items WHERE storage_path='a/squat.jpg';
 INSERT INTO results SELECT 'denials wrote nothing', count(*) = 2 FROM gallery_items;
 
 -- Positive: owner saves story twice (retry) -> one row, server-derived fields.
