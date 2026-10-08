@@ -15,6 +15,7 @@ import { applyOptimisticLike, computeNextAfterDelete, classifyGesture, nextGroup
 import { useSignedMedia } from "@/components/ui/SignedMedia";
 import { signBatch } from "@/lib/mediaUrl";
 import { toast } from "sonner";
+import { SaveToMinnerButton } from "@/features/minner/SaveToMinnerButton";
 
 interface StoryViewerProps {
   groups: StoryGroup[];
@@ -36,7 +37,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
   onDelete,
   isArchive = false,
 }) => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [groupIdx, setGroupIdx] = React.useState(initialGroupIndex);
   const [storyIdx, setStoryIdx] = React.useState(initialStoryIndex);
   const [progress, setProgress] = React.useState(0);
@@ -678,6 +679,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           </button>
         )}
 
+        {story && user && !isArchive && (isOwnStory || isAdmin) && (
+          <SaveToMinnerButton key={story.id} source={{ kind: "story", id: story.id }} variant="overlay" />
+        )}
         {story && user && (
           <StoryViewers storyId={story.id} isOwner={story.userId === user.id} />
         )}

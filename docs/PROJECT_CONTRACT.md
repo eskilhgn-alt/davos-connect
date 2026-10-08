@@ -85,3 +85,5 @@ Runder/Utlegg, Faktasjekk og Avstemninger er fjernet fra aktiv klient (CLEAN-01A
 
 ## CLEAN-01 status 06.10.2026
 CLEAN-01A (klient) og CLEAN-01B (database + Edge) er ferdige. Utgåtte tabeller beholder all historikk, kun lesbar for service_role/postgres. round-receipts-bucket og objekt er bevart, men låst.
+
+- CHAT-MEDIA-01 (08.10): Automatisk kopiering til Minner er avslått i databasen; permanent lagring skjer kun via rpc_save_story_to_minner / rpc_save_attachment_to_minner. Panelintegrasjon i Chat gjenstår.

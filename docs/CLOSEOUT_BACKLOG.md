@@ -101,3 +101,9 @@ Eksisterende automasjon skal ikke reaktiveres. Bevar SAVE-01 som åpen.
 - Edge: faktasjekker, poll-push, round-push slettet (verktøy bekreftet); shot-draw urørt.
 - Linter-INFO «RLS uten policy» på de låste tabellene er tilsiktet.
 - Neste: CHAT-MEDIA-01. Åpent: SAVE-01 fysisk/to enheter, fysisk iPhone-autoplay, VIBE, Shot, Headshot, sluttkontroll.
+
+## CHAT-MEDIA-01 — status 08.10.2026 (start f5f48675)
+- BACKEND AKTIVERT: migrasjon `chat_media_explicit_minner_save` (drizzle/migrations/0000_…; supabase_migrations-tabellen viser fortsatt 20261006062802 fordi verktøyet fører egen journal). Harness 26/26 + migrasjon 2× + parallell lagring grønn, inkl. ny negativ test «godkjent medlem direkte-upload til arkivert tur» og «provenance_conflict».
+- Readback: sync-triggere 0; rpc_save_story/attachment_to_minner 2, search_path="" , EXECUTE kun authenticated/service_role (+eier); unik indeks 1; restriktiv policy inneholder is_trip_active. Før=etter: counts 21/6/8/29/14/0/0, individuelle md5-hasher identiske, storage avatars13/chat-media16/round-receipts1/stories21. Ingen rader/filer slettet.
+- UI DELVIS: «Lagre i Minner» på story (eier/admin, ikke arkiv) og egne bilde/video/GIF-vedlegg i Chat, med lagrer/feil/retry, dobbeltklikkvern og bekreftelse først etter returnert rad. 3 nye tester; full Vitest 495/495, tsc ren.
+- ÅPENT: Stories/Minner-paneler inne i /chat, story-linje Hjem→Chat, fjerne Galleri/Historier fra Mer, redirects /galleri og /historier (+ story-deeplink), panel-/remount-tester. Fysisk iPhone ikke testet.

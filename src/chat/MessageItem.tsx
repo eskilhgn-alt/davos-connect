@@ -10,6 +10,9 @@ import { ReactionsRow } from './ReactionsRow';
 import { chatStore } from './store';
 import { useSignedMedia } from '@/components/ui/SignedMedia';
 import { errorToast } from '@/utils/errorToast';
+import { SaveToMinnerButton } from '@/features/minner/SaveToMinnerButton';
+import { useAuth } from '@/contexts/AuthContext';
+import { useOptionalTrip } from '@/contexts/TripContext';
 
 /**
  * Media attachment renderer with private-URL resolution and robust video fallback.
@@ -294,6 +297,11 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
   seenCount = 0,
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
+  const isAdmin = useAuth().isAdmin ?? false;
+  const trip = useOptionalTrip();
+  const canSaveMedia =
+    !!trip && !trip.isArchive && (isOwn || isAdmin) && !message.deletedAt &&
+    message.deliveryState !== 'sending' && message.deliveryState !== 'failed';
   const [editText, setEditText] = React.useState(message.text);
   const [savingEdit, setSavingEdit] = React.useState(false);
   const [swipeOffset, setSwipeOffset] = React.useState(0);
@@ -507,11 +515,13 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
           {message.attachments
             .filter((a) => a.kind === 'image' || a.kind === 'video' || a.kind === 'gif')
             .map((att) => (
-              <MediaAttachment
-                key={att.id}
-                att={att}
-                onTap={(src) => onMediaTap?.(src, att.kind === 'video' ? 'video' : att.kind === 'gif' ? 'gif' : 'image')}
-              />
+              <React.Fragment key={att.id}>
+                <MediaAttachment
+                  att={att}
+                  onTap={(src) => onMediaTap?.(src, att.kind === 'video' ? 'video' : att.kind === 'gif' ? 'gif' : 'image')}
+                />
+                {canSaveMedia && <SaveToMinnerButton source={{ kind: 'attachment', id: att.id }} />}
+              </React.Fragment>
             ))}
         </div>
       )}

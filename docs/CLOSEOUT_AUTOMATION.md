@@ -58,3 +58,5 @@ Forberedt leveranse 4c442819 er importert i aktiv Lovable (492/492, typecheck, P
 
 ## Status 06.10.2026
 CLEAN-01B ferdig og verifisert (DB-migrasjon 20261006062802 + tre Edge-funksjoner fjernet). Neste i køen: CHAT-MEDIA-01.
+
+- 08.10: CHAT-MEDIA-01 backend aktivert og lese-verifisert; lagreknapper levert. Neste jobb: Chat-paneler, redirects, Mer/Hjem-opprydding (se backlog).
