@@ -11,7 +11,7 @@ import { chatStore } from './store';
 import { useSignedMedia } from '@/components/ui/SignedMedia';
 import { errorToast } from '@/utils/errorToast';
 import { SaveToMinnerButton } from '@/features/minner/SaveToMinnerButton';
-import AuthContext from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useOptionalTrip } from '@/contexts/TripContext';
 
 /**
@@ -297,7 +297,7 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
   seenCount = 0,
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
-  const isAdmin = React.useContext(AuthContext)?.isAdmin ?? false;
+  const isAdmin = useAuth().isAdmin ?? false;
   const trip = useOptionalTrip();
   const canSaveMedia =
     !!trip && !trip.isArchive && (isOwn || isAdmin) && !message.deletedAt &&
