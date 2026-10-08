@@ -297,6 +297,11 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
   seenCount = 0,
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
+  const { isAdmin } = useAuth();
+  const { isArchive } = useTrip();
+  const canSaveMedia =
+    !isArchive && (isOwn || isAdmin) && !message.deletedAt &&
+    message.deliveryState !== 'sending' && message.deliveryState !== 'failed';
   const [editText, setEditText] = React.useState(message.text);
   const [savingEdit, setSavingEdit] = React.useState(false);
   const [swipeOffset, setSwipeOffset] = React.useState(0);

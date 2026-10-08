@@ -678,6 +678,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({
           </button>
         )}
 
+        {story && user && !isArchive && (isOwnStory || isAdmin) && (
+          <SaveToMinnerButton key={story.id} source={{ kind: "story", id: story.id }} variant="overlay" />
+        )}
         {story && user && (
           <StoryViewers storyId={story.id} isOwner={story.userId === user.id} />
         )}
