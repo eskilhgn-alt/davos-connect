@@ -2653,6 +2653,58 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_save_attachment_to_minner: {
+        Args: { p_attachment_id: string }
+        Returns: {
+          caption: string | null
+          created_at: string
+          height: number | null
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          source_message_id: string | null
+          source_story_id: string | null
+          storage_bucket: string
+          storage_path: string
+          thumbnail_path: string | null
+          trip_id: string
+          type: string
+          uploaded_by: string
+          width: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gallery_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rpc_save_story_to_minner: {
+        Args: { p_story_id: string }
+        Returns: {
+          caption: string | null
+          created_at: string
+          height: number | null
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          source_message_id: string | null
+          source_story_id: string | null
+          storage_bucket: string
+          storage_path: string
+          thumbnail_path: string | null
+          trip_id: string
+          type: string
+          uploaded_by: string
+          width: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "gallery_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rpc_start_shot_round: { Args: { p_group_id?: string }; Returns: Json }
       rpc_start_shot_simple: { Args: { p_group_id?: string }; Returns: Json }
       rpc_use_frikort: { Args: { p_event_id: string }; Returns: Json }
