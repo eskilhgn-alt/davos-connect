@@ -732,7 +732,7 @@ const ViewerSheet: React.FC<{
 };
 
 // ─── Main page ────────────────────────────────────────────────────────────
-export const GalleryScreen: React.FC = () => {
+export const GalleryScreen: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { user, isAdmin } = useAuth();
   // Turgrense: galleriet følger valgt tur, og arkiverte turer er lesbare men
   // skrivebeskyttet (ingen opplasting, ingen sletting).
@@ -742,24 +742,26 @@ export const GalleryScreen: React.FC = () => {
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const [viewerStart, setViewerStart] = React.useState<string | null>(null);
 
+  const uploadButton = isArchive ? undefined : (
+    <button type="button" onClick={() => setUploadOpen(true)}
+            className="min-h-11 min-w-11 rounded-full flex items-center justify-center bg-primary text-primary-foreground"
+            aria-label="Last opp bilde eller video">
+      <Plus size={20} />
+    </button>
+  );
+
   return (
-    <div className="flex flex-col overflow-hidden bg-background" style={{ height: "var(--app-height)" }}>
-      <AppHeader
-        title="Galleri"
-        subtitle="Bilder, videoer og stories"
-        rightAction={isArchive ? undefined : (
-          <button type="button" onClick={() => setUploadOpen(true)}
-                  className="min-h-11 min-w-11 rounded-full flex items-center justify-center bg-primary text-primary-foreground"
-                  aria-label="Last opp bilde eller video">
-            <Plus size={20} />
-          </button>
-        )}
-      />
+    <div className="flex flex-col overflow-hidden bg-background" style={{ height: embedded ? "100%" : "var(--app-height)" }}>
+      {embedded ? (
+        uploadButton && <div className="flex justify-end px-4 pt-2">{uploadButton}</div>
+      ) : (
+        <AppHeader title="Galleri" subtitle="Bilder, videoer og stories" rightAction={uploadButton} />
+      )}
 
       <PullToRefreshWrapper
         onRefresh={async () => { await feed.refresh(); }}
         className="flex-1 overflow-y-auto overscroll-contain p-4"
-        style={{ paddingBottom: "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}
+        style={{ paddingBottom: embedded ? "calc(env(safe-area-inset-bottom) + 16px)" : "var(--bottom-nav-h-effective)", WebkitOverflowScrolling: "touch" }}
       >
         {feed.state === "loading" && feed.items.length === 0 ? (
           <div className="grid grid-cols-3 gap-1">
