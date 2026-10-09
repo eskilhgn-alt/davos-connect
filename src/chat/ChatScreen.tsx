@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, MessageCircle, Sparkles, Images } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { useVisualViewport } from './useVisualViewport';
@@ -16,9 +16,24 @@ import type { Message, Attachment, TypingState } from './types';
 import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 
+// CHAT-MEDIA-01: Stories og Minner gjenbruker eksisterende skjermer som paneler.
+const StoriesPanel = React.lazy(() => import('@/pages/StoriesScreen'));
+const MinnerPanel = React.lazy(() => import('@/pages/GalleryScreen'));
+type Panel = 'stories' | 'minner' | null;
+
 export const ChatScreen: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkMessageId = searchParams.get('message');
+  const rawPanel = searchParams.get('panel');
+  const panel: Panel = rawPanel === 'stories' || rawPanel === 'minner' ? rawPanel : null;
+  const setPanel = React.useCallback((next: Panel) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (next) p.set('panel', next); else p.delete('panel');
+      if (next !== 'stories') p.delete('story');
+      return p;
+    }, { replace: true });
+  }, [setSearchParams]);
   const { vvh, kb } = useVisualViewport();
   const { user, profile } = useAuth();
   const { selectedTripId, selectedTrip, isArchive } = useTrip();
@@ -83,19 +98,53 @@ export const ChatScreen: React.FC = () => {
         subtitle={isArchive ? 'Arkiv – skrivebeskyttet' : undefined}
       />
 
+      {selectedTripId && (
+        <div role="tablist" aria-label="Chat-visning" className="shrink-0 flex gap-1 px-2 border-b border-border bg-background">
+          {([
+            [null, 'Meldinger', MessageCircle],
+            ['stories', 'Stories', Sparkles],
+            ['minner', 'Minner', Images],
+          ] as const).map(([key, label, Icon]) => (
+            <button
+              key={label}
+              type="button"
+              role="tab"
+              aria-selected={panel === key}
+              onClick={() => setPanel(key)}
+              className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 text-xs font-medium border-b-2 ${
+                panel === key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'
+              }`}
+            >
+              <Icon size={16} aria-hidden />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {!selectedTripId ? (
         <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground px-6 text-center">
           Ingen tur er valgt. Velg en tur på hjemsiden for å se chatten.
         </div>
       ) : (
-        <MessageList
-          messages={messages}
-          currentUserId={userId}
-          composerHeight={isArchive ? 56 : composerHeight}
-          viewportHeight={vvh}
-          isTyping={typingState.isTyping}
-          deepLinkMessageId={deepLinkMessageId}
-        />
+        <div className="relative flex-1 min-h-0 flex flex-col">
+          {/* MessageList og Composer forblir montert mens paneler er åpne. */}
+          <MessageList
+            messages={messages}
+            currentUserId={userId}
+            composerHeight={isArchive ? 56 : composerHeight}
+            viewportHeight={vvh}
+            isTyping={typingState.isTyping}
+            deepLinkMessageId={deepLinkMessageId}
+          />
+          {panel && (
+            <div role="tabpanel" aria-label={panel === 'stories' ? 'Stories' : 'Minner'} className="absolute inset-0 z-20 bg-background">
+              <React.Suspense fallback={<div className="p-6 text-center text-sm text-muted-foreground">Laster…</div>}>
+                {panel === 'stories' ? <StoriesPanel embedded /> : <MinnerPanel embedded />}
+              </React.Suspense>
+            </div>
+          )}
+        </div>
       )}
 
 
