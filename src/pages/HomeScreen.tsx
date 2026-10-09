@@ -195,31 +195,6 @@ export const HomeScreen: React.FC = () => {
         </div>
       </PullToRefreshWrapper>
 
-      {viewerOpen && groups.length > 0 && (
-        <StoryViewer
-          groups={groups}
-          initialGroupIndex={viewerGroupIdx}
-          onClose={() => {
-            setViewerOpen(false);
-            refetchStories();
-          }}
-          onViewed={markViewed}
-          isArchive={isArchive}
-        />
-      )}
-
-      {captureOpen && !isArchive && selectedTripId && (
-        <StoryCapture
-          tripId={selectedTripId}
-          isArchive={isArchive}
-          onClose={() => setCaptureOpen(false)}
-          onPublished={() => {
-            setCaptureOpen(false);
-            refetchStories();
-          }}
-        />
-      )}
-
       <EmergencyInfoSheet open={emergencyOpen} onOpenChange={setEmergencyOpen} />
     </div>
   );
