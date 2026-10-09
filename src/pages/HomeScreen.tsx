@@ -7,11 +7,7 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { HomeDashboard, type HomeDashboardHandle } from "@/components/home/HomeDashboard";
-import { StoryRing } from "@/components/stories/StoryRing";
-import { StoryViewer } from "@/components/stories/StoryViewer";
-import { StoryCapture } from "@/components/stories/StoryCapture";
 import { EmergencyInfoSheet } from "@/components/home/EmergencyInfoSheet";
-import { useStories } from "@/hooks/useStories";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppBadges } from "@/hooks/useAppBadges";
 import { useTrip } from "@/contexts/TripContext";
@@ -30,6 +26,7 @@ import {
   LogOut,
   AlertTriangle,
   MapPin,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,19 +40,9 @@ interface TileItem {
 export const HomeScreen: React.FC = () => {
   const { signOut } = useAuth();
   const badges = useAppBadges();
-  const { refreshTrip, selectedTrip, selectedTripId, isArchive } = useTrip();
-  const { groups, loading: storiesLoading, refetch: refetchStories, markViewed } = useStories(selectedTripId, isArchive);
+  const { refreshTrip, selectedTrip, isArchive } = useTrip();
   const dashboardRef = React.useRef<HomeDashboardHandle>(null);
-
-  const [viewerOpen, setViewerOpen] = React.useState(false);
-  const [viewerGroupIdx, setViewerGroupIdx] = React.useState(0);
-  const [captureOpen, setCaptureOpen] = React.useState(false);
   const [emergencyOpen, setEmergencyOpen] = React.useState(false);
-
-  const openStory = (groupIndex: number) => {
-    setViewerGroupIdx(groupIndex);
-    setViewerOpen(true);
-  };
 
   // Bruk valgt tur fra TripContext (ingen hardkodet ACTIVE_TRIP).
   const tripName = selectedTrip?.name ?? "Ingen tur valgt";
@@ -97,10 +84,9 @@ export const HomeScreen: React.FC = () => {
 
       <PullToRefreshWrapper
         onRefresh={async () => {
-          // Koordinert refresh: turfølsomme queries + stories + dashboard uten remount.
+          // Koordinert refresh: turfølsomme queries + dashboard uten remount.
           await Promise.allSettled([
             refreshTrip(),
-            refetchStories(),
             dashboardRef.current?.refresh() ?? Promise.resolve(),
           ]);
         }}
@@ -157,13 +143,14 @@ export const HomeScreen: React.FC = () => {
             </div>
           </section>
 
-          {/* Stories */}
-          <StoryRing
-            groups={groups}
-            loading={storiesLoading}
-            onAddStory={() => setCaptureOpen(true)}
-            onOpenStory={openStory}
-          />
+          {/* Stories ligger i Chat (CHAT-MEDIA-01) */}
+          <Link
+            to="/chat?panel=stories"
+            className="flex items-center gap-3 min-h-12 px-4 rounded-2xl border border-border bg-muted/40 text-sm font-medium text-foreground active:scale-[0.98] transition-transform"
+          >
+            <Sparkles size={18} aria-hidden />
+            <span className="flex-1">Stories i Chat</span>
+          </Link>
 
           {/* Mini dashboard: valuta, neste event, vær */}
           <HomeDashboard ref={dashboardRef} />

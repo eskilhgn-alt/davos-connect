@@ -18,7 +18,7 @@ import { findStoryLocation, firstUnviewedIndex } from "@/features/stories/helper
 import { SignedImg, SignedVideo } from "@/components/ui/SignedMedia";
 import { toast } from "sonner";
 
-export const StoriesScreen: React.FC = () => {
+export const StoriesScreen: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { user } = useAuth();
   const { selectedTripId, isArchive } = useTrip();
   const { groups, loading, error, refetch, markViewed, deleteStory, setRefetchPaused } = useStories(selectedTripId, isArchive);
@@ -43,7 +43,7 @@ export const StoriesScreen: React.FC = () => {
     return () => setRefetchPaused(false);
   }, [viewerOpen, setRefetchPaused]);
 
-  // Deep-link: /historier?story=<id> opens the exact story
+  // Deep-link: /chat?panel=stories&story=<id> opens the exact story
   React.useEffect(() => {
     const target = searchParams.get("story");
     if (!target || loading) return;
@@ -70,22 +70,17 @@ export const StoriesScreen: React.FC = () => {
     }
   }, [groups, loading, error, searchParams, setSearchParams]);
 
-
-
-
   return (
     <div
       className="flex flex-col overflow-hidden bg-background"
-      style={{ height: "var(--app-height)" }}
+      style={{ height: embedded ? "100%" : "var(--app-height)" }}
     >
-      <AppHeader
-        title="Historier"
-      />
+      {!embedded && <AppHeader title="Historier" />}
 
       <div
         className="flex-1 overflow-y-auto overscroll-contain"
         style={{
-          paddingBottom: "var(--bottom-nav-h-effective)",
+          paddingBottom: embedded ? "calc(env(safe-area-inset-bottom) + 16px)" : "var(--bottom-nav-h-effective)",
           WebkitOverflowScrolling: "touch",
         }}
       >
