@@ -13,12 +13,10 @@ import { useAppBadges } from "@/hooks/useAppBadges";
 import {
   CalendarDays,
   Compass,
-  Film,
   Users,
   Settings,
   ShieldCheck,
   LogOut,
-  Sparkles,
   AlertTriangle,
   Dices,
   LucideIcon,
@@ -52,9 +50,8 @@ export const MoreTiles: React.FC<{ excludePaths?: readonly string[] }> = ({ excl
       { to: "/oppdag", label: "Oppdag", icon: Compass },
     ];
 
+    // Stories og Minner ligger i Chat (CHAT-MEDIA-01).
     const community: Tile[] = [
-      { to: "/galleri", label: "Galleri", icon: Film },
-      { to: "/historier", label: "Historier", icon: Sparkles },
       { to: "/alle", label: "Gütta", icon: Users },
     ];
 

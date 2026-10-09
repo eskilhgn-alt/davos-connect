@@ -26,11 +26,10 @@ const HomeScreen = React.lazy(() => import("./pages/HomeScreen"));
 const MoreScreen = React.lazy(() => import("./pages/MoreScreen"));
 const MapScreen = React.lazy(() => import("./pages/MapScreen"));
 const CrewMapScreen = React.lazy(() => import("./pages/CrewMapScreen"));
-const GalleryScreen = React.lazy(() => import("./pages/GalleryScreen"));
+import { LegacyMediaRedirect } from "@/features/chatmedia/LegacyMediaRedirect";
 const WeatherScreen = React.lazy(() => import("./pages/WeatherScreen"));
 const AgendaScreen = React.lazy(() => import("./pages/AgendaScreen"));
 const DiscoverScreen = React.lazy(() => import("./pages/DiscoverScreen"));
-const StoriesScreen = React.lazy(() => import("./pages/StoriesScreen"));
 const ShotScreen = React.lazy(() => import("./pages/ShotScreen"));
 const SettingsScreen = React.lazy(() => import("./pages/SettingsScreen"));
 const WebcamsScreen = React.lazy(() => import("./pages/WebcamsScreen"));
@@ -163,13 +162,13 @@ const AppRoutes = () => (
       <Route path="/mer" element={<MoreScreen />} />
       <Route path="/webcams" element={<WebcamsScreen />} />
       <Route path="/forhold" element={<Navigate to="/kart?vis=status" replace />} />
-      <Route path="/galleri" element={<GalleryScreen />} />
+      <Route path="/galleri" element={<LegacyMediaRedirect panel="minner" />} />
       <Route path="/innstillinger" element={<SettingsScreen />} />
       <Route path="/admin" element={<AdminScreen />} />
       
       <Route path="/agenda" element={<AgendaScreen />} />
       <Route path="/oppdag" element={<DiscoverScreen />} />
-      <Route path="/historier" element={<StoriesScreen />} />
+      <Route path="/historier" element={<LegacyMediaRedirect panel="stories" />} />
       <Route path="/shot" element={<ShotScreen />} />
       <Route path="/alle" element={<GroupScreen />} />
       {/* Fjernet permanent: /tokens /casino /skred /forhold /live /webcams-redirect
