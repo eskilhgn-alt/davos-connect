@@ -87,3 +87,6 @@ Runder/Utlegg, Faktasjekk og Avstemninger er fjernet fra aktiv klient (CLEAN-01A
 CLEAN-01A (klient) og CLEAN-01B (database + Edge) er ferdige. Utgåtte tabeller beholder all historikk, kun lesbar for service_role/postgres. round-receipts-bucket og objekt er bevart, men låst.
 
 - CHAT-MEDIA-01 (08.10): Automatisk kopiering til Minner er avslått i databasen; permanent lagring skjer kun via rpc_save_story_to_minner / rpc_save_attachment_to_minner. Panelintegrasjon i Chat gjenstår.
+
+## Status 10.10.2026 — CHAT-MEDIA-01 klient
+Start 63b2d2578a40acc359a1eb9a2a5fcd1eb85372f0. Chatlag (MessageList + Composer) forblir montert men er hidden + inert + aria-hidden mens Stories/Minner er åpent; fokus slippes (tastatur lukkes); arkivbanner skjules over panel. MoreScreen-kommentar rettet. Ny React-test src/test/chat-media-panels-ui.test.tsx (ingen remount, draft beholdt, inert, arkiv, story-deeplink). Full Vitest 501/501 (46 filer), tsc --noEmit exit 0, npm run build exit 0 med dist/sw.js. Aktiv i preview, ikke publisert. Ingen DB/Edge/push. CHAT-MEDIA-01 klient/test lukket; gjenstår fysisk iPhone-tastatur/autoplay og SAVE-01 på to autoriserte enheter. Neste: SAVE-01 fysisk → kamera → VIBE → Shot → Headshot.

@@ -60,3 +60,6 @@ Forberedt leveranse 4c442819 er importert i aktiv Lovable (492/492, typecheck, P
 CLEAN-01B ferdig og verifisert (DB-migrasjon 20261006062802 + tre Edge-funksjoner fjernet). Neste i køen: CHAT-MEDIA-01.
 
 - 08.10: CHAT-MEDIA-01 backend aktivert og lese-verifisert; lagreknapper levert. Neste jobb: Chat-paneler, redirects, Mer/Hjem-opprydding (se backlog).
+
+## Status 10.10.2026 — CHAT-MEDIA-01 klient
+Start 63b2d2578a40acc359a1eb9a2a5fcd1eb85372f0. Chatlag (MessageList + Composer) forblir montert men er hidden + inert + aria-hidden mens Stories/Minner er åpent; fokus slippes (tastatur lukkes); arkivbanner skjules over panel. MoreScreen-kommentar rettet. Ny React-test src/test/chat-media-panels-ui.test.tsx (ingen remount, draft beholdt, inert, arkiv, story-deeplink). Full Vitest 501/501 (46 filer), tsc --noEmit exit 0, npm run build exit 0 med dist/sw.js. Aktiv i preview, ikke publisert. Ingen DB/Edge/push. CHAT-MEDIA-01 klient/test lukket; gjenstår fysisk iPhone-tastatur/autoplay og SAVE-01 på to autoriserte enheter. Neste: SAVE-01 fysisk → kamera → VIBE → Shot → Headshot.
