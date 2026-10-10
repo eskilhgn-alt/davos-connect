@@ -1,6 +1,6 @@
 /**
  * MoreScreen — "Mer"-fane. Samler alt som ikke er Hjem, Chat eller Kart:
- * agenda, galleri/stories, innstillinger, admin,
+ * agenda, Oppdag, Gütta, innstillinger, admin (Stories/Minner ligger i Chat),
  * og en lavt prioritert seksjon for valgfrie verktøy.
  */
 

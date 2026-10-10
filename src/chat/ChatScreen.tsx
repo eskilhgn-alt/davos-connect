@@ -35,6 +35,16 @@ export const ChatScreen: React.FC = () => {
     }, { replace: true });
   }, [setSearchParams]);
   const { vvh, kb } = useVisualViewport();
+  const chatLayerRef = React.useRef<HTMLDivElement>(null);
+  const composerLayerRef = React.useRef<HTMLDivElement>(null);
+  // Når et mediepanel åpnes: slipp fokus (lukker mobiltastaturet) fra skjulte chatlag.
+  React.useEffect(() => {
+    if (!panel) return;
+    const active = document.activeElement as HTMLElement | null;
+    if (active && (chatLayerRef.current?.contains(active) || composerLayerRef.current?.contains(active))) active.blur();
+  }, [panel]);
+  const hiddenLayer = (hidden: boolean) =>
+    hidden ? ({ hidden: true, 'aria-hidden': true, inert: '' } as Record<string, unknown>) : {};
   const { user, profile } = useAuth();
   const { selectedTripId, selectedTrip, isArchive } = useTrip();
   const [messages, setMessages] = React.useState<Message[]>([]);
@@ -129,6 +139,7 @@ export const ChatScreen: React.FC = () => {
       ) : (
         <div className="relative flex-1 min-h-0 flex flex-col">
           {/* MessageList og Composer forblir montert mens paneler er åpne. */}
+          <div ref={chatLayerRef} data-testid="chat-message-layer" className="flex-1 min-h-0 flex flex-col" {...hiddenLayer(!!panel)}>
           <MessageList
             messages={messages}
             currentUserId={userId}
@@ -137,6 +148,7 @@ export const ChatScreen: React.FC = () => {
             isTyping={typingState.isTyping}
             deepLinkMessageId={deepLinkMessageId}
           />
+          </div>
           {panel && (
             <div role="tabpanel" aria-label={panel === 'stories' ? 'Stories' : 'Minner'} className="absolute inset-0 z-20 bg-background">
               <React.Suspense fallback={<div className="p-6 text-center text-sm text-muted-foreground">Laster…</div>}>
@@ -150,13 +162,16 @@ export const ChatScreen: React.FC = () => {
 
       {selectedTripId && !isArchive && (
         <div
+          ref={composerLayerRef}
+          data-testid="chat-composer-layer"
           className="fixed left-0 right-0 z-10"
           style={{ bottom: `${kb}px` }}
+          {...hiddenLayer(!!panel)}
         >
           <Composer onSend={handleSend} onHeightChange={handleComposerHeight} />
         </div>
       )}
-      {selectedTripId && isArchive && (
+      {selectedTripId && isArchive && !panel && (
         <div
           className="fixed left-0 right-0 z-10 bg-muted/90 backdrop-blur border-t border-border px-4 py-3 flex items-center justify-center gap-2 text-xs text-muted-foreground"
           style={{ bottom: `${kb}px` }}
