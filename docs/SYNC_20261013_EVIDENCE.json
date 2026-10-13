@@ -1,0 +1,983 @@
+{
+  "active": "3770b9f57592fd94ceac5c45bc76e273f84093b1",
+  "main": "f69121e77565f9a010454588b7eeb656282592e3",
+  "merge_base": "0364cbc15a3dfb621e542c468c83e537fe84ab62",
+  "active_tree": "c29fa5cbe929b0795bb5a71d423cc6c794c034c4",
+  "main_only_commits": [
+    "e1ca2845827afd26932d749221794e792b649dcf",
+    "35efda34fe1d71b3af5e034047d458d281b02df5",
+    "2bfe6688eec3b7d4b58d3f67238ba9478b5acb5a",
+    "4716d2fd25cf12afef1fccc1dfc0b5185cecb7a0",
+    "94ba6e4e945e4747670458d8c8a7a3af15eafbcd",
+    "f3a2b9bfcdf9d03fe90756be7b4eb207fe4484b0",
+    "4bd1494cbcda9cbf29963b539e75376222d9cad3",
+    "1aebbed71fd1d6ce7c21748c66d068a6e017ad23",
+    "0a014ca98a8e90bf4f955d458181d0131c158ce8",
+    "b29eed48939ca58e0a2b05bb18a88bc2a2deae48",
+    "92b3c724382738876859bcd32bba28e85491c9e1",
+    "ea26618a48a2b378d0f5eee051a29129b93011d2",
+    "28c8a0594973c2f4a9131e5af57eb1225bf1b628",
+    "f69121e77565f9a010454588b7eeb656282592e3"
+  ],
+  "paths": [
+    {
+      "path": "README.md",
+      "main_status": "M",
+      "main_blob": "4ff3f620ed043a4d66dba6eff76b326c27bc6f5a",
+      "active_blob": "4ff3f620ed043a4d66dba6eff76b326c27bc6f5a",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "bun.lock",
+      "main_status": "M",
+      "main_blob": "a99f76f3841927b3a588d792708b5253b1f53f52",
+      "active_blob": "d352954a1226453cb502023780a5afad7a536a12",
+      "resolution": "Keep current lock: historical main lock omits vite-plugin-pwa while package.json declares it"
+    },
+    {
+      "path": "docs/FUNCTIONAL_AUDIT.md",
+      "main_status": "A",
+      "main_blob": "82905cdfad0eed4f353d18e9fb0bd2a2b71edd26",
+      "active_blob": "82905cdfad0eed4f353d18e9fb0bd2a2b71edd26",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "docs/LEGACY.md",
+      "main_status": "M",
+      "main_blob": "ebae95bcf24b915dfcfcef860f4b8353edca51ad",
+      "active_blob": "25a446eebdf9b42473ba7487276c6e19a3dbc2fc",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "docs/SECURITY.md",
+      "main_status": "M",
+      "main_blob": "a18a725b5b51f37a8991a2a28b3620dfefd0bfbe",
+      "active_blob": "a18a725b5b51f37a8991a2a28b3620dfefd0bfbe",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "docs/UX.md",
+      "main_status": "M",
+      "main_blob": "ba2bb734536964692e864d75c736c3028c3c8790",
+      "active_blob": "ad05272bb951018b70fb15a737f8bcde455ebf89",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "index.html",
+      "main_status": "M",
+      "main_blob": "1c6c6b82ef8e7c998243c8a68269f19e9a94c22d",
+      "active_blob": "1c6c6b82ef8e7c998243c8a68269f19e9a94c22d",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "package-lock.json",
+      "main_status": "M",
+      "main_blob": "31c3bb2ae88d1a6940e8bdc05ed5ed2b564c5c1b",
+      "active_blob": "31c3bb2ae88d1a6940e8bdc05ed5ed2b564c5c1b",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "package.json",
+      "main_status": "M",
+      "main_blob": "0b2d5b2639a5fe297c999e94c940c6846439026b",
+      "active_blob": "0b2d5b2639a5fe297c999e94c940c6846439026b",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "public/manifest.webmanifest",
+      "main_status": "M",
+      "main_blob": "3fb79b1f45b20d124ae303f10f8423bd5557f970",
+      "active_blob": "3fb79b1f45b20d124ae303f10f8423bd5557f970",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/App.tsx",
+      "main_status": "M",
+      "main_blob": "6cca69489dfca341993e084d4b1019ac9a73a721",
+      "active_blob": "171678cb3ca52e7f9ff4164e59406db37da03706",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/chat/ChatScreen.tsx",
+      "main_status": "M",
+      "main_blob": "da415a98e5349b687a9b8e39a11bdd5d125abeba",
+      "active_blob": "2a77271d7a337c44eafa560ca5531403e1285489",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/chat/Composer.tsx",
+      "main_status": "M",
+      "main_blob": "a3bdf76ee8bdcb59b886455940a691b6ae162e73",
+      "active_blob": "a3bdf76ee8bdcb59b886455940a691b6ae162e73",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/chat/MessageActionsSheet.tsx",
+      "main_status": "M",
+      "main_blob": "45f036bafe2c574c35de67c3cb337256fdc64622",
+      "active_blob": "45f036bafe2c574c35de67c3cb337256fdc64622",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/chat/MessageItem.tsx",
+      "main_status": "M",
+      "main_blob": "6907bfb2890d64f968a1a04a972114aa1051bb1b",
+      "active_blob": "4118bc5e02a87b3d983e8cd48186c2660291e087",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/chat/MessageList.tsx",
+      "main_status": "M",
+      "main_blob": "2dced521101dd6d2324f858f906515a328ec5715",
+      "active_blob": "2dced521101dd6d2324f858f906515a328ec5715",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/chat/__tests__/MessageList-scroll.test.tsx",
+      "main_status": "A",
+      "main_blob": "978051394dd6dac263ce5b40ae89a2d2288d5621",
+      "active_blob": "978051394dd6dac263ce5b40ae89a2d2288d5621",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/chat/__tests__/logic.test.ts",
+      "main_status": "M",
+      "main_blob": "f9046854d20685139113cc5a7ab7e5e1812bb628",
+      "active_blob": "570d0bb08b3e7169b754059668a7734406f8db10",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/chat/logic.ts",
+      "main_status": "M",
+      "main_blob": "b1df0bf8588e03a3b55480a929a7b1c5719574dd",
+      "active_blob": "4dc088f5c14d5dad2101f81b9803802eed6b9b75",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/chat/store.ts",
+      "main_status": "M",
+      "main_blob": "cbfb68528e0adf878cdfceeeab9e7aa583574af4",
+      "active_blob": "88d4ddbfcbbc8090580eeca8b735fe6bfa0838f9",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/chat/useMarkAsRead.ts",
+      "main_status": "M",
+      "main_blob": "33fe6b580b934368b14f09bfc02dcac07664e942",
+      "active_blob": "33fe6b580b934368b14f09bfc02dcac07664e942",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/chat/useReadReceipts.ts",
+      "main_status": "A",
+      "main_blob": "f4314e42e7935a1f6635b7d9428bc7b5a77744e6",
+      "active_blob": "f4314e42e7935a1f6635b7d9428bc7b5a77744e6",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/components/admin/AdminAnnouncements.tsx",
+      "main_status": "M",
+      "main_blob": "32c022227b15e06b1f68bd7adbb59ff8077c5bde",
+      "active_blob": "32c022227b15e06b1f68bd7adbb59ff8077c5bde",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/components/admin/AdminAuditLog.tsx",
+      "main_status": "M",
+      "main_blob": "1f2e2d0be6ff2432ce5f45494573bfa3e90b5af6",
+      "active_blob": "1f2e2d0be6ff2432ce5f45494573bfa3e90b5af6",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/components/admin/AdminOverview.tsx",
+      "main_status": "M",
+      "main_blob": "acdd728cf1517e9299c99d2c9e510c18239d3619",
+      "active_blob": "cefa5390b33d83600646196f34689bfe2330c0b0",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/components/admin/AdminPushTools.tsx",
+      "main_status": "M",
+      "main_blob": "b3b3c88822e9f7713890fed1f73aae8c642e46ab",
+      "active_blob": "b3b3c88822e9f7713890fed1f73aae8c642e46ab",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/components/admin/AdminShotControl.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/admin/AdminTokenLedger.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/admin/AdminUserDetail.tsx",
+      "main_status": "M",
+      "main_blob": "92f622dfe19fe226136bf6eca6b829e00f52fef1",
+      "active_blob": "92f622dfe19fe226136bf6eca6b829e00f52fef1",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/components/admin/useAdminData.ts",
+      "main_status": "M",
+      "main_blob": "d83302e978e4e471c97c49d367d22960f39e1f50",
+      "active_blob": "f05d5770888a4097a5bd1cb47096083fe3fe1486",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/components/agenda/AgendaEventDialog.tsx",
+      "main_status": "M",
+      "main_blob": "cd437f0dacb2053c7b987b7a30dc8af0516d8577",
+      "active_blob": "42a5719354a03b23f526e46bd518b1dccca6e36e",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/components/avalanche/AvalancheInfoSheet.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/group/UserStatsSheet.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/home/PointsLeaderboardWidget.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/home/StreakWidget.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/layout/BottomNavigation.tsx",
+      "main_status": "M",
+      "main_blob": "cd67683ebc5abda969d78d3be3a477a79d61cf53",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/components/layout/SystemBanner.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/leaderboard/GamificationLeaderboard.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/live/BrandWebEmbed.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/live/ValThorensStatus.tsx",
+      "main_status": "A",
+      "main_blob": "88084b3f4458e0e8de0b7bac1bab4f79ad1ec48f",
+      "active_blob": "44e5fcbd66bcefa4a9ce86dbf83eb0a329131e36",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/components/live/WindyEmbed.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/live/index.ts",
+      "main_status": "M",
+      "main_blob": "27e4825bc9317c2c640bfb56f9d03b88526ed646",
+      "active_blob": "27e4825bc9317c2c640bfb56f9d03b88526ed646",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/components/onboarding/PermissionPrompt.tsx",
+      "main_status": "M",
+      "main_blob": "fb1919746424d42c509a6ea96ee35cdca65e53e9",
+      "active_blob": "9e9ce01072cc0cad90705750788efe6e7844b005",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/components/rounds/AddRoundSheet.tsx",
+      "main_status": "M",
+      "main_blob": "516bbb37dc2c6df498b262c4110ae60d674a43b9",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/components/rounds/DebtCalculator.tsx",
+      "main_status": "M",
+      "main_blob": "18658d78366abc89704cb094734fba68c11fb619",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/components/settings/PushNotificationToggle.tsx",
+      "main_status": "M",
+      "main_blob": "091eb6c61cf1cac3b63ba4536e667058179b19c0",
+      "active_blob": "32b5dd7bbc751a1a5e1417d82d970c87dc0af0d8",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/components/shot/AdminShotPopup.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/shot/ShotButton.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/shot/ShotEventFeed.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/shot/ShotHistory.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/shot/ShotLeaderboard.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/shot/ShotStatusCard.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/shot/ShotTokenOverview.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/shot/ShotTransparency.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/ski/SkiAwardClaimDialog.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/ski/SkiPerformanceTracker.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/ski/SkiRouteMap.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/ski/SkiSpeedLeaderboard.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/ski/SkiUserList.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/ski/SkiUserStatsSheet.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/ski/SkiVerticalCard.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/components/stories/StoryCapture.tsx",
+      "main_status": "M",
+      "main_blob": "2094bea9f94ce8f81bcf43df4399e588caed42ef",
+      "active_blob": "5bf150b6f417e6bc707dab3ff50fcbcaaa600dd1",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/components/ui/SignedMedia.tsx",
+      "main_status": "M",
+      "main_blob": "485340f295f5dbb66087613b955e4e47caae7eaa",
+      "active_blob": "485340f295f5dbb66087613b955e4e47caae7eaa",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/config/liveInfo.ts",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/config/locations.ts",
+      "main_status": "M",
+      "main_blob": "708b8cba4e2f6b3b7358a2caf4140dc74af0c91e",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/config/mountains.ts",
+      "main_status": "M",
+      "main_blob": "c42b4e9c5d059c81a94abeb96377533fd1a360f2",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/config/trip.ts",
+      "main_status": "M",
+      "main_blob": "ce6be64b4dd44f0e617c7cb1b5f614620e89ad45",
+      "active_blob": "2ca46c2562eac3826b35751826929e771f76c17e",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/contexts/AuthContext.tsx",
+      "main_status": "M",
+      "main_blob": "37f1cef4537b225bbb211d142f7cd1bff44af276",
+      "active_blob": "666eb7957bd3a22e153dd3bf9910d36464d9b4a9",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/features/fact-checker/__tests__/sse.test.ts",
+      "main_status": "A",
+      "main_blob": "35aee87c4baf8640e3a90c954be2a7350053d9f5",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/features/fact-checker/sse.ts",
+      "main_status": "A",
+      "main_blob": "0cb5b75fbe17afe8fd8e11d13912422b240fe0a4",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/features/gallery/useGallery.ts",
+      "main_status": "M",
+      "main_blob": "132f13a9792cfa497f832c0ee5d87304ce85d5de",
+      "active_blob": "0f9bc1c5513ba454ae190dcd596ed86d5076302a",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/features/rounds/__tests__/logic.test.ts",
+      "main_status": "A",
+      "main_blob": "ada7921bcc1bc60742fcde1098cb0f23a434eca0",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/features/rounds/logic.ts",
+      "main_status": "A",
+      "main_blob": "d9e921ffd44b69bb48896769e95976b78b01501d",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/hooks/useAgenda.ts",
+      "main_status": "M",
+      "main_blob": "cb8a85df8fdbbd7da80adae54a0fa658be083870",
+      "active_blob": "a565286d999b3b1a335b2de916355e39afd86f2c",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/hooks/useAppBadges.ts",
+      "main_status": "M",
+      "main_blob": "b19b7288aa1b9b633c0f1991a23b58ff74f9f665",
+      "active_blob": "fbec9726db9fff46784b6f88d4eba52038d11494",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/hooks/useFaktasjekker.ts",
+      "main_status": "M",
+      "main_blob": "7ab362b5563184c27c3b3c8d8569475c561d51c3",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/hooks/useGlobalStreaks.ts",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/hooks/usePoints.ts",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/hooks/usePolls.ts",
+      "main_status": "M",
+      "main_blob": "bd3dc485b410ac18699ec72d7f994484366286c3",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/hooks/useRounds.ts",
+      "main_status": "M",
+      "main_blob": "f987dc40e04ef83525f791bc8b24a045e0d5c963",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/hooks/useSkiTracker.ts",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/hooks/useStories.ts",
+      "main_status": "M",
+      "main_blob": "1a1c44983f88aa382532c04edb39da2d0d7e8193",
+      "active_blob": "6c8318e034153f9eeaa306249333874bca17f2ad",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/hooks/useStreak.ts",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/hooks/useValThorensLive.ts",
+      "main_status": "A",
+      "main_blob": "ac62f0c3d04885904e77f52c56842dbead8420f0",
+      "active_blob": "20e0f5237e37971120554a66948d944c0a098fe5",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/index.css",
+      "main_status": "M",
+      "main_blob": "d2471eec45b8e378e521dd15ec75853f90871239",
+      "active_blob": "9c58d8d9febcb483f119a15f60e3971eae3f0ab9",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "main_status": "M",
+      "main_blob": "958be217e8072df2786668eef05ce5c6fedfc73a",
+      "active_blob": "0aba0f5d1c9671992a40f7e2d3567a0e3c47da82",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/lib/mediaUrl.ts",
+      "main_status": "M",
+      "main_blob": "9fa5677e8dbf9345cf834684c151138392c813bb",
+      "active_blob": "9fa5677e8dbf9345cf834684c151138392c813bb",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/main.tsx",
+      "main_status": "M",
+      "main_blob": "0abb7f75e02f5c40ca75108d9abdccaf978ccdca",
+      "active_blob": "0abb7f75e02f5c40ca75108d9abdccaf978ccdca",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/pages/AdminScreen.tsx",
+      "main_status": "M",
+      "main_blob": "930737eaf3ac5550a9db6a7731220cabe0bdbf43",
+      "active_blob": "969aa80314ce392c0de6eb8aa0f44b90c7da0da0",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/AgendaScreen.tsx",
+      "main_status": "M",
+      "main_blob": "488206657d8bbea5180aba860b7b4b370aa3cd98",
+      "active_blob": "6a9750164c40c2eebdf530c5dd3bc8079b9c4832",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/AuthScreen.tsx",
+      "main_status": "M",
+      "main_blob": "cc4a69d62b4be31a536f1bda0db920946cbcd92d",
+      "active_blob": "cc4a69d62b4be31a536f1bda0db920946cbcd92d",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/pages/AvalancheScreen.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/pages/ChecklistScreen.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/pages/FaktasjekkerScreen.tsx",
+      "main_status": "M",
+      "main_blob": "507d91488039ba100736b1963a961d5b2dd70d7f",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/GalleryScreen.tsx",
+      "main_status": "M",
+      "main_blob": "9568a1afbdf835de98bd1f110f70d3c73875665c",
+      "active_blob": "5f02f3417f9fc00a548db8175a25a515b1cdb7af",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/GroupScreen.tsx",
+      "main_status": "M",
+      "main_blob": "6756ebd25aae13a73277a251ec32c34029d235fc",
+      "active_blob": "1dd22cfa2a7703f6e97c441bac9c57c7eca25c46",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/HomeScreen.tsx",
+      "main_status": "M",
+      "main_blob": "b01156814e3ab83ace9eb49e342d81d0604d140b",
+      "active_blob": "f3559dea765a80a06d275af4765193dbb11baa13",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/LiveScreen.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/pages/MapScreen.tsx",
+      "main_status": "M",
+      "main_blob": "c9e629fe5229ad7c25a1c6e2078b05f84a7a79b6",
+      "active_blob": "35b9d583c0b95804aea3d60e3ee1515abba1e50b",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/MoreScreen.tsx",
+      "main_status": "M",
+      "main_blob": "053cfdc3d99d12c950496b8d5dc42443b2d9788b",
+      "active_blob": "cccc052e6bc1bbcdae10d14b4a90877fe6f3af83",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/RoomiesScreen.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/pages/RoundsScreen.tsx",
+      "main_status": "M",
+      "main_blob": "e271aea727ce9329c84c95955d912c204ff02ba6",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/RulesScreen.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/pages/SettingsScreen.tsx",
+      "main_status": "M",
+      "main_blob": "60b6817f63f5584ea82d5fa8db1a7b90a09644a5",
+      "active_blob": "dfe18e6ff2a41365a3c41c6a24442f7ee02a2684",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/ShotScreen.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": "320d4379d9ce530481d3434f45b6104db968df61",
+      "resolution": "Replaced intentionally: Shot v2, not legacy tokens"
+    },
+    {
+      "path": "src/pages/TokensScreen.tsx",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "src/pages/WeatherScreen.tsx",
+      "main_status": "M",
+      "main_blob": "5633c340deb15c854ee2bf9f9f2c48ec82e903f3",
+      "active_blob": "4297ab17922698f881d12ac304801e3202c0c9ad",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/WebcamsScreen.tsx",
+      "main_status": "M",
+      "main_blob": "353aef7e81bba3124c22b14632b1420f77575504",
+      "active_blob": "74030c7bc2b955e33874e4b81d94da646d0a3f3b",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/pages/__tests__/MapScreen.test.tsx",
+      "main_status": "A",
+      "main_blob": "69c7e344161e1dd371fdb8190e15e54cada8642c",
+      "active_blob": "1a888cfc1f649e8d63b595060cead8f2573d76a4",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/services/onesignal.ts",
+      "main_status": "M",
+      "main_blob": "037eb55df9173dfaee6f1bb3d335c912e97c42cf",
+      "active_blob": "037eb55df9173dfaee6f1bb3d335c912e97c42cf",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "src/services/valThorensLive.ts",
+      "main_status": "A",
+      "main_blob": "dc1987daa6d284f5916a6f76adc49819d5426362",
+      "active_blob": "bab3d14e826773d060db389c5980d2f072de584c",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/test/trip-config.test.ts",
+      "main_status": "M",
+      "main_blob": "e4b26948f5ef7be67cda962b7b35ea0ef78e3e9c",
+      "active_blob": "c5baf3fcb6fcd6da0acc2b9fdd494b3712ab3179",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "src/vite-env.d.ts",
+      "main_status": "M",
+      "main_blob": "64251fba07826fb9f05570afb6d4b7d2b0cea3a2",
+      "active_blob": "64251fba07826fb9f05570afb6d4b7d2b0cea3a2",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/config.toml",
+      "main_status": "M",
+      "main_blob": "6e4b1337120e4514f254053c049d6bfc3d80e5a7",
+      "active_blob": "f61bf6f9c3d9d3355f02b405ad3f33afd1aaa511",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "supabase/functions/admin-delete-user/index.ts",
+      "main_status": "M",
+      "main_blob": "3fb4626a48d8eec901d7eafd9005b2de75b5ee7c",
+      "active_blob": "3fb4626a48d8eec901d7eafd9005b2de75b5ee7c",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/functions/admin-push/index.ts",
+      "main_status": "A",
+      "main_blob": "c77f1d278cfcf8d9240d2c569950022c6eb3ae3f",
+      "active_blob": "c77f1d278cfcf8d9240d2c569950022c6eb3ae3f",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/functions/faktasjekker/index.ts",
+      "main_status": "M",
+      "main_blob": "0ee050287a17d9433de9f522eff8eb701a816793",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "supabase/functions/notify-admin-new-user/index.ts",
+      "main_status": "M",
+      "main_blob": "85a9ed15b2f7682461a06eae381ca654b8769646",
+      "active_blob": "85a9ed15b2f7682461a06eae381ca654b8769646",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/functions/poll-push/index.ts",
+      "main_status": "M",
+      "main_blob": "df3c89b1aa0985e73b4c774400dea2ebd976d2e0",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "supabase/functions/roomie-draw/index.ts",
+      "main_status": "D",
+      "main_blob": null,
+      "active_blob": null,
+      "resolution": "Still deleted"
+    },
+    {
+      "path": "supabase/functions/round-push/index.ts",
+      "main_status": "M",
+      "main_blob": "68477d2a4bce12b2a90655520eb82a3ea3b57d4a",
+      "active_blob": null,
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "supabase/functions/send-push-notification/index.ts",
+      "main_status": "M",
+      "main_blob": "d99f6344d2bafc2cc4f89126e6559d1f9fa4ef77",
+      "active_blob": "d99f6344d2bafc2cc4f89126e6559d1f9fa4ef77",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/functions/send-verification-email/index.ts",
+      "main_status": "M",
+      "main_blob": "17776b8873a34c057632f472e8d8617ece1d8764",
+      "active_blob": "17776b8873a34c057632f472e8d8617ece1d8764",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/functions/story-push/index.ts",
+      "main_status": "M",
+      "main_blob": "ee21b8c6d088d5d21bb339816ad69f4ea2edc158",
+      "active_blob": "d1783492c58ec39eb9b80e14af24b1da8f849ffe",
+      "resolution": "Exact blob present at same path in active ancestry; later evolution retained"
+    },
+    {
+      "path": "supabase/functions/val-thorens-live/deno.json",
+      "main_status": "A",
+      "main_blob": "11b6005382988f446ed0aeb97007422c63e007cd",
+      "active_blob": "11b6005382988f446ed0aeb97007422c63e007cd",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/functions/val-thorens-live/index.ts",
+      "main_status": "A",
+      "main_blob": "4c0144e5d8de20ddbc0e9076bb02769a70904006",
+      "active_blob": "4c0144e5d8de20ddbc0e9076bb02769a70904006",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/functions/verify-email/index.ts",
+      "main_status": "M",
+      "main_blob": "0f99ca0e79aba3df9ad3efe804e5bac079024846",
+      "active_blob": "0f99ca0e79aba3df9ad3efe804e5bac079024846",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/migrations/20260720090000_harden_rounds.sql",
+      "main_status": "A",
+      "main_blob": "b1b9bb79a7a9c0413e5dbf68459ac477cb915c40",
+      "active_blob": "b1b9bb79a7a9c0413e5dbf68459ac477cb915c40",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/migrations/20260720093000_private_media_and_rls.sql",
+      "main_status": "A",
+      "main_blob": "4779692ff7cbec3f05c999a92e24c80d99a2b742",
+      "active_blob": "4779692ff7cbec3f05c999a92e24c80d99a2b742",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/migrations/20260720110000_secure_notifications_and_email.sql",
+      "main_status": "A",
+      "main_blob": "2e7452dfff41fb46a555b5be290ccb9348be4a3c",
+      "active_blob": "2e7452dfff41fb46a555b5be290ccb9348be4a3c",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/migrations/20260720123000_archive_retired_gamification.sql",
+      "main_status": "A",
+      "main_blob": "e6ee4aac5990963f14840283a212e3ee1bbd2e13",
+      "active_blob": "e6ee4aac5990963f14840283a212e3ee1bbd2e13",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/migrations/20260720124000_generic_new_user_flow.sql",
+      "main_status": "A",
+      "main_blob": "69200fb6b4b807c2fa3b22c685666b86ec9667a6",
+      "active_blob": "69200fb6b4b807c2fa3b22c685666b86ec9667a6",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/migrations/20260720125000_atomic_poll_creation.sql",
+      "main_status": "A",
+      "main_blob": "2053e45ac81cac7a097e95e2d9e00d2c1383ab07",
+      "active_blob": "2053e45ac81cac7a097e95e2d9e00d2c1383ab07",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/migrations/20260723080202_retire_roomies_and_harden_fact_checker.sql",
+      "main_status": "A",
+      "main_blob": "e01ddf1c11b3d217b46af83bfa733430b7e09fd2",
+      "active_blob": "e01ddf1c11b3d217b46af83bfa733430b7e09fd2",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "supabase/migrations/20260723082243_44495668-b0dc-4f31-8cae-56dfef2c88c1.sql",
+      "main_status": "A",
+      "main_blob": "1982f99a77f235d7c983ae2010635c91532e3d01",
+      "active_blob": "53a29675a13d7c8cbed70e004d6886c0914c8975",
+      "resolution": "Keep active historical migration unchanged; main no-op normalization preserved in second-parent history, deferred separately"
+    },
+    {
+      "path": "tailwind.config.ts",
+      "main_status": "M",
+      "main_blob": "062357e35166ab6dcd068d71dc1278859b81b3b3",
+      "active_blob": "062357e35166ab6dcd068d71dc1278859b81b3b3",
+      "resolution": "Byte-identical in active tree"
+    },
+    {
+      "path": "vite.config.ts",
+      "main_status": "M",
+      "main_blob": "8cf36c87363320dcd3ba7506f498ff710ccf9307",
+      "active_blob": "8cf36c87363320dcd3ba7506f498ff710ccf9307",
+      "resolution": "Byte-identical in active tree"
+    }
+  ]
+}

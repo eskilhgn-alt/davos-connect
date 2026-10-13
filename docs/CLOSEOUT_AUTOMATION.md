@@ -63,3 +63,13 @@ CLEAN-01B ferdig og verifisert (DB-migrasjon 20261006062802 + tre Edge-funksjone
 
 ## Status 10.10.2026 — CHAT-MEDIA-01 klient
 Start 63b2d2578a40acc359a1eb9a2a5fcd1eb85372f0. Chatlag (MessageList + Composer) forblir montert men er hidden + inert + aria-hidden mens Stories/Minner er åpent; fokus slippes (tastatur lukkes); arkivbanner skjules over panel. MoreScreen-kommentar rettet. Ny React-test src/test/chat-media-panels-ui.test.tsx (ingen remount, draft beholdt, inert, arkiv, story-deeplink). Full Vitest 501/501 (46 filer), tsc --noEmit exit 0, npm run build exit 0 med dist/sw.js. Aktiv i preview, ikke publisert. Ingen DB/Edge/push. CHAT-MEDIA-01 klient/test lukket; gjenstår fysisk iPhone-tastatur/autoplay og SAVE-01 på to autoriserte enheter. Neste: SAVE-01 fysisk → kamera → VIBE → Shot → Headshot.
+
+## Kontrollpunkt 13.10.2026 — SYNC-02
+- Start aktiv Lovable: `3770b9f57592fd94ceac5c45bc76e273f84093b1`; gammel main: `f69121e77565f9a010454588b7eeb656282592e3`.
+- Alle 14 main-unike commits og 137 berørte filbaner revidert. Se `SYNC_20261013.md` og maskinlesbart blob-bevis. Merge bevarer begge historikker og dagens app-/backendfiler byte-identisk. Kun dokumenter endres.
+- Slutt-SHA og aktiv synkstatus skal bekreftes ved GitHub/Lovable-readback, ikke utledes fra forberedt merge.
+- 0 Lovable-byggekreditter. Oktoberforbruk er 30; ingen Build/Plan/Max før 01.11.2026 uten bekreftet ny gratis kvote. Ingen DB-/Edge-/push-/publiseringshandling.
+- CLEAN-01 og CHAT-MEDIA-01 klient/test skal ikke gjøres om. Fysisk iPhone (tastatur/fanebytte/utkast, kamera, pil/pull-to-refresh) og SAVE-01 på to autoriserte enheter venter Eskils resultater.
+- Neste prioritet: verifiser synkreparasjon aktivt; deretter konkrete iPhone-funn og gratis VIBE/outbox-forarbeid, så SHOT-02 → SHOT-03 → sluttkontroll og separat publiseringsgodkjenning. Historisk migrasjonsduplikat er separat dokumentert MIG-HISTORY-01, ikke endret/deployet i synkreparasjonen.
+
+Verifikasjon 13.10: `npm test` 501/501 i 46 filer (exit 0), `tsc --noEmit -p tsconfig.app.json` exit 0, `npm run build` exit 0; `dist/sw.js` og Workbox generert. Ingen app-/backend-/låsfil er endret mot aktiv 3770b9f.
