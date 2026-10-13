@@ -60,6 +60,7 @@ export const HomeScreen: React.FC = () => {
       { to: "/webcams", label: "Webkamera", icon: Camera },
       { to: "/agenda", label: "Agenda", icon: CalendarDays, badge: badges.agenda },
       { to: "/oppdag", label: "Oppdag", icon: Compass },
+      { to: "/stemning", label: "God stemning", icon: Sparkles },
     ],
     [badges],
   );

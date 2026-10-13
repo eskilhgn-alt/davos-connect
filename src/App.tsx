@@ -12,6 +12,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { AppBadgesProvider } from "@/hooks/useAppBadges";
 import { TripProvider } from "@/contexts/TripContext";
+import { SocialProvider } from '@/features/social/SocialProvider';
 import { LocationSharingProvider } from "@/contexts/LocationSharingContext";
 
 
@@ -30,7 +31,8 @@ import { LegacyMediaRedirect } from "@/features/chatmedia/LegacyMediaRedirect";
 const WeatherScreen = React.lazy(() => import("./pages/WeatherScreen"));
 const AgendaScreen = React.lazy(() => import("./pages/AgendaScreen"));
 const DiscoverScreen = React.lazy(() => import("./pages/DiscoverScreen"));
-const ShotScreen = React.lazy(() => import("./pages/ShotScreen"));
+const ShotScreen = React.lazy(() => import("./pages/SocialShotScreen"));
+const VibeScreen = React.lazy(() => import('./pages/VibeScreen'));
 const SettingsScreen = React.lazy(() => import("./pages/SettingsScreen"));
 const WebcamsScreen = React.lazy(() => import("./pages/WebcamsScreen"));
 const AuthScreen = React.lazy(() => import("./pages/AuthScreen"));
@@ -170,6 +172,7 @@ const AppRoutes = () => (
       <Route path="/oppdag" element={<DiscoverScreen />} />
       <Route path="/historier" element={<LegacyMediaRedirect panel="stories" />} />
       <Route path="/shot" element={<ShotScreen />} />
+      <Route path="/stemning" element={<VibeScreen />} />
       <Route path="/alle" element={<GroupScreen />} />
       {/* Fjernet permanent: /tokens /casino /skred /forhold /live /webcams-redirect
           /roomies /regler /nodinfo /magnus — se prosjektkontrakt. Ukjente ruter går til NotFound. */}
@@ -212,7 +215,7 @@ const AppShell = () => {
                 navigasjon dit skal aldri stoppe en aktiv deling i det stille. */}
             <LocationSharingProvider>
               <AppBadgesProvider>
-                <AppRoutes />
+                <SocialProvider><AppRoutes /></SocialProvider>
               </AppBadgesProvider>
             </LocationSharingProvider>
           </TripProvider>

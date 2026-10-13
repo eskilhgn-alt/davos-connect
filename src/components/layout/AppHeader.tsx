@@ -1,6 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { BackButton, HomeArrowButton } from "./BackButton";
+import { SocialHeaderInbox } from '@/features/social/NotificationInbox';
 
 export interface AppHeaderProps {
   title: string;
@@ -33,6 +34,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           )}
         </div>
         <div className="flex items-center gap-3 min-w-12 justify-end">
+          {!onHome && <SocialHeaderInbox />}
           {rightAction}
         </div>
       </div>

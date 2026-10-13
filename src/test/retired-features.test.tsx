@@ -18,7 +18,7 @@ describe('retired features', () => {
   it('keeps useful navigation while removing all three retired destinations', () => {
     render(<MemoryRouter><MoreTiles /></MemoryRouter>);
     expect(screen.getByRole('link', { name: 'Agenda' })).toHaveAttribute('href', '/agenda');
-    expect(screen.getByRole('link', { name: 'Shot' })).toHaveAttribute('href', '/shot');
+    expect(screen.getByRole('link', { name: 'Shot your shot' })).toHaveAttribute('href', '/shot');
     expect(screen.queryByRole('link', { name: 'Runder' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Faktasjekk' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Avstemninger' })).not.toBeInTheDocument();

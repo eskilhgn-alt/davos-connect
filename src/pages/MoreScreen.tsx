@@ -19,6 +19,7 @@ import {
   LogOut,
   AlertTriangle,
   Dices,
+  Sparkles,
   LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -53,10 +54,11 @@ export const MoreTiles: React.FC<{ excludePaths?: readonly string[] }> = ({ excl
     // Stories og Minner ligger i Chat (CHAT-MEDIA-01).
     const community: Tile[] = [
       { to: "/alle", label: "Gütta", icon: Users },
+      { to: "/stemning", label: "God stemning", icon: Sparkles },
     ];
 
     const tools: Tile[] = [
-      { to: "/shot", label: "Shot", icon: Dices },
+      { to: "/shot", label: "Shot your shot", icon: Dices },
     ];
 
     const settingsTiles: Tile[] = [

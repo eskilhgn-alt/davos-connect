@@ -1,0 +1,235 @@
+{
+  "baseline_commit": "4638474ae0ce505740f5fee7e5f2fdb8086e62c0",
+  "prepared_branch": "codex/social-prepared-20261014",
+  "automatic_deploy": false,
+  "files": [
+    {
+      "path": "docs/CLOSEOUT_AUTOMATION.md",
+      "before_sha256": "b7c54604dd8ee7e364f43278e48251ef1108efc0a2f7e1a9cc766c3b96e96ffb",
+      "after_sha256": "c11f959aac7abf6b7302d56bd2194bbcced42b033d161eb842ffbbbbb9269433",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/CLOSEOUT_BACKLOG.md",
+      "before_sha256": "a2b64a5f9d056c5af4e0b24e755167a5ade79cdd7e28a01c4ddc91effc8cff62",
+      "after_sha256": "9d89abe6365f001d536e05f66556fe622ceca8a0f38063e2444a7a8d83f51865",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/PROJECT_CONTRACT.md",
+      "before_sha256": "d867413aa1dce396d8a7d0b7f31788a312f1aaa80a2d7e1247d04a95d91260f8",
+      "after_sha256": "5513808afe5f0166ec2af6ba21b4be330dac1127c8c9b29875985cfd6a4362bf",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/SHOT_RUNBOOK.md",
+      "before_sha256": "32abc244f653f9e71d441f4df8115b1df84a3590f4fa88a505752cc2218f26ef",
+      "after_sha256": "ddc03b77bc53fdfdd78381bc73b0d32ae897d150556d561d74334da831e7521b",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/SOCIAL_ACTIVATION.md",
+      "before_sha256": null,
+      "after_sha256": "b3393486abe15d63bc97b808ff903ec0751c0c24360fbc920d5db140c7ad952a",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/SOCIAL_FEATURES_20260920.md",
+      "before_sha256": "e7293b51aa6a916cc95affe1a3d883cd43f956235fcb54ef3b920c2318631032",
+      "after_sha256": "a91e433c39823dd5556686b8a93be4fbebe600f4f54b2ca8e6a96a5e1f59694e",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/SOCIAL_PREPARATION_20261014.md",
+      "before_sha256": null,
+      "after_sha256": "433fba3f584efd8d0731f71d97c2b5f4a49938b2463ad2a5c8cc21b4682974d8",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/history/20261013_CLOSEOUT_AUTOMATION.md",
+      "before_sha256": null,
+      "after_sha256": "72879bb09f64c4744794b6765768dfbc63a02381c41d195720fc8c35569da6d0",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/history/20261013_CLOSEOUT_BACKLOG.md",
+      "before_sha256": null,
+      "after_sha256": "207da58526d375d68f5d3327bda293fa258717672484e254e84cff66bbe2078f",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/history/20261013_PROJECT_CONTRACT.md",
+      "before_sha256": null,
+      "after_sha256": "2223c02529ebaab3f27e0f4c49e5287457e256788a40e45d83742eefb81d47aa",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/history/20261013_SHOT_RUNBOOK.md",
+      "before_sha256": null,
+      "after_sha256": "21ba40240eaf80c3e0b7518883e774cdd4512a7782878b4c5f8201cf2ceaa0c6",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/history/20261013_SOCIAL_FEATURES_20260920.md",
+      "before_sha256": null,
+      "after_sha256": "8b5b685b8d8aaa188d970d5b3947bcdba7e54a89a8de564482b8724d680828db",
+      "mode": "100644"
+    },
+    {
+      "path": "package-lock.json",
+      "before_sha256": "c0d85c625ef4e73bf8f0347d0d510f2bb12f3a00ef3676761d234bdedda0ff27",
+      "after_sha256": "d80a4c6c0bc1533468d24dd3fee8382e8ab6f0a60ddb7c0696fd2ecf9f377106",
+      "mode": "100644"
+    },
+    {
+      "path": "package.json",
+      "before_sha256": "298a1ec7b92765984cddcc2305029c5f245283eee509ef5b05ea708e365f6548",
+      "after_sha256": "2c3f010d78310fc9ace986eb3518076824785dd7164e70462149dff7ea2eef1f",
+      "mode": "100644"
+    },
+    {
+      "path": "scripts/apply_prepared_social.py",
+      "before_sha256": null,
+      "after_sha256": "ad98ebe9191f2c11b9d9aa0084eaab4bcbbcdfa7733ae216f6ce04d6e9bc1f27",
+      "mode": "100755"
+    },
+    {
+      "path": "src/App.tsx",
+      "before_sha256": "769c1291e2c7b307c2f339bdeea06989f48e24ec87783feca5c1e083a9a4b8f1",
+      "after_sha256": "fc7ca95546a33e7e43b25b2bb2a16aaffc3ac286fad90c9c8ddcdb7ad37b6118",
+      "mode": "100644"
+    },
+    {
+      "path": "src/components/layout/AppHeader.tsx",
+      "before_sha256": "e5d1e1b0e82a097ed3664a9f0409194f2dc2b79e8a7d10c42e7627fa63b03f90",
+      "after_sha256": "0634485bc49d51ba33843cce87cf139284d491df9fb4df897d26c22975ca9248",
+      "mode": "100644"
+    },
+    {
+      "path": "src/features/social/NotificationInbox.tsx",
+      "before_sha256": null,
+      "after_sha256": "65abdfa51adcc05b01b1b6ea936a8b7d121cad7051b9724b0a4503c9991849a8",
+      "mode": "100644"
+    },
+    {
+      "path": "src/features/social/SocialProvider.tsx",
+      "before_sha256": null,
+      "after_sha256": "e59f95bd3c3b5f85fc985be479bbe17d0a3933094b922c7712526aaae33e6348",
+      "mode": "100644"
+    },
+    {
+      "path": "src/features/social/api.ts",
+      "before_sha256": null,
+      "after_sha256": "154276cff7d55253328d14b30b833bbc46c7d8afeaac73aa13328e50344c0534",
+      "mode": "100644"
+    },
+    {
+      "path": "src/features/social/history.tsx",
+      "before_sha256": null,
+      "after_sha256": "8b63206c72506b59f4c381c1a672e1b9fcbe05b7cdd636c0c5f3ddd12d8732ad",
+      "mode": "100644"
+    },
+    {
+      "path": "src/features/social/types.ts",
+      "before_sha256": null,
+      "after_sha256": "0f2c1f958dcd7b124168b1c338be46652e10f164e30961b0c0786c151113223d",
+      "mode": "100644"
+    },
+    {
+      "path": "src/pages/HomeScreen.tsx",
+      "before_sha256": "60d778ae1bdb90516bacd48a9ba695e1fa93252b4c5efb66c110e182fe223fd3",
+      "after_sha256": "c0c707ea5f397c52ff305e5c09ecbc13fb340072cc86b58fccfa0c1168cde4e3",
+      "mode": "100644"
+    },
+    {
+      "path": "src/pages/MoreScreen.tsx",
+      "before_sha256": "0d0a5479a4a0308cdd3605e0440c2007818b973936a9a8a1d057a6cb631b450d",
+      "after_sha256": "f80fb65e89124243b6980917c9693bf6b9865743694a5b67aeff9bbf6fd3f2a3",
+      "mode": "100644"
+    },
+    {
+      "path": "src/pages/SocialShotScreen.tsx",
+      "before_sha256": null,
+      "after_sha256": "c1ae3ca09b06402cf935eee66dfca427d4c1bf1e801c4c509217e6b90c8fdc0f",
+      "mode": "100644"
+    },
+    {
+      "path": "src/pages/VibeScreen.tsx",
+      "before_sha256": null,
+      "after_sha256": "77eb093400147603869be99d6333508e28647b87eaf8c55f7d909514e3068d2a",
+      "mode": "100644"
+    },
+    {
+      "path": "src/test/retired-features.test.tsx",
+      "before_sha256": "dede7f632d97a22608bc4985c3c21568cb859d29702608824eb546fa61c21d43",
+      "after_sha256": "9d42b0e758607d73ca3f28a37874a554be109b5efa45d78348a952fa21b4d9fe",
+      "mode": "100644"
+    },
+    {
+      "path": "src/test/social-client.test.tsx",
+      "before_sha256": null,
+      "after_sha256": "8c38d3cb08f0faa5df4953fffcfd1386e0ce1f8f296ec7111af2004d4da5f83d",
+      "mode": "100644"
+    },
+    {
+      "path": "src/test/social-worker.test.ts",
+      "before_sha256": null,
+      "after_sha256": "0032615525f8cafb5ac3cf5838891c387aad454d7083a0e95c1b341c3779cc8c",
+      "mode": "100644"
+    },
+    {
+      "path": "supabase/config.toml",
+      "before_sha256": "d8ae7acc6426afb12a16e89e40145933f43f6869473286d7c23828df3295fd38",
+      "after_sha256": "af4352939e2ee1a20796ad0cd85b65d6cc399f4f52983b202c2d494ebb4496e9",
+      "mode": "100644"
+    },
+    {
+      "path": "supabase/functions/social/core.ts",
+      "before_sha256": null,
+      "after_sha256": "f07ec9ed1396688fee4d94115bbb08308293400a1d2b5dadaa3ab132a786b98e",
+      "mode": "100644"
+    },
+    {
+      "path": "supabase/functions/social/index.ts",
+      "before_sha256": null,
+      "after_sha256": "da5608460823dee54534393146819d5b5db055b8b8214f1a0344e010f613b5eb",
+      "mode": "100644"
+    },
+    {
+      "path": "supabase/migrations-pending/20261013221627_social_v2_prepared.sql",
+      "before_sha256": null,
+      "after_sha256": "bd00424b006ff81be85db21f4cebc77e2966a5de53567844a5c9e9bcf8f71283",
+      "mode": "100644"
+    },
+    {
+      "path": "supabase/migrations-pending/20261014_social_activation.sql",
+      "before_sha256": null,
+      "after_sha256": "608eb0f322846e320efb811e1d4e41ac207c65a1e6aae54d22309e0fd6cf5b42",
+      "mode": "100644"
+    },
+    {
+      "path": "supabase/tests/social/fixture.sql",
+      "before_sha256": null,
+      "after_sha256": "6be5f2341eed314613a63279a8789fd7e41e2a08fff793dac0e6ea71d81a2b5e",
+      "mode": "100644"
+    },
+    {
+      "path": "supabase/tests/social/native.mjs",
+      "before_sha256": null,
+      "after_sha256": "e6df8cb95e5f40e38f9f98a7de24e2a231dcf2fa77b7a9ffe9f8205a66aa3f1c",
+      "mode": "100644"
+    },
+    {
+      "path": "supabase/tests/social/run-native.sh",
+      "before_sha256": null,
+      "after_sha256": "5135bd11a229718f65edcfb3784c73207fe147e380971e94cfba590ff0301d0c",
+      "mode": "100755"
+    },
+    {
+      "path": "supabase/tests/social/run.mjs",
+      "before_sha256": null,
+      "after_sha256": "447e4c3431a89fa4e450d8225d0d4548a432c5a74e52a8299c9958814c587082",
+      "mode": "100644"
+    }
+  ]
+}

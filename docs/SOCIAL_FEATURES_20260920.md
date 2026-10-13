@@ -4,53 +4,16 @@ Bestilt av Eskil 20. september 2026. Denne bestillingen utvider tidligere
 ferdigstillingsomfang. Ingen automatisk forlengelse av gammel automasjon.
 Status skilles mellom kode, aktiv preview, aktiv backend og testet levering.
 
-## Prioritering og faktisk status
+## Gjeldende status og kilde
 
-| ID | Leveranse | Status før import |
-| --- | --- | --- |
-| CAM-01 | Stabil kameraåpning, én spiller, utvidelse uten omstart, retry | Implementert lokalt, venter import/verifikasjon |
-| CAM-02 | Automatisk ekte videoavspilling ved flisåpning | Native videospiller klar; nåværende Skaping-kilder leverer bilder, ikke videostrøm. Kildeskifte og fysisk iPhone-bevis gjenstår |
-| VIBE-01 | God stemning fra grønn knapp til push, in-app-varsel og logg | Bestilt, ikke implementert/aktivert |
-| SHOT-02 | Ny Shot-backend aktiv og testet; fem starter/dag, svar, varsler og graf | Eksisterende v2 er kode/pending; utvidelsen ikke implementert |
-| SHOT-03 | Daglige Headshot-rettigheter og atomisk bruk | Bestilt, ikke implementert/aktivert |
-| SOCIAL-QA | To autoriserte enheter, app lukket, retries, arkiv og turbytte | Åpen |
-
-Neste utviklingsleveranse er VIBE-01. Deretter SHOT-02 og SHOT-03 på samme
-varige varslingsgrunnlag. Ikke sett disse til Ferdig før backend og levering
-faktisk er verifisert. Ingen falske knapper, simulerte pushkvitteringer eller
-lokal lagring som erstatning for delt serverdata.
-
-## Kamera: funn og endring
-
-- Valgt tur ble kontrollert i databasen: Val Thorens 2027, ingen egen webcams-
-  konfigurasjon. Appen bruker derfor Val Thorens-fallbacken.
-- Før: ni tunge interaktive leverandørsider lastes samtidig. Utvidelse lager
-  enda en iframe. Iframe `load` sier ikke at en video spiller.
-- Etter: én valgt spiller, lette kameravalg, første standardkamera Station.
-  Samme mediaelement blir stående ved utvidelse/lukking. 20 sekunders timeout,
-  faktisk retry, nye feiltilstander nullstilles ved kamerabytte og turbytte.
-- Offisielle snapshot-URL-er for Station, Cime Caron, La Bee og La Maison gir
-  forhåndsvisning. Bildene er ikke kontinuerlig video og merkes riktig.
-- Verifisert 20.09: Skapings egne spillersider for disse fire har
-  `player.mediaTypes: ["image"]` og starter `ImageMedia`. Prosneige gjør det
-  samme, med siste bilde 26.08. Nettleserkontroll av Station fant ingen video.
-- Val Thorens opplyser at flere kameraer er frakoblet utenfor sesongen. Ikke
-  hardkod permanente driftsløfter eller fjern kameraene for vinteren.
-- Nye, verifiserte direkte videokilder kan bruke `mode: "video"` + `streamUrl`:
-  autoPlay, muted, playsInline, preload og eksplisitt play(). Avvist autoplay
-  gir fungerende startvalg. Native formatstøtte gjelder; HLS uten native
-  nettleserstøtte trenger separat støttet avspiller før godkjenning.
-- Verken `allow="autoplay"` eller oppdiktede URL-parametere kan tvinge en
-  tredjeparts bildespiller til å sende video. CAM-02 er derfor fortsatt åpen.
-
-Kilder kontrollert:
-- https://www.valthorens.com/en/webcams/
-- https://www.skaping.com/valthorens/station
-- https://www.skaping.com/val-thorens/cime-caron
-- https://www.skaping.com/val-thorens/tyrolienne-la-bee
-- https://www.skaping.com/valthorens/lamaison
-- https://www.skaping.com/js/player.js?1789549661
-- https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay
+Dette er den vedtatte funksjonsbeskrivelsen, ikke en separat arbeidskø.
+**Én gjeldende kø: [CLOSEOUT_BACKLOG.md](CLOSEOUT_BACKLOG.md).**
+Kamerakoden er allerede aktiv: én spiller og datert ekte MP4-timelapse med
+muted/playsInline/autoplay/play(). Opptak er ikke live. Fysisk iPhone-bevis er åpent.
+Gamle kildefunn og tidligere statuser finnes i history/20261013_SOCIAL_FEATURES_20260920.md.
+VIBE/Shot/Headshot er nå skrevet og lokalt testet på forberedelsesgrenen;
+ingen sosial backend, Edge, cron eller frontend er aktivert av dette forarbeidet.
+Implementasjons- og aktiveringsbevis: SOCIAL_PREPARATION_20261014.md og SOCIAL_ACTIVATION.md.
 
 ## Felles servergrunnlag for de nye flisene
 
@@ -142,7 +105,7 @@ Kilder kontrollert:
 - Ekte iPhone/PWA og to autoriserte økter. Ingen testsendinger til hele gjengen
   uten et avtalt testopplegg. Grønn UI-test alene er ikke leveringsbevis.
 
-## Verifisert starttilstand 20. september
+## Historisk starttilstand 20. september (ikke dagens HEAD)
 
 Aktiv Lovable HEAD før denne leveransen: d3c1d7cd1e4009844c9c347c6de5a63895655c8c.
 Read-only databasekontroll viste notification_dispatches, men ingen shot_draws,
