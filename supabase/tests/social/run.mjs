@@ -570,7 +570,7 @@ try {
     "yesterday headshot counts for leader; others unique; rerun safe",
     async () => {
       await db.exec(
-        `insert into shot_draws(trip_id,initiated_by,kind,idempotency_key,status,draw_at,finalized_at,local_day,timezone,participant_count,participant_hash,seed_commitment,winner_id) values('${t}','${uid(2)}','headshot','fixture','finalized',now()-interval '1 day',now()-interval '1 day',current_date-1,'Europe/Paris',3,'fixture','fixture','${uid(1)}')`,
+        `insert into shot_draws(trip_id,initiated_by,kind,idempotency_key,status,draw_at,finalized_at,local_day,timezone,participant_count,participant_hash,seed_commitment,winner_id) values('${t}','${uid(2)}','headshot','fixture','finalized',now()-interval '1 day',now()-interval '1 day',(now() at time zone 'Europe/Paris')::date-1,'Europe/Paris',3,'fixture','fixture','${uid(1)}')`,
       );
       await db.exec("select social_tick();select social_tick()");
       assert.equal(
@@ -590,7 +590,7 @@ try {
     async () => {
       await reset();
       await db.exec(
-        `insert into shot_draws(trip_id,initiated_by,kind,idempotency_key,status,draw_at,finalized_at,local_day,timezone,participant_count,participant_hash,seed_commitment,winner_id) select '${t}','${uid(3)}','draw',u::text,'finalized',now()-interval '1 day',now()-interval '1 day',current_date-1,'Europe/Paris',3,'fixture','fixture',u from unnest(array['${uid(1)}'::uuid,'${uid(2)}'::uuid]) u`,
+        `insert into shot_draws(trip_id,initiated_by,kind,idempotency_key,status,draw_at,finalized_at,local_day,timezone,participant_count,participant_hash,seed_commitment,winner_id) select '${t}','${uid(3)}','draw',u::text,'finalized',now()-interval '1 day',now()-interval '1 day',(now() at time zone 'Europe/Paris')::date-1,'Europe/Paris',3,'fixture','fixture',u from unnest(array['${uid(1)}'::uuid,'${uid(2)}'::uuid]) u`,
       );
       await db.exec("select social_tick()");
       const a = (await db.query("select * from social_private.allocations"))
