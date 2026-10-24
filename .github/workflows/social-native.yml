@@ -1,0 +1,30 @@
+name: Social native PostgreSQL verification
+on:
+  push:
+    branches: [codex/social-native-20261024]
+    paths:
+      - '.github/workflows/social-native.yml'
+      - 'supabase/tests/social/**'
+      - 'supabase/migrations-pending/20261013221627_social_v2_prepared.sql'
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Select PostgreSQL 17
+        shell: bash
+        run: |
+          test -x /usr/lib/postgresql/17/bin/initdb
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Native SQL and concurrent sessions
+        run: npm run test:social:native
