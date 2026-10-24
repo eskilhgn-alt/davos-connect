@@ -24,6 +24,13 @@ jobs:
       - name: Select PostgreSQL 17
         shell: bash
         run: |
+          if [ ! -x /usr/lib/postgresql/17/bin/initdb ]; then
+            sudo install -d /usr/share/postgresql-common/pgdg
+            curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+            echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/pgdg.list
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-17
+          fi
           test -x /usr/lib/postgresql/17/bin/initdb
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
       - name: Record test runtime
