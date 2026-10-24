@@ -12,7 +12,7 @@ Ingen av stegene under er et bevis på at produksjonen er endret.
 2. Kjør `npm ci`, `npm test`, `npx tsc --noEmit -p tsconfig.app.json`,
    `npm run build` og `npm run test:social:sql`. PGlite kjører ekte PostgreSQL-
    atferd/RLS, men én forbindelse. Det er ikke native samtidighetsbevis.
-3. Kjør `npm run test:social:native` som vanlig OS-bruker i miljø med
+3. **Bestått 24.10: 49/49 på native PostgreSQL 17.11, inkludert alle fem samtidighetsscenarier.** Se SOCIAL_NATIVE_20261024.md. Ved relevante kodeendringer, kjør `npm run test:social:native` som vanlig OS-bruker i miljø med
    `initdb`, `pg_ctl` og PostgreSQL 17. Harness oppretter og fjerner kun egen
    `/tmp/guttahutte-social-*/`-database, uten TCP og uten produksjons-URL.
    Krever alle SQL-kontroller + åtte samtidige like starter, to finaliserere,

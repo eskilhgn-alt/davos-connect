@@ -1,6 +1,6 @@
 {
   "baseline_commit": "4638474ae0ce505740f5fee7e5f2fdb8086e62c0",
-  "prepared_branch": "codex/social-prepared-20261014",
+  "prepared_branch": "codex/social-native-20261024",
   "automatic_deploy": false,
   "files": [
     {
@@ -12,7 +12,7 @@
     {
       "path": "docs/CLOSEOUT_BACKLOG.md",
       "before_sha256": "a2b64a5f9d056c5af4e0b24e755167a5ade79cdd7e28a01c4ddc91effc8cff62",
-      "after_sha256": "9d89abe6365f001d536e05f66556fe622ceca8a0f38063e2444a7a8d83f51865",
+      "after_sha256": "0b7b0ce55a420ee4e16ff0bc5a87fd49b5903213590964a1ef0ef6a3e056d9a2",
       "mode": "100644"
     },
     {
@@ -30,7 +30,7 @@
     {
       "path": "docs/SOCIAL_ACTIVATION.md",
       "before_sha256": null,
-      "after_sha256": "b3393486abe15d63bc97b808ff903ec0751c0c24360fbc920d5db140c7ad952a",
+      "after_sha256": "454dd7e856115c711e88161e68206170e9c1273a787840ac62ac66ec724f0830",
       "mode": "100644"
     },
     {
@@ -228,7 +228,13 @@
     {
       "path": "supabase/tests/social/run.mjs",
       "before_sha256": null,
-      "after_sha256": "447e4c3431a89fa4e450d8225d0d4548a432c5a74e52a8299c9958814c587082",
+      "after_sha256": "4bb8b4e5831c07f39d87db4cbdb2ebd8b1231bde1972ead789f9abf1c69b12e3",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/SOCIAL_NATIVE_20261024.md",
+      "before_sha256": null,
+      "after_sha256": "ddc344a92ab3ff8b21d8509811649300c5c1f4be4a5735c73985b8970fc6504a",
       "mode": "100644"
     }
   ]
