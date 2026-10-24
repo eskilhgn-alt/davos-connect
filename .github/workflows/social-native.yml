@@ -26,5 +26,7 @@ jobs:
         run: |
           test -x /usr/lib/postgresql/17/bin/initdb
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Record test runtime
+        run: node --version && postgres --version && id -u
       - name: Native SQL and concurrent sessions
         run: npm run test:social:native
