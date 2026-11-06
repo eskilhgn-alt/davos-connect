@@ -1,94 +1,37 @@
-## Gallery Slice 4B — QA correction plan
+# ChatGPT i GüttaHütte – to spor
 
-Scope: main branch, no production publish, no destructive data changes. All existing gallery rows/storage objects preserved.
+## Viktig å vite
+- ChatGPT Pro-kontoen din dekker bruk inne i ChatGPT. Den betaler ikke for bygging her og ikke for AI inne i appen.
+- AI inne i appen bruker OpenAI-modeller via Lovable, uten egen nøkkel. Det trekkes fra arbeidsområdets lille gratis AI-kvote (månedlig). Når den er brukt opp, stopper AI-funksjonen med en tydelig melding. Ingen kjøp.
+- Byggeregelen gjelder fortsatt: høyst fem faktisk tilgjengelige gratis kreditter per døgn og én avgrenset Build per steg. Ingen Plan/Max.
 
-### Files touched
+## Spor 1 – ChatGPT styrer appen (finnes delvis allerede)
+Appen har allerede en ChatGPT-kobling med innlogging. Hver person logger inn med sin egen konto, og samme tilgangsregler gjelder. Den har tre verktøy: min profil, les nylig chat og send chatmelding. Den ble laget før flerturmodellen og må oppdateres.
 
-- `src/features/gallery/useGallery.ts` — feed dependency loop, per-item likes, comment `client_id` + pagination
-- `src/features/gallery/helpers.ts` — cursor helpers for comments, client_id reconciliation, per-item like reconcile
-- `src/features/gallery/types.ts` — add `client_id` field, comment cursor type
-- `src/pages/GalleryScreen.tsx` — GridThumb/ViewerSheet broken-media UI, prefetch warmup, upload retry, auto-scroll, disable duplicate destructive submits
-- `src/components/ui/SignedMedia.tsx` — expose `status`/`retry` on `SignedImg`/`SignedVideo`
-- `src/features/gallery/__tests__/helpers.test.ts` — new regression tests
-- `src/features/gallery/__tests__/useGallery.test.ts` — new hook tests (mount-once, per-item likes, client_id reconciliation, comment cursor merge)
-- New migration: `gallery_comments.client_id uuid null` + partial unique index
+Steg:
+1. Kontroller at de tre verktøyene bare viser og skriver i den aktive turen. De skal respektere arkiv (skrivebeskyttet), godkjent medlemskap og ban.
+2. Legg til verktøy som bare leser:
+   - aktiv tur (destinasjon, datoer bare hvis de er satt, tidssone, valuta)
+   - agenda og tidslinje
+   - Stories og Minner fra siste døgn (bare tekst og metadata, ingen filer)
+3. Ingen admin-, slette-, push- eller posisjonsverktøy. Crew og posisjoner holdes utenfor.
+4. Når appen publiseres neste gang med din godkjenning, legger du til koblingen i ChatGPT under Innstillinger → Apps/Connectors. Adressen får du da.
 
-### 1. Refresh dependency loop (feed)
+## Spor 2 – AI-funksjoner inne i appen
+Forslag til første funksjon, som er liten og trygg: **«Hva har skjedd?»** i Chat. Den lager et kort norsk sammendrag av meldingene i den aktive turen siden du sist var inne. Den bruker bare data du allerede har tilgang til. Ingen lagring av AI-svar og ingen push.
 
-- Move `profiles` state read behind a `profilesRef`; `loadProfiles` becomes stable (`useCallback` with empty deps).
-- Dedupe in-flight profile IDs via a `Set` ref.
-- Initial fetch runs once per mount via a `didInitRef`, not on every `refresh` identity change.
+Mulige senere funksjoner (ikke i denne runden):
+- Turassistent som svarer på spørsmål om agenda, vær og praktisk info
+- Forslag til dagsplan ut fra været
 
-### 2. Signed media failure UX
+## Rekkefølge og kostnad
+1. Build A (spor 1, steg 1–3) + manifest-kontroll
+2. Build B («Hva har skjedd?»)
+3. Publisering bare etter egen godkjenning
 
-- Extend `SignedImg`/`SignedVideo` to render a broken-media placeholder + "Prøv igjen" when `status === "error"` (uses existing `useSignedMedia` API).
-- Wire `onError` on `<img>`/`<video>` to trigger `retry()`.
-- Replace `useSignedUrl` in `GridThumb` and `ViewerSheet` with the stateful `SignedImg`/`SignedVideo`. Zero public fallback.
-- Neighbor prefetch: after `signBatch`, create `new Image()` for images to warm the browser HTTP cache; skip videos.
-
-### 3. Per-item like reconciliation
-
-- `useGalleryLikes` state becomes a `Map<itemId, {override: Set<userId>, reqId: number}>`.
-- Server `likes` map reconciles per item: only clear the override for item X when its confirmed server state matches `intent` and the response's `reqId === currentReq(itemId)`.
-- Stale responses lose the race and do not roll back a newer tap.
-- Insert error: treat Postgres `23505` (code) as idempotent success, in addition to legacy `/duplicate/i` fallback.
-
-### 4. Comments idempotency via `client_id`
-
-Migration:
-```sql
-ALTER TABLE public.gallery_comments ADD COLUMN IF NOT EXISTS client_id uuid;
-CREATE UNIQUE INDEX IF NOT EXISTS gallery_comments_user_client_uidx
-  ON public.gallery_comments (user_id, client_id) WHERE client_id IS NOT NULL;
-```
-No existing row is modified. Grants unchanged.
-
-Hook:
-- Insert `client_id` on every optimistic submit.
-- Realtime + reload rows carry `client_id`; `replaceOptimisticWithServer` matches strictly on `client_id` first; the 30 s legacy heuristic runs only when both server row and optimistic lack `client_id`.
-- Retry re-uses the same `client_id`; duplicate-key on `(user_id, client_id)` is treated as success (idempotent).
-
-### 5. Comment pagination
-
-- Order `(created_at asc, id asc)` from newest cursor backwards? To stay Messenger-like we load the newest N and expose "Last inn eldre" for older pages.
-- Actually keep chronological ascending order in view; internally page from newest backwards with cursor `(created_at desc, id desc)` and reverse for display. Page size 30.
-- Retryable load error UI already present; extend to older-page load button.
-- Optimistic drafts held in a separate list; page merges preserve them.
-
-### 6. Refresh reconciliation
-
-- Feed refresh only replaces likes/commentCounts for IDs in the refreshed page; older items keep their state.
-- Realtime DELETE continues to work; both tables already have `REPLICA IDENTITY FULL`.
-
-### 7. Upload hardening
-
-- After `reencodeImage`, validate output blob MIME (`image/jpeg`) and size ≤ 20 MB; throw with Norwegian message if not.
-- Video poster: attempt via `<video>` + `seekTo(0.1)` + canvas draw; on any error, skip thumb path and rely on fallback tile.
-- All object URLs held in refs and revoked on cleanup + on `open=false`.
-- `cleanupAttempt` already uses `ownedCleanupPaths` — keep, but ensure `historicalPaths` is derived per-attempt (already is).
-- Retry: after `phase === "error"`, expose a "Prøv igjen" button that re-runs `publish` without requiring re-select.
-
-### 8. UX details
-
-- Comment list auto-scrolls to bottom on new optimistic entry only when user is already near the bottom (< 80px from bottom). If scrolled up reading older, don't fight.
-- Deletion dialog: keep derived-mode copy.
-- Disable delete action while pending (`disabled` + `aria-busy`).
-- Upload "Prøv igjen" button surfaced in error state.
-
-### 9. Regression tests
-
-New tests (Vitest):
-- `helpers.test.ts`: client_id match wins over time heuristic; time heuristic only when both lack `client_id`; per-item like reconcile; comment cursor merge preserves order + dedupes.
-- `useGallery.test.ts` (jsdom, mocked supabase): initial feed fetch runs exactly once even when `profiles` state updates; toggling like on item A does not clear override on item B; stale response for item A does not roll back a newer tap; duplicate submit with same `client_id` produces one visible comment.
-
-### Verification
-
-- `npm test` — expect all previous + new tests green
-- `npm run build` — typecheck via tsc through Vite
-- `npm run lint` — fix real errors, no suppressions
-
-### Limits / known gaps after this slice
-
-- No server-side transcoding: video posters remain best-effort browser-side.
-- Bucket privacy migration (public → private) still deferred to Slice 6 as previously agreed.
-- No changes to production publish.
+## Tekniske detaljer
+- MCP: `src/lib/mcp` med `defineMcp`, OAuth-issuer finnes allerede. Navnet rettes til `guttahutte` (tittel uendret). Hvert verktøy i egen fil, brukerens eget token og RLS gjelder (ingen service-role). Kjør manifestuttrekk etter endringer. Edge-funksjonen `mcp` deployes bare ved publisering.
+- WebMCP: valgfritt, og hoppes over i denne runden for å spare kreditter.
+- AI: ny Edge-funksjon `chat-summary` med JWT-validering og trip-medlemskapssjekk i en brukerscopet klient. Lovable AI Gateway Responses (`openai/gpt-6-astra`, reasoning low), strømmet svar. 402/403/429 vises på norsk uten automatisk gjentakelse. `LOVABLE_API_KEY` opprettes hvis den mangler.
+- Tester: Vitest for knappetilstander og arkiv (skjult) og for edge-validering. Deretter tsc og build.
+- Ingen DB-skjemaendring, ingen push, ingen frontendpublisering uten godkjenning.
