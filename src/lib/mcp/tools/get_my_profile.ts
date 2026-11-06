@@ -1,33 +1,27 @@
-import { createClient } from "@supabase/supabase-js";
-import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
-
-function supabaseForUser(ctx: ToolContext) {
-  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
+import { defineTool } from "@lovable.dev/mcp-js";
+import { errorResult, supabaseForUser } from "../supabase";
 
 export default defineTool({
   name: "get_my_profile",
   title: "Hent min profil",
-  description: "Hent den innloggede brukerens GüttaHütte-profil (navn, kallenavn, avatar, admin-status).",
+  description: "Hent den innloggede brukerens GüttaHütte-profil (navn, kallenavn, avatar).",
   inputSchema: {},
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (_input, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
+    if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
     const supabase = supabaseForUser(ctx);
-    const [{ data: profile, error }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("id,email,full_name,nickname,avatar_url,is_active,is_banned,created_at").eq("id", ctx.getUserId()).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", ctx.getUserId()),
-    ]);
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    const result = { ...profile, roles: (roles ?? []).map((r: any) => r.role) };
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      structuredContent: result,
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id,full_name,nickname,avatar_url")
+      .eq("id", ctx.getUserId())
+      .maybeSingle();
+    if (error) return errorResult(error.message);
+    const profile = {
+      id: data?.id ?? null,
+      full_name: data?.full_name ?? null,
+      nickname: data?.nickname ?? null,
+      avatar_url: data?.avatar_url ?? null,
     };
+    return { content: [{ type: "text", text: JSON.stringify(profile) }], structuredContent: { profile } };
   },
 });

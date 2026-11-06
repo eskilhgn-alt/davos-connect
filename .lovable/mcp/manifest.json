@@ -11,15 +11,15 @@
   },
   "mcp": {
     "server": {
-      "name": "guttahutte-mcp",
-      "version": "0.2.0",
+      "name": "guttahutte",
+      "version": "0.3.0",
       "title": "GüttaHütte"
     },
     "tools": [
       {
-        "name": "get_my_profile",
-        "title": "Hent min profil",
-        "description": "Hent den innloggede brukerens GüttaHütte-profil (navn, kallenavn, avatar, admin-status).",
+        "name": "get_active_trip",
+        "title": "Aktiv tur",
+        "description": "Hent den aktive turen: navn, destinasjon, land, tidssone, valuta og datoer (null hvis ikke satt).",
         "annotations": {
           "readOnlyHint": true,
           "openWorldHint": false
@@ -32,9 +32,37 @@
         "outputSchema": null
       },
       {
+        "name": "list_agenda",
+        "title": "Agenda",
+        "description": "Hent agendaen (tidslinjen) for den aktive turen, sortert etter starttid.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "upcoming_only": {
+              "default": false,
+              "description": "Bare hendelser som ikke er ferdige.",
+              "type": "boolean"
+            },
+            "limit": {
+              "default": 50,
+              "description": "Maks antall hendelser.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
         "name": "list_recent_chat_messages",
         "title": "Nylige chat-meldinger",
-        "description": "Hent de siste meldingene fra hoved-chatten i GüttaHütte.",
+        "description": "Hent de siste meldingene i chatten for den aktive turen.",
         "annotations": {
           "readOnlyHint": true,
           "openWorldHint": false
@@ -45,7 +73,7 @@
           "properties": {
             "limit": {
               "default": 20,
-              "description": "Antall meldinger å hente (1-100).",
+              "description": "Antall meldinger (1-100).",
               "type": "integer",
               "minimum": 1,
               "maximum": 100
@@ -57,7 +85,7 @@
       {
         "name": "post_chat_message",
         "title": "Send chat-melding",
-        "description": "Send en melding til GüttaHütte-hovedchatten som den innloggede brukeren.",
+        "description": "Send en melding til chatten for den aktive turen, som den innloggede brukeren.",
         "annotations": {
           "readOnlyHint": false,
           "destructiveHint": false,
@@ -71,12 +99,42 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 2000,
-              "description": "Meldingsteksten som skal sendes."
+              "description": "Meldingsteksten."
             }
           },
           "required": [
             "text"
           ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_recent_media",
+        "title": "Stories og Minner siste døgn",
+        "description": "Oversikt (uten filer) over aktive Stories og nye Minner i den aktive turen siste 24 timer.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_my_profile",
+        "title": "Hent min profil",
+        "description": "Hent den innloggede brukerens GüttaHütte-profil (navn, kallenavn, avatar).",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
         },
         "outputSchema": null
       }
