@@ -6,118 +6,231 @@
 import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.23.0";
 
 // src/lib/mcp/tools/get_my_profile.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.93.3";
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.23.0";
+
+// src/lib/mcp/supabase.ts
+import { createClient } from "npm:@supabase/supabase-js@^2.93.3";
+function runtimeEnv(name) {
+  const runtime = globalThis;
+  return runtime.Deno?.env?.get?.(name) ?? runtime.process?.env?.[name];
+}
+function configuredEnv(names) {
+  for (const name of names) {
+    const value = runtimeEnv(name)?.trim();
+    if (value) return value;
+  }
+  return void 0;
+}
+function supabaseProjectUrl() {
+  const url = configuredEnv(["SUPABASE_URL", "VITE_SUPABASE_URL"]);
+  if (!url) throw new Error("SUPABASE_URL mangler");
+  return url;
+}
+function supabasePublishableKey() {
+  const direct = configuredEnv(["SUPABASE_PUBLISHABLE_KEY", "VITE_SUPABASE_PUBLISHABLE_KEY"]);
+  if (direct) return direct;
+  const keyset = runtimeEnv("SUPABASE_PUBLISHABLE_KEYS");
+  if (keyset) {
+    try {
+      const parsed = JSON.parse(keyset);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const keys = parsed;
+        const key = [keys.default, ...Object.values(keys)].find((v) => typeof v === "string" && v.trim().startsWith("sb_publishable_"))?.trim();
+        if (key) return key;
+      }
+    } catch {
+    }
+  }
+  const legacy = configuredEnv(["SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY"]);
+  if (legacy) return legacy;
+  throw new Error("Publishable key mangler");
+}
 function supabaseForUser(ctx) {
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+  const token = ctx.getToken();
+  if (!token) throw new Error("Krever verifisert OAuth-token");
+  return createClient(supabaseProjectUrl(), supabasePublishableKey(), {
+    global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
+var errorResult = (text) => ({
+  content: [{ type: "text", text }],
+  isError: true
+});
+async function activeTripForUser(supabase, userId) {
+  const { data: profile } = await supabase.from("profiles").select("is_banned").eq("id", userId).maybeSingle();
+  if (!profile || profile.is_banned) return { ok: false, reason: "Ingen tilgang." };
+  const { data: trip, error } = await supabase.from("trips").select("id,name,destination,country,timezone,currency,start_date,end_date,status").eq("status", "active").maybeSingle();
+  if (error) return { ok: false, reason: error.message };
+  if (!trip) return { ok: false, reason: "Ingen aktiv tur." };
+  const { data: member } = await supabase.from("trip_members").select("user_id").eq("trip_id", trip.id).eq("user_id", userId).maybeSingle();
+  if (!member) return { ok: false, reason: "Du er ikke medlem av den aktive turen." };
+  return { ok: true, trip };
+}
+
+// src/lib/mcp/tools/get_my_profile.ts
 var get_my_profile_default = defineTool({
   name: "get_my_profile",
   title: "Hent min profil",
-  description: "Hent den innloggede brukerens G\xFCttaH\xFCtte-profil (navn, kallenavn, avatar, admin-status).",
+  description: "Hent den innloggede brukerens G\xFCttaH\xFCtte-profil (navn, kallenavn, avatar).",
   inputSchema: {},
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (_input, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
+    if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
     const supabase = supabaseForUser(ctx);
-    const [{ data: profile, error }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("id,email,full_name,nickname,avatar_url,is_active,is_banned,created_at").eq("id", ctx.getUserId()).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", ctx.getUserId())
-    ]);
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    const result = { ...profile, roles: (roles ?? []).map((r) => r.role) };
-    return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      structuredContent: result
+    const { data, error } = await supabase.from("profiles").select("id,full_name,nickname,avatar_url").eq("id", ctx.getUserId()).maybeSingle();
+    if (error) return errorResult(error.message);
+    const profile = {
+      id: data?.id ?? null,
+      full_name: data?.full_name ?? null,
+      nickname: data?.nickname ?? null,
+      avatar_url: data?.avatar_url ?? null
     };
+    return { content: [{ type: "text", text: JSON.stringify(profile) }], structuredContent: { profile } };
   }
 });
 
 // src/lib/mcp/tools/list_recent_chat.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.93.3";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.23.0";
 import { z } from "npm:zod@^4.4.3";
-function supabaseForUser2(ctx) {
-  return createClient2(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var list_recent_chat_default = defineTool2({
   name: "list_recent_chat_messages",
   title: "Nylige chat-meldinger",
-  description: "Hent de siste meldingene fra hoved-chatten i G\xFCttaH\xFCtte.",
+  description: "Hent de siste meldingene i chatten for den aktive turen.",
   inputSchema: {
-    limit: z.number().int().min(1).max(100).default(20).describe("Antall meldinger \xE5 hente (1-100).")
+    limit: z.number().int().min(1).max(100).default(20).describe("Antall meldinger (1-100).")
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const supabase = supabaseForUser2(ctx);
-    const { data, error } = await supabase.from("messages").select("id,text,sender_id,sender_name,created_at").order("created_at", { ascending: false }).limit(limit ?? 20);
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-      structuredContent: { messages: data }
-    };
+    if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
+    const supabase = supabaseForUser(ctx);
+    const t = await activeTripForUser(supabase, ctx.getUserId());
+    if (!t.ok) return errorResult(t.reason);
+    const { data, error } = await supabase.from("messages").select("id,text,sender_name,created_at").eq("trip_id", t.trip.id).is("deleted_at", null).order("created_at", { ascending: false }).limit(limit ?? 20);
+    if (error) return errorResult(error.message);
+    const messages = (data ?? []).map((m) => ({ id: m.id, text: m.text, sender_name: m.sender_name, created_at: m.created_at }));
+    return { content: [{ type: "text", text: JSON.stringify(messages) }], structuredContent: { messages } };
   }
 });
 
 // src/lib/mcp/tools/post_chat_message.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.93.3";
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.23.0";
 import { z as z2 } from "npm:zod@^4.4.3";
-var WELCOME_THREAD_ID = "00000000-0000-0000-0000-000000000001";
-function supabaseForUser3(ctx) {
-  return createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
+var DEFAULT_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 var post_chat_message_default = defineTool3({
   name: "post_chat_message",
   title: "Send chat-melding",
-  description: "Send en melding til G\xFCttaH\xFCtte-hovedchatten som den innloggede brukeren.",
+  description: "Send en melding til chatten for den aktive turen, som den innloggede brukeren.",
   inputSchema: {
-    text: z2.string().trim().min(1).max(2e3).describe("Meldingsteksten som skal sendes.")
+    text: z2.string().trim().min(1).max(2e3).describe("Meldingsteksten.")
   },
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   handler: async ({ text }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const supabase = supabaseForUser3(ctx);
+    if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
+    const supabase = supabaseForUser(ctx);
     const userId = ctx.getUserId();
+    const t = await activeTripForUser(supabase, userId);
+    if (!t.ok) return errorResult(t.reason);
     const { data: profile } = await supabase.from("profiles").select("nickname,full_name").eq("id", userId).maybeSingle();
     const senderName = profile?.nickname || profile?.full_name || "Ukjent";
-    const { data, error } = await supabase.from("messages").insert({ text, thread_id: WELCOME_THREAD_ID, sender_id: userId, sender_name: senderName }).select().single();
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const { data, error } = await supabase.from("messages").insert({ text, thread_id: DEFAULT_THREAD_ID, trip_id: t.trip.id, sender_id: userId, sender_name: senderName }).select("id,created_at").single();
+    if (error) return errorResult(error.message);
     return {
-      content: [{ type: "text", text: `Sendt: "${text}"` }],
-      structuredContent: { message: data }
+      content: [{ type: "text", text: `Sendt til ${t.trip.name}: "${text}"` }],
+      structuredContent: { message: { id: data.id, created_at: data.created_at } }
     };
+  }
+});
+
+// src/lib/mcp/tools/get_active_trip.ts
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.23.0";
+var get_active_trip_default = defineTool4({
+  name: "get_active_trip",
+  title: "Aktiv tur",
+  description: "Hent den aktive turen: navn, destinasjon, land, tidssone, valuta og datoer (null hvis ikke satt).",
+  inputSchema: {},
+  annotations: { readOnlyHint: true, openWorldHint: false },
+  handler: async (_input, ctx) => {
+    if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
+    const t = await activeTripForUser(supabaseForUser(ctx), ctx.getUserId());
+    if (!t.ok) return errorResult(t.reason);
+    const trip = { ...t.trip };
+    return { content: [{ type: "text", text: JSON.stringify(trip) }], structuredContent: { trip } };
+  }
+});
+
+// src/lib/mcp/tools/list_agenda.ts
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.23.0";
+import { z as z3 } from "npm:zod@^4.4.3";
+var list_agenda_default = defineTool5({
+  name: "list_agenda",
+  title: "Agenda",
+  description: "Hent agendaen (tidslinjen) for den aktive turen, sortert etter starttid.",
+  inputSchema: {
+    upcoming_only: z3.boolean().default(false).describe("Bare hendelser som ikke er ferdige."),
+    limit: z3.number().int().min(1).max(200).default(50).describe("Maks antall hendelser.")
+  },
+  annotations: { readOnlyHint: true, openWorldHint: false },
+  handler: async ({ upcoming_only, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
+    const supabase = supabaseForUser(ctx);
+    const t = await activeTripForUser(supabase, ctx.getUserId());
+    if (!t.ok) return errorResult(t.reason);
+    let q = supabase.from("agenda_events").select("id,title,description,start_at,end_at").eq("trip_id", t.trip.id).order("start_at", { ascending: true }).limit(limit ?? 50);
+    if (upcoming_only) q = q.gte("end_at", (/* @__PURE__ */ new Date()).toISOString());
+    const { data, error } = await q;
+    if (error) return errorResult(error.message);
+    const events = (data ?? []).map((e) => ({ id: e.id, title: e.title, description: e.description, start_at: e.start_at, end_at: e.end_at }));
+    return {
+      content: [{ type: "text", text: JSON.stringify({ timezone: t.trip.timezone, events }) }],
+      structuredContent: { timezone: t.trip.timezone, events }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list_recent_media.ts
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.23.0";
+var list_recent_media_default = defineTool6({
+  name: "list_recent_media",
+  title: "Stories og Minner siste d\xF8gn",
+  description: "Oversikt (uten filer) over aktive Stories og nye Minner i den aktive turen siste 24 timer.",
+  inputSchema: {},
+  annotations: { readOnlyHint: true, openWorldHint: false },
+  handler: async (_input, ctx) => {
+    if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
+    const supabase = supabaseForUser(ctx);
+    const t = await activeTripForUser(supabase, ctx.getUserId());
+    if (!t.ok) return errorResult(t.reason);
+    const now = /* @__PURE__ */ new Date();
+    const since = new Date(now.getTime() - 24 * 3600 * 1e3).toISOString();
+    const [stories, minner, profiles] = await Promise.all([
+      supabase.from("stories").select("id,user_id,type,created_at").eq("trip_id", t.trip.id).gt("expires_at", now.toISOString()).order("created_at", { ascending: false }).limit(100),
+      supabase.from("gallery_items").select("id,uploaded_by,type,caption,created_at").eq("trip_id", t.trip.id).gte("created_at", since).order("created_at", { ascending: false }).limit(100),
+      supabase.from("profiles").select("id,nickname,full_name")
+    ]);
+    if (stories.error) return errorResult(stories.error.message);
+    if (minner.error) return errorResult(minner.error.message);
+    const name = new Map((profiles.data ?? []).map((p) => [p.id, p.nickname || p.full_name || "Ukjent"]));
+    const result = {
+      stories: (stories.data ?? []).map((s) => ({ id: s.id, by: name.get(s.user_id) ?? "Ukjent", type: s.type, created_at: s.created_at })),
+      minner: (minner.data ?? []).map((g) => ({ id: g.id, by: name.get(g.uploaded_by) ?? "Ukjent", type: g.type, caption: g.caption, created_at: g.created_at }))
+    };
+    return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result };
   }
 });
 
 // src/lib/mcp/index.ts
 var projectRef = "psupgftxzyoyeyuhtqgw";
 var mcp_default = defineMcp({
-  name: "guttahutte-mcp",
+  name: "guttahutte",
   title: "G\xFCttaH\xFCtte",
-  version: "0.2.0",
-  instructions: "Verkt\xF8y for G\xFCttaH\xFCtte-appen. Brukeren logger inn med sin egen konto via OAuth og alle kall kj\xF8rer som den brukeren (RLS gjelder). Bruk `get_my_profile` for egen profil, `list_recent_chat_messages` for \xE5 lese nylige chat-meldinger, og `post_chat_message` for \xE5 sende en melding til gruppechatten.",
+  version: "0.3.0",
+  instructions: "Verkt\xF8y for G\xFCttaH\xFCtte, en privat turapp for en vennegjeng. Brukeren logger inn med egen konto; alle kall kj\xF8rer som den brukeren og gjelder bare den aktive turen brukeren er medlem av. Arkiverte turer er skrivebeskyttet. Bruk get_active_trip for turinfo, list_agenda for plan, list_recent_chat_messages og post_chat_message for chatten, og list_recent_media for oversikt over Stories og Minner. Svar p\xE5 norsk.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
-  tools: [get_my_profile_default, list_recent_chat_default, post_chat_message_default]
+  tools: [get_active_trip_default, list_agenda_default, list_recent_chat_default, post_chat_message_default, list_recent_media_default, get_my_profile_default]
 });
 
 // lovable-mcp-supabase-entry.ts
