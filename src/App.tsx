@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -15,7 +14,6 @@ import { TripProvider } from "@/contexts/TripContext";
 import { LocationSharingProvider } from "@/contexts/LocationSharingContext";
 
 
-import { errorToast } from "@/utils/errorToast";
 
 import { Loader2 } from "lucide-react";
 
@@ -43,7 +41,17 @@ const NotFound = React.lazy(() => import("./pages/NotFound"));
 
 // Weather prefetch is triggered in AuthContext when user is authenticated
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 60_000, retry: 1, refetchOnWindowFocus: false },
+  },
+});
+
+const CHUNK_RELOAD_KEY = "gh-chunk-reload";
+const isChunkLoadError = (reason: unknown) => {
+  const msg = reason instanceof Error ? reason.message : String(reason ?? "");
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(msg);
+};
 
 const RouteLoading = () => (
   <div className="min-h-screen flex items-center justify-center bg-background" role="status" aria-label="Laster side">
@@ -56,11 +64,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const { user, isLoading, isProfileLoading, profile, isAdmin } = useAuth();
 
   if (isLoading || isProfileLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <RouteLoading />;
   }
 
   if (!user) {
@@ -69,11 +73,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   // If profile hasn't loaded yet, keep showing spinner – NEVER auto-logout
   if (!profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <RouteLoading />;
   }
 
   // Require profile completion (including avatar) and email verification
@@ -186,14 +186,25 @@ const AppRoutes = () => (
 const useGlobalErrorHandling = () => {
   React.useEffect(() => {
     const rejectionHandler = (event: PromiseRejectionEvent) => {
-      console.error("Unhandled promise rejection:", event.reason);
-      errorToast("En uventet feil oppstod");
-      event.preventDefault();
+      const reason = event.reason;
+      // Ny app-versjon: gamle skjermfiler finnes ikke lenger. Last på nytt én gang.
+      if (isChunkLoadError(reason)) {
+        if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+          sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+          window.location.reload();
+        }
+        return;
+      }
+      // Avbrutte kall ved sidebytte er ikke feil for brukeren.
+      if (reason instanceof DOMException && reason.name === "AbortError") return;
+      console.error("Unhandled promise rejection:", reason);
     };
+    const loadedTimer = window.setTimeout(() => sessionStorage.removeItem(CHUNK_RELOAD_KEY), 10_000);
     window.addEventListener("unhandledrejection", rejectionHandler);
 
     return () => {
       window.removeEventListener("unhandledrejection", rejectionHandler);
+      window.clearTimeout(loadedTimer);
     };
   }, []);
 };
@@ -202,7 +213,6 @@ const AppShell = () => {
   useGlobalErrorHandling();
   return (
     <>
-      <Toaster />
       <Sonner />
       <OfflineIndicator />
       <BrowserRouter>
