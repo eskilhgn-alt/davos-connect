@@ -15,7 +15,7 @@ export default defineTool({
     if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
     const supabase = supabaseForUser(ctx);
     const t = await activeTripForUser(supabase, ctx.getUserId()!);
-    if (!t.ok) return errorResult(t.reason);
+    if ("reason" in t) return errorResult(t.reason);
     let q = supabase
       .from("agenda_events")
       .select("id,title,description,start_at,end_at")

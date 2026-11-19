@@ -14,7 +14,7 @@ export default defineTool({
     if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
     const supabase = supabaseForUser(ctx);
     const t = await activeTripForUser(supabase, ctx.getUserId()!);
-    if (!t.ok) return errorResult(t.reason);
+    if ("reason" in t) return errorResult(t.reason);
     const { data, error } = await supabase
       .from("messages")
       .select("id,text,sender_name,created_at")

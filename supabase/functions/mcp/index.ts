@@ -105,7 +105,7 @@ var list_recent_chat_default = defineTool2({
     if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
     const supabase = supabaseForUser(ctx);
     const t = await activeTripForUser(supabase, ctx.getUserId());
-    if (!t.ok) return errorResult(t.reason);
+    if ("reason" in t) return errorResult(t.reason);
     const { data, error } = await supabase.from("messages").select("id,text,sender_name,created_at").eq("trip_id", t.trip.id).is("deleted_at", null).order("created_at", { ascending: false }).limit(limit ?? 20);
     if (error) return errorResult(error.message);
     const messages = (data ?? []).map((m) => ({ id: m.id, text: m.text, sender_name: m.sender_name, created_at: m.created_at }));
@@ -130,7 +130,7 @@ var post_chat_message_default = defineTool3({
     const supabase = supabaseForUser(ctx);
     const userId = ctx.getUserId();
     const t = await activeTripForUser(supabase, userId);
-    if (!t.ok) return errorResult(t.reason);
+    if ("reason" in t) return errorResult(t.reason);
     const { data: profile } = await supabase.from("profiles").select("nickname,full_name").eq("id", userId).maybeSingle();
     const senderName = profile?.nickname || profile?.full_name || "Ukjent";
     const { data, error } = await supabase.from("messages").insert({ text, thread_id: DEFAULT_THREAD_ID, trip_id: t.trip.id, sender_id: userId, sender_name: senderName }).select("id,created_at").single();
@@ -153,7 +153,7 @@ var get_active_trip_default = defineTool4({
   handler: async (_input, ctx) => {
     if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
     const t = await activeTripForUser(supabaseForUser(ctx), ctx.getUserId());
-    if (!t.ok) return errorResult(t.reason);
+    if ("reason" in t) return errorResult(t.reason);
     const trip = { ...t.trip };
     return { content: [{ type: "text", text: JSON.stringify(trip) }], structuredContent: { trip } };
   }
@@ -175,7 +175,7 @@ var list_agenda_default = defineTool5({
     if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
     const supabase = supabaseForUser(ctx);
     const t = await activeTripForUser(supabase, ctx.getUserId());
-    if (!t.ok) return errorResult(t.reason);
+    if ("reason" in t) return errorResult(t.reason);
     let q = supabase.from("agenda_events").select("id,title,description,start_at,end_at").eq("trip_id", t.trip.id).order("start_at", { ascending: true }).limit(limit ?? 50);
     if (upcoming_only) q = q.gte("end_at", (/* @__PURE__ */ new Date()).toISOString());
     const { data, error } = await q;
@@ -200,7 +200,7 @@ var list_recent_media_default = defineTool6({
     if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
     const supabase = supabaseForUser(ctx);
     const t = await activeTripForUser(supabase, ctx.getUserId());
-    if (!t.ok) return errorResult(t.reason);
+    if ("reason" in t) return errorResult(t.reason);
     const now = /* @__PURE__ */ new Date();
     const since = new Date(now.getTime() - 24 * 3600 * 1e3).toISOString();
     const [stories, minner, profiles] = await Promise.all([

@@ -10,7 +10,7 @@ export default defineTool({
   handler: async (_input, ctx) => {
     if (!ctx.isAuthenticated()) return errorResult("Ikke innlogget");
     const t = await activeTripForUser(supabaseForUser(ctx), ctx.getUserId()!);
-    if (!t.ok) return errorResult(t.reason);
+    if ("reason" in t) return errorResult(t.reason);
     const trip = { ...t.trip };
     return { content: [{ type: "text", text: JSON.stringify(trip) }], structuredContent: { trip } };
   },

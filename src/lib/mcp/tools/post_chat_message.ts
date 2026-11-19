@@ -17,7 +17,7 @@ export default defineTool({
     const supabase = supabaseForUser(ctx);
     const userId = ctx.getUserId()!;
     const t = await activeTripForUser(supabase, userId);
-    if (!t.ok) return errorResult(t.reason);
+    if ("reason" in t) return errorResult(t.reason);
     const { data: profile } = await supabase
       .from("profiles")
       .select("nickname,full_name")
