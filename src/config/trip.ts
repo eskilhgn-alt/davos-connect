@@ -176,7 +176,7 @@ export const VAL_THORENS_2027: TripConfig = {
       snapshotUrl: "https://api.skaping.com/EdhD-J696-lZPd-i0xE-CqXk/media/latest/mini.jpg",
       skapingCameraKey: "EdhD-J696-lZPd-i0xE-CqXk",
       provider: "Skaping",
-      mode: "timelapse",
+      mode: "interactive",
     },
     {
       id: "la-maison",
@@ -187,7 +187,7 @@ export const VAL_THORENS_2027: TripConfig = {
       skapingCameraKey: "0qmB-W208-FhUp-eDJW-695z",
       snapshotUrl: "https://api.skaping.com/0qmB-W208-FhUp-eDJW-695z/media/latest/mini.jpg",
       provider: "Skaping",
-      mode: "timelapse",
+      mode: "interactive",
     },
     {
       id: "la-bee",
@@ -198,7 +198,7 @@ export const VAL_THORENS_2027: TripConfig = {
       skapingCameraKey: "3hF6T-pqbOx-AFvLe-dpMgD",
       snapshotUrl: "https://api.skaping.com/3hF6T-pqbOx-AFvLe-dpMgD/media/latest/mini.jpg",
       provider: "Skaping",
-      mode: "timelapse",
+      mode: "interactive",
     },
     {
       id: "cime-caron",
@@ -209,7 +209,7 @@ export const VAL_THORENS_2027: TripConfig = {
       skapingCameraKey: "QzlPb-9TgDQ-UcTxH-xv8KW",
       snapshotUrl: "https://api.skaping.com/QzlPb-9TgDQ-UcTxH-xv8KW/media/latest/large.jpg",
       provider: "Skaping",
-      mode: "timelapse",
+      mode: "interactive",
     },
     {
       id: "station",
@@ -220,7 +220,7 @@ export const VAL_THORENS_2027: TripConfig = {
       skapingCameraKey: "tHCTk-f4ZXm-e4NYt-ZfRkr",
       snapshotUrl: "https://api.skaping.com/tHCTk-f4ZXm-e4NYt-ZfRkr/media/latest/mini.jpg",
       provider: "Skaping",
-      mode: "timelapse",
+      mode: "interactive",
     },
     {
       id: "3vallees",
@@ -231,7 +231,7 @@ export const VAL_THORENS_2027: TripConfig = {
       snapshotUrl: "https://api.skaping.com/4sJn-4879-A5wg-RWfm-8RKG/media/latest/mini.jpg",
       skapingCameraKey: "4sJn-4879-A5wg-RWfm-8RKG",
       provider: "Skaping",
-      mode: "timelapse",
+      mode: "interactive",
     },
     {
       id: "funitel-thorens",
@@ -242,7 +242,7 @@ export const VAL_THORENS_2027: TripConfig = {
       snapshotUrl: "https://api.skaping.com/Iz0R-K010-VJyC-XPp2-5OrM/media/latest/mini.jpg",
       skapingCameraKey: "Iz0R-K010-VJyC-XPp2-5OrM",
       provider: "Skaping",
-      mode: "timelapse",
+      mode: "interactive",
     },
     {
       id: "boismint",
@@ -253,7 +253,7 @@ export const VAL_THORENS_2027: TripConfig = {
       snapshotUrl: "https://api.skaping.com/I1rwn-sAA3s-Qcsnp-IwOmx/media/latest/mini.jpg",
       skapingCameraKey: "I1rwn-sAA3s-Qcsnp-IwOmx",
       provider: "Skaping",
-      mode: "timelapse",
+      mode: "interactive",
     },
     {
       id: "lac-blanc",
@@ -264,7 +264,7 @@ export const VAL_THORENS_2027: TripConfig = {
       snapshotUrl: "https://api.skaping.com/hHWSy-HBjoG-tdsPH-6rEFl/media/latest/mini.jpg",
       skapingCameraKey: "hHWSy-HBjoG-tdsPH-6rEFl",
       provider: "Skaping",
-      mode: "timelapse",
+      mode: "interactive",
     },
     {
       id: "plan-bouchet",

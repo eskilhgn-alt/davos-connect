@@ -8,7 +8,7 @@ import type { TripWebcamRef } from "@/config/trip";
 import { cn } from "@/lib/utils";
 
 const IFRAME_ALLOW = "autoplay; fullscreen; picture-in-picture; accelerometer; gyroscope";
-const mediaLabel = (c: TripWebcamRef) => c.mode === "timelapse" ? "Timelapse" : c.mode === "video" && c.streamUrl ? "Video" : c.mode === "interactive" && c.playerUrl ? "Panorama / periodiske bilder" : "Stillbilde";
+const mediaLabel = (c: TripWebcamRef) => c.mode === "timelapse" ? "Timelapse" : c.mode === "video" && c.streamUrl ? "Video" : c.mode === "interactive" && c.playerUrl ? "Live" : "Stillbilde";
 
 /** One media node. Expansion changes CSS, never the source or player instance. */
 const CameraPlayer: React.FC<{ camera: TripWebcamRef }> = ({ camera }) => {
@@ -186,7 +186,7 @@ export const WebcamsScreen: React.FC = () => {
     <AppHeader title="Webkameraer" subtitle={selectedTrip?.destination ?? "Ingen tur valgt"} />
     <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 safe-area-bottom" style={{ WebkitOverflowScrolling: "touch" }}>
       {cameras.length ? <WebcamGallery key={selectedTrip?.id} cameras={cameras} /> : <div className="p-6 text-center text-sm text-muted-foreground flex flex-col items-center gap-2"><Camera size={22} /><p>Ingen webkameraer er konfigurert for denne turen.</p></div>}
-      <p className="text-xs text-muted-foreground">Timelapse-videoene starter automatisk uten lyd. De viser opptak, ikke direktesending. Datoen viser når opptaket er fra. Stillbildekameraer oppdateres automatisk; enkelte kameraer kan være sesongstengt.</p>
+      <p className="text-xs text-muted-foreground">Kameraene vises direkte fra leverandøren og starter automatisk. Stillbildekameraer oppdateres automatisk; enkelte kameraer kan være sesongstengt.</p>
     </div>
   </div>;
 };

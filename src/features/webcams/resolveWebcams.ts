@@ -27,10 +27,9 @@ export function resolveWebcams(trip: Pick<Trip, "id" | "destination" | "destinat
   const raw = cfg && Array.isArray(cfg.webcams) ? (cfg.webcams as unknown[]) : [];
   const cams = raw.filter(isTripWebcam);
   if (cams.length > 0) return cams.map(camera => {
-    // Upgrade previously saved Skaping configurations without rewriting trip data.
-    if (camera.mode !== "interactive") return camera;
-    const known = VAL_THORENS_2027.webcams.find(c => c.playerUrl === camera.playerUrl && c.skapingCameraKey);
-    return known ? { ...camera, mode: "timelapse", skapingCameraKey: known.skapingCameraKey, snapshotUrl: camera.snapshotUrl ?? known.snapshotUrl } : camera;
+    // Skaping cameras always use the provider's live player, never archived timelapses.
+    if (camera.mode === "timelapse" && camera.playerUrl) return { ...camera, mode: "interactive" as const };
+    return camera;
   });
   if (isValThorens(trip)) {
     // Start with the online station camera, not seasonally closed Prosneige.

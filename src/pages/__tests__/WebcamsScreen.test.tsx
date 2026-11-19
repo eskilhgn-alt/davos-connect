@@ -46,22 +46,16 @@ describe("WebcamsScreen", () => {
     expect(src).not.toMatch(/ACTIVE_TRIP/);
   });
 
-  it("starter Station som ekte timelapse uten klikk og laster bare valgt video", async () => {
+  it("viser Station direkte i leverandørens live-spiller uten klikk og uten timelapse", () => {
     currentTrip = vtTrip;
     const { container } = render(<WebcamsScreen />);
-    const video = container.querySelector("video")!;
-    await waitFor(() => expect(video.src).toBe("https://data.skaping.com/station/timelapses/current.mp4"));
-    expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
-    expect(container.querySelectorAll("video")).toHaveLength(1);
-    expect(container.querySelectorAll("iframe")).toHaveLength(0);
-    expect(video.autoplay && video.muted && video.playsInline && video.loop).toBe(true);
-    expect(video.controls).toBe(false);
-    expect(screen.queryByRole("button", { name: /Start avspilling/i })).toBeNull();
-    expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(VAL_THORENS_2027.webcams.length - 1);
-    fireEvent.playing(video);
+    const frames = container.querySelectorAll("iframe");
+    expect(frames).toHaveLength(1);
+    expect(frames[0].getAttribute("src")).toBe("https://www.skaping.com/valthorens/station");
+    expect(container.querySelectorAll("video")).toHaveLength(0);
+    expect(screen.queryByText(/Timelapse/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Utvid/ }));
-    expect(container.querySelector("video")).toBe(video);
-    expect(screen.getAllByText(/Timelapse · 21.09.2026/).length).toBeGreaterThan(0);
+    expect(container.querySelector("iframe")).toBe(frames[0]);
   });
 
   it("faller ikke tilbake til Val Thorens for annen destinasjon", () => {
